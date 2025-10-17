@@ -18,7 +18,7 @@ export default function SelvaAISection() {
           <div className="w-[280px] shrink-0 rounded-xl shadow-lg p-5 flex flex-col justify-between bg-gradient-to-br from-indigo-500 to-purple-600 text-white">
             <div>
               <h3 className="font-bold text-lg">셀바 검색결과</h3>
-              <p className="text-sm opacity-80 mt-1">"수원 코딩강사" 검색 결과</p>
+              <p className="text-sm opacity-80 mt-1">&quot;수원 코딩강사&quot; 검색 결과</p>
             </div>
             <div className="mt-4">
               <p className="font-semibold text-3xl">💬 23건</p>
