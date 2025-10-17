@@ -2,13 +2,9 @@ import Header from '@/components/layout/Header';
 import AIRecommendations from '@/components/ai/AIRecommendations';
 import AIInsightBox from '@/components/ai/AIInsightBox';
 import CardGrid from '@/components/cards/CardGrid';
-import { getAIRecommendations, getAllCards } from '@/app/actions/jobs';
+import { aiRecommendations, mainCards } from '@/lib/dummyData';
 
-export default async function Home() {
-  // Supabase에서 실제 데이터 가져오기
-  const aiRecommendations = await getAIRecommendations();
-  const mainCards = await getAllCards();
-
+export default function App() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* 헤더 */}
@@ -40,8 +36,8 @@ export default async function Home() {
       {/* 푸터 */}
       <footer className="bg-white border-t border-gray-200 mt-16 py-6">
         <div className="max-w-container mx-auto px-6 text-center text-gray-500 text-xs">
-          <p> 2025 . All rights reserved.</p>
-          <p className="mt-1">. </p>
+          <p>© 2025 셀미바이미. All rights reserved.</p>
+          <p className="mt-1">교육 인력 매칭 플랫폼</p>
         </div>
       </footer>
     </div>
