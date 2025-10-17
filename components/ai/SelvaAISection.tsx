@@ -46,9 +46,9 @@ export default function SelvaAISection() {
               {cards.map((card, index) => (
                 <div key={index}>
                   {card.type === 'job' ? (
-                    <CompactJobCard {...card} />
+                    <CompactJobCard job={card} />
                   ) : (
-                    <CompactTalentCard {...card} />
+                    <CompactTalentCard talent={card} />
                   )}
                 </div>
               ))}
