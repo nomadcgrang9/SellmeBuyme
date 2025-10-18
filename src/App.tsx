@@ -1,10 +1,26 @@
+import { useEffect, useState } from 'react';
 import Header from '@/components/layout/Header';
 import AIRecommendations from '@/components/ai/AIRecommendations';
 import AIInsightBox from '@/components/ai/AIInsightBox';
 import CardGrid from '@/components/cards/CardGrid';
-import { aiRecommendations, mainCards } from '@/lib/dummyData';
+import { aiRecommendations } from '@/lib/dummyData';
+import { fetchJobPostings } from '@/lib/supabase/queries';
+import type { Card } from '@/types';
 
 export default function App() {
+  const [mainCards, setMainCards] = useState<Card[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadJobs() {
+      setLoading(true);
+      const jobs = await fetchJobPostings(20);
+      setMainCards(jobs);
+      setLoading(false);
+    }
+    loadJobs();
+  }, []);
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* 헤더 */}
@@ -22,8 +38,15 @@ export default function App() {
           topResultIndex={1}
         />
 
-        {/* 카드 그리드 */}
-        <CardGrid cards={mainCards} />
+        {/* 로딩 상태 */}
+        {loading ? (
+          <div className="flex justify-center items-center py-20">
+            <div className="text-gray-500">공고를 불러오는 중...</div>
+          </div>
+        ) : (
+          /* 카드 그리드 */
+          <CardGrid cards={mainCards} />
+        )}
 
         {/* 무한 스크롤 로딩 표시 (더미) */}
         <div className="flex justify-center items-center py-12">

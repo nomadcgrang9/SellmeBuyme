@@ -9,6 +9,12 @@
 - **Supabase 구조 단순화**: SSR/middleware 제거, 클라이언트 전용 연결
 - **배포**: Cloudflare Pages로 변경
 - **환경 변수**: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`
+- **DB 스키마**: `job_postings` 테이블에 `structured_content` (JSONB) 추가로 구조화된 공고 정보 저장
+
+### 추가 업데이트 (2025-10-18)
+- **크롤링 첨부파일 수집**: `crawler/sources/seongnam.js`가 `.prvw` 영역의 `previewAjax()` 호출에서 직접 파일 URL을 파싱해 `attachment_url`을 저장하도록 개선.
+- **중복 공고 갱신**: `crawler/lib/supabase.js`에서 기존 `source_url` 레코드를 찾아 업데이트(♻️)하여 첨부파일 등 필드 변경 사항이 반영되도록 수정.
+- **환경 변수**: Vite 런타임에서도 Supabase 초기화가 가능하도록 `.env`에 `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`를 명시.
 
 ## 📊 현재 상태
 

@@ -176,15 +176,217 @@ async function crawlDetailPage(page, detailUrl, config) {
     });
     
     // HWP 첨부파일 링크 추출
-    const attachmentUrl = await page.evaluate(() => {
-      const links = Array.from(document.querySelectorAll('a'));
-      const hwpLink = links.find(link => 
-        link.href.includes('.hwp') || 
-        link.href.includes('download') ||
-        link.textContent.includes('.hwp')
-      );
-      return hwpLink ? hwpLink.href : null;
-    });
+    const selectorCandidates = (config.selectors?.attachment ?? '')
+      .split(',')
+      .map((selector) => selector.trim())
+      .filter((selector) => selector.length > 0);
+    let attachmentUrl = null;
+    for (const selector of selectorCandidates) {
+      attachmentUrl = await page.evaluate((sel) => {
+        const element = document.querySelector(sel);
+        if (!element) {
+          return null;
+        }
+        const href = element.getAttribute('href') || element.getAttribute('data-href') || element.getAttribute('data-file') || element.href;
+        if (!href) {
+          return null;
+        }
+        const trimmed = href.trim();
+        if (!trimmed || trimmed.toLowerCase().startsWith('javascript:') || trimmed === '#') {
+          return null;
+        }
+        return trimmed;
+      }, selector);
+      if (attachmentUrl) {
+        break;
+      }
+    }
+    const fileExtensions = ['.hwp', '.hwpx', '.pdf', '.doc', '.docx', '.xls', '.xlsx'];
+    if (!attachmentUrl) {
+      for (const ext of fileExtensions) {
+        attachmentUrl = await page.evaluate((extension) => {
+          const lowerExtension = extension.toLowerCase();
+          const links = Array.from(document.querySelectorAll('a'));
+          const target = links.find((link) => {
+            const hrefValue = link.getAttribute('href') || link.href || '';
+            const textValue = link.textContent || '';
+            return hrefValue.toLowerCase().includes(lowerExtension) || textValue.toLowerCase().includes(lowerExtension);
+          });
+          if (!target) {
+            return null;
+          }
+          const href = target.getAttribute('href') || target.getAttribute('data-href') || target.getAttribute('data-file') || target.href;
+          if (!href) {
+            return null;
+          }
+          const trimmed = href.trim();
+          if (!trimmed || trimmed.toLowerCase().startsWith('javascript:') || trimmed === '#') {
+            return null;
+          }
+          return trimmed;
+        }, ext);
+        if (attachmentUrl) {
+          break;
+        }
+      }
+    }
+    const keywordCandidates = ['첨부', '다운로드', '내려받기', '파일'];
+    if (!attachmentUrl) {
+      attachmentUrl = await page.evaluate((keywords) => {
+        const links = Array.from(document.querySelectorAll('a, button'));
+        const lowerKeywords = keywords.map((keyword) => keyword.toLowerCase());
+        const target = links.find((element) => {
+          const text = (element.textContent || '').toLowerCase();
+          const aria = (element.getAttribute('aria-label') || '').toLowerCase();
+          return lowerKeywords.some((keyword) => text.includes(keyword) || aria.includes(keyword));
+        });
+        if (!target) {
+          return null;
+        }
+        const href = target.getAttribute('href') || target.getAttribute('data-href') || target.getAttribute('data-file') || target.href;
+        if (!href) {
+          return null;
+        }
+        const trimmed = href.trim();
+        if (!trimmed || trimmed.toLowerCase().startsWith('javascript:') || trimmed === '#') {
+          return null;
+        }
+        return trimmed;
+      }, keywordCandidates);
+    }
+    let resolvedAttachmentUrl = attachmentUrl ? resolveUrl(detailUrl, attachmentUrl) : null;
+    if (!resolvedAttachmentUrl) {
+      console.log(`     ⏬ 동적 첨부파일 탐색 시도...`);
+      
+      // DOM 구조 분석 (디버깅)
+      const attachmentDebug = await page.evaluate(() => {
+        const results = [];
+        
+        // 0. 첨부파일 영역 컨테이너 찾기
+        const containers = document.querySelectorAll('.atch-file-list, .file-list, .file-area, #fileList, [class*="file"], [class*="attach"]');
+        containers.forEach((container) => {
+          results.push({
+            type: 'container',
+            tag: container.tagName,
+            className: container.className,
+            id: container.id,
+            text: container.textContent?.trim().substring(0, 100),
+          });
+        });
+        
+        // 1. 파일명이 포함된 테이블 행 검사 (더 정밀하게)
+        const allRows = document.querySelectorAll('table tr, tbody tr');
+        allRows.forEach((el) => {
+          const text = el.textContent?.trim() || '';
+          if (text.includes('.hwp') || text.includes('.pdf') || text.includes('.doc') || text.includes('KB') || text.includes('MB')) {
+            results.push({
+              type: 'file-row',
+              tag: el.tagName,
+              text: text.substring(0, 150),
+              ondblclick: el.getAttribute('ondblclick'),
+              onclick: el.getAttribute('onclick'),
+              className: el.className,
+              id: el.id,
+              html: el.innerHTML.substring(0, 800),
+            });
+          }
+        });
+        
+        // 2. ondblclick/onclick 속성이 있는 모든 요소 (file 관련)
+        const handlers = document.querySelectorAll('[ondblclick], [onclick]');
+        handlers.forEach((el) => {
+          const ondbl = el.getAttribute('ondblclick');
+          const onclk = el.getAttribute('onclick');
+          if ((ondbl && (ondbl.includes('file') || ondbl.includes('down'))) || 
+              (onclk && (onclk.includes('file') || onclk.includes('down')))) {
+            results.push({
+              type: 'handler',
+              tag: el.tagName,
+              text: el.textContent?.trim().substring(0, 100),
+              ondblclick: ondbl,
+              onclick: onclk,
+              className: el.className,
+              id: el.id,
+            });
+          }
+        });
+        
+        // 3. 다운로드 버튼 찾기
+        const buttons = document.querySelectorAll('button, a, input[type="button"]');
+        buttons.forEach((el) => {
+          const text = el.textContent?.trim() || '';
+          const value = el.getAttribute('value') || '';
+          if (text.includes('다운로드') || text.includes('열기') || value.includes('다운로드')) {
+            results.push({
+              type: 'download-button',
+              tag: el.tagName,
+              text: text,
+              onclick: el.getAttribute('onclick'),
+              className: el.className,
+              id: el.id,
+            });
+          }
+        });
+        
+        // 4. .prvw 영역 내부의 링크 상세 조사
+        const prvwLinks = document.querySelectorAll('.prvw a, .prvw_btns a');
+        prvwLinks.forEach((el) => {
+          results.push({
+            type: 'prvw-link',
+            tag: el.tagName,
+            text: el.textContent?.trim(),
+            onclick: el.getAttribute('onclick'),
+            href: el.getAttribute('href'),
+            className: el.className,
+          });
+        });
+        
+        return results;
+      });
+      console.log(`     📋 첨부 관련 요소 발견 (${attachmentDebug.length}개):`, JSON.stringify(attachmentDebug, null, 2));
+      
+      // .prvw 링크에서 직접 URL 추출
+      const extractedUrl = await page.evaluate(() => {
+        const prvwLinks = document.querySelectorAll('.prvw a, .prvw_btns a');
+        for (const link of prvwLinks) {
+          const onclick = link.getAttribute('onclick');
+          if (!onclick) continue;
+          
+          // previewAjax('URL', 'filename') 패턴 추출
+          const match = onclick.match(/previewAjax\s*\(\s*['"]([^'"]+)['"]/);
+          if (match && match[1]) {
+            return match[1];
+          }
+          
+          // preListen('URL', 'filename') 패턴도 시도
+          const match2 = onclick.match(/preListen\s*\(\s*['"]([^'"]+)['"]/);
+          if (match2 && match2[1]) {
+            return match2[1];
+          }
+        }
+        return null;
+      });
+      
+      if (extractedUrl) {
+        console.log(`     ✅ 첨부파일 URL 추출 성공: ${extractedUrl}`);
+        resolvedAttachmentUrl = resolveUrl(detailUrl, extractedUrl);
+      }
+      
+      if (!resolvedAttachmentUrl) {
+        const captureResult = await captureDownloadViaEvent(page, keywordCandidates, config);
+        if (captureResult?.url) {
+          resolvedAttachmentUrl = resolveUrl(detailUrl, captureResult.url);
+        }
+        if (captureResult?.clicked && page.url() !== detailUrl) {
+          try {
+            await page.goto(detailUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
+            await page.waitForTimeout(1000);
+          } catch (navError) {
+            console.warn(`     상세 페이지 복구 실패: ${navError.message}`);
+          }
+        }
+      }
+    }
     
     // 페이지 스크린샷 캡처
     console.log(`     📸 스크린샷 캡처 중...`);
@@ -195,12 +397,12 @@ async function crawlDetailPage(page, detailUrl, config) {
     const screenshotBase64 = screenshot.toString('base64');
     
     console.log(`     본문 길이: ${content.length}자`);
-    console.log(`     첨부파일: ${attachmentUrl ? '있음' : '없음'}`);
+    console.log(`     첨부파일: ${resolvedAttachmentUrl ? '있음' : '없음'}`);
     console.log(`     스크린샷: ${(screenshotBase64.length / 1024).toFixed(0)}KB`);
     
     return {
       content: content,
-      attachmentUrl: attachmentUrl,
+      attachmentUrl: resolvedAttachmentUrl,
       screenshot: screenshotBase64,
     };
   } catch (error) {
@@ -210,5 +412,107 @@ async function crawlDetailPage(page, detailUrl, config) {
       attachmentUrl: null,
       screenshot: null,
     };
+  }
+}
+
+async function captureDownloadViaEvent(page, keywords, config) {
+  const normalizedKeywords = keywords
+    .map((keyword) => keyword.trim().toLowerCase())
+    .filter((keyword) => keyword.length > 0);
+  const result = { url: null, clicked: false };
+
+  const triggerSelectors = (config.selectors?.downloadTriggers ?? '')
+    .split(',')
+    .map((selector) => selector.trim())
+    .filter((selector) => selector.length > 0);
+
+  for (const selector of triggerSelectors) {
+    const handle = await page.$(selector);
+    if (!handle) {
+      continue;
+    }
+
+    result.clicked = true;
+    try {
+      const url = await attemptDownloadFromHandle(page, handle);
+      if (url) {
+        result.url = url;
+        return result;
+      }
+    } catch (error) {
+      if (!isTimeoutError(error)) {
+        console.warn(`     동적 첨부파일 추출 실패 (${selector}): ${error.message}`);
+      }
+    } finally {
+      await safeDispose(handle);
+    }
+  }
+
+  if (normalizedKeywords.length === 0) {
+    return result;
+  }
+
+  const matchInfo = await page.evaluate((keywordsArray) => {
+    const selector = 'a, button, [role="button"]';
+    const elements = Array.from(document.querySelectorAll(selector));
+    for (let index = 0; index < elements.length; index += 1) {
+      const element = elements[index];
+      const text = (element.textContent || '').toLowerCase();
+      const aria = (element.getAttribute('aria-label') || '').toLowerCase();
+      if (keywordsArray.some((keyword) => text.includes(keyword) || aria.includes(keyword))) {
+        return { selector, index };
+      }
+    }
+    return null;
+  }, normalizedKeywords);
+
+  if (!matchInfo) {
+    return result;
+  }
+
+  const candidates = await page.$$(matchInfo.selector);
+  if (matchInfo.index >= candidates.length) {
+    await Promise.all(candidates.map((handle) => safeDispose(handle)));
+    return result;
+  }
+
+  const targetHandle = candidates[matchInfo.index];
+  result.clicked = true;
+
+  try {
+    const url = await attemptDownloadFromHandle(page, targetHandle);
+    if (url) {
+      result.url = url;
+    }
+  } catch (error) {
+    if (!isTimeoutError(error)) {
+      console.warn(`     동적 첨부파일 추출 실패 (키워드 매칭): ${error.message}`);
+    }
+  } finally {
+    await Promise.all(candidates.map((handle) => (handle === targetHandle ? Promise.resolve() : safeDispose(handle))));
+  }
+
+  return result;
+}
+
+async function attemptDownloadFromHandle(page, elementHandle) {
+  const downloadPromise = page.waitForEvent('download', { timeout: 4000 });
+  await elementHandle.click({ force: true });
+  const download = await downloadPromise;
+  return download.url();
+}
+
+function isTimeoutError(error) {
+  return error?.name === 'TimeoutError' || (typeof error?.message === 'string' && error.message.includes('Timeout'));
+}
+
+async function safeDispose(handle) {
+  if (!handle) {
+    return;
+  }
+  try {
+    await handle.dispose();
+  } catch (error) {
+    // ignore disposal errors
   }
 }

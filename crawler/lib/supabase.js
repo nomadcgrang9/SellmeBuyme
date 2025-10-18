@@ -47,50 +47,72 @@ export async function getOrCreateCrawlSource(name, baseUrl) {
 /**
  * 공고 중복 체크 (source_url 기준)
  */
-export async function isDuplicate(sourceUrl) {
+export async function getExistingJobBySource(sourceUrl) {
   const { data, error } = await supabase
     .from('job_postings')
-    .select('id')
+    .select('*')
     .eq('source_url', sourceUrl)
     .single();
 
-  return !!data;
+  if (error && error.code !== 'PGRST116') {
+    console.warn(`⚠️  기존 공고 조회 실패: ${error.message}`);
+  }
+
+  return data;
 }
 
 /**
  * 공고 데이터 저장
  */
 export async function saveJobPosting(jobData, crawlSourceId) {
-  // 중복 체크
-  if (await isDuplicate(jobData.source_url)) {
-    console.log(`⏭️  중복 공고 스킵: ${jobData.title}`);
-    return null;
+  const existing = await getExistingJobBySource(jobData.source_url);
+
+  const payload = {
+    source: 'crawled',
+    crawl_source_id: crawlSourceId,
+    organization: jobData.organization,
+    title: jobData.title,
+    job_type: jobData.job_type,
+    content: jobData.detail_content,
+    detail_content: jobData.detail_content,
+    tags: jobData.tags || [],
+    location: jobData.location,
+    compensation: jobData.compensation,
+    deadline: jobData.deadline,
+    is_urgent: jobData.is_urgent || false,
+    source_url: jobData.source_url,
+    attachment_url: jobData.attachment_url,
+    application_period: jobData.application_period,
+    work_period: jobData.work_period,
+    work_time: jobData.work_time,
+    contact: jobData.contact,
+    qualifications: jobData.qualifications || [],
+    structured_content: jobData.structured_content,
+  };
+
+  if (existing) {
+    const { data: updated, error: updateError } = await supabase
+      .from('job_postings')
+      .update({
+        ...payload,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', existing.id)
+      .select()
+      .single();
+
+    if (updateError) {
+      console.error(`❌ 공고 업데이트 실패: ${updateError.message}`);
+      return null;
+    }
+
+    console.log(`♻️  기존 공고 업데이트: ${jobData.title}`);
+    return updated;
   }
 
   const { data, error } = await supabase
     .from('job_postings')
-    .insert({
-      source: 'crawled',
-      crawl_source_id: crawlSourceId,
-      organization: jobData.organization,
-      title: jobData.title,
-      job_type: jobData.job_type,
-      content: jobData.detail_content,
-      detail_content: jobData.detail_content,
-      tags: jobData.tags || [],
-      location: jobData.location,
-      compensation: jobData.compensation,
-      deadline: jobData.deadline,
-      is_urgent: jobData.is_urgent || false,
-      source_url: jobData.source_url,
-      attachment_url: jobData.attachment_url,
-      application_period: jobData.application_period,
-      work_period: jobData.work_period,
-      work_time: jobData.work_time,
-      contact: jobData.contact,
-      qualifications: jobData.qualifications || [],
-      structured_content: jobData.structured_content,
-    })
+    .insert(payload)
     .select()
     .single();
 
