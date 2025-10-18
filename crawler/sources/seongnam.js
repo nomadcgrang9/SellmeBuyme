@@ -76,7 +76,7 @@ export async function crawlSeongnam(page, config) {
         console.log(`  📄 ${i + 1}. ${title}`);
         console.log(`     상세 페이지 접속 중...`);
         
-        // 상세 페이지 크롤링
+        // 상세 페이지 크롤링 (텍스트 + 스크린샷)
         const detailData = await crawlDetailPage(page, absoluteLink, config);
         
         jobs.push({
@@ -85,6 +85,7 @@ export async function crawlSeongnam(page, config) {
           link: absoluteLink,
           detailContent: detailData.content,
           attachmentUrl: detailData.attachmentUrl,
+          screenshotBase64: detailData.screenshot, // 스크린샷 추가
         });
         
         console.log(`  ✅ ${i + 1}. 완료`);
@@ -109,15 +110,37 @@ export async function crawlSeongnam(page, config) {
 }
 
 /**
- * 상세 페이지 크롤링 (본문 + 첨부파일)
+ * 상세 페이지 크롤링 (본문 + 첨부파일 + 스크린샷)
  */
 async function crawlDetailPage(page, detailUrl, config) {
   try {
     await page.goto(detailUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
     await page.waitForTimeout(2000);
     
-    // 본문 내용 추출
+    // 본문 내용 추출 (불필요한 요소 제거)
     const content = await page.evaluate(() => {
+      // 불필요한 요소 제거
+      const removeSelectors = [
+        '.skip-nav',
+        '.header',
+        '.footer',
+        '.sidebar',
+        '.gnb',
+        '.lnb',
+        '.breadcrumb',
+        '.btn-area',
+        '.share-area',
+        'nav',
+        'header',
+        'footer',
+        '.navigation',
+        '.menu'
+      ];
+      
+      removeSelectors.forEach(selector => {
+        document.querySelectorAll(selector).forEach(el => el.remove());
+      });
+      
       // 일반적인 게시판 본문 선택자들
       const selectors = [
         '.board-view-content',
@@ -131,12 +154,25 @@ async function crawlDetailPage(page, detailUrl, config) {
       for (const selector of selectors) {
         const element = document.querySelector(selector);
         if (element) {
-          return element.innerText.trim();
+          let text = element.innerText.trim();
+          
+          // 불필요한 텍스트 패턴 제거
+          text = text
+            .replace(/본문으로 바로가기|메인메뉴 바로가기|통합검색|로그인|사이트맵|알림마당|과목\/기관|검색|구인|구직/g, '')
+            .replace(/\n{3,}/g, '\n\n')  // 과도한 줄바꿈 제거
+            .trim();
+          
+          return text;
         }
       }
       
       // 선택자로 못 찾으면 body 전체
-      return document.body.innerText.substring(0, 5000);
+      let text = document.body.innerText.substring(0, 5000);
+      text = text
+        .replace(/본문으로 바로가기|메인메뉴 바로가기|통합검색|로그인|사이트맵|알림마당|과목\/기관|검색|구인|구직/g, '')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+      return text;
     });
     
     // HWP 첨부파일 링크 추출
@@ -150,18 +186,29 @@ async function crawlDetailPage(page, detailUrl, config) {
       return hwpLink ? hwpLink.href : null;
     });
     
+    // 페이지 스크린샷 캡처
+    console.log(`     📸 스크린샷 캡처 중...`);
+    const screenshot = await page.screenshot({ 
+      fullPage: true,
+      type: 'png'
+    });
+    const screenshotBase64 = screenshot.toString('base64');
+    
     console.log(`     본문 길이: ${content.length}자`);
     console.log(`     첨부파일: ${attachmentUrl ? '있음' : '없음'}`);
+    console.log(`     스크린샷: ${(screenshotBase64.length / 1024).toFixed(0)}KB`);
     
     return {
       content: content,
       attachmentUrl: attachmentUrl,
+      screenshot: screenshotBase64,
     };
   } catch (error) {
     console.warn(`     상세 페이지 크롤링 실패: ${error.message}`);
     return {
       content: '',
       attachmentUrl: null,
+      screenshot: null,
     };
   }
 }
