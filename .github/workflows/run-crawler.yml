@@ -1,0 +1,116 @@
+name: Run Crawler
+
+on:
+  workflow_dispatch:
+    inputs:
+      board_id:
+        description: 'Board ID to crawl'
+        required: true
+        type: string
+      log_id:
+        description: 'Crawl log ID'
+        required: true
+        type: string
+      mode:
+        description: 'Crawl mode (run or test)'
+        required: false
+        default: 'run'
+        type: choice
+        options:
+          - run
+          - test
+
+jobs:
+  crawl:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: crawler/package-lock.json
+
+      - name: Install dependencies
+        working-directory: crawler
+        run: npm ci
+
+      - name: Install Playwright browsers
+        working-directory: crawler
+        run: npx playwright install chromium --with-deps
+
+      - name: Run crawler
+        working-directory: crawler
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          CRAWL_LOG_ID: ${{ inputs.log_id }}
+          CRAWL_MODE: ${{ inputs.mode }}
+        run: |
+          echo "🚀 Starting crawler for board: ${{ inputs.board_id }}"
+          echo "📝 Log ID: ${{ inputs.log_id }}"
+          echo "🔧 Mode: ${{ inputs.mode }}"
+          
+          # Update log status to running
+          node -e "
+          const { createClient } = require('@supabase/supabase-js');
+          const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY);
+          supabase.from('crawl_logs').update({ status: 'running' }).eq('id', process.env.CRAWL_LOG_ID).then(() => {
+            console.log('✅ Log status updated to running');
+          });
+          "
+          
+          # Run crawler based on board_id
+          if [ "${{ inputs.board_id }}" = "1947e4f4-38ab-4275-8f96-62723edbfaf0" ]; then
+            node index.js --source=gyeonggi
+          elif [ "${{ inputs.board_id }}" = "YOUR_SEONGNAM_BOARD_ID" ]; then
+            node index.js --source=seongnam
+          else
+            echo "⚠️  Unknown board ID, running default crawler"
+            node index.js
+          fi
+
+      - name: Update log on success
+        if: success()
+        working-directory: crawler
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          CRAWL_LOG_ID: ${{ inputs.log_id }}
+        run: |
+          node -e "
+          const { createClient } = require('@supabase/supabase-js');
+          const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY);
+          supabase.from('crawl_logs').update({ 
+            status: 'success',
+            completed_at: new Date().toISOString()
+          }).eq('id', process.env.CRAWL_LOG_ID).then(() => {
+            console.log('✅ Crawl completed successfully');
+          });
+          "
+
+      - name: Update log on failure
+        if: failure()
+        working-directory: crawler
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          CRAWL_LOG_ID: ${{ inputs.log_id }}
+        run: |
+          node -e "
+          const { createClient } = require('@supabase/supabase-js');
+          const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY);
+          supabase.from('crawl_logs').update({ 
+            status: 'failed',
+            completed_at: new Date().toISOString(),
+            error_log: 'GitHub Actions workflow failed'
+          }).eq('id', process.env.CRAWL_LOG_ID).then(() => {
+            console.log('❌ Crawl failed');
+          });
+          "
