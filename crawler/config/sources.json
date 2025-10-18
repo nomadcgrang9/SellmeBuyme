@@ -1,0 +1,18 @@
+{
+  "seongnam": {
+    "name": "성남교육지원청",
+    "baseUrl": "https://www.goesn.kr/goesn/na/ntt/selectNttList.do?mi=23603&bbsId=17872",
+    "detailUrlTemplate": "https://www.goesn.kr/goesn/na/ntt/selectNttInfo.do?mi=23603&bbsId=17872&nttSn=",
+    "parserType": "html",
+    "selectors": {
+      "listContainer": "table.board-list, .board_list, .tbl_list",
+      "rows": "tbody tr",
+      "title": "td.ta_l a, .nttInfoBtn",
+      "date": "td:nth-child(3)",
+      "link": ".nttInfoBtn",
+      "attachment": "a[href*='.hwp'], a[href*='download']"
+    },
+    "region": "성남",
+    "active": true
+  }
+}

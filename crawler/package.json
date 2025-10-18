@@ -1,0 +1,16 @@
+{
+  "name": "sellme-buyme-crawler",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "crawl": "node index.js",
+    "crawl:seongnam": "node index.js --source=seongnam",
+    "test": "node index.js --test"
+  },
+  "dependencies": {
+    "playwright": "^1.40.0",
+    "@supabase/supabase-js": "^2.39.0",
+    "@google/generative-ai": "^0.2.0",
+    "dotenv": "^16.3.1"
+  }
+}
