@@ -10,6 +10,12 @@
 - **디버깅 코드 정리**: AIRecommendations.tsx의 레이아웃 디버깅 코드 제거
 - **구버전 컴포넌트 삭제**: SelvaAISection.tsx 제거 (AIRecommendations.tsx로 통합)
 
+### UI 개선 (2025-10-18)
+- **상세보기 모달**: 단일 스크롤 레이아웃으로 개선, 헤더 압축(2줄), 문의 정보를 정보 그리드에 통합
+- **카드 호버**: absolute 포지셔닝으로 확장 영역 구현, 테두리/모서리 연결로 시각적 통합
+- **첨부 다운로드 흐름**: 카드 호버 슬라이드에서는 `원문링크`·`상세보기` 버튼만 유지하고, `공고문 다운로드`는 `JobDetailModal` 내 버튼으로 일원화.
+- **Supabase 환경 변수**: `.env`에 `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` 추가하여 Vite 런타임에서 `src/lib/supabase/client.ts` 초기화 보장.
+
 ## 📋 목차
 1. [페이지 레이아웃 구조](#페이지-레이아웃-구조)
 2. [1. 헤더 (Header)](#1-헤더-header)
