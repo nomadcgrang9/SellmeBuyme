@@ -4,12 +4,24 @@
 
 ---
 
+## 🔄 최근 변경사항 (2025-01-18)
+- **프론트엔드 전환**: Next.js → Vite + React (클라이언트 전용)
+- **Supabase 구조 단순화**: SSR/middleware 제거, 클라이언트 전용 연결
+- **배포**: Cloudflare Pages로 변경
+- **환경 변수**: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`
+
 ## 📊 현재 상태
 
 ### 프론트엔드
-- **프레임워크**: Next.js 14 (App Router)
-- **데이터 소스**: Supabase 실시간 데이터 (`lib/supabase/*`, `app/actions/jobs.ts`), 기존 더미데이터 제거
-- **주요 컴포넌트**: Header, AIRecommendations, AIInsightBox, CardGrid
+- **프레임워크**: Vite + React 18 (클라이언트 전용)
+- **데이터 소스**: Supabase 클라이언트 (`src/lib/supabase/client.ts`), 더미 데이터 (`src/lib/dummyData.ts`)
+- **주요 컴포넌트**: 
+  - `src/components/layout/Header.tsx`
+  - `src/components/ai/AIRecommendations.tsx`
+  - `src/components/ai/AIInsightBox.tsx`
+  - `src/components/cards/CardGrid.tsx`
+  - `src/components/cards/CompactJobCard.tsx`, `CompactTalentCard.tsx`
+  - `src/components/cards/JobCard.tsx`, `TalentCard.tsx`
 
 ### 필요한 백엔드 기능
 1. 데이터베이스 (공고/인력 저장)
@@ -24,9 +36,9 @@
 ## 🏗️ 백엔드 아키텍처
 
 ```
-프론트엔드 (Next.js 14)
+프론트엔드 (Vite + React)
     ↕
-Supabase (PostgreSQL + Auth + Realtime + Edge Functions)
+Supabase (PostgreSQL + Auth + Realtime)
     ↕
 크롤링 시스템 (Python + Playwright + Celery)
     ↕
@@ -106,32 +118,52 @@ search_logs (
 
 ## 🔌 API 설계
 
-### Next.js Server Actions
+### Supabase 클라이언트 API (Vite + React)
 
 ```typescript
-// app/actions/jobs.ts
-'use server'
+// src/lib/api/jobs.ts
+import { supabase } from '@/lib/supabase/client'
 
 export async function getJobs(filters: FilterParams) {
-  const supabase = createServerClient()
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('job_postings')
     .select('*')
     .eq('location', filters.location)
     .order('created_at', { ascending: false })
+  
+  if (error) throw error
   return data
 }
 
-export async function createJob(formData: FormData) {
-  // 인증 확인 → 데이터 검증 → DB 삽입
+export async function createJob(jobData: JobPostingInput) {
+  const { data, error } = await supabase
+    .from('job_postings')
+    .insert([jobData])
+    .select()
+  
+  if (error) throw error
+  return data
 }
 
 export async function getTalents(filters: FilterParams) {
-  // 인력풀 조회
+  const { data, error } = await supabase
+    .from('talents')
+    .select('*')
+    .in('location', filters.locations)
+    .order('rating', { ascending: false })
+  
+  if (error) throw error
+  return data
 }
 
-export async function createTalent(formData: FormData) {
-  // 인력 등록
+export async function createTalent(talentData: TalentInput) {
+  const { data, error } = await supabase
+    .from('talents')
+    .insert([talentData])
+    .select()
+  
+  if (error) throw error
+  return data
 }
 ```
 
@@ -216,16 +248,20 @@ serve(async (req) => {
 ### 프론트엔드 통합
 
 ```typescript
-// lib/api/search.ts
-const isDev = process.env.NODE_ENV === 'development'
+// src/lib/api/search.ts
+const isDev = import.meta.env.DEV  // Vite 환경 변수
 
 export async function searchWithAI(query: string) {
   const endpoint = isDev 
     ? 'http://localhost:3001/api/ai-search'  // 로컬 프록시
-    : `${SUPABASE_URL}/functions/v1/ai-search`  // Edge Function
+    : `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-search`  // Edge Function
   
   const response = await fetch(endpoint, {
     method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+    },
     body: JSON.stringify({ query })
   })
   return response.json()
@@ -239,7 +275,14 @@ export async function searchWithAI(query: string) {
 ### Supabase Auth
 
 ```typescript
-// lib/supabase/client.ts
+// src/lib/supabase/client.ts
+import { createClient } from '@supabase/supabase-js'
+
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+
 export async function signIn(email: string, password: string) {
   const { data, error } = await supabase.auth.signInWithPassword({
     email, password
@@ -274,7 +317,10 @@ USING (auth.uid() = user_id);
 ## 📡 실시간 기능
 
 ```typescript
-// components/ai/AIInsightBox.tsx
+// src/components/ai/AIInsightBox.tsx
+import { supabase } from '@/lib/supabase/client'
+import { useEffect } from 'react'
+
 useEffect(() => {
   // 초기 데이터
   fetchStats()
@@ -357,41 +403,57 @@ python-dotenv==1.0.0
 
 ---
 
-## 🗂️ 디렉토리 구조
+## 🛠️ 디렉토리 구조
 
 ```
 sellme-buyme/
-├── app/
-│   ├── actions/              # Server Actions
-│   │   ├── jobs.ts
-│   │   ├── talents.ts
-│   │   └── search.ts
-│   └── auth/
-│       └── callback/         # OAuth 콜백
+├── src/
+│   ├── components/
+│   │   ├── ai/
+│   │   │   ├── AIRecommendations.tsx
+│   │   │   └── AIInsightBox.tsx
+│   │   ├── cards/
+│   │   │   ├── CardGrid.tsx
+│   │   │   ├── CompactJobCard.tsx
+│   │   │   ├── CompactTalentCard.tsx
+│   │   │   ├── JobCard.tsx
+│   │   │   └── TalentCard.tsx
+│   │   └── layout/
+│   │       ├── Header.tsx
+│   │       └── StripeBanner.tsx
+│   ├── lib/
+│   │   ├── supabase/
+│   │   │   └── client.ts         # Supabase 클라이언트
+│   │   ├── dummyData.ts          # 더미 데이터
+│   │   └── utils.ts              # 유틸리티 함수
+│   ├── types/
+│   │   └── index.ts              # TypeScript 타입
+│   ├── App.tsx                   # 메인 앱 컴포넌트
+│   ├── main.tsx                  # 엔트리 포인트
+│   └── index.css                 # 글로벌 스타일
 │
-├── lib/
-│   ├── supabase/
-│   │   ├── client.ts         # Client Component용
-│   │   ├── server.ts         # Server Component용
-│   │   └── middleware.ts
-│   └── api/
-│       ├── gemini.ts
-│       └── jobs.ts
+├── public/
+│   └── fonts/                    # esamanru 폰트
 │
 ├── supabase/
-│   ├── migrations/           # DB 스키마
-│   ├── functions/            # Edge Functions
+│   ├── migrations/               # DB 스키마
+│   ├── functions/                # Edge Functions
 │   │   └── ai-search/
 │   └── seed.sql
 │
-├── crawler/                  # Python 크롤러
+├── crawler/                      # Python 크롤러
 │   ├── sources/
 │   ├── tasks/
 │   └── config.py
 │
-└── dev-proxy/                # 로컬 개발용
-    ├── server.js
-    └── .env
+├── dev-proxy/                    # 로컬 개발용
+│   ├── server.js
+│   └── .env
+│
+├── index.html                    # Vite 엔트리 HTML
+├── vite.config.ts                # Vite 설정
+├── tsconfig.json                 # TypeScript 설정
+└── package.json
 ```
 
 ---
@@ -401,21 +463,21 @@ sellme-buyme/
 ### 환경 변수 보안
 
 ```bash
-# .env.local (Git 제외!)
+# .env (Git 제외!)
 
-# 브라우저 노출 OK
-NEXT_PUBLIC_SUPABASE_URL=https://xxx.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGc...
+# 브라우저 노출 OK (VITE_ 접두사)
+VITE_SUPABASE_URL=https://xxx.supabase.co
+VITE_SUPABASE_ANON_KEY=eyJhbGc...
 
-# 서버 전용 (NEXT_PUBLIC_ 없음!)
-SUPABASE_SERVICE_ROLE_KEY=eyJhbGc...
+# 서버 전용 (VITE_ 없음 = 브라우저 접근 불가)
 GEMINI_API_KEY=AIzaSy...
+SUPABASE_SERVICE_ROLE_KEY=eyJhbGc...
 ```
 
 ### API 키 노출 방지
 - ❌ 브라우저에서 직접 Gemini API 호출 금지
 - ✅ Edge Function 또는 로컬 프록시 경유
-- ✅ `NEXT_PUBLIC_` 접두사 주의 (공개됨)
+- ✅ `VITE_` 접두사 주의 (공개됨)
 
 ### 크롤링 윤리
 - robots.txt 준수
