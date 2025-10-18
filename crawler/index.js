@@ -1,8 +1,9 @@
 import { readFileSync } from 'fs';
 import { createBrowser } from './lib/playwright.js';
 import { normalizeJobData, validateJobData, analyzePageScreenshot, structureDetailContent } from './lib/gemini.js';
-import { getOrCreateCrawlSource, saveJobPosting, updateCrawlSuccess, incrementErrorCount } from './lib/supabase.js';
+import { getOrCreateCrawlSource, saveJobPosting, updateCrawlSuccess, incrementErrorCount, getExistingJobBySource } from './lib/supabase.js';
 import { crawlSeongnam } from './sources/seongnam.js';
+import { crawlGyeonggi } from './sources/gyeonggi.js';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -49,10 +50,13 @@ async function main() {
     readFileSync('./config/sources.json', 'utf-8')
   );
   
-  // 2. 크롤링 대상 선택 (현재는 성남만)
-  const targetSource = process.argv.includes('--source=seongnam') 
-    ? 'seongnam' 
-    : 'seongnam'; // 기본값
+  // 2. 크롤링 대상 선택
+  let targetSource = 'seongnam'; // 기본값
+  
+  const sourceArg = process.argv.find(arg => arg.startsWith('--source='));
+  if (sourceArg) {
+    targetSource = sourceArg.split('=')[1];
+  }
   
   const config = sourcesConfig[targetSource];
   
@@ -80,7 +84,15 @@ async function main() {
     });
     
     // 5. 크롤링 실행
-    const rawJobs = await crawlSeongnam(page, config);
+    let rawJobs = [];
+    
+    if (targetSource === 'seongnam') {
+      rawJobs = await crawlSeongnam(page, config);
+    } else if (targetSource === 'gyeonggi') {
+      rawJobs = await crawlGyeonggi(page, config);
+    } else {
+      throw new Error(`지원하지 않는 소스: ${targetSource}`);
+    }
     
     if (rawJobs.length === 0) {
       console.warn('⚠️  수집된 공고가 없습니다. HTML 구조 변경 의심');
@@ -88,20 +100,31 @@ async function main() {
       process.exit(0);
     }
     
-    // 6. AI 정규화 및 저장
-    console.log('🤖 AI 정규화 시작...\n');
+    // 6. 중복 체크 및 AI 정규화
+    console.log('🔍 중복 체크 및 AI 정규화 시작...\n');
+    
+    let skippedCount = 0;
     
     for (const rawJob of rawJobs) {
       try {
+        // 6-1. 중복 체크 (AI 처리 전)
+        const existing = await getExistingJobBySource(rawJob.link);
+        
+        if (existing) {
+          console.log(`⏭️  중복 건너뛰기: ${rawJob.title || '제목 없음'}`);
+          skippedCount++;
+          continue;
+        }
+        
         let visionData = null;
         
-        // 6-1. 스크린샷이 있으면 Gemini Vision으로 분석
+        // 6-2. 스크린샷이 있으면 Gemini Vision으로 분석
         if (rawJob.screenshotBase64) {
           console.log(`📸 이미지 분석 시작...`);
           visionData = await analyzePageScreenshot(rawJob.screenshotBase64);
         }
         
-        // 6-2. AI 정규화 (텍스트 기반)
+        // 6-3. AI 정규화 (텍스트 기반)
         const normalized = await normalizeJobData(rawJob, config.name);
         
         if (!normalized) {
@@ -109,7 +132,7 @@ async function main() {
           continue;
         }
         
-        // 6-3. Vision 데이터로 보강 (우선순위: Vision > 텍스트)
+        // 6-4. Vision 데이터로 보강 (우선순위: Vision > 텍스트)
         if (visionData) {
           normalized.organization = visionData.school_name || normalized.organization;
           normalized.title = visionData.job_title || normalized.title;
@@ -192,8 +215,9 @@ async function main() {
   console.log('📊 크롤링 결과');
   console.log('='.repeat(50));
   console.log(`✅ 성공: ${successCount}개`);
+  console.log(`⏭️  중복 건너뛰기: ${skippedCount}개`);
   console.log(`❌ 실패: ${failCount}개`);
-  console.log(`📈 성공률: ${((successCount / (successCount + failCount)) * 100).toFixed(1)}%`);
+  console.log(`📈 처리율: ${((successCount / (rawJobs.length - skippedCount)) * 100).toFixed(1)}%`);
   console.log('='.repeat(50));
   
   if (successCount === 0) {

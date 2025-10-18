@@ -1,80 +1,109 @@
 'use client';
 
-import { IconSearch, IconUser, IconBriefcase, IconUsers, IconAdjustmentsHorizontal, IconX } from '@tabler/icons-react';
-import { useState } from 'react';
+import { IconSearch, IconUser } from '@tabler/icons-react';
+import { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import {
+  CATEGORY_OPTIONS,
+  REGION_OPTIONS,
+  SORT_OPTIONS
+} from '@/lib/constants/filters';
+import { useDebounce } from '@/lib/hooks/useDebounce';
+import { useSearchStore } from '@/stores/searchStore';
+import type {
+  CategoryOption,
+  RegionOption,
+  SortOptionValue,
+  ViewType
+} from '@/types';
 
-type ToggleType = 'job' | 'talent' | 'experience';
-const toggleOrder: ToggleType[] = ['job', 'talent', 'experience'];
+type FilterKey = 'region' | 'category' | 'sort';
+
+const toggleOrder: ViewType[] = ['job', 'talent', 'experience'];
+
+const toggleLabelMap: Record<ViewType, string> = {
+  job: '공고',
+  talent: '인력',
+  experience: '체험'
+};
+
+const activeColorMap: Record<ViewType, string> = {
+  job: 'bg-[#7aa3cc]',
+  talent: 'bg-[#7db8a3]',
+  experience: 'bg-[#f4c96b]'
+};
+
+const slidePositionMap: Record<ViewType, number> = {
+  job: 2,
+  talent: 22,
+  experience: 42
+};
 
 export default function Header() {
-  const [activeToggle, setActiveToggle] = useState<ToggleType>('job');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [openFilter, setOpenFilter] = useState<'region' | 'category' | 'sort' | null>(null);
-  const [filters, setFilters] = useState({
-    region: '전지역',
-    category: '전분야',
-    sort: '추천순'
-  });
+  const [openFilter, setOpenFilter] = useState<FilterKey | null>(null);
+  const [localSearchQuery, setLocalSearchQuery] = useState('');
+  const debouncedSearchQuery = useDebounce(localSearchQuery, 500);
+  const {
+    searchQuery,
+    filters,
+    viewType,
+    setSearchQuery,
+    setFilter,
+    setViewType,
+    resetFilters
+  } = useSearchStore((state) => ({
+    searchQuery: state.searchQuery,
+    filters: state.filters,
+    viewType: state.viewType,
+    setSearchQuery: state.setSearchQuery,
+    setFilter: state.setFilter,
+    setViewType: state.setViewType,
+    resetFilters: state.resetFilters
+  }));
 
   const handleToggle = () => {
-    const currentIndex = toggleOrder.indexOf(activeToggle);
+    const currentIndex = toggleOrder.indexOf(viewType);
     const nextToggle = toggleOrder[(currentIndex + 1) % toggleOrder.length];
-    setActiveToggle(nextToggle);
+    setViewType(nextToggle);
   };
 
-  const toggleLabelMap: Record<ToggleType, string> = {
-    job: '공고',
-    talent: '인력',
-    experience: '체험'
+  const handleFilterClick = (filterType: FilterKey) => {
+    setOpenFilter((prev) => (prev === filterType ? null : filterType));
   };
 
-  const activeColorMap: Record<ToggleType, string> = {
-    job: 'bg-[#7aa3cc]',
-    talent: 'bg-[#7db8a3]',
-    experience: 'bg-[#f4c96b]'
-  };
-
-  const slidePositionMap: Record<ToggleType, number> = {
-    job: 2,
-    talent: 22,
-    experience: 42
-  };
-
-  const handleFilterClick = (filterType: 'region' | 'category' | 'sort') => {
-    setOpenFilter(openFilter === filterType ? null : filterType);
-  };
-
-  const handleFilterSelect = (key: string, value: string) => {
-    setFilters(prev => ({ ...prev, [key]: value }));
+  const handleRegionSelect = (region: RegionOption) => {
+    setFilter('region', region);
     setOpenFilter(null);
   };
 
-  const regions = [
-    '전지역', '수원', '성남', '용인', '안양',
-    '부천', '안산', '남양주', '화성', '평택',
-    '의정부', '시흥', '파주', '김포', '광명',
-    '광주', '군포', '오산', '이천', '양주',
-    '안성', '구리', '포천', '의왕', '하남',
-    '여주', '동두천', '과천', '고양', '가평'
-  ];
+  const handleCategorySelect = (category: CategoryOption) => {
+    setFilter('category', category);
+    setOpenFilter(null);
+  };
 
-  const categories = [
-    '전분야', '코딩', '영어',
-    '수학', '과학', '예체능',
-    '음악', '미술', '방과후',
-    '돌봄', '특수교육', '상담',
-    '행정', '기타'
-  ];
+  const handleSortSelect = (sort: SortOptionValue) => {
+    setFilter('sort', sort);
+    setOpenFilter(null);
+  };
 
-  const sortOptions = [
-    { value: '추천순', label: '추천순' },
-    { value: '최신순', label: '최신순' },
-    { value: '마감임박순', label: '마감임박순' },
-    { value: '평점높은순', label: '평점높은순' },
-    { value: '급여높은순', label: '급여높은순' },
-    { value: '경력무관', label: '경력무관' }
-  ];
+  useEffect(() => {
+    setLocalSearchQuery(searchQuery);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    if (debouncedSearchQuery !== searchQuery) {
+      setSearchQuery(debouncedSearchQuery);
+    }
+  }, [debouncedSearchQuery, searchQuery, setSearchQuery]);
+
+  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      setSearchQuery(localSearchQuery);
+    }
+  };
+
+  const sortOptions = useMemo(() => Array.from(SORT_OPTIONS), []);
 
   return (
     <header className="sticky top-0 z-50 bg-white border-b border-gray-200 font-esamanru">
@@ -88,15 +117,15 @@ export default function Header() {
             {/* 스위치 토글 */}
             <button
               onClick={handleToggle}
-              title={`${toggleLabelMap[toggleOrder[(toggleOrder.indexOf(activeToggle) + 1) % toggleOrder.length]]} 보기`}
+              title={`${toggleLabelMap[toggleOrder[(toggleOrder.indexOf(viewType) + 1) % toggleOrder.length]]} 보기`}
               className="relative w-16 h-6 bg-gray-300 rounded-full transition-all duration-300 hover:bg-gray-400"
             >
               <motion.div
                 className={`absolute top-0.5 w-5 h-5 rounded-full transition-colors duration-300 flex items-center justify-center ${
-                  activeColorMap[activeToggle]
+                  activeColorMap[viewType]
                 }`}
                 animate={{
-                  x: slidePositionMap[activeToggle]
+                  x: slidePositionMap[viewType]
                 }}
                 transition={{
                   type: 'spring',
@@ -105,7 +134,7 @@ export default function Header() {
                 }}
               >
                 <span className="text-[8px] font-semibold text-white leading-none pointer-events-none select-none">
-                  {toggleLabelMap[activeToggle]}
+                  {toggleLabelMap[viewType]}
                 </span>
               </motion.div>
             </button>
@@ -121,8 +150,9 @@ export default function Header() {
               />
               <input
                 type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                value={localSearchQuery}
+                onChange={(e) => setLocalSearchQuery(e.target.value)}
+                onKeyDown={handleSearchKeyDown}
                 placeholder="검색어를 입력하세요"
                 className="flex-1 h-full pl-10 pr-3 text-sm bg-transparent focus:outline-none"
               />
@@ -135,7 +165,7 @@ export default function Header() {
                   <button
                     onClick={() => handleFilterClick('region')}
                     className={`px-2.5 py-1 text-xs rounded transition-all ${
-                      filters.region !== '전지역'
+                      filters.region !== REGION_OPTIONS[0]
                         ? 'bg-gray-100 text-gray-900 font-medium border border-gray-300'
                         : 'text-gray-500 hover:bg-gray-50'
                     } ${
@@ -157,10 +187,10 @@ export default function Header() {
                     style={{ width: '380px' }}
                   >
                     <div className="grid grid-cols-5 gap-2">
-                      {regions.map((region) => (
+                      {REGION_OPTIONS.map((region) => (
                         <button
                           key={region}
-                          onClick={() => handleFilterSelect('region', region)}
+                          onClick={() => handleRegionSelect(region as RegionOption)}
                           className={`px-3 py-1.5 text-xs rounded border transition-colors ${
                             filters.region === region
                               ? 'bg-primary text-white border-primary font-medium'
@@ -181,7 +211,7 @@ export default function Header() {
                   <button
                     onClick={() => handleFilterClick('category')}
                     className={`px-2.5 py-1 text-xs rounded transition-all ${
-                      filters.category !== '전분야'
+                      filters.category !== CATEGORY_OPTIONS[0]
                         ? 'bg-gray-100 text-gray-900 font-medium border border-gray-300'
                         : 'text-gray-500 hover:bg-gray-50'
                     } ${
@@ -203,10 +233,10 @@ export default function Header() {
                     style={{ width: '280px' }}
                   >
                     <div className="grid grid-cols-3 gap-2">
-                      {categories.map((category) => (
+                      {CATEGORY_OPTIONS.map((category) => (
                         <button
                           key={category}
-                          onClick={() => handleFilterSelect('category', category)}
+                          onClick={() => handleCategorySelect(category as CategoryOption)}
                           className={`px-3 py-1.5 text-xs rounded border transition-colors ${
                             filters.category === category
                               ? 'bg-primary text-white border-primary font-medium'
@@ -227,7 +257,7 @@ export default function Header() {
                   <button
                     onClick={() => handleFilterClick('sort')}
                     className={`px-2.5 py-1 text-xs rounded transition-all ${
-                      filters.sort !== '추천순'
+                      filters.sort !== SORT_OPTIONS[0].value
                         ? 'bg-gray-100 text-gray-900 font-medium border border-gray-300'
                         : 'text-gray-500 hover:bg-gray-50'
                     } ${
@@ -252,7 +282,7 @@ export default function Header() {
                       {sortOptions.map((option) => (
                         <button
                           key={option.value}
-                          onClick={() => handleFilterSelect('sort', option.value)}
+                          onClick={() => handleSortSelect(option.value as SortOptionValue)}
                           className={`px-3 py-2 text-xs rounded border transition-colors ${
                             filters.sort === option.value
                               ? 'bg-primary text-white border-primary font-medium'
@@ -267,6 +297,17 @@ export default function Header() {
                 )}
                   </AnimatePresence>
                 </div>
+
+                {/* 초기화 버튼 */}
+                <button
+                  onClick={() => {
+                    resetFilters();
+                    setOpenFilter(null);
+                  }}
+                  className="px-2 py-1 text-xs text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded transition-colors"
+                >
+                  초기화
+                </button>
               </div>
             </div>
           </div>

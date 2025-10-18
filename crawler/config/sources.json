@@ -14,5 +14,31 @@
     },
     "region": "성남",
     "active": true
+  },
+  "gyeonggi": {
+    "name": "경기도교육청",
+    "baseUrl": "https://www.goe.go.kr/recruit/ad/func/pb/hnfpPbancList.do?mi=10502",
+    "listEndpoint": "https://www.goe.go.kr/recruit/ad/func/pb/hnfpPbancList.do",
+    "detailEndpoint": "https://www.goe.go.kr/recruit/ad/func/pb/hnfpPbancInfoView.do",
+    "parserType": "post",
+    "formData": {
+      "mi": "10502",
+      "pbancSn": "",
+      "currPage": "1",
+      "srchEcptDl": "N",
+      "srchTodayPb": "N",
+      "srchLgnNm": "",
+      "srchOcptNm": "기간제/사립교원",
+      "srchOcptCd": "A",
+      "pageIndex": "10",
+      "orderbyType": "reg",
+      "searchType": "sj",
+      "searchValue": "",
+      "btchDlYn": "",
+      "cndNo": "",
+      "srchSchlSe": ""
+    },
+    "region": "경기",
+    "active": true
   }
 }

@@ -1,43 +1,46 @@
 # 셀미바이미 크롤링 시스템 계획
 
-> 경기도 25개 교육지원청 구인 공고 자동 수집
+> 경기도 교육지원청 및 기타 구인 게시판 자동 수집 시스템
 
 ---
 
 ## 🎯 목표
 
-- **대상**: 경기도 교육지원청 25개 사이트
-- **주기**: 매일 09:00, 13:00 (하루 2회)
-- **규모**: 일 50-75건 (교육청당 평균 2-3건)
-- **비용**: $0 (Gemini 무료 티어로 충분)
+- **대상**: 게시판 단위 관리 (교육지원청, 도교육청 통합 게시판 등)
+- **주기**: 매일 오전 7시 (1회, 순차 실행)
+- **규모**: 일 50-75건 예상
+- **비용**: Gemini 무료 티어 활용 (토큰 최적화)
 
 ---
 
-## 📊 크롤링 대상 사이트
+## 📊 게시판 관리 방식
 
-### 성남교육지원청 (프로토타입)
-- **URL**: https://www.goesn.kr/goesn/na/ntt/selectNttList.do?mi=23603&bbsId=17872
-- **특징**: JavaScript 렌더링, 로그인 불필요, HWP 다운로드 가능
-- **총 공고**: 24,765건 (역대 누적)
+### 게시판 중심 접근
+- **교육지원청 구분 없음**: 게시판 단위로 개별 관리
+- **유연한 추가**: 도교육청 통합 게시판, 개별 지원청 게시판 모두 대응
+- **수동 등록**: 관리자 페이지에서 게시판 URL 및 설정 직접 입력
 
-### 나머지 24개 교육청
-```
-수원, 용인, 화성오산, 안양과천, 광명, 군포의왕, 
-부천, 김포, 고양, 파주, 양주, 의정부, 동두천양주,
-남양주, 구리남양주, 광주하남, 여주, 이천, 안성,
-평택, 시흥, 안산, 과천, 포천, 가평양평
-```
+### 등록 대상 예시
+- 성남교육지원청 구인구직 게시판
+- 경기도교육청 통합 채용 게시판 (2025.5월 이후)
+- 기타 교육 관련 구인 게시판
 
 ---
 
 ## 🏗️ 시스템 아키텍처
 
 ```
-GitHub Actions (스케줄러)
+Cron Scheduler (매일 오전 7시)
+    ↓
+관리자 페이지 (게시판 등록/설정)
+    ↓
+크롤러 엔진 (순차 실행)
     ↓
 Playwright (HTML 수집)
     ↓
-Gemini AI (데이터 정규화)
+중복 체크 (URL 기반) ← ⚡ AI 호출 전 필터링
+    ↓
+Gemini AI (데이터 정규화) ← 신규 공고만
     ↓
 Gemini AI (검증)
     ↓
@@ -45,6 +48,11 @@ Supabase (저장)
     ↓
 프론트엔드 (실시간 반영)
 ```
+
+### 토큰 최적화 전략
+- **중복 체크 우선**: 원본 URL로 DB 조회하여 이미 등록된 공고는 AI 분석 전 스킵
+- **순차 실행**: 게시판 하나씩 처리하여 부하 분산 (게시판 간 30초~1분 대기)
+- **에러 시 재시도 제한**: 3회 연속 실패 시 해당 게시판 비활성화
 
 ---
 
@@ -101,50 +109,92 @@ npm install playwright @supabase/supabase-js @google/generative-ai dotenv
 
 ## 🚀 구현 단계
 
-### Week 1: 프로토타입 (성남교육지원청)
-1. Playwright로 HTML 수집
-2. Gemini로 데이터 정규화
-3. Supabase 저장 테스트
-4. 정확도 95% 이상 확인
+### Phase 1: 데이터베이스 설계 (1일)
+1. `crawl_boards` 테이블 생성 (게시판 마스터)
+2. `crawl_logs` 테이블 생성 (크롤링 이력)
+3. 중복 체크를 위한 `source_url` 인덱스 추가
 
-### Week 2: AI 파이프라인 완성
-1. 3단계 검증 시스템
-2. 에러 핸들링
-3. 중복 감지
-4. 관리자 알림
+### Phase 2: 게시판 등록 시스템 (2-3일)
+1. 관리자 페이지 - 게시판 등록 UI
+2. 게시판 설정 페이지 (셀렉터 입력)
+3. 테스트 크롤링 기능 (실시간 미리보기)
 
-### Week 3: 확장 (5개 교육청)
-1. 수원, 용인, 화성, 안양 추가
-2. 공통 파서 추상화
-3. 사이트별 설정 파일
+### Phase 3: 크롤러 엔진 (4-5일)
+1. 설정 기반 범용 크롤러 구현
+2. **중복 체크 로직**: URL 기반 사전 필터링
+3. Gemini AI 정규화 (신규 공고만)
+4. 에러 핸들링 및 로깅
 
-### Week 4: 전체 배포 (25개)
-1. 나머지 20개 추가
-2. GitHub Actions 스케줄링
-3. 모니터링 대시보드
-4. 1주일 무인 운영 테스트
+> 각 게시판은 `crawl_batch_size`(기본 20개)로 최신 공고를 가져오며, 관리자 UI에서 게시판별로 조정 가능
+
+### Phase 4: 스케줄러 및 대시보드 (3-4일)
+1. Cron Job 설정 (매일 오전 7시)
+2. 순차 실행 로직 (게시판 간 대기)
+3. 관리자 대시보드 (상태 모니터링)
+4. 크롤링 이력 조회
+
+### Phase 5: 실제 게시판 등록 (1-2주)
+1. 성남교육지원청으로 파일럿 테스트
+2. 점진적으로 게시판 추가 (수동 작업)
+3. 각 게시판별 설정 최적화
 
 ---
 
 ## 💾 데이터 구조
 
-### Supabase 저장 형식
-```json
+### crawl_boards (게시판 마스터)
+```sql
+CREATE TABLE crawl_boards (
+  id UUID PRIMARY KEY,
+  name TEXT NOT NULL,              -- 게시판 이름
+  board_url TEXT NOT NULL,         -- 게시판 URL
+  category TEXT,                   -- 분류 (교육지원청명 등)
+  is_active BOOLEAN DEFAULT true,  -- 활성화 여부
+  crawl_batch_size INT DEFAULT 20 CHECK (crawl_batch_size > 0), -- 1회 크롤 수
+  crawl_config JSONB,              -- 셀렉터 설정
+  last_crawled_at TIMESTAMPTZ,     -- 마지막 크롤링 시간
+  last_success_at TIMESTAMPTZ,     -- 마지막 성공 시간
+  error_count INT DEFAULT 0,       -- 연속 실패 횟수
+  error_message TEXT,              -- 최근 에러 메시지
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+### crawl_logs (크롤링 이력)
+```sql
+CREATE TABLE crawl_logs (
+  id UUID PRIMARY KEY,
+  board_id UUID REFERENCES crawl_boards(id),
+  status TEXT,                     -- success/failed
+  started_at TIMESTAMPTZ,
+  completed_at TIMESTAMPTZ,
+  items_found INT,                 -- 발견된 공고 수
+  items_new INT,                   -- 신규 공고 수
+  items_skipped INT,               -- 중복으로 스킵된 수
+  ai_tokens_used INT,              -- 사용된 토큰 수
+  error_log TEXT
+);
+```
+
+### jobs 테이블 (기존 + source_url 인덱스)
+```sql
+-- 중복 체크를 위한 인덱스
+CREATE INDEX idx_jobs_source_url ON jobs(source_url);
+
+-- 저장 형식
 {
   "source": "crawled",
-  "crawl_source_id": "성남교육지원청 UUID",
+  "source_url": "https://www.goesn.kr/...",  -- ⚡ 중복 체크 키
+  "crawl_board_id": "게시판 UUID",
   "organization": "성남교육지원청",
   "title": "영어 시간강사",
   "tags": ["영어", "시간강사", "중등"],
   "location": "성남 분당구",
   "compensation": "시급 30,000원",
   "deadline": "2025-10-25T18:00:00",
-  "source_url": "https://www.goesn.kr/...",
   "attachments": {
     "hwp_url": "https://www.goesn.kr/download/..."
-  },
-  "ai_confidence": 0.95,
-  "needs_review": false
+  }
 }
 ```
 
@@ -194,27 +244,69 @@ npm install playwright @supabase/supabase-js @google/generative-ai dotenv
 
 ---
 
-## ⚙️ GitHub Actions 설정
+## ⚙️ 크롤링 실행 흐름
 
-```yaml
-# .github/workflows/crawl.yml
-name: Daily Crawl
-on:
-  schedule:
-    - cron: '0 0,4 * * *'  # 09:00, 13:00 KST
-jobs:
-  crawl:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
-      - run: npm install
-      - run: npx playwright install chromium
-      - run: node crawler/index.js
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+### 매일 오전 7시 자동 실행
+```javascript
+// node-cron 사용
+cron.schedule('0 7 * * *', async () => {
+  console.log('크롤링 시작:', new Date());
+  
+  // 1. 활성화된 게시판 목록 조회
+  const boards = await getActiveBoards();
+  
+  // 2. 순차 실행
+  for (const board of boards) {
+    try {
+      // 3. 크롤링 실행
+      const result = await crawlBoard(board);
+      
+      // 4. 결과 로깅
+      await logCrawlResult(board.id, result);
+      
+      // 5. 다음 게시판 전 대기 (30초)
+      await sleep(30000);
+      
+    } catch (error) {
+      await handleCrawlError(board.id, error);
+    }
+  }
+  
+  console.log('크롤링 완료');
+});
+```
+
+### 중복 체크 로직 (토큰 절약)
+```javascript
+async function crawlBoard(board) {
+  // 1. 목록 페이지에서 공고 링크 수집
+  const jobLinks = await getJobLinks(board.board_url, board.crawl_config);
+  
+  let newCount = 0;
+  let skipCount = 0;
+  
+  for (const link of jobLinks) {
+    // 2. ⚡ DB에 이미 존재하는지 체크 (AI 호출 전)
+    const exists = await checkJobExists(link);
+    
+    if (exists) {
+      skipCount++;
+      continue;  // AI 분석 스킵
+    }
+    
+    // 3. 신규 공고만 상세 페이지 크롤링
+    const rawData = await crawlDetailPage(link, board.crawl_config);
+    
+    // 4. Gemini AI로 정규화 (신규만)
+    const normalizedData = await normalizeWithAI(rawData);
+    
+    // 5. DB 저장
+    await saveJob(normalizedData);
+    newCount++;
+  }
+  
+  return { found: jobLinks.length, new: newCount, skipped: skipCount };
+}
 ```
 
 ---
@@ -223,51 +315,81 @@ jobs:
 
 ```
 crawler/
-├── index.js              # 메인 실행 파일
-├── sources/
-│   ├── seongnam.js       # 성남교육지원청
-│   ├── suwon.js          # 수원교육지원청
-│   └── ...               # 나머지 23개
+├── index.js              # Cron 스케줄러 + 메인 실행
+├── engine/
+│   ├── crawler.js        # 범용 크롤러 엔진
+│   ├── duplicate.js      # 중복 체크 로직
+│   └── logger.js         # 크롤링 로그 기록
 ├── lib/
-│   ├── playwright.js     # 크롤링 유틸
+│   ├── playwright.js     # HTML 수집
 │   ├── gemini.js         # AI 정규화
-│   └── supabase.js       # DB 저장
-├── config/
-│   └── sources.json      # 25개 교육청 설정
+│   └── supabase.js       # DB 연동
 └── .env
+
+src/
+├── components/
+│   └── admin/
+│       ├── CrawlBoardList.tsx      # 게시판 목록
+│       ├── CrawlBoardForm.tsx      # 게시판 등록/수정
+│       ├── CrawlConfigEditor.tsx   # 셀렉터 설정
+│       ├── CrawlBatchSizeInput.tsx # 1회 크롤링 갯수 입력
+│       ├── CrawlTestPanel.tsx      # 테스트 크롤링
+│       └── CrawlLogViewer.tsx      # 크롤링 이력
+└── pages/
+    └── AdminPage.tsx                # 관리자 페이지
 ```
 
 ---
 
 ## 🎯 핵심 포인트
 
-1. **HWP 파일**: 직접 다운로드 X, 링크만 추출
-2. **AI 활용**: 정규화 + 검증에만 사용 (비용 $0)
-3. **안정성**: 3단계 검증 + 자동 재시도
-4. **확장성**: 1개 → 5개 → 25개 단계적 확장
-5. **무인 운영**: GitHub Actions 자동 스케줄링
+1. **게시판 중심 관리**: 교육지원청 구분 없이 게시판 단위로 유연하게 관리
+2. **수동 등록 + 자동 크롤링**: 관리자가 게시판 URL과 설정 입력, 이후 자동 실행
+3. **토큰 최적화**: URL 기반 중복 체크로 AI 호출 전 필터링 (비용 절감)
+4. **순차 실행**: 매일 오전 7시, 게시판 하나씩 처리 (서버 부하 최소화)
+5. **에러 격리**: 게시판별 독립 설정으로 한 곳 문제가 전체에 영향 없음
 
 ---
 
-## 📊 예상 성과
+## 📊 예상 효과
 
-| 지표 | 목표 |
+| 항목 | 내용 |
 |------|------|
-| 정확도 | 95% 이상 |
-| 일일 수집 | 50-75건 |
-| 응답 시간 | 5분 이내 |
-| 월 비용 | $0 |
-| 유지보수 | 주 30분 |
+| **토큰 절감** | 중복 체크로 AI 호출 70-80% 감소 예상 |
+| **유지보수** | 게시판별 독립 관리로 문제 격리 용이 |
+| **확장성** | 교육청 외 다른 사이트도 동일 방식으로 추가 가능 |
+| **안정성** | 순차 실행으로 서버 부하 최소화 |
+| **유연성** | 도교육청 통합 게시판 등 상황 변화에 즉시 대응 |
 
 ---
 
 ## 🚦 다음 단계
 
-1. **성남교육지원청 프로토타입 개발** (이번 주)
-2. **AI 파이프라인 완성** (다음 주)
-3. **5개 교육청 확장** (3주차)
-4. **전체 25개 배포** (4주차)
+1. **Phase 1 시작**: DB 마이그레이션 (crawl_boards, crawl_logs)
+2. **Phase 2**: 관리자 페이지 - 게시판 등록 UI
+3. **Phase 3**: 크롤러 엔진 + 중복 체크 로직
+4. **Phase 4**: 스케줄러 + 대시보드
+5. **Phase 5**: 실제 게시판 등록 및 운영
 
 ---
 
-이 계획을 따라 4주 내에 완전 자동화된 크롤링 시스템 구축 가능 🚀
+## 💡 추가 고려사항
+
+### 토큰 사용량 모니터링
+- `crawl_logs` 테이블에 `ai_tokens_used` 필드로 추적
+- 일일/월간 토큰 사용량 대시보드 제공
+- 무료 티어 한도 초과 시 알림
+
+### 게시판 상태 관리
+- 🟢 정상: 24시간 내 성공
+- 🟡 경고: 1-3일 사이 성공
+- 🔴 오류: 3일 이상 실패 또는 3회 연속 실패
+
+### 점진적 확장 전략
+1. 성남교육지원청 1개로 파일럿 (1주)
+2. 주요 5개 게시판 추가 (2주)
+3. 나머지 게시판 순차 추가 (3-4주)
+
+---
+
+이 계획으로 유연하고 확장 가능한 크롤링 시스템 구축 가능 🚀
