@@ -1,5 +1,15 @@
 # 셀미바이미 (SellmeBuyme) UI 구조 설계
 
+## 🔄 최근 변경사항 (2025-01-18)
+- **프레임워크 전환**: Next.js → Vite + React
+- **배포 플랫폼**: Vercel → Cloudflare Pages
+- **프로젝트 구조**: `app/` → `src/` 기반 구조로 변경
+- **Supabase 클라이언트**: SSR 제거, 클라이언트 전용으로 단순화
+- **환경 변수**: `NEXT_PUBLIC_` → `VITE_` 접두사로 변경
+- **빌드 명령어**: `next build` → `vite build` (출력: `dist/`)
+- **디버깅 코드 정리**: AIRecommendations.tsx의 레이아웃 디버깅 코드 제거
+- **구버전 컴포넌트 삭제**: SelvaAISection.tsx 제거 (AIRecommendations.tsx로 통합)
+
 ## 📋 목차
 1. [페이지 레이아웃 구조](#페이지-레이아웃-구조)
 2. [1. 헤더 (Header)](#1-헤더-header)
@@ -131,7 +141,7 @@
 
 ### 명칭
 - **컴포넌트**: `<Header />`
-- **파일**: `components/layout/Header.tsx`
+- **파일**: `src/components/layout/Header.tsx`
 - **역할**: 전역 네비게이션 및 검색 인터페이스
 
 ### 구성 요소 (5개 하위 영역)
@@ -204,7 +214,7 @@ box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 
 ### 명칭
 - **컴포넌트**: `<AIRecommendations />`
-- **파일**: `components/ai/AIRecommendations.tsx`
+- **파일**: `src/components/ai/AIRecommendations.tsx`
 - **역할**: 개인화 추천 카드 슬라이더
 
 ### 구성 요소 (2개 하위 영역)
@@ -254,7 +264,7 @@ interface SlideControl {
 
 ### 명칭
 - **컴포넌트**: `<AIInsightBox />`
-- **파일**: `components/ai/AIInsightBox.tsx`
+- **파일**: `src/components/ai/AIInsightBox.tsx`
 - **역할**: 실시간 통계 + 관리자 배너 슬라이더
 
 ### 구성 요소 (2개 하위 영역)
@@ -282,7 +292,7 @@ interface SlideControl {
 
 ### 명칭
 - **컴포넌트**: `<CardGrid />`
-- **파일**: `app/page.tsx` (메인 페이지)
+- **파일**: `src/components/cards/CardGrid.tsx`
 - **역할**: 전체 공고/인력풀 카드 그리드
 
 ### AI 검색 결과 박스

@@ -85,54 +85,6 @@ export default function AIRecommendations({ cards, userName = '방문자' }: AIR
 
   const { headline, description } = getAiComment();
 
-  // 디버깅: 화면 크기와 레이아웃 상태 추적
-  useEffect(() => {
-    const logLayout = () => {
-      const aside = document.querySelector('aside');
-      const cardContainer = document.querySelector('.relative.flex-1');
-      
-      console.log('=== 레이아웃 디버깅 ===');
-      console.log('화면 너비:', window.innerWidth);
-      console.log('lg 브레이크포인트 (1024px) 이상:', window.innerWidth >= 1024);
-      
-      if (aside) {
-        const computed = window.getComputedStyle(aside);
-        const parent = aside.parentElement;
-        const parentComputed = parent ? window.getComputedStyle(parent) : null;
-        
-        console.log('=== ASIDE 상세 디버깅 ===');
-        console.log('aside 실제 너비:', computed.width);
-        console.log('aside width 속성:', computed.getPropertyValue('width'));
-        console.log('aside flex-basis:', computed.flexBasis);
-        console.log('aside flex-grow:', computed.flexGrow);
-        console.log('aside flex-shrink:', computed.flexShrink);
-        console.log('aside max-width:', computed.maxWidth);
-        console.log('aside min-width:', computed.minWidth);
-        console.log('aside box-sizing:', computed.boxSizing);
-        console.log('aside padding:', computed.padding);
-        console.log('aside border:', computed.border);
-        console.log('aside 콘텐츠 실제 너비 (scrollWidth):', aside.scrollWidth);
-        console.log('aside 콘텐츠 실제 높이 (scrollHeight):', aside.scrollHeight);
-        console.log('부모 너비:', parentComputed?.width);
-        console.log('부모 display:', parentComputed?.display);
-        console.log('부모 flex-direction:', parentComputed?.flexDirection);
-        console.log('aside 클래스:', aside.className);
-        console.log('Tailwind lg:w-[170px] 적용 여부:', aside.classList.contains('lg:w-[170px]'));
-        console.log('Tailwind min-w-0 적용 여부:', aside.classList.contains('min-w-0'));
-      }
-      
-      if (cardContainer) {
-        const computed = window.getComputedStyle(cardContainer);
-        console.log('카드 컨테이너 실제 너비:', computed.width);
-        console.log('카드 컨테이너 클래스:', cardContainer.className);
-      }
-    };
-
-    logLayout();
-    window.addEventListener('resize', logLayout);
-    return () => window.removeEventListener('resize', logLayout);
-  }, []);
-
   return (
     <section className="bg-gradient-to-b from-[#f0f6fa] to-gray-50 pt-4 pb-1">
       <div className="max-w-container mx-auto px-6">
@@ -144,16 +96,7 @@ export default function AIRecommendations({ cards, userName = '방문자' }: AIR
 
         <div className="flex flex-col gap-3.5 lg:flex-row lg:items-stretch lg:h-[260px]">
           {/* 좌측 탭메뉴: AI 코멘트 */}
-          <aside 
-            className="flex min-h-[200px] flex-col justify-between rounded-2xl border-2 border-indigo-200 bg-gradient-to-br from-indigo-100 via-blue-50 to-white p-4 shadow-md shrink-0 lg:h-full"
-            style={{
-              width: window.innerWidth >= 1024 ? '220px' : '100%',
-              minWidth: window.innerWidth >= 1024 ? '220px' : 'auto',
-              maxWidth: window.innerWidth >= 1024 ? '240px' : 'none',
-              flexBasis: window.innerWidth >= 1024 ? '220px' : 'auto',
-              flexShrink: 0
-            }}
-          >
+          <aside className="flex min-h-[200px] flex-col justify-between rounded-2xl border-2 border-indigo-200 bg-gradient-to-br from-indigo-100 via-blue-50 to-white p-4 shadow-md shrink-0 lg:h-full lg:w-[220px] lg:min-w-[220px] lg:max-w-[240px]">
             <div className="space-y-2.5 flex-1">
               <div className="flex items-center gap-2 text-sm font-semibold text-gray-800">
                 <IconMessageCircle size={16} stroke={1.5} className="text-primary" />

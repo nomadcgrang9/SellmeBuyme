@@ -22,6 +22,9 @@
 5. **User-Friendly**  
    기술적 완성도보다 사용자 경험을 최우선으로 고려하며, 친근한 AI 톤과 직관적 UI를 유지합니다.
 
+6. **PowerShell-First**  
+   Windows 개발 환경에서는 PowerShell 네이티브 명령어만 사용합니다. CMD 명령어는 사용하지 않습니다.
+
 ---
 
 ## 🏗️ 전체 아키텍처
@@ -658,6 +661,132 @@ docs: 문서 수정
 test: 테스트 추가/수정
 chore: 빌드 설정 등
 ```
+
+---
+
+## 🖥️ 터미널 명령어 규칙 (Windows PowerShell)
+
+### 필수 사항
+- **개발 환경**: Windows PowerShell
+- **금지**: CMD 명령어 사용 금지
+- **원칙**: PowerShell 네이티브 cmdlet만 사용
+
+### PowerShell 명령어 가이드
+
+#### 파일 및 폴더 작업
+
+```powershell
+# 폴더 생성
+New-Item -Path "폴더경로" -ItemType Directory
+
+# 파일 생성
+New-Item -Path "파일경로" -ItemType File
+
+# 파일 복사
+Copy-Item -Path "원본" -Destination "대상"
+
+# 폴더 복사 (재귀)
+Copy-Item -Path "원본폴더" -Destination "대상폴더" -Recurse
+
+# 파일/폴더 삭제
+Remove-Item -Path "경로" -Force
+
+# 폴더 삭제 (재귀)
+Remove-Item -Path "폴더경로" -Recurse -Force
+
+# 파일/폴더 이동
+Move-Item -Path "원본" -Destination "대상"
+
+# 파일/폴더 이름 변경
+Rename-Item -Path "기존이름" -NewName "새이름"
+```
+
+#### 디렉토리 탐색
+
+```powershell
+# 현재 디렉토리 확인
+Get-Location
+
+# 디렉토리 이동
+Set-Location -Path "경로"
+
+# 디렉토리 내용 보기
+Get-ChildItem
+Get-ChildItem -Recurse  # 재귀적으로 보기
+```
+
+#### 파일 내용 작업
+
+```powershell
+# 파일 내용 보기
+Get-Content -Path "파일경로"
+
+# 파일에 내용 쓰기 (덮어쓰기)
+Set-Content -Path "파일경로" -Value "내용"
+
+# 파일에 내용 추가
+Add-Content -Path "파일경로" -Value "내용"
+```
+
+### ❌ 사용 금지 명령어 (CMD)
+
+```bash
+# 절대 사용하지 말 것
+mkdir          # → New-Item -ItemType Directory
+rmdir /S /Q    # → Remove-Item -Recurse -Force
+xcopy /E /I    # → Copy-Item -Recurse
+del            # → Remove-Item
+copy           # → Copy-Item
+move           # → Move-Item
+ren            # → Rename-Item
+cd             # → Set-Location
+dir            # → Get-ChildItem
+type           # → Get-Content
+```
+
+### 프로젝트 관련 명령어
+
+```powershell
+# 개발 서버 시작
+npm run dev
+
+# 빌드
+npm run build
+
+# 의존성 설치
+npm install
+
+# 불필요한 폴더 삭제 (.next, node_modules 등)
+Remove-Item -Path ".next" -Recurse -Force
+Remove-Item -Path "node_modules" -Recurse -Force
+
+# Git 작업
+git status
+git add .
+git commit -m "메시지"
+git push
+```
+
+### 주의사항
+
+1. **Invoke-Expression 사용 금지**: 명령어를 문자열로 감싸서 실행하지 않습니다.
+   ```powershell
+   # ❌ 잘못된 예
+   Invoke-Expression "Remove-Item -Path '.next' -Recurse -Force"
+   
+   # ✅ 올바른 예
+   Remove-Item -Path ".next" -Recurse -Force
+   ```
+
+2. **경로에 따옴표 사용**: 공백이 포함된 경로는 반드시 따옴표로 감쌉니다.
+   ```powershell
+   Remove-Item -Path "C:\Program Files\MyApp" -Recurse -Force
+   ```
+
+3. **상대 경로 사용**: 가능한 한 상대 경로를 사용합니다.
+   ```powershell
+   Copy-Item -Path ".\src\components" -Destination ".\backup" -Recurse
+   ```
 
 ---
 
