@@ -83,7 +83,13 @@ export async function saveJobPosting(jobData, crawlSourceId) {
       deadline: jobData.deadline,
       is_urgent: jobData.is_urgent || false,
       source_url: jobData.source_url,
-      attachment_url: jobData.attachment_url
+      attachment_url: jobData.attachment_url,
+      application_period: jobData.application_period,
+      work_period: jobData.work_period,
+      work_time: jobData.work_time,
+      contact: jobData.contact,
+      qualifications: jobData.qualifications || [],
+      structured_content: jobData.structured_content,
     })
     .select()
     .single();

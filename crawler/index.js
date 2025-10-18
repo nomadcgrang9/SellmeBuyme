@@ -1,11 +1,41 @@
 import { readFileSync } from 'fs';
 import { createBrowser } from './lib/playwright.js';
-import { normalizeJobData, validateJobData } from './lib/gemini.js';
+import { normalizeJobData, validateJobData, analyzePageScreenshot, structureDetailContent } from './lib/gemini.js';
 import { getOrCreateCrawlSource, saveJobPosting, updateCrawlSuccess, incrementErrorCount } from './lib/supabase.js';
 import { crawlSeongnam } from './sources/seongnam.js';
 import dotenv from 'dotenv';
 
 dotenv.config();
+
+/**
+ * 급여 정보 요약 (30자 이내)
+ */
+function summarizeCompensation(text) {
+  // 규칙 기반 요약
+  if (text.includes('공무원보수규정') || text.includes('호봉')) {
+    return '월급여 (호봉제)';
+  }
+  if (text.includes('시간당') || text.includes('시급')) {
+    const match = text.match(/(\d{1,3}(,\d{3})*)\s*원/);
+    return match ? `시급 ${match[1]}원` : '시급 협의';
+  }
+  if (text.includes('일당') || text.includes('일 ')) {
+    const match = text.match(/(\d{1,3}(,\d{3})*)\s*원/);
+    return match ? `일 ${match[1]}원` : '일급 협의';
+  }
+  if (text.includes('월')) {
+    const match = text.match(/(\d{1,3}(,\d{3})*)\s*원/);
+    return match ? `월 ${match[1]}원` : '월급여';
+  }
+  
+  // 30자 이내면 그대로 반환
+  if (text.length <= 30) {
+    return text;
+  }
+  
+  // 그 외는 "협의"
+  return '급여 협의';
+}
 
 /**
  * 메인 크롤링 실행
@@ -63,7 +93,15 @@ async function main() {
     
     for (const rawJob of rawJobs) {
       try {
-        // 6-1. AI 정규화
+        let visionData = null;
+        
+        // 6-1. 스크린샷이 있으면 Gemini Vision으로 분석
+        if (rawJob.screenshotBase64) {
+          console.log(`📸 이미지 분석 시작...`);
+          visionData = await analyzePageScreenshot(rawJob.screenshotBase64);
+        }
+        
+        // 6-2. AI 정규화 (텍스트 기반)
         const normalized = await normalizeJobData(rawJob, config.name);
         
         if (!normalized) {
@@ -71,7 +109,29 @@ async function main() {
           continue;
         }
         
-        // 6-2. AI 검증
+        // 6-3. Vision 데이터로 보강 (우선순위: Vision > 텍스트)
+        if (visionData) {
+          normalized.organization = visionData.school_name || normalized.organization;
+          normalized.title = visionData.job_title || normalized.title;
+          normalized.job_type = visionData.job_type || normalized.job_type;
+          normalized.compensation = visionData.compensation || normalized.compensation;
+          normalized.deadline = visionData.deadline || normalized.deadline;
+          normalized.tags = visionData.subjects || normalized.tags;
+          normalized.application_period = visionData.application_period || normalized.application_period;
+          normalized.work_period = visionData.work_period || normalized.work_period;
+          normalized.contact = visionData.contact || normalized.contact;
+          normalized.qualifications = visionData.qualifications || normalized.qualifications;
+          normalized.work_time = visionData.work_time || normalized.work_time;
+
+          // 급여 정보 후처리 (12자 초과 시 강제 요약)
+          if (normalized.compensation && normalized.compensation.length > 12) {
+            console.warn(`⚠️  급여 정보 12자 초과 (${normalized.compensation.length}자): ${normalized.compensation}`);
+            normalized.compensation = summarizeCompensation(normalized.compensation);
+            console.log(`   → 요약: ${normalized.compensation}`);
+          }
+        }
+        
+        // 6-4. AI 검증
         const validation = await validateJobData(normalized);
         
         if (!validation.is_valid) {
@@ -79,15 +139,24 @@ async function main() {
           failCount++;
           continue;
         }
-        
-        // 6-3. 원본 데이터 병합
+
+        // 6-5. 상세 본문 구조화
+        const structuredContent = await structureDetailContent(rawJob.detailContent);
+
+        // 6-5. 원본 데이터 병합
         const finalData = {
           ...validation.corrected_data,
           detail_content: rawJob.detailContent,
           attachment_url: rawJob.attachmentUrl,
+          application_period: normalized.application_period || visionData?.application_period || null,
+          work_period: normalized.work_period || visionData?.work_period || null,
+          work_time: normalized.work_time || visionData?.work_time || null,
+          contact: normalized.contact || visionData?.contact || null,
+          qualifications: normalized.qualifications || visionData?.qualifications || [],
+          structured_content: structuredContent,
         };
-        
-        // 6-4. Supabase 저장
+
+        // 6-6. Supabase 저장
         const saved = await saveJobPosting(finalData, crawlSourceId);
         
         if (saved) {
