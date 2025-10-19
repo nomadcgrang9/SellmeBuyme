@@ -67,13 +67,13 @@ jobs:
           "
           
           # Run crawler based on board_id
-          if [ "${{ inputs.board_id }}" = "1947e4f4-38ab-4275-8f96-62723edbfaf0" ]; then
+          if [ "${{ inputs.board_id }}" = "f4c852f1-f49a-42c5-8823-0edd346f99bb" ]; then
             node index.js --source=gyeonggi
-          elif [ "${{ inputs.board_id }}" = "YOUR_SEONGNAM_BOARD_ID" ]; then
+          elif [ "${{ inputs.board_id }}" = "5a94f47d-5feb-4821-99af-f8805cc3d619" ]; then
             node index.js --source=seongnam
           else
-            echo "⚠️  Unknown board ID, running default crawler"
-            node index.js
+            echo "⚠️  Unknown board ID: ${{ inputs.board_id }}"
+            exit 1
           fi
 
       - name: Update log on success
