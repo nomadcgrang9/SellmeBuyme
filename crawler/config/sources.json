@@ -40,5 +40,21 @@
     },
     "region": "경기",
     "active": true
+  },
+  "uijeongbu": {
+    "name": "의정부교육지원청",
+    "baseUrl": "http://222.120.4.134/goeujb/na/ntt/selectNttList.do?mi=7019&bbsId=4117",
+    "detailUrlTemplate": "http://222.120.4.134/goeujb/na/ntt/selectNttInfo.do?mi=7019&bbsId=4117&nttSn=",
+    "parserType": "html",
+    "selectors": {
+      "listContainer": "table.board-list, .board_list, .tbl_list",
+      "rows": "tbody tr",
+      "title": "td.ta_l a, .nttInfoBtn",
+      "date": "td:nth-child(3)",
+      "link": ".nttInfoBtn",
+      "attachment": "a[href*='.hwp'], a[href*='download']"
+    },
+    "region": "의정부",
+    "active": true
   }
 }

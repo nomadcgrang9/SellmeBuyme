@@ -1,9 +1,9 @@
 import { loadPage, getTextBySelectors, getAttributeBySelectors, resolveUrl } from '../lib/playwright.js';
 
 /**
- * 성남교육지원청 크롤러
+ * 의정부교육지원청 크롤러
  */
-export async function crawlSeongnam(page, config) {
+export async function crawlUijeongbu(page, config) {
   console.log(`\n📍 ${config.name} 크롤링 시작`);
   
   // 1. 목록 페이지 로딩
@@ -385,8 +385,43 @@ async function crawlDetailPage(page, detailUrl, config) {
         }
         resolvedAttachmentUrl = resolveUrl(detailUrl, extractedData.url);
       }
-      
-      if (!resolvedAttachmentUrl) {
+
+      if (!resolvedAttachmentUrl && !extractedData) {
+        console.log(`     🔍 DEXT5UPLOAD 스크립트 분석 시도...`);
+        const dextScriptData = await page.evaluate(() => {
+          const scripts = Array.from(document.scripts || []);
+          for (const script of scripts) {
+            const text = script.textContent || '';
+            const match = text.match(/DEXT5UPLOAD\.AddUploadedFile\(`([^`]+)`\s*,\s*`([^`]+)`\s*,\s*`([^`]+)`\s*,\s*`([^`]+)`/);
+            if (match) {
+              return {
+                itemKey: match[1],
+                filename: match[2],
+                path: match[3],
+                size: match[4],
+              };
+            }
+          }
+          return null;
+        });
+
+        if (dextScriptData?.path) {
+          extractedData = {
+            url: dextScriptData.path,
+            filename: dextScriptData.filename || null,
+            size: dextScriptData.size || null,
+          };
+          resolvedAttachmentUrl = resolveUrl(detailUrl, dextScriptData.path);
+          console.log(`     ✅ DEXT5 스크립트에서 첨부파일 추출 성공: ${dextScriptData.path}`);
+          if (dextScriptData.filename) {
+            console.log(`     📄 파일명: ${dextScriptData.filename}`);
+          }
+        } else {
+          console.log(`     ⚠️ DEXT5UPLOAD.AddUploadedFile 호출을 찾을 수 없음`);
+        }
+      }
+
+      if (!resolvedAttachmentUrl && !extractedData) {
         const captureResult = await captureDownloadViaEvent(page, keywordCandidates, config);
         if (captureResult?.url) {
           resolvedAttachmentUrl = resolveUrl(detailUrl, captureResult.url);
@@ -407,28 +442,28 @@ async function crawlDetailPage(page, detailUrl, config) {
     const hasContentImages = await page.evaluate(() => {
       const contentSelectors = ['.board_view', '.nttCn', '.content', '.view_con', 'article'];
       let contentArea = null;
-
+      
       for (const selector of contentSelectors) {
         contentArea = document.querySelector(selector);
         if (contentArea) break;
       }
-
+      
       if (!contentArea) {
         contentArea = document.body;
       }
-
+      
       const images = contentArea.querySelectorAll('img');
       const realImages = Array.from(images).filter(img => {
         const width = img.naturalWidth || img.width || 0;
         const height = img.naturalHeight || img.height || 0;
         return width > 100 && height > 100;
       });
-
+      
       return realImages.length > 0;
     });
-
+    
     console.log(`     본문 이미지: ${hasContentImages ? '있음' : '없음'}`);
-
+    
     // 페이지 스크린샷 캡처
     console.log(`     📸 스크린샷 캡처 중...`);
     const screenshot = await page.screenshot({ 
@@ -445,8 +480,8 @@ async function crawlDetailPage(page, detailUrl, config) {
       content: content,
       attachmentUrl: resolvedAttachmentUrl,
       attachmentFilename: extractedData?.filename || null,
-      hasContentImages: hasContentImages,
       screenshot: screenshotBase64,
+      hasContentImages: hasContentImages,
     };
   } catch (error) {
     console.warn(`     상세 페이지 크롤링 실패: ${error.message}`);
@@ -454,8 +489,8 @@ async function crawlDetailPage(page, detailUrl, config) {
       content: '',
       attachmentUrl: null,
       attachmentFilename: null,
-      hasContentImages: false,
       screenshot: null,
+      hasContentImages: false,
     };
   }
 }

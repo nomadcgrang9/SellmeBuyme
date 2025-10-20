@@ -12,6 +12,13 @@ import {
   IconBook
 } from '@tabler/icons-react';
 
+type StatItem = {
+  icon: typeof IconMapPin;
+  accent: string;
+  label: string;
+  value: ReactNode;
+};
+
 interface JobDetailModalProps {
   job: JobPostingCard;
   isOpen: boolean;
@@ -34,13 +41,18 @@ export default function JobDetailModal({ job, isOpen, onClose }: JobDetailModalP
   const compensation = formatText(job.compensation);
   const workPeriod = formatText(structured?.overview?.work_period || job.work_period);
   const applicationPeriod = formatText(structured?.overview?.application_period || job.application_period);
+  // 연락처 정보 추출 (이름, 전화번호, 이메일)
   const contactNameRaw = formatText(structured?.contact?.name);
   const contactPhoneRaw = formatText(structured?.contact?.phone);
+  const contactEmailRaw = formatText(structured?.contact?.email);
   const fallbackContact = formatText(job.contact);
+  
   let fallbackContactName: string | undefined;
   let fallbackContactPhone: string | undefined;
+  let fallbackContactEmail: string | undefined;
 
   if (fallbackContact) {
+    // 전화번호 추출
     const phoneMatch = fallbackContact.match(/\d{2,4}[\-\s]?\d{3,4}[\-\s]?\d{4}/);
     if (phoneMatch) {
       fallbackContactPhone = phoneMatch[0].replace(/\s+/g, '');
@@ -53,8 +65,16 @@ export default function JobDetailModal({ job, isOpen, onClose }: JobDetailModalP
       }
     }
 
+    // 이메일 추출
+    const emailMatch = fallbackContact.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+    if (emailMatch) {
+      fallbackContactEmail = emailMatch[0];
+    }
+
+    // 이름 추출 (전화번호와 이메일 제거 후)
     const cleaned = fallbackContact
       .replace(phoneMatch ? phoneMatch[0] : '', '')
+      .replace(emailMatch ? emailMatch[0] : '', '')
       .split(/\n|\|/)
       .map((segment) => segment.replace(/[\p{Zs}\t]+/gu, ' ').trim())
       .find((segment) => segment.length > 0);
@@ -66,43 +86,38 @@ export default function JobDetailModal({ job, isOpen, onClose }: JobDetailModalP
 
   const contactName = contactNameRaw ?? fallbackContactName;
   const contactPhone = contactPhoneRaw ?? fallbackContactPhone;
-  let contactValue: ReactNode | undefined;
+  const contactEmail = contactEmailRaw ?? fallbackContactEmail;
 
-  if (contactName || contactPhone) {
-    contactValue = (
-      <div className="flex flex-col gap-0.5">
-        {contactName && <span>{contactName}</span>}
-        {contactPhone && <span className="text-sm text-gray-600">{contactPhone}</span>}
-      </div>
-    );
-  } else if (fallbackContact) {
-    contactValue = fallbackContact;
-  }
+  const contactItems = [
+    contactName ? { label: '담당자', value: contactName } : null,
+    contactPhone ? { label: '전화번호', value: contactPhone } : null,
+    contactEmail ? { label: '이메일', value: contactEmail } : null
+  ].filter(Boolean) as { label: string; value: string }[];
 
-  const stats: {
-    icon: typeof IconMapPin;
-    accent: string;
-    label: string;
-    value: ReactNode;
-  }[] = [];
+  const buildStat = (
+    icon: typeof IconMapPin,
+    accent: string,
+    label: string,
+    value: ReactNode
+  ): StatItem => ({ icon, accent, label, value });
 
+  const primaryStats: StatItem[] = [];
   if (location) {
-    stats.push({ icon: IconMapPin, accent: 'text-[#7aa3cc]', label: '위치', value: location });
+    primaryStats.push(buildStat(IconMapPin, 'text-[#7aa3cc]', '위치', location));
   }
   if (compensation) {
-    stats.push({ icon: IconCoin, accent: 'text-[#7db8a3]', label: '급여', value: compensation });
+    primaryStats.push(buildStat(IconCoin, 'text-[#7db8a3]', '급여', compensation));
   }
   if (deadline) {
-    stats.push({ icon: IconClock, accent: 'text-orange-500', label: '마감일', value: deadline });
+    primaryStats.push(buildStat(IconClock, 'text-orange-500', '마감일', deadline));
   }
+
+  const secondaryStats: StatItem[] = [];
   if (workPeriod) {
-    stats.push({ icon: IconCalendar, accent: 'text-blue-500', label: '근무기간', value: workPeriod });
+    secondaryStats.push(buildStat(IconCalendar, 'text-blue-500', '근무기간', workPeriod));
   }
   if (applicationPeriod) {
-    stats.push({ icon: IconCalendar, accent: 'text-indigo-500', label: '접수기간', value: applicationPeriod });
-  }
-  if (contactValue) {
-    stats.push({ icon: IconPhone, accent: 'text-blue-600', label: '문의', value: contactValue });
+    secondaryStats.push(buildStat(IconCalendar, 'text-indigo-500', '접수기간', applicationPeriod));
   }
 
   const qualifications = job.qualifications && job.qualifications.length > 0
@@ -145,28 +160,69 @@ export default function JobDetailModal({ job, isOpen, onClose }: JobDetailModalP
         </div>
 
         {/* 본문 */}
-        <div className="p-5 space-y-4">
+        <div className="p-4 space-y-3 sm:p-5 sm:space-y-4">
           {/* 상단 요약 카드 */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {stats.map(({ icon: StatIcon, accent, label, value }) => (
-              <div key={label} className="flex items-start gap-3 p-4 bg-gray-50 rounded-lg">
-                <StatIcon size={20} className={`${accent} flex-shrink-0 mt-0.5`} />
-                <div>
-                  <div className="text-xs text-gray-500 mb-1">{label}</div>
-                  <div className="font-semibold text-gray-900 leading-tight break-words">{value}</div>
-                </div>
+          <div className="space-y-2.5 sm:space-y-3">
+            {primaryStats.length > 0 && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1.5 sm:gap-2">
+                {primaryStats.map(({ icon: StatIcon, accent, label, value }) => (
+                  <div key={label} className="flex items-start gap-1.5 p-2.5 sm:p-3 bg-gray-50 rounded-lg">
+                    <StatIcon size={20} className={`${accent} flex-shrink-0 mt-0.5`} />
+                    <div>
+                      <div className="text-xs text-gray-500 mb-0.5">{label}</div>
+                      <div className="font-semibold text-gray-900 leading-tight break-words">{value}</div>
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
+            )}
+
+            {secondaryStats.length > 0 && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 sm:gap-2">
+                {secondaryStats.map(({ icon: StatIcon, accent, label, value }) => (
+                  <div key={label} className="flex items-start gap-1.5 p-2.5 sm:p-3 bg-gray-50 rounded-lg">
+                    <StatIcon size={20} className={`${accent} flex-shrink-0 mt-0.5`} />
+                    <div>
+                      <div className="text-xs text-gray-500 mb-0.5">{label}</div>
+                      <div className="font-semibold text-gray-900 leading-tight break-words">{value}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
             {workTime && (
-              <div className="flex items-start gap-3 p-4 bg-gray-50 rounded-lg">
+              <div className="flex items-start gap-1.5 p-2.5 sm:p-3 bg-gray-50 rounded-lg">
                 <IconClock size={20} className="text-primary flex-shrink-0 mt-0.5" />
                 <div>
-                  <div className="text-xs text-gray-500 mb-1">근무시간</div>
+                  <div className="text-xs text-gray-500 mb-0.5">근무시간</div>
                   <div className="font-semibold text-gray-900 break-words">{workTime}</div>
                 </div>
               </div>
             )}
           </div>
+
+          {/* 문의 정보 */}
+          {contactItems.length > 0 && (
+            <div className="space-y-2">
+              <h3 className="flex items-center gap-2 text-lg font-bold text-gray-900">
+                <IconPhone size={20} />
+                문의
+              </h3>
+              <div className="bg-gray-50 rounded-lg p-2.5 sm:p-3">
+                <div className="flex flex-col gap-1 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2.5">
+                  {contactItems.map(({ label, value }) => (
+                    <div key={label} className="flex items-center gap-2 text-sm text-gray-900">
+                      <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                        {label}
+                      </span>
+                      <span className="font-semibold">{value}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* 자격 요건 */}
           {qualifications.length > 0 && (
@@ -175,14 +231,11 @@ export default function JobDetailModal({ job, isOpen, onClose }: JobDetailModalP
                 <IconBook size={20} />
                 자격 요건
               </h3>
-              <ul className="space-y-1.5 text-sm text-gray-700">
-                {qualifications.map((qualification, index) => (
-                  <li key={index} className="flex gap-2">
-                    <span className="text-primary mt-0.5">•</span>
-                    <span>{qualification}</span>
-                  </li>
-                ))}
-              </ul>
+              <div className="bg-gray-50 rounded-lg p-2.5 sm:p-3">
+                <p className="text-sm text-gray-700 leading-relaxed">
+                  {qualifications.join(', ')}
+                </p>
+              </div>
             </div>
           )}
 
@@ -190,8 +243,6 @@ export default function JobDetailModal({ job, isOpen, onClose }: JobDetailModalP
             {job.attachment_url ? (
               <a
                 href={job.attachment_url}
-                target="_blank"
-                rel="noopener noreferrer"
                 className="flex items-center justify-center gap-2 px-5 py-2.5 bg-primary text-white font-semibold rounded-lg hover:bg-primary/90 transition-colors"
               >
                 <IconFileDownload size={20} />

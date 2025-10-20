@@ -276,36 +276,49 @@ export async function searchCards(params: SearchQueryParams = {}): Promise<Searc
   const {
     searchQuery = '',
     filters: overrides,
-    viewType = 'job',
+    viewType = 'all',
     limit = DEFAULT_LIMIT,
     offset = DEFAULT_OFFSET,
     lastUpdatedAt,
   } = params;
 
   const filters = mergeFilters(overrides);
-  const normalizedViewType: ViewType = viewType ?? 'job';
+  const normalizedViewType: ViewType = viewType ?? 'all';
   const tokens = tokenizeSearchQuery(searchQuery);
   const startedAt = getHighResolutionTime();
 
   try {
-    const response = normalizedViewType === 'talent'
-      ? await executeTalentSearch({
+    let response: SearchResponse;
+
+    if (normalizedViewType === 'all') {
+      response = await executeAllSearch({
         searchQuery,
         tokens,
         filters,
         limit,
         offset,
         lastUpdatedAt,
-      })
-      : await executeJobSearch({
-          searchQuery,
-          tokens,
-          filters,
-          limit,
-          offset,
-          jobType: normalizedViewType === 'experience' ? EXPERIENCE_JOB_TYPE : undefined,
-          lastUpdatedAt,
-        });
+      });
+    } else if (normalizedViewType === 'talent') {
+      response = await executeTalentSearch({
+        searchQuery,
+        tokens,
+        filters,
+        limit,
+        offset,
+        lastUpdatedAt,
+      });
+    } else {
+      response = await executeJobSearch({
+        searchQuery,
+        tokens,
+        filters,
+        limit,
+        offset,
+        jobType: normalizedViewType === 'experience' ? EXPERIENCE_JOB_TYPE : undefined,
+        lastUpdatedAt,
+      });
+    }
 
     void logSearchEvent({
       searchQuery,
@@ -488,6 +501,81 @@ function calculateTalentRelevance(talent: any, tokens: string[], fallbackQuery: 
   });
 
   return score;
+}
+
+interface AllSearchArgs {
+  searchQuery: string;
+  tokens: string[];
+  filters: SearchFilters;
+  limit: number;
+  offset: number;
+  lastUpdatedAt?: number;
+}
+
+async function executeAllSearch({
+  searchQuery,
+  tokens,
+  filters,
+  limit,
+  offset,
+}: AllSearchArgs): Promise<SearchResponse> {
+  // job과 talent를 병렬로 검색
+  const [jobResponse, talentResponse] = await Promise.all([
+    executeJobSearch({
+      searchQuery,
+      tokens,
+      filters,
+      limit: 1000, // 충분히 큰 값으로 모든 데이터 가져오기
+      offset: 0,
+    }),
+    executeTalentSearch({
+      searchQuery,
+      tokens,
+      filters,
+      limit: 1000,
+      offset: 0,
+    }),
+  ]);
+
+  // 모든 카드 합치기
+  const allCards = [...jobResponse.cards, ...talentResponse.cards];
+  const totalCount = jobResponse.totalCount + talentResponse.totalCount;
+
+  // 정렬 적용
+  let sortedCards = allCards;
+  if (filters.sort === '추천순' && (tokens.length > 0 || searchQuery.trim().length > 0)) {
+    // 검색 관련성 기준 정렬
+    sortedCards = [...allCards].sort((a, b) => {
+      const scoreA = a.type === 'job' 
+        ? calculateJobRelevance(a, tokens, searchQuery)
+        : calculateTalentRelevance(a, tokens, searchQuery);
+      const scoreB = b.type === 'job'
+        ? calculateJobRelevance(b, tokens, searchQuery)
+        : calculateTalentRelevance(b, tokens, searchQuery);
+      return scoreB - scoreA;
+    });
+  } else if (filters.sort === '최신순') {
+    // 최신순 정렬
+    sortedCards = [...allCards].sort((a, b) => {
+      const dateA = new Date((a as any).created_at ?? 0).getTime();
+      const dateB = new Date((b as any).created_at ?? 0).getTime();
+      return dateB - dateA;
+    });
+  }
+
+  // 페이지네이션 적용
+  const from = Math.max(offset ?? 0, 0);
+  const to = from + Math.max(limit ?? DEFAULT_LIMIT, 1);
+  const paginatedCards = sortedCards.slice(from, to);
+
+  return {
+    cards: paginatedCards,
+    totalCount,
+    pagination: {
+      limit,
+      offset: from,
+    }
+  };
 }
 
 interface JobSearchArgs {

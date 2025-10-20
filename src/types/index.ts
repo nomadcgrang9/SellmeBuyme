@@ -62,7 +62,7 @@ export interface TalentCard {
   reviewCount: number;
 }
 
-export type ViewType = 'job' | 'talent' | 'experience';
+export type ViewType = 'all' | 'job' | 'talent' | 'experience';
 
 export type SortOptionValue =
   | '추천순'
