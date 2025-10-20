@@ -11,7 +11,9 @@ import {
 import { useDebounce } from '@/lib/hooks/useDebounce';
 import { useSearchStore } from '@/stores/searchStore';
 import SocialSignupModal, { type AuthProvider } from '@/components/auth/SocialSignupModal';
+import ProfileViewModal from '@/components/auth/ProfileViewModal';
 import { supabase } from '@/lib/supabase/client';
+import { useAuthStore } from '@/stores/authStore';
 import type {
   CategoryOption,
   RegionOption,
@@ -50,6 +52,11 @@ export default function Header() {
   const [localSearchQuery, setLocalSearchQuery] = useState('');
   const [isSocialSignupOpen, setIsSocialSignupOpen] = useState(false);
   const [loadingProvider, setLoadingProvider] = useState<AuthProvider | null>(null);
+  const [isProfileViewOpen, setProfileViewOpen] = useState(false);
+  const { status, user } = useAuthStore((state) => ({
+    status: state.status,
+    user: state.user
+  }));
   const debouncedSearchQuery = useDebounce(localSearchQuery, 500);
   const {
     searchQuery,
@@ -372,20 +379,35 @@ export default function Header() {
 
           {/* 우측 인증 버튼 */}
           <div className="flex items-center gap-2 shrink-0">
-            <button
-              type="button"
-              onClick={handleLoginClick}
-              className="h-9 px-4 text-sm font-semibold text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
-            >
-              로그인
-            </button>
-            <button
-              type="button"
-              onClick={handleSignupClick}
-              className="h-9 px-4 text-sm font-semibold text-white rounded-md bg-gradient-to-r from-[#7aa3cc] to-[#5f89b4] shadow-sm hover:from-[#6b95be] hover:to-[#517aa5] transition-colors"
-            >
-              회원가입
-            </button>
+            {status === 'authenticated' && user ? (
+              <button
+                type="button"
+                onClick={() => setProfileViewOpen(true)}
+                className="flex items-center gap-2 h-9 px-4 text-sm font-semibold text-white rounded-md bg-gradient-to-r from-[#7aa3cc] to-[#5f89b4] shadow-sm hover:from-[#6b95be] hover:to-[#517aa5] transition-colors"
+              >
+                <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/20 text-white text-xs font-bold">
+                  {user.email?.[0]?.toUpperCase() ?? 'P'}
+                </span>
+                <span>프로필</span>
+              </button>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={handleLoginClick}
+                  className="h-9 px-4 text-sm font-semibold text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                >
+                  로그인
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSignupClick}
+                  className="h-9 px-4 text-sm font-semibold text-white rounded-md bg-gradient-to-r from-[#7aa3cc] to-[#5f89b4] shadow-sm hover:from-[#6b95be] hover:to-[#517aa5] transition-colors"
+                >
+                  회원가입
+                </button>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -407,6 +429,13 @@ export default function Header() {
         }}
         onSelectProvider={handleSelectProvider}
         loadingProvider={loadingProvider}
+      />
+
+      <ProfileViewModal
+        isOpen={isProfileViewOpen}
+        onClose={() => setProfileViewOpen(false)}
+        userId={user?.id ?? null}
+        userEmail={user?.email ?? null}
       />
     </header>
   );

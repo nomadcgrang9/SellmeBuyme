@@ -8,7 +8,7 @@ type AuthState = {
   user: User | null;
   status: AuthStatus;
   initialize: () => Promise<void>;
-  signOut: () => Promise<void>;
+  logout: () => Promise<void>;
 };
 
 type AuthSubscription = ReturnType<typeof supabase.auth.onAuthStateChange>['data']['subscription'];
@@ -56,7 +56,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       initializing = false;
     }
   },
-  signOut: async () => {
+  logout: async () => {
     const { error } = await supabase.auth.signOut();
 
     if (error) {

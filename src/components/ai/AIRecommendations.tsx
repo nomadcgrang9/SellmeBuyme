@@ -9,9 +9,18 @@ import CompactTalentCard from '../cards/CompactTalentCard';
 interface AIRecommendationsProps {
   cards: Card[];
   userName?: string;
+  loading?: boolean;
+  headlineOverride?: string;
+  descriptionOverride?: string;
 }
 
-export default function AIRecommendations({ cards, userName = '방문자' }: AIRecommendationsProps) {
+export default function AIRecommendations({
+  cards,
+  userName = '방문자',
+  loading = false,
+  headlineOverride,
+  descriptionOverride
+}: AIRecommendationsProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [visibleCount, setVisibleCount] = useState(3);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -33,17 +42,29 @@ export default function AIRecommendations({ cards, userName = '방문자' }: AIR
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const primaryCard = cards[0];
-  const displayCards = cards.slice(0, 2);
-  const totalItems = displayCards.length + 1;
+  type CarouselMetaItem = { id: string; type: 'promo' | 'placeholder' };
+
+  const visibleCards = cards.slice(0, 8);
+  const primaryCard = visibleCards[0];
+  const promoCard: CarouselMetaItem = { id: 'promo-card', type: 'promo' };
+  const placeholderCard: CarouselMetaItem = { id: 'placeholder-card', type: 'placeholder' };
+  const shouldShowPlaceholder = !loading && visibleCards.length === 0;
+  const carouselItems: (Card | CarouselMetaItem)[] = shouldShowPlaceholder
+    ? [placeholderCard, promoCard]
+    : [...visibleCards, promoCard];
+  const totalItems = carouselItems.length;
   const maxIndex = Math.max(totalItems - visibleCount, 0);
-  const promoImageSrc = '/picture/section%20right%20ad.png';
+  const promoImageSrc = '/picture/section%20right%20ad2.png';
 
   useEffect(() => {
     if (currentIndex > maxIndex) {
       setCurrentIndex(maxIndex);
     }
   }, [currentIndex, maxIndex]);
+
+  useEffect(() => {
+    setCurrentIndex(0);
+  }, [cards.length]);
 
   const canGoLeft = currentIndex > 0;
   const canGoRight = currentIndex < maxIndex;
@@ -93,7 +114,13 @@ export default function AIRecommendations({ cards, userName = '방문자' }: AIR
     };
   };
 
-  const { headline, description } = getAiComment();
+  const baseComment = getAiComment();
+  const headline = loading
+    ? '추천을 준비 중이에요'
+    : headlineOverride ?? baseComment.headline;
+  const description = loading
+    ? 'AI가 프로필을 분석해 맞춤 카드를 정리하고 있어요.'
+    : descriptionOverride ?? baseComment.description;
 
   return (
     <section className="bg-gradient-to-b from-[#f4f5f7] via-[#eef0f2] to-[#e2e4e7] pt-2 pb-6">
@@ -168,7 +195,7 @@ export default function AIRecommendations({ cards, userName = '방문자' }: AIR
                   transform: `translateX(-${currentIndex * (100 / visibleCount)}%)`
                 }}
               >
-                {displayCards.map((card) => (
+                {carouselItems.map((card) => (
                   <div 
                     key={card.id}
                     className="flex-shrink-0"
@@ -179,35 +206,34 @@ export default function AIRecommendations({ cards, userName = '방문자' }: AIR
                   >
                     {card.type === 'job' ? (
                       <CompactJobCard job={card} />
-                    ) : (
+                    ) : card.type === 'talent' ? (
                       <CompactTalentCard talent={card} />
+                    ) : card.type === 'placeholder' ? (
+                      <article className="card-interactive bg-white border border-dashed border-gray-300 rounded-lg animate-slide-up overflow-hidden h-full flex items-center justify-center p-4 text-center">
+                        <p className="text-sm text-gray-500 leading-relaxed">
+                          프로필 정보를 저장하면 맞춤 추천이 여기에 표시됩니다.
+                        </p>
+                      </article>
+                    ) : (
+                      <article className="card-interactive bg-white border border-gray-200 rounded-lg animate-slide-up overflow-hidden h-full">
+                        <div className="h-0.5 bg-gradient-to-r from-[#f7c6d9] via-[#f4a3c4] to-[#ef8ab2]" />
+                        <div className="flex h-full flex-col p-4 text-center">
+                          <h3 className="text-base font-semibold text-gray-900 leading-tight mb-4">
+                            셀바, 학교와 교육자원을<br />연결하겠습니다
+                          </h3>
+                          <div className="mt-auto flex items-center justify-center w-full">
+                            <img
+                              src={promoImageSrc}
+                              alt="셀바 소개"
+                              className="w-[95%] max-w-[260px] h-full max-h-[200px] object-contain"
+                              draggable={false}
+                            />
+                          </div>
+                        </div>
+                      </article>
                     )}
                   </div>
                 ))}
-                <div
-                  key="promo-card"
-                  className="flex-shrink-0"
-                  style={{
-                    width: `calc((100% - ${(visibleCount - 1) * 14}px) / ${visibleCount})`,
-                    height: '100%'
-                  }}
-                >
-                  <div className="card-interactive flex h-full items-center justify-center overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
-                    <div className="flex h-full w-full flex-col items-center gap-4 px-4 py-6 text-center">
-                      <h3 className="text-base font-semibold text-gray-900 leading-tight">
-                        셀바, 학교와 교육자원을<br />연결하겠습니다
-                      </h3>
-                      <div className="flex flex-1 items-center justify-center w-full">
-                        <img
-                          src={promoImageSrc}
-                          alt="셀바 소개"
-                          className="w-[95%] max-w-[240px] h-full max-h-[190px] object-contain"
-                          draggable={false}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
               </div>
             </div>
 

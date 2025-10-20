@@ -25,6 +25,11 @@
 - **첨부 다운로드 안정화**: `JobDetailModal`의 `공고문 다운로드` 버튼이 Supabase Edge Function 경유 URL(`attachment_url`)을 사용하도록 문서화. 마이그레이션 이후 다운로드 파일명이 `"<학교명> 공고문.hwp"` 형식으로 일관되게 노출됨.
 - **크롤러 상태 표시 계획**: 관리자 UI에서 게시판별 `crawl_batch_size` 및 최근 토큰 사용량 요약을 노출할 준비를 위해 크롤링 메타데이터 섹션 추가 예정.
 
+### 추가 업데이트 (2025-10-20)
+- **AI 추천 섹션 실데이터 연동**: `App.tsx`에서 더미 `aiRecommendations`를 제거하고 `fetchRecommendationsCache()` 결과를 `AIRecommendations`로 전달.
+- **AIRecommendations 확장**: 빈 상태·로딩 상태·헤드라인/설명 오버라이드를 props로 받아, 캐시가 없으면 자리 표시 카드와 안내 문구를 표시하도록 개선.
+- **프로모 카드 유지**: 추천 카드가 비어 있어도 광고용 프로모 카드가 항상 캐러셀 마지막에 노출되도록 조정.
+
 ## 📋 목차
 1. [페이지 레이아웃 구조](#페이지-레이아웃-구조)
 2. [1. 헤더 (Header)](#1-헤더-header)
