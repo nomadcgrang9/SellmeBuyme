@@ -3,9 +3,11 @@ import Header from '@/components/layout/Header';
 import AIRecommendations from '@/components/ai/AIRecommendations';
 import AIInsightBox from '@/components/ai/AIInsightBox';
 import CardGrid from '@/components/cards/CardGrid';
-import { aiRecommendations } from '@/lib/dummyData';
-import { searchCards } from '@/lib/supabase/queries';
+import ProfileSetupModal from '@/components/auth/ProfileSetupModal';
+import ToastContainer from '@/components/common/ToastContainer';
+import { searchCards, fetchRecommendationsCache } from '@/lib/supabase/queries';
 import { useSearchStore } from '@/stores/searchStore';
+import { useAuthStore } from '@/stores/authStore';
 import type { Card } from '@/types';
 
 export default function App() {
@@ -27,12 +29,104 @@ export default function App() {
     loadMore: state.loadMore
   }));
 
+  const { initialize, status, user } = useAuthStore((state) => ({
+    initialize: state.initialize,
+    status: state.status,
+    user: state.user
+  }));
+
   const [cards, setCards] = useState<Card[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
+  const [isProfileModalOpen, setProfileModalOpen] = useState(false);
+  const [recommendationCards, setRecommendationCards] = useState<Card[]>([]);
+  const [recommendationHeadline, setRecommendationHeadline] = useState<string>('추천을 준비 중이에요');
+  const [recommendationDescription, setRecommendationDescription] = useState<string>('프로필 정보를 기반으로 맞춤 카드를 정리하고 있습니다.');
+  const [recommendationLoading, setRecommendationLoading] = useState(false);
+  const [recommendationReloadKey, setRecommendationReloadKey] = useState(0);
+
+  useEffect(() => {
+    void initialize();
+  }, [initialize]);
+
+  useEffect(() => {
+    if (status === 'authenticated') {
+      const pending = sessionStorage.getItem('profileSetupPending');
+      if (pending === 'true') {
+        setProfileModalOpen(true);
+      }
+    }
+    if (status === 'unauthenticated') {
+      setProfileModalOpen(false);
+    }
+  }, [status]);
+
+  const handleProfileClose = () => {
+    sessionStorage.removeItem('profileSetupPending');
+    setProfileModalOpen(false);
+  };
+
+  const handleProfileComplete = () => {
+    sessionStorage.removeItem('profileSetupPending');
+    setProfileModalOpen(false);
+    setRecommendationReloadKey((prev) => prev + 1);
+  };
+
+  const userId = user?.id ?? null;
+  const userEmail = user?.email ?? null;
+
+  useEffect(() => {
+    if (status !== 'authenticated' || !userId) {
+      setRecommendationCards([]);
+      setRecommendationHeadline('추천을 준비 중이에요');
+      setRecommendationDescription('로그인 후 프로필을 저장하면 맞춤 추천을 볼 수 있어요.');
+      setRecommendationLoading(false);
+      return;
+    }
+
+    const targetUserId = userId;
+    const targetUserEmail = userEmail;
+    let cancelled = false;
+    async function loadRecommendations() {
+      setRecommendationLoading(true);
+      try {
+        const cache = await fetchRecommendationsCache(targetUserId);
+        if (cancelled) return;
+
+        if (cache && cache.cards.length > 0) {
+          setRecommendationCards(cache.cards);
+          const headline = cache.aiComment?.headline ?? `${targetUserEmail ?? '회원님'}을 위한 추천을 준비했어요`;
+          const description = cache.aiComment?.description ?? '프로필 기반으로 최근 카드들을 정리했습니다.';
+          setRecommendationHeadline(headline);
+          setRecommendationDescription(description);
+        } else {
+          setRecommendationCards([]);
+          setRecommendationHeadline('추천을 준비 중이에요');
+          setRecommendationDescription('프로필을 최신 상태로 저장하면 맞춤 추천을 받을 수 있어요.');
+        }
+      } catch (loadError) {
+        console.error('추천 캐시 조회 실패:', loadError);
+        if (!cancelled) {
+          setRecommendationCards([]);
+          setRecommendationHeadline('추천을 준비 중이에요');
+          setRecommendationDescription('추천 정보를 불러오는 중 문제가 발생했습니다. 잠시 후 다시 시도해 주세요.');
+        }
+      } finally {
+        if (!cancelled) {
+          setRecommendationLoading(false);
+        }
+      }
+    }
+
+    loadRecommendations();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [status, userId, userEmail, recommendationReloadKey]);
 
   useEffect(() => {
     let active = true;
@@ -113,11 +207,18 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <ToastContainer />
       {/* 헤더 */}
       <Header />
 
       {/* AI 추천 섹션 */}
-      <AIRecommendations cards={aiRecommendations} userName="방문자" />
+      <AIRecommendations
+        cards={recommendationCards}
+        userName={user?.user_metadata?.full_name ?? userEmail ?? undefined}
+        loading={recommendationLoading}
+        headlineOverride={recommendationHeadline}
+        descriptionOverride={recommendationDescription}
+      />
 
       {/* 메인 콘텐츠 */}
       <main className="bg-gradient-to-b from-[#edf0f5] via-[#e2e5ec] to-[#d9dce3]">
@@ -178,6 +279,14 @@ export default function App() {
           <p className="mt-1">교육 인력 매칭 플랫폼</p>
         </div>
       </footer>
+
+      <ProfileSetupModal
+        isOpen={isProfileModalOpen}
+        onClose={handleProfileClose}
+        onComplete={handleProfileComplete}
+        userEmail={user?.email ?? null}
+        userId={user?.id}
+      />
     </div>
   );
 }

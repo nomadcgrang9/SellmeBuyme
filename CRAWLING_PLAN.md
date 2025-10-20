@@ -21,6 +21,11 @@
 - **유연한 추가**: 도교육청 통합 게시판, 개별 지원청 게시판 모두 대응
 - **수동 등록**: 관리자 페이지에서 게시판 URL 및 설정 직접 입력
 
+### 관리자 페이지 트리거 흐름 (2025-10-20 갱신)
+- **즉시 실행** 버튼: Supabase Edge Function `admin-crawl-run`에 `mode=run`으로 요청 → GitHub Actions `run-crawler.yml`이 `CRAWL_MODE=run` 환경 변수로 크롤러 실행 → 신규 공고 저장 및 `crawl_logs` 상태 갱신.
+- **테스트** 버튼: 동일한 Edge Function에 `mode=test`로 전달 → GitHub Actions가 `CRAWL_MODE=test`로 크롤러 실행 → 저장 없이 크롤링 로직과 AI 응답만 검증하도록 설계.
+- 두 버튼 모두 `boardId`를 포함해 호출하며, Edge Function은 `crawl_boards`에서 게시판 정보를 읽고 `crawl_logs`에 기록한 뒤 GitHub Actions `workflow_dispatch` API를 호출해 수동 실행을 예약합니다.
+
 ### 권한 및 보안 고려사항 (2025-10-19)
 - **RLS 정책 주의**: `job_postings` 테이블 등 주요 저장소에 Row Level Security가 적용되어 있으므로, 크롤러나 마이그레이션 스크립트를 돌릴 때는 `SUPABASE_SERVICE_ROLE_KEY`를 사용하거나 anon 역할에 대한 UPDATE 정책을 명시적으로 허용해야 함.
 - **서비스 롤 키 사용 지침**: 배치 작업·Edge Function 등 서버 측에서만 `service_role` 키를 사용하고, 크롤러 환경 파일(`crawler/.env`)에 안전하게 보관.

@@ -20,6 +20,48 @@ import type {
   ViewType
 } from '@/types';
 
+type RecommendationAiComment = {
+  headline?: string;
+  description?: string;
+  diagnostics?: Record<string, unknown>;
+} | null;
+
+type RecommendationCacheRow = {
+  cards: Card[] | null;
+  ai_comment: RecommendationAiComment;
+  profile_snapshot: Record<string, unknown> | null;
+  updated_at: string;
+};
+
+export async function fetchRecommendationsCache(userId: string): Promise<{
+  cards: Card[];
+  aiComment: RecommendationAiComment;
+  profileSnapshot: Record<string, unknown> | null;
+  updatedAt: string;
+} | null> {
+  const { data, error } = await supabase
+    .from('recommendations_cache')
+    .select('cards, ai_comment, profile_snapshot, updated_at')
+    .eq('user_id', userId)
+    .maybeSingle<RecommendationCacheRow>();
+
+  if (error) {
+    console.error('추천 캐시 조회 실패:', error);
+    throw error;
+  }
+
+  if (!data) {
+    return null;
+  }
+
+  return {
+    cards: data.cards ?? [],
+    aiComment: data.ai_comment ?? null,
+    profileSnapshot: data.profile_snapshot ?? null,
+    updatedAt: data.updated_at
+  };
+}
+
 const DEFAULT_LIMIT = 20;
 const DEFAULT_OFFSET = 0;
 const EXPERIENCE_JOB_TYPE = 'experience';

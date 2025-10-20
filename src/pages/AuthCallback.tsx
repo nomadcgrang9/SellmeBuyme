@@ -5,56 +5,72 @@ import { supabase } from '@/lib/supabase/client';
 import { ensureAuthInitialized } from '@/stores/authStore';
 
 export default function AuthCallbackPage() {
-  const [status, setStatus] = useState<'pending' | 'success' | 'error'>('pending');
-  const [message, setMessage] = useState('구글 계정과 연결하는 중입니다...');
+  const [status, setStatus] = useState<'pending' | 'error'>('pending');
+  const [message, setMessage] = useState('소셜 계정을 확인하고 있어요. 잠시만 기다려 주세요.');
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const code = params.get('code');
-    const error = params.get('error');
-    const errorDescription = params.get('error_description');
+    const hash = window.location.hash.startsWith('#') ? window.location.hash.slice(1) : window.location.hash;
+    const hashParams = new URLSearchParams(hash);
 
-    async function exchangeCode() {
+    const error = params.get('error') ?? hashParams.get('error');
+    const errorDescription = params.get('error_description') ?? hashParams.get('error_description');
+    const code = params.get('code');
+
+    async function completeAuth() {
       if (error) {
         setStatus('error');
         setMessage(decodeURIComponent(errorDescription ?? error));
         return;
       }
 
-      if (!code) {
-        setStatus('error');
-        setMessage('로그인 코드가 전달되지 않았습니다. 다시 시도해 주세요.');
-        return;
-      }
-
-      const decodedCode = decodeURIComponent(code);
-
       try {
-        const { error: exchangeError } = await supabase.auth.exchangeCodeForSession({ code: decodedCode });
+        if (code) {
+          const decodedCode = decodeURIComponent(code);
+          const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(decodedCode);
 
-        if (exchangeError) {
-          setStatus('error');
-          setMessage(exchangeError.message);
-          return;
+          if (exchangeError) {
+            setStatus('error');
+            setMessage(exchangeError.message);
+            return;
+          }
+        } else {
+          const accessToken = hashParams.get('access_token');
+          const refreshToken = hashParams.get('refresh_token');
+
+          if (!accessToken || !refreshToken) {
+            setStatus('error');
+            setMessage('로그인 토큰이 전달되지 않았습니다. 다시 시도해 주세요.');
+            return;
+          }
+
+          const { error: setError } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken
+          });
+
+          if (setError) {
+            setStatus('error');
+            setMessage(setError.message);
+            return;
+          }
         }
 
         sessionStorage.setItem('profileSetupPending', 'true');
         await ensureAuthInitialized();
 
-        setStatus('success');
-        setMessage('로그인이 완료되었습니다. 잠시 후 홈으로 이동합니다.');
+        const cleanUrl = window.location.origin + window.location.pathname;
+        window.history.replaceState({}, document.title, cleanUrl);
 
-        setTimeout(() => {
-          window.location.replace('/');
-        }, 1200);
+        window.location.replace('/');
       } catch (exchangeUnknownError) {
-        console.error('OAuth 세션 교환 실패:', exchangeUnknownError);
+        console.error('OAuth 세션 처리 실패:', exchangeUnknownError);
         setStatus('error');
         setMessage('로그인에 실패했습니다. 다시 시도해 주세요.');
       }
     }
 
-    void exchangeCode();
+    void completeAuth();
   }, []);
 
   const isPending = status === 'pending';
@@ -69,10 +85,8 @@ export default function AuthCallbackPage() {
           }`}>
             {isPending ? (
               <span className="animate-spin text-2xl">⏳</span>
-            ) : isError ? (
-              <span className="text-2xl">⚠️</span>
             ) : (
-              <span className="text-2xl">✅</span>
+              <span className="text-2xl">⚠️</span>
             )}
           </div>
 
