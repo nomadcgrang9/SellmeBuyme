@@ -5,6 +5,27 @@ dotenv.config();
 
 const apiKey = process.env.GEMINI_API_KEY;
 
+// 토큰 사용량 추적
+let tokenUsageStats = {
+  totalPromptTokens: 0,
+  totalCandidatesTokens: 0,
+  totalTokens: 0,
+  apiCalls: 0
+};
+
+export function getTokenUsage() {
+  return { ...tokenUsageStats };
+}
+
+export function resetTokenUsage() {
+  tokenUsageStats = {
+    totalPromptTokens: 0,
+    totalCandidatesTokens: 0,
+    totalTokens: 0,
+    apiCalls: 0
+  };
+}
+
 // 디버깅: API 키 확인
 console.log('🔑 Gemini API Key 로딩 상태:');
 console.log(`  - 키 존재: ${!!apiKey}`);
@@ -63,6 +84,16 @@ ${rawContent}
 
   try {
     const result = await model.generateContent(prompt);
+    
+    // 토큰 사용량 추적
+    const usage = result.response.usageMetadata;
+    if (usage) {
+      tokenUsageStats.totalPromptTokens += usage.promptTokenCount || 0;
+      tokenUsageStats.totalCandidatesTokens += usage.candidatesTokenCount || 0;
+      tokenUsageStats.totalTokens += usage.totalTokenCount || 0;
+      tokenUsageStats.apiCalls += 1;
+    }
+    
     const text = result.response.text();
     const jsonMatch = text.match(/\{[\s\S]*\}/);
 
@@ -85,8 +116,8 @@ if (apiKey === 'YOUR_GEMINI_API_KEY_HERE') {
 }
 
 const genAI = new GoogleGenerativeAI(apiKey);
-const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
-const visionModel = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-lite' });
+const visionModel = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-lite' });
 
 console.log('✅ Gemini 2.0 Flash 모델 초기화 완료\n');
 
@@ -98,6 +129,7 @@ export async function normalizeJobData(rawData, sourceName) {
 다음 교육청 구인 공고 데이터를 분석하여 JSON으로 정규화해주세요.
 
 원본 데이터:
+- 출처: ${sourceName}
 - 제목: ${rawData.title}
 - 날짜: ${rawData.date}
 - 링크: ${rawData.link}
@@ -130,12 +162,25 @@ ${rawData.detailContent}
    - 정보 없으면 → "협의"
 5. **deadline**: 본문에서 "접수기간", "마감일", "~까지" 등 키워드로 날짜 추출 (YYYY-MM-DD 형식)
 6. **tags**: 2-5개 (과목명, 학교급, 특징 등)
-7. **location**: "성남 분당구" 형식 (본문에서 학교 주소 추출)
+7. **location**: 
+   - 본문에서 학교 주소 추출 (예: "의정부시 녹양로 123" → "의정부")
+   - 주소 없으면 출처명에서 추출 (예: "${sourceName}" → "${sourceName.replace('교육지원청', '').replace('교육청', '')}")
+   - 정보 없으면 → "미상"
 8. **is_urgent**: "긴급", "시급" 키워드 있으면 true
 `;
 
   try {
     const result = await model.generateContent(prompt);
+    
+    // 토큰 사용량 추적
+    const usage = result.response.usageMetadata;
+    if (usage) {
+      tokenUsageStats.totalPromptTokens += usage.promptTokenCount || 0;
+      tokenUsageStats.totalCandidatesTokens += usage.candidatesTokenCount || 0;
+      tokenUsageStats.totalTokens += usage.totalTokenCount || 0;
+      tokenUsageStats.apiCalls += 1;
+    }
+    
     const text = result.response.text();
     
     // JSON 추출 (마크다운 코드블록 제거)
@@ -224,6 +269,15 @@ export async function analyzePageScreenshot(imageBase64) {
       },
     ]);
 
+    // 토큰 사용량 추적
+    const usage = result.response.usageMetadata;
+    if (usage) {
+      tokenUsageStats.totalPromptTokens += usage.promptTokenCount || 0;
+      tokenUsageStats.totalCandidatesTokens += usage.candidatesTokenCount || 0;
+      tokenUsageStats.totalTokens += usage.totalTokenCount || 0;
+      tokenUsageStats.apiCalls += 1;
+    }
+
     const text = result.response.text();
     
     // JSON 추출 (마크다운 코드블록 제거)
@@ -271,6 +325,16 @@ ${JSON.stringify(jobData, null, 2)}
 
   try {
     const result = await model.generateContent(prompt);
+    
+    // 토큰 사용량 추적
+    const usage = result.response.usageMetadata;
+    if (usage) {
+      tokenUsageStats.totalPromptTokens += usage.promptTokenCount || 0;
+      tokenUsageStats.totalCandidatesTokens += usage.candidatesTokenCount || 0;
+      tokenUsageStats.totalTokens += usage.totalTokenCount || 0;
+      tokenUsageStats.apiCalls += 1;
+    }
+    
     const text = result.response.text();
     
     const jsonMatch = text.match(/\{[\s\S]*\}/);

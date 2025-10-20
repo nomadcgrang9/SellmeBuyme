@@ -22,6 +22,7 @@ export default function CrawlBoardList({ onCreate, onEdit, onLogs, refreshToken 
   const [error, setError] = useState<string | null>(null);
   const [savingBoardId, setSavingBoardId] = useState<string | null>(null);
   const [runningBoardId, setRunningBoardId] = useState<string | null>(null);
+  const [expandedBoardIds, setExpandedBoardIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     void loadBoards();
@@ -33,6 +34,15 @@ export default function CrawlBoardList({ onCreate, onEdit, onLogs, refreshToken 
     try {
       const data = await fetchCrawlBoards();
       setBoards(data);
+      setExpandedBoardIds((prev) => {
+        const next = new Set<string>();
+        data.forEach((board) => {
+          if (prev.has(board.id)) {
+            next.add(board.id);
+          }
+        });
+        return next;
+      });
     } catch (err) {
       console.error(err);
       setError('게시판 목록을 불러오지 못했습니다.');
@@ -93,12 +103,23 @@ export default function CrawlBoardList({ onCreate, onEdit, onLogs, refreshToken 
     }
   };
 
+  const toggleBoardExpansion = (id: string) => {
+    setExpandedBoardIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-semibold text-gray-900">크롤링 게시판 목록</h2>
-          <p className="text-sm text-gray-500">등록된 게시판을 확인하고 관리할 수 있습니다.</p>
         </div>
         <button
           onClick={onCreate}
@@ -126,15 +147,25 @@ export default function CrawlBoardList({ onCreate, onEdit, onLogs, refreshToken 
               className="rounded-lg border border-gray-200 bg-white px-5 py-4 shadow-sm"
             >
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-base font-semibold text-gray-900">{board.name}</span>
-                    <span className="text-xs text-gray-400">{board.boardUrl}</span>
-                  </div>
-                  <div className="mt-1 flex flex-wrap gap-2 text-xs text-gray-500">
-                    <span>상태: {board.status}</span>
-                    <span>활성화: {board.isActive ? '사용' : '중지'}</span>
-                    <span>최근 성공: {board.lastSuccessAt ? new Date(board.lastSuccessAt).toLocaleString() : '-'}</span>
+                <div className="flex items-start gap-3">
+                  <button
+                    onClick={() => toggleBoardExpansion(board.id)}
+                    className="mt-0.5 rounded-md border border-gray-200 p-1 text-xs text-gray-600 hover:border-primary hover:text-primary"
+                    aria-expanded={expandedBoardIds.has(board.id)}
+                    aria-label={`${board.name} ${expandedBoardIds.has(board.id) ? '접기' : '펼치기'}`}
+                  >
+                    {expandedBoardIds.has(board.id) ? '−' : '+'}
+                  </button>
+                  <div className="flex flex-col">
+                    <div className="flex items-center gap-2">
+                      <span className="text-base font-semibold text-gray-900">{board.name}</span>
+                      <span className="text-xs text-gray-400">{board.boardUrl}</span>
+                    </div>
+                    <div className="mt-1 flex flex-wrap gap-2 text-xs text-gray-500">
+                      <span>상태: {board.status}</span>
+                      <span>활성화: {board.isActive ? '사용' : '중지'}</span>
+                      <span>최근 성공: {board.lastSuccessAt ? new Date(board.lastSuccessAt).toLocaleString() : '-'}</span>
+                    </div>
                   </div>
                 </div>
 
@@ -174,20 +205,21 @@ export default function CrawlBoardList({ onCreate, onEdit, onLogs, refreshToken 
                   </button>
                 </div>
               </div>
+              {expandedBoardIds.has(board.id) && (
+                <div className="mt-4 grid gap-4 md:grid-cols-2">
+                  <CrawlBatchSizeInput
+                    value={board.crawlBatchSize}
+                    onChange={(value) => void handleBatchSizeChange(board, value)}
+                    disabled={savingBoardId === board.id}
+                  />
 
-              <div className="mt-4 grid gap-4 md:grid-cols-2">
-                <CrawlBatchSizeInput
-                  value={board.crawlBatchSize}
-                  onChange={(value) => void handleBatchSizeChange(board, value)}
-                  disabled={savingBoardId === board.id}
-                />
-
-                <div className="flex flex-col gap-2 text-xs text-gray-500">
-                  <span>마지막 크롤링: {board.lastCrawledAt ? new Date(board.lastCrawledAt).toLocaleString() : '-'}</span>
-                  <span>연속 실패 횟수: {board.errorCount}</span>
-                  {board.errorMessage && <span className="text-red-500">최근 오류: {board.errorMessage}</span>}
+                  <div className="flex flex-col gap-2 text-xs text-gray-500">
+                    <span>마지막 크롤링: {board.lastCrawledAt ? new Date(board.lastCrawledAt).toLocaleString() : '-'}</span>
+                    <span>연속 실패 횟수: {board.errorCount}</span>
+                    {board.errorMessage && <span className="text-red-500">최근 오류: {board.errorMessage}</span>}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           ))}
         </div>

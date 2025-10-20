@@ -18,6 +18,14 @@
 - **중복 공고 갱신**: `crawler/lib/supabase.js`에서 기존 `source_url` 레코드를 찾아 업데이트(♻️)하여 첨부파일 등 필드 변경 사항이 반영되도록 수정.
 - **환경 변수**: Vite 런타임에서도 Supabase 초기화가 가능하도록 `.env`에 `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`를 명시.
 
+-### 추가 업데이트 (2025-10-19)
+- **첨부 다운로드 Edge Function**: `supabase/functions/download-attachment/index.ts`를 통해 `Content-Disposition`을 제어하여 `"<학교명> 공고문.hwp"` 형식으로 파일을 내려받도록 정리. `crawler/index.js`는 `buildAttachmentDownloadUrl()`을 사용해 Edge Function 경유 URL을 저장함.
+- **데이터 마이그레이션 스크립트**: 기존 레코드의 `attachment_url`을 일괄 변환하기 위해 `crawler/migrate-attachment-urls.js`를 작성. Supabase `service_role` 키 기반 업데이트를 수행하며, 크롤링 데이터 정합성을 유지함.
+- **RLS 고려사항**: `job_postings` 테이블에 Row Level Security가 적용되어 있으므로 배치 스크립트에서는 `SUPABASE_SERVICE_ROLE_KEY`를 사용해야 하며, anon 키로 업데이트하려면 별도 RLS 정책을 열어야 함.
+- **크롤 배치 사이즈 상향**: `getOrCreateCrawlSource()`가 `crawl_boards.crawl_batch_size` 기본값을 10으로 사용하고, `crawler/index.js` 기본값도 10으로 통일하여 게시판당 10건까지 처리.
+- **중복 공고 AI 스킵**: `crawler/index.js`에서 기존 공고가 있으며 첨부 갱신 필요가 없으면 `skippedCount++` 후 즉시 `continue`하여 Gemini Vision/정규화/검증 호출을 생략.
+- **토큰 사용량 추적**: `crawler/lib/gemini.js`에 세션별 토큰 누계(`apiCalls`, `totalPromptTokens`, `totalCandidatesTokens`, `totalTokens`)를 기록하는 헬퍼를 추가하고, 크롤 종료 시 콘솔로 요약.
+
 ## 📊 현재 상태
 
 ### 프론트엔드

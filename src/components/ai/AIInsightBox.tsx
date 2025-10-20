@@ -117,8 +117,7 @@ export default function AIInsightBox({
           </div>
           <h3 className="text-sm font-bold mb-0.5">{currentBannerData.title}</h3>
           <p className="text-xs opacity-90 mb-2">{currentBannerData.description}</p>
-          <div className="flex items-center gap-1 text-[11px] font-medium">
-            <span>자세히 보기</span>
+          <div className="flex items-center justify-end">
             <IconChevronRight size={14} stroke={2} />
           </div>
         </div>

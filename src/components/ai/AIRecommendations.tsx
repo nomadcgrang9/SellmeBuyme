@@ -33,8 +33,20 @@ export default function AIRecommendations({ cards, userName = '방문자' }: AIR
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  const primaryCard = cards[0];
+  const displayCards = cards.slice(0, 2);
+  const totalItems = displayCards.length + 1;
+  const maxIndex = Math.max(totalItems - visibleCount, 0);
+  const promoImageSrc = '/picture/section%20right%20ad.png';
+
+  useEffect(() => {
+    if (currentIndex > maxIndex) {
+      setCurrentIndex(maxIndex);
+    }
+  }, [currentIndex, maxIndex]);
+
   const canGoLeft = currentIndex > 0;
-  const canGoRight = currentIndex < cards.length - visibleCount;
+  const canGoRight = currentIndex < maxIndex;
 
   const handlePrev = () => {
     if (canGoLeft) {
@@ -47,8 +59,6 @@ export default function AIRecommendations({ cards, userName = '방문자' }: AIR
       setCurrentIndex(currentIndex + 1);
     }
   };
-
-  const primaryCard = cards[0];
 
   const getAiComment = () => {
     if (!primaryCard) {
@@ -86,15 +96,15 @@ export default function AIRecommendations({ cards, userName = '방문자' }: AIR
   const { headline, description } = getAiComment();
 
   return (
-    <section className="bg-gradient-to-b from-[#f0f6fa] to-gray-50 pt-4 pb-1">
+    <section className="bg-gradient-to-b from-[#f4f5f7] via-[#eef0f2] to-[#e2e4e7] pt-2 pb-6">
       <div className="max-w-container mx-auto px-6">
         {/* 섹션 헤더 */}
-        <div className="flex items-center gap-2 mb-4">
+        <div className="flex items-center gap-2 mb-2">
           <IconSparkles size={18} stroke={1.5} className="text-primary" />
           <h2 className="text-base font-bold text-gray-900">셀바 AI</h2>
         </div>
 
-        <div className="flex flex-col gap-3.5 lg:flex-row lg:items-stretch lg:h-[260px]">
+        <div className="flex flex-col gap-2.5 lg:flex-row lg:items-stretch lg:h-[260px]">
           {/* 좌측 탭메뉴: AI 코멘트 */}
           <aside className="flex min-h-[200px] flex-col justify-between rounded-2xl border-2 border-indigo-200 bg-gradient-to-br from-indigo-100 via-blue-50 to-white p-4 shadow-md shrink-0 lg:h-full lg:w-[220px] lg:min-w-[220px] lg:max-w-[240px]">
             <div className="space-y-2.5 flex-1">
@@ -158,7 +168,7 @@ export default function AIRecommendations({ cards, userName = '방문자' }: AIR
                   transform: `translateX(-${currentIndex * (100 / visibleCount)}%)`
                 }}
               >
-                {cards.map((card) => (
+                {displayCards.map((card) => (
                   <div 
                     key={card.id}
                     className="flex-shrink-0"
@@ -174,6 +184,30 @@ export default function AIRecommendations({ cards, userName = '방문자' }: AIR
                     )}
                   </div>
                 ))}
+                <div
+                  key="promo-card"
+                  className="flex-shrink-0"
+                  style={{
+                    width: `calc((100% - ${(visibleCount - 1) * 14}px) / ${visibleCount})`,
+                    height: '100%'
+                  }}
+                >
+                  <div className="card-interactive flex h-full items-center justify-center overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
+                    <div className="flex h-full w-full flex-col items-center gap-4 px-4 py-6 text-center">
+                      <h3 className="text-base font-semibold text-gray-900 leading-tight">
+                        셀바, 학교와 교육자원을<br />연결하겠습니다
+                      </h3>
+                      <div className="flex flex-1 items-center justify-center w-full">
+                        <img
+                          src={promoImageSrc}
+                          alt="셀바 소개"
+                          className="w-[95%] max-w-[240px] h-full max-h-[190px] object-contain"
+                          draggable={false}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 

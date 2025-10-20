@@ -21,6 +21,10 @@
 - **첨부 다운로드 흐름**: 카드 호버 슬라이드에서는 `원문링크`·`상세보기` 버튼만 유지하고, `공고문 다운로드`는 `JobDetailModal` 내 버튼으로 일원화.
 - **Supabase 환경 변수**: `.env`에 `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` 추가하여 Vite 런타임에서 `src/lib/supabase/client.ts` 초기화 보장.
 
+### 추가 업데이트 (2025-10-19)
+- **첨부 다운로드 안정화**: `JobDetailModal`의 `공고문 다운로드` 버튼이 Supabase Edge Function 경유 URL(`attachment_url`)을 사용하도록 문서화. 마이그레이션 이후 다운로드 파일명이 `"<학교명> 공고문.hwp"` 형식으로 일관되게 노출됨.
+- **크롤러 상태 표시 계획**: 관리자 UI에서 게시판별 `crawl_batch_size` 및 최근 토큰 사용량 요약을 노출할 준비를 위해 크롤링 메타데이터 섹션 추가 예정.
+
 ## 📋 목차
 1. [페이지 레이아웃 구조](#페이지-레이아웃-구조)
 2. [1. 헤더 (Header)](#1-헤더-header)

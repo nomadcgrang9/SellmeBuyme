@@ -22,7 +22,7 @@ const DEFAULT_LIMIT = 20;
 export const useSearchStore = create<SearchStoreState>((set) => ({
   searchQuery: '',
   filters: { ...defaultFilters },
-  viewType: 'job',
+  viewType: 'all',
   limit: DEFAULT_LIMIT,
   offset: 0,
   lastUpdatedAt: Date.now(),
@@ -52,7 +52,7 @@ export const useSearchStore = create<SearchStoreState>((set) => ({
   resetAll: () => set({
     searchQuery: '',
     filters: { ...defaultFilters },
-    viewType: 'job',
+    viewType: 'all',
     limit: DEFAULT_LIMIT,
     offset: 0,
     lastUpdatedAt: Date.now()

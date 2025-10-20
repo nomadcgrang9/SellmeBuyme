@@ -1,6 +1,6 @@
 'use client';
 
-import { IconSearch, IconUser } from '@tabler/icons-react';
+import { IconSearch } from '@tabler/icons-react';
 import { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -10,6 +10,8 @@ import {
 } from '@/lib/constants/filters';
 import { useDebounce } from '@/lib/hooks/useDebounce';
 import { useSearchStore } from '@/stores/searchStore';
+import SocialSignupModal, { type AuthProvider } from '@/components/auth/SocialSignupModal';
+import { supabase } from '@/lib/supabase/client';
 import type {
   CategoryOption,
   RegionOption,
@@ -19,29 +21,35 @@ import type {
 
 type FilterKey = 'region' | 'category' | 'sort';
 
-const toggleOrder: ViewType[] = ['job', 'talent', 'experience'];
+const toggleOrder: ViewType[] = ['all', 'job', 'talent', 'experience'];
 
 const toggleLabelMap: Record<ViewType, string> = {
+  all: '모두보기',
   job: '공고',
   talent: '인력',
   experience: '체험'
 };
 
 const activeColorMap: Record<ViewType, string> = {
+  all: 'bg-gray-500',
   job: 'bg-[#7aa3cc]',
   talent: 'bg-[#7db8a3]',
   experience: 'bg-[#f4c96b]'
 };
 
-const slidePositionMap: Record<ViewType, number> = {
-  job: 2,
-  talent: 22,
-  experience: 42
+// 슬라이더 위치: 토글 너비 76px (좌측 여백 2px, 이동 범위 0~52)
+const sliderTranslateMap: Record<ViewType, number> = {
+  all: 26,
+  job: 0,
+  talent: 26,
+  experience: 52
 };
 
 export default function Header() {
   const [openFilter, setOpenFilter] = useState<FilterKey | null>(null);
   const [localSearchQuery, setLocalSearchQuery] = useState('');
+  const [isSocialSignupOpen, setIsSocialSignupOpen] = useState(false);
+  const [loadingProvider, setLoadingProvider] = useState<AuthProvider | null>(null);
   const debouncedSearchQuery = useDebounce(localSearchQuery, 500);
   const {
     searchQuery,
@@ -105,6 +113,38 @@ export default function Header() {
 
   const sortOptions = useMemo(() => Array.from(SORT_OPTIONS), []);
 
+  const handleLoginClick = () => {
+    // TODO: 이메일/비밀번호 로그인 모달 연동
+    console.info('로그인 기능은 추후 구현 예정입니다.');
+  };
+
+  const handleSignupClick = () => {
+    setIsSocialSignupOpen(true);
+  };
+
+  const handleSelectProvider = async (provider: AuthProvider) => {
+    try {
+      setLoadingProvider(provider);
+      const redirectTo = `${window.location.origin}/auth/callback`;
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: {
+          redirectTo,
+          queryParams: provider === 'kakao' ? { prompt: 'login' } : undefined
+        } as Record<string, unknown>
+      });
+
+      if (error) {
+        console.error('소셜 로그인 오류:', error.message);
+      }
+    } catch (error) {
+      console.error('소셜 로그인 처리 중 오류:', error);
+    } finally {
+      setLoadingProvider(null);
+      setIsSocialSignupOpen(false);
+    }
+  };
+
   return (
     <header className="sticky top-0 z-50 bg-white border-b border-gray-200 font-esamanru">
       <div className="max-w-container mx-auto px-6 py-2.5">
@@ -118,23 +158,41 @@ export default function Header() {
             <button
               onClick={handleToggle}
               title={`${toggleLabelMap[toggleOrder[(toggleOrder.indexOf(viewType) + 1) % toggleOrder.length]]} 보기`}
-              className="relative w-16 h-6 bg-gray-300 rounded-full transition-all duration-300 hover:bg-gray-400"
+              className={`relative w-[76px] h-6 rounded-full overflow-hidden transition-colors duration-300 flex items-center justify-center ${
+                viewType === 'all' ? 'bg-gray-500 hover:bg-gray-600' : 'bg-gray-300 hover:bg-gray-400'
+              }`}
             >
+              <span
+                className={`absolute inset-0 flex items-center justify-center text-[9px] font-bold text-white leading-none pointer-events-none select-none transition-opacity duration-200 ${
+                  viewType === 'all' ? 'opacity-100' : 'opacity-0'
+                }`}
+              >
+                모두보기
+              </span>
+
               <motion.div
-                className={`absolute top-0.5 w-5 h-5 rounded-full transition-colors duration-300 flex items-center justify-center ${
+                className={`absolute top-0.5 w-5 h-5 rounded-full flex items-center justify-center pointer-events-none ${
                   activeColorMap[viewType]
                 }`}
+                initial={false}
                 animate={{
-                  x: slidePositionMap[viewType]
+                  x: sliderTranslateMap[viewType],
+                  opacity: viewType === 'all' ? 0 : 1,
+                  scale: viewType === 'all' ? 0.8 : 1
                 }}
+                style={{ left: '2px' }}
                 transition={{
                   type: 'spring',
-                  stiffness: 500,
-                  damping: 30
+                  stiffness: 340,
+                  damping: 28
                 }}
               >
-                <span className="text-[8px] font-semibold text-white leading-none pointer-events-none select-none">
-                  {toggleLabelMap[viewType]}
+                <span
+                  className={`text-[8px] font-semibold text-white leading-none pointer-events-none select-none transition-opacity duration-150 ${
+                    viewType === 'all' ? 'opacity-0' : 'opacity-100'
+                  }`}
+                >
+                  {viewType === 'all' ? '' : toggleLabelMap[viewType]}
                 </span>
               </motion.div>
             </button>
@@ -312,11 +370,21 @@ export default function Header() {
             </div>
           </div>
 
-          {/* 우측 로그인 버튼 */}
-          <div className="flex gap-2 shrink-0">
-            <button className="btn-interactive flex items-center gap-1.5 h-9 px-4 text-sm font-medium border border-gray-300 rounded-md whitespace-nowrap hover:bg-gray-50">
-              <IconUser size={16} stroke={1.5} />
-              <span>로그인</span>
+          {/* 우측 인증 버튼 */}
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={handleLoginClick}
+              className="h-9 px-4 text-sm font-semibold text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+            >
+              로그인
+            </button>
+            <button
+              type="button"
+              onClick={handleSignupClick}
+              className="h-9 px-4 text-sm font-semibold text-white rounded-md bg-gradient-to-r from-[#7aa3cc] to-[#5f89b4] shadow-sm hover:from-[#6b95be] hover:to-[#517aa5] transition-colors"
+            >
+              회원가입
             </button>
           </div>
         </div>
@@ -329,6 +397,17 @@ export default function Header() {
           onClick={() => setOpenFilter(null)}
         />
       )}
+
+      <SocialSignupModal
+        isOpen={isSocialSignupOpen}
+        onClose={() => {
+          if (!loadingProvider) {
+            setIsSocialSignupOpen(false);
+          }
+        }}
+        onSelectProvider={handleSelectProvider}
+        loadingProvider={loadingProvider}
+      />
     </header>
   );
 }
