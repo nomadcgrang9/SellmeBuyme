@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase/client';
 import { ensureAuthInitialized } from '@/stores/authStore';
+import { fetchUserProfile } from '@/lib/supabase/profiles';
 
 export default function AuthCallbackPage() {
   const [status, setStatus] = useState<'pending' | 'error'>('pending');
@@ -56,7 +57,28 @@ export default function AuthCallbackPage() {
           }
         }
 
-        sessionStorage.setItem('profileSetupPending', 'true');
+        const { data: userData, error: userError } = await supabase.auth.getUser();
+
+        if (userError || !userData?.user) {
+          console.error('로그인 사용자 정보를 불러오지 못했습니다:', userError?.message);
+          setStatus('error');
+          setMessage('로그인한 사용자 정보를 확인할 수 없습니다. 다시 시도해 주세요.');
+          return;
+        }
+
+        const userId = userData.user.id;
+        const { data: profileData, error: profileError } = await fetchUserProfile(userId);
+
+        if (profileError) {
+          console.error('프로필 조회 실패:', profileError.message);
+        }
+
+        if (profileData) {
+          sessionStorage.removeItem('profileSetupPending');
+        } else {
+          sessionStorage.setItem('profileSetupPending', 'true');
+        }
+
         await ensureAuthInitialized();
 
         const cleanUrl = window.location.origin + window.location.pathname;

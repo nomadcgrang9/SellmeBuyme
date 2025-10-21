@@ -10,6 +10,11 @@
 - **디버깅 코드 정리**: AIRecommendations.tsx의 레이아웃 디버깅 코드 제거
 - **구버전 컴포넌트 삭제**: SelvaAISection.tsx 제거 (AIRecommendations.tsx로 통합)
 
+### 추가 업데이트 (2025-10-21)
+- **로그인 버튼 동작**: `Header.tsx`의 `로그인` 버튼이 `SocialSignupModal`을 로그인 모드로 열어 구글 OAuth를 즉시 호출하고, 인증 후 `/auth/callback`으로 리다이렉트.
+- **프로필 모달 조건**: `App.tsx`가 인증 완료 후 `fetchUserProfile()`을 호출해 신규 회원만 `ProfileSetupModal`을 띄우고, 기존 회원은 바로 프로필 버튼을 사용할 수 있도록 변경.
+- **프로필 보기 모달 안정화**: `ProfileViewModal.tsx`가 동일한 `user_profiles` 데이터를 사용해 로그인 상태에서 항상 일관된 프로필 정보를 표시.
+
 ### 추가 업데이트 (2025-10-18)
 - **검색 스토어 연동**: `Header.tsx`가 Zustand 스토어를 통해 검색어·필터·토글을 즉시 반영하고, 입력 디바운스 및 Enter 키 검색을 지원하도록 개선.
 - **무한 스크롤 전환**: `App.tsx`에 `IntersectionObserver` 기반 페이징을 도입해 “더 보기” 버튼 없이 자동 로딩 및 마지막 페이지 안내 UI를 제공.

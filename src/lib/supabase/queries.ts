@@ -235,16 +235,21 @@ async function logSearchEvent(payload: SearchLogPayload): Promise<void> {
   if (!ENABLE_SEARCH_LOGGING) return;
 
   try {
-    const { error } = await supabase.from('search_logs').insert({
+    const row: Record<string, unknown> = {
       search_query: payload.searchQuery,
       tokens: payload.tokens,
       view_type: payload.viewType,
       filters: payload.filters,
       result_count: payload.resultCount,
-      duration_ms: Math.round(payload.durationMs),
       is_error: payload.isError,
-      error_message: payload.errorMessage ?? null,
-    });
+      error_message: payload.errorMessage ?? null
+    };
+
+    if (!Number.isNaN(payload.durationMs)) {
+      row.duration_ms = Math.round(payload.durationMs);
+    }
+
+    const { error } = await supabase.from('search_logs').insert(row);
 
     if (error) {
       console.error('검색 로그 저장 실패:', error);
