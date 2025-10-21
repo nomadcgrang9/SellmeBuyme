@@ -11,6 +11,11 @@
 - **환경 변수**: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`
 - **DB 스키마**: `job_postings` 테이블에 `structured_content` (JSONB) 추가로 구조화된 공고 정보 저장
 
+### 추가 업데이트 (2025-10-21)
+- **OAuth 로그인 연동**: Supabase `user_profiles` 테이블과 직접 연동하도록 `fetchUserProfile()`/`upsertUserProfile()`을 수정해 OAuth 인증 뒤 기존 회원을 즉시 식별.
+- **프로필 상태 동기화**: `/auth/callback` 및 `App.tsx`에서 로그인 후 `user_profiles`를 조회해 신규 회원만 `ProfileSetupModal`을 보도록 조정.
+- **검색 로그 호환성**: Supabase `search_logs` 스키마 변경에 대응하여 `duration_ms` 칼럼이 없을 때도 에러 없이 기록하도록 로깅 로직 완화.
+
 ### 추가 업데이트 (2025-10-18)
 - **검색 로그 테이블 도입**: `supabase/migrations/20250120_search_logging_and_trgm.sql`에 `search_logs` 테이블을 추가해 검색어·토큰·필터·응답 수·소요 시간·에러 여부를 기록.
 - **검색 인덱스 성능 개선**: 동일 마이그레이션에서 `job_postings.title`, `job_postings.organization`, `job_postings.location`, `talents.name`, `talents.specialty` 컬럼에 `pg_trgm` GIN 인덱스를 생성해 `ILIKE` 기반 검색 성능을 향상.

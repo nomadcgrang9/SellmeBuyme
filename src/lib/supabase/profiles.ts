@@ -3,16 +3,16 @@ import { supabase } from './client';
 
 export type UserProfileRow = {
   user_id: string;
-  display_name: string;
-  roles: string[];
+  display_name: string | null;
+  roles: string[] | null;
   primary_region: string | null;
-  interest_regions: string[];
+  interest_regions: string[] | null;
   experience_years: number | null;
-  receive_notifications: boolean;
+  receive_notifications: boolean | null;
   intro: string | null;
-  agree_terms: boolean;
-  agree_privacy: boolean;
-  agree_marketing: boolean;
+  agree_terms: boolean | null;
+  agree_privacy: boolean | null;
+  agree_marketing: boolean | null;
   created_at: string;
   updated_at: string;
 };

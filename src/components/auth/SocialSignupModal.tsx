@@ -7,11 +7,14 @@ import {
   IconMessageCircle
 } from '@tabler/icons-react';
 
-type AuthProvider = 'google' | 'kakao';
+export type AuthProvider = 'google' | 'kakao';
 
 type ProviderConfig = {
   id: AuthProvider;
-  label: string;
+  labels: {
+    signup: string;
+    login: string;
+  };
   description: string;
   accent: string;
   icon: typeof IconBrandGoogle;
@@ -20,14 +23,20 @@ type ProviderConfig = {
 const providerConfigs: ProviderConfig[] = [
   {
     id: 'google',
-    label: '구글로 가입하기',
+    labels: {
+      signup: '구글로 가입하기',
+      login: '구글로 로그인하기'
+    },
     description: 'Google 계정으로 빠르게 가입하세요.',
     accent: 'bg-[#F4F8FF] text-[#1A73E8]',
     icon: IconBrandGoogle
   },
   {
     id: 'kakao',
-    label: '카카오톡으로 가입하기',
+    labels: {
+      signup: '카카오톡으로 가입하기',
+      login: '카카오톡으로 로그인하기'
+    },
     description: 'Kakao 계정과 연동하여 이용하세요.',
     accent: 'bg-[#FFF4D6] text-[#3C1E1E]',
     icon: IconMessageCircle
@@ -39,14 +48,33 @@ interface SocialSignupModalProps {
   onClose: () => void;
   onSelectProvider: (provider: AuthProvider) => void;
   loadingProvider?: AuthProvider | null;
+  mode?: 'signup' | 'login';
 }
 
 export default function SocialSignupModal({
   isOpen,
   onClose,
   onSelectProvider,
-  loadingProvider = null
+  loadingProvider = null,
+  mode = 'signup'
 }: SocialSignupModalProps) {
+  const titleByMode = {
+    signup: '셀미바이미 회원가입',
+    login: '셀미바이미 로그인'
+  } as const;
+  const subtitleByMode = {
+    signup: '원하는 서비스로 인증을 진행하세요.',
+    login: '연동된 소셜 계정으로 로그인하세요.'
+  } as const;
+  const footerMessageByMode = {
+    signup: '소셜 계정 인증 후 프로필 정보를 추가로 입력하게 됩니다.',
+    login: '연결된 계정으로 로그인하면 내 정보를 불러옵니다.'
+  } as const;
+
+  const availableProviderConfigs = mode === 'login'
+    ? providerConfigs.filter(({ id }) => id === 'google')
+    : providerConfigs;
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -67,8 +95,8 @@ export default function SocialSignupModal({
           >
             <header className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-gray-100">
               <div>
-                <h2 className="text-lg font-extrabold text-gray-900">셀미바이미 회원가입</h2>
-                <p className="mt-1 text-xs text-gray-500">원하는 서비스로 인증을 진행하세요.</p>
+                <h2 className="text-lg font-extrabold text-gray-900">{titleByMode[mode]}</h2>
+                <p className="mt-1 text-xs text-gray-500">{subtitleByMode[mode]}</p>
               </div>
               <button
                 type="button"
@@ -81,7 +109,7 @@ export default function SocialSignupModal({
             </header>
 
             <div className="px-5 pb-6 pt-4 space-y-3">
-              {providerConfigs.map(({ id, label, description, icon: Icon, accent }) => {
+              {availableProviderConfigs.map(({ id, labels, description, icon: Icon, accent }) => {
                 const isLoading = loadingProvider === id;
                 return (
                   <button
@@ -97,7 +125,7 @@ export default function SocialSignupModal({
                       <Icon size={22} stroke={1.8} />
                     </span>
                     <span className="flex-1">
-                      <span className="block text-sm font-semibold text-gray-900">{label}</span>
+                      <span className="block text-sm font-semibold text-gray-900">{labels[mode]}</span>
                       <span className="mt-1 block text-xs text-gray-500">{description}</span>
                     </span>
                     {isLoading && (
@@ -109,7 +137,7 @@ export default function SocialSignupModal({
             </div>
 
             <footer className="px-5 pb-5 text-center text-[11px] text-gray-400">
-              소셜 계정 인증 후 프로필 정보를 추가로 입력하게 됩니다.
+              {footerMessageByMode[mode]}
             </footer>
           </motion.div>
         </motion.div>
@@ -117,5 +145,3 @@ export default function SocialSignupModal({
     </AnimatePresence>
   );
 }
-
-export type { AuthProvider };

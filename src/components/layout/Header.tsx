@@ -50,7 +50,8 @@ const sliderTranslateMap: Record<ViewType, number> = {
 export default function Header() {
   const [openFilter, setOpenFilter] = useState<FilterKey | null>(null);
   const [localSearchQuery, setLocalSearchQuery] = useState('');
-  const [isSocialSignupOpen, setIsSocialSignupOpen] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authModalMode, setAuthModalMode] = useState<'signup' | 'login'>('signup');
   const [loadingProvider, setLoadingProvider] = useState<AuthProvider | null>(null);
   const [isProfileViewOpen, setProfileViewOpen] = useState(false);
   const { status, user } = useAuthStore((state) => ({
@@ -121,12 +122,13 @@ export default function Header() {
   const sortOptions = useMemo(() => Array.from(SORT_OPTIONS), []);
 
   const handleLoginClick = () => {
-    // TODO: 이메일/비밀번호 로그인 모달 연동
-    console.info('로그인 기능은 추후 구현 예정입니다.');
+    setAuthModalMode('login');
+    setIsAuthModalOpen(true);
   };
 
   const handleSignupClick = () => {
-    setIsSocialSignupOpen(true);
+    setAuthModalMode('signup');
+    setIsAuthModalOpen(true);
   };
 
   const handleSelectProvider = async (provider: AuthProvider) => {
@@ -148,7 +150,7 @@ export default function Header() {
       console.error('소셜 로그인 처리 중 오류:', error);
     } finally {
       setLoadingProvider(null);
-      setIsSocialSignupOpen(false);
+      setIsAuthModalOpen(false);
     }
   };
 
@@ -421,14 +423,15 @@ export default function Header() {
       )}
 
       <SocialSignupModal
-        isOpen={isSocialSignupOpen}
+        isOpen={isAuthModalOpen}
         onClose={() => {
           if (!loadingProvider) {
-            setIsSocialSignupOpen(false);
+            setIsAuthModalOpen(false);
           }
         }}
         onSelectProvider={handleSelectProvider}
         loadingProvider={loadingProvider}
+        mode={authModalMode}
       />
 
       <ProfileViewModal

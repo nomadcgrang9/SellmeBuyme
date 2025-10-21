@@ -6,6 +6,7 @@ import CardGrid from '@/components/cards/CardGrid';
 import ProfileSetupModal from '@/components/auth/ProfileSetupModal';
 import ToastContainer from '@/components/common/ToastContainer';
 import { searchCards, fetchRecommendationsCache } from '@/lib/supabase/queries';
+import { fetchUserProfile } from '@/lib/supabase/profiles';
 import { useSearchStore } from '@/stores/searchStore';
 import { useAuthStore } from '@/stores/authStore';
 import type { Card } from '@/types';
@@ -53,16 +54,46 @@ export default function App() {
   }, [initialize]);
 
   useEffect(() => {
-    if (status === 'authenticated') {
-      const pending = sessionStorage.getItem('profileSetupPending');
-      if (pending === 'true') {
-        setProfileModalOpen(true);
+    if (status !== 'authenticated') {
+      setProfileModalOpen(false);
+      return;
+    }
+
+    if (!user?.id) {
+      return;
+    }
+
+    let cancelled = false;
+
+    async function ensureProfile() {
+      try {
+        const { data, error } = await fetchUserProfile(user.id);
+
+        if (cancelled) return;
+
+        if (error) {
+          console.error('프로필 확인 실패:', error.message);
+        }
+
+        if (data) {
+          sessionStorage.removeItem('profileSetupPending');
+          setProfileModalOpen(false);
+        } else {
+          sessionStorage.setItem('profileSetupPending', 'true');
+          setProfileModalOpen(true);
+        }
+      } catch (profileError) {
+        if (cancelled) return;
+        console.error('프로필 조회 중 예기치 못한 오류:', profileError);
       }
     }
-    if (status === 'unauthenticated') {
-      setProfileModalOpen(false);
-    }
-  }, [status]);
+
+    void ensureProfile();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [status, user?.id]);
 
   const handleProfileClose = () => {
     sessionStorage.removeItem('profileSetupPending');
