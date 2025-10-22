@@ -105,19 +105,16 @@ export default function Header({ onProfileClick }: HeaderProps) {
   };
 
   useEffect(() => {
-    setLocalSearchQuery(searchQuery);
-  }, [searchQuery]);
-
-  useEffect(() => {
-    if (debouncedSearchQuery !== searchQuery) {
+    if (debouncedSearchQuery.length > 0 || searchQuery.length > 0) {
       setSearchQuery(debouncedSearchQuery);
     }
-  }, [debouncedSearchQuery, searchQuery, setSearchQuery]);
+  }, [debouncedSearchQuery, setSearchQuery]);
 
   const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      setSearchQuery(localSearchQuery);
+      setLocalSearchQuery(e.currentTarget.value);
+      setSearchQuery(e.currentTarget.value);
     }
   };
 
@@ -160,7 +157,7 @@ export default function Header({ onProfileClick }: HeaderProps) {
     <header className="sticky top-0 z-50 bg-white border-b border-gray-200 font-esamanru">
       <div className="max-w-container mx-auto px-6 py-2.5">
         {/* 단일 행: 로고 + 토글 + 검색 + 필터 + 버튼 */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 w-full">
           {/* 로고 + 토글 (좌측) */}
           <div className="flex items-center gap-3 shrink-0">
             <h1 className="text-xl font-extrabold text-gray-900" style={{ letterSpacing: '-0.5px' }}>셀미바이미</h1>
@@ -382,7 +379,7 @@ export default function Header({ onProfileClick }: HeaderProps) {
           </div>
 
           {/* 우측 인증 버튼 */}
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-2 shrink-0 ml-auto">
             {status === 'authenticated' && user ? (
               <button
                 type="button"

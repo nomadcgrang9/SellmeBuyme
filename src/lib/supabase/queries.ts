@@ -369,18 +369,10 @@ async function logSearchEvent(payload: SearchLogPayload): Promise<void> {
 
   try {
     const row: Record<string, unknown> = {
-      search_query: payload.searchQuery,
-      tokens: payload.tokens,
-      view_type: payload.viewType,
+      query: payload.searchQuery,
       filters: payload.filters,
-      result_count: payload.resultCount,
-      is_error: payload.isError,
-      error_message: payload.errorMessage ?? null
+      result_count: payload.resultCount
     };
-
-    if (!Number.isNaN(payload.durationMs)) {
-      row.duration_ms = Math.round(payload.durationMs);
-    }
 
     const { error } = await supabase.from('search_logs').insert(row);
 
@@ -543,17 +535,22 @@ function tokenizeSearchQuery(query: string): string[] {
 }
 
 function buildWebsearchExpression(tokens: string[], fallbackQuery: string): string | null {
-  const asciiTokenRegex = /^[a-zA-Z0-9][a-zA-Z0-9_-]*$/;
   const normalizedTokens = tokens
     .map((token) => token.replace(/[&|!:*<>()"\[\]]+/g, '').trim())
-    .filter((token) => asciiTokenRegex.test(token));
+    .filter((token) => token.length > 0);
 
-  if (normalizedTokens.length > 0) {
+  const hasNonAsciiToken = normalizedTokens.some((token) => /[^\u0000-\u007F]/.test(token));
+
+  if (!hasNonAsciiToken && normalizedTokens.length > 0) {
     return normalizedTokens.join(' & ');
   }
 
   const fallback = fallbackQuery.trim();
-  return asciiTokenRegex.test(fallback) ? fallback : null;
+  if (fallback.length > 0 && !/[^\u0000-\u007F]/.test(fallback)) {
+    return fallback;
+  }
+
+  return null;
 }
 
 function sortJobsByRelevance(jobs: any[], tokens: string[], fallbackQuery: string) {
@@ -807,7 +804,8 @@ async function executeJobSearch({
   }
 
   if (hasFilterValue(filters.region, DEFAULT_REGION)) {
-    query = query.ilike('location', buildIlikePattern(filters.region));
+    const regionPattern = buildIlikePattern(filters.region + '시');
+    query = query.ilike('location', regionPattern);
   }
 
   if (hasFilterValue(filters.category, DEFAULT_CATEGORY)) {
@@ -898,7 +896,8 @@ async function executeTalentSearch({
   }
 
   if (hasFilterValue(filters.region, DEFAULT_REGION)) {
-    query = query.contains('location', [filters.region]);
+    const regionPattern = buildIlikePattern(filters.region + '시');
+    query = query.ilike('location', regionPattern);
   }
 
   if (hasFilterValue(filters.category, DEFAULT_CATEGORY)) {
