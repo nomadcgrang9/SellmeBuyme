@@ -3,13 +3,14 @@ import Header from '@/components/layout/Header';
 import AIRecommendations from '@/components/ai/AIRecommendations';
 import AIInsightBox from '@/components/ai/AIInsightBox';
 import CardGrid from '@/components/cards/CardGrid';
-import ProfileSetupModal from '@/components/auth/ProfileSetupModal';
+import ProfileSetupModal, { ROLE_OPTIONS, type RoleOption } from '@/components/auth/ProfileSetupModal';
+import ProfileViewModal from '@/components/auth/ProfileViewModal';
 import ToastContainer from '@/components/common/ToastContainer';
-import { searchCards, fetchRecommendationsCache } from '@/lib/supabase/queries';
-import { fetchUserProfile } from '@/lib/supabase/profiles';
+import { searchCards, fetchRecommendationsCache, fetchPromoCardSettings } from '@/lib/supabase/queries';
+import { fetchUserProfile, type UserProfileRow } from '@/lib/supabase/profiles';
 import { useSearchStore } from '@/stores/searchStore';
 import { useAuthStore } from '@/stores/authStore';
-import type { Card } from '@/types';
+import type { Card, PromoCardSettings } from '@/types';
 
 export default function App() {
   const {
@@ -43,11 +44,26 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const [isProfileModalOpen, setProfileModalOpen] = useState(false);
+  const [isProfileViewOpen, setProfileViewOpen] = useState(false);
+  const [isEditMode, setEditMode] = useState(false);
+  const [profileInitialData, setProfileInitialData] = useState<{
+    displayName: string | null;
+    roles: RoleOption[] | null;
+    primaryRegion: string | null;
+    interestRegions: string[] | null;
+    experienceYears: number | null;
+    receiveNotifications: boolean | null;
+    intro: string | null;
+    agreeTerms: boolean | null;
+    agreePrivacy: boolean | null;
+    agreeMarketing: boolean | null;
+  } | null>(null);
   const [recommendationCards, setRecommendationCards] = useState<Card[]>([]);
   const [recommendationHeadline, setRecommendationHeadline] = useState<string>('추천을 준비 중이에요');
   const [recommendationDescription, setRecommendationDescription] = useState<string>('프로필 정보를 기반으로 맞춤 카드를 정리하고 있습니다.');
-  const [recommendationLoading, setRecommendationLoading] = useState(false);
+  const [recommendationLoading, setRecommendationLoading] = useState(true);
   const [recommendationReloadKey, setRecommendationReloadKey] = useState(0);
+  const [promoCard, setPromoCard] = useState<PromoCardSettings | null>(null);
 
   useEffect(() => {
     void initialize();
@@ -59,15 +75,17 @@ export default function App() {
       return;
     }
 
-    if (!user?.id) {
+    const currentUserId = user?.id;
+
+    if (!currentUserId) {
       return;
     }
 
     let cancelled = false;
 
-    async function ensureProfile() {
+    async function ensureProfile(targetUserId: string) {
       try {
-        const { data, error } = await fetchUserProfile(user.id);
+        const { data, error } = await fetchUserProfile(targetUserId);
 
         if (cancelled) return;
 
@@ -88,7 +106,7 @@ export default function App() {
       }
     }
 
-    void ensureProfile();
+    void ensureProfile(currentUserId);
 
     return () => {
       cancelled = true;
@@ -98,16 +116,77 @@ export default function App() {
   const handleProfileClose = () => {
     sessionStorage.removeItem('profileSetupPending');
     setProfileModalOpen(false);
+    setEditMode(false);
+    setProfileInitialData(null);
   };
 
   const handleProfileComplete = () => {
     sessionStorage.removeItem('profileSetupPending');
     setProfileModalOpen(false);
     setRecommendationReloadKey((prev) => prev + 1);
+    if (isEditMode) {
+      setProfileViewOpen(true);
+    }
+    setEditMode(false);
+  };
+
+  const handleOpenProfileView = () => {
+    if (status !== 'authenticated' || !user?.id) {
+      return;
+    }
+    setProfileViewOpen(true);
+  };
+
+  const normalizeProfileForEdit = (data: UserProfileRow | null | undefined) => {
+    if (!data) {
+      setProfileInitialData(null);
+      return;
+    }
+
+    const roleList = Array.isArray(data.roles)
+      ? data.roles.filter((role): role is RoleOption => ROLE_OPTIONS.includes(role as RoleOption))
+      : [];
+
+    setProfileInitialData({
+      displayName: data.display_name,
+      roles: roleList,
+      primaryRegion: data.primary_region,
+      interestRegions: data.interest_regions,
+      experienceYears: data.experience_years,
+      receiveNotifications: data.receive_notifications,
+      intro: data.intro,
+      agreeTerms: data.agree_terms,
+      agreePrivacy: data.agree_privacy,
+      agreeMarketing: data.agree_marketing
+    });
   };
 
   const userId = user?.id ?? null;
   const userEmail = user?.email ?? null;
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadPromoCard() {
+      try {
+        const data = await fetchPromoCardSettings({ onlyActive: true });
+        if (!cancelled) {
+          setPromoCard(data);
+        }
+      } catch (promoError) {
+        if (!cancelled) {
+          console.error('프로모 카드 불러오기 실패:', promoError);
+          setPromoCard(null);
+        }
+      }
+    }
+
+    void loadPromoCard();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [recommendationReloadKey]);
 
   useEffect(() => {
     if (status !== 'authenticated' || !userId) {
@@ -240,7 +319,7 @@ export default function App() {
     <div className="min-h-screen bg-gray-50">
       <ToastContainer />
       {/* 헤더 */}
-      <Header />
+      <Header onProfileClick={handleOpenProfileView} />
 
       {/* AI 추천 섹션 */}
       <AIRecommendations
@@ -249,6 +328,7 @@ export default function App() {
         loading={recommendationLoading}
         headlineOverride={recommendationHeadline}
         descriptionOverride={recommendationDescription}
+        promoCard={promoCard}
       />
 
       {/* 메인 콘텐츠 */}
@@ -317,6 +397,34 @@ export default function App() {
         onComplete={handleProfileComplete}
         userEmail={user?.email ?? null}
         userId={user?.id}
+        mode={isEditMode ? 'edit' : 'create'}
+        initialData={profileInitialData ?? undefined}
+      />
+      <ProfileViewModal
+        isOpen={isProfileViewOpen}
+        onClose={() => setProfileViewOpen(false)}
+        userId={user?.id}
+        userEmail={user?.email}
+        onRequestEdit={(profileData) => {
+          if (!user?.id) {
+            return;
+          }
+
+          if (profileData) {
+            normalizeProfileForEdit(profileData);
+            setEditMode(true);
+            setProfileViewOpen(false);
+            setProfileModalOpen(true);
+            return;
+          }
+
+          void fetchUserProfile(user.id).then(({ data }) => {
+            normalizeProfileForEdit(data ?? null);
+            setEditMode(true);
+            setProfileViewOpen(false);
+            setProfileModalOpen(true);
+          });
+        }}
       />
     </div>
   );

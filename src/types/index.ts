@@ -122,6 +122,38 @@ export interface SearchResponse {
   pagination: SearchPagination;
 }
 
+export interface PromoCardSettings {
+  id: string;
+  isActive: boolean;
+  headline: string;
+  imageUrl: string | null;
+  insertPosition: number;
+  backgroundColor: string;
+  fontColor: string;
+  fontSize: number;
+  badgeColor: string;
+  imageScale: number;
+  lastDraftAt: string | null;
+  lastAppliedAt: string | null;
+  updatedBy: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PromoCardUpdateInput {
+  id?: string;
+  isActive: boolean;
+  headline: string;
+  imageUrl?: string | null;
+  insertPosition: number;
+  backgroundColor: string;
+  fontColor: string;
+  fontSize: number;
+  badgeColor: string;
+  imageScale: number;
+  updatedBy?: string | null;
+}
+
 export type CrawlBoardStatus = 'active' | 'broken' | 'blocked';
 
 export type CrawlJobStatus = 'pending' | 'running' | 'success' | 'failed';

@@ -11,7 +11,6 @@ import {
 import { useDebounce } from '@/lib/hooks/useDebounce';
 import { useSearchStore } from '@/stores/searchStore';
 import SocialSignupModal, { type AuthProvider } from '@/components/auth/SocialSignupModal';
-import ProfileViewModal from '@/components/auth/ProfileViewModal';
 import { supabase } from '@/lib/supabase/client';
 import { useAuthStore } from '@/stores/authStore';
 import type {
@@ -47,13 +46,16 @@ const sliderTranslateMap: Record<ViewType, number> = {
   experience: 52
 };
 
-export default function Header() {
+interface HeaderProps {
+  onProfileClick?: () => void;
+}
+
+export default function Header({ onProfileClick }: HeaderProps) {
   const [openFilter, setOpenFilter] = useState<FilterKey | null>(null);
   const [localSearchQuery, setLocalSearchQuery] = useState('');
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authModalMode, setAuthModalMode] = useState<'signup' | 'login'>('signup');
   const [loadingProvider, setLoadingProvider] = useState<AuthProvider | null>(null);
-  const [isProfileViewOpen, setProfileViewOpen] = useState(false);
   const { status, user } = useAuthStore((state) => ({
     status: state.status,
     user: state.user
@@ -384,7 +386,7 @@ export default function Header() {
             {status === 'authenticated' && user ? (
               <button
                 type="button"
-                onClick={() => setProfileViewOpen(true)}
+                onClick={() => onProfileClick?.()}
                 className="flex items-center gap-2 h-9 px-4 text-sm font-semibold text-white rounded-md bg-gradient-to-r from-[#7aa3cc] to-[#5f89b4] shadow-sm hover:from-[#6b95be] hover:to-[#517aa5] transition-colors"
               >
                 <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/20 text-white text-xs font-bold">
@@ -433,13 +435,14 @@ export default function Header() {
         loadingProvider={loadingProvider}
         mode={authModalMode}
       />
-
-      <ProfileViewModal
-        isOpen={isProfileViewOpen}
-        onClose={() => setProfileViewOpen(false)}
-        userId={user?.id ?? null}
-        userEmail={user?.email ?? null}
-      />
     </header>
   );
 }
+
+// Remove the following code
+// <ProfileViewModal
+//   isOpen={isProfileViewOpen}
+//   onClose={() => setProfileViewOpen(false)}
+//   userId={user?.id ?? null}
+//   userEmail={user?.email ?? null}
+// />

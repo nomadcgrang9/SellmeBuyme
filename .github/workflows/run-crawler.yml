@@ -217,6 +217,7 @@ jobs:
         run: npx playwright install chromium --with-deps
 
       - name: Run crawler
+        shell: bash
         working-directory: crawler
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -226,8 +227,9 @@ jobs:
           CRAWL_MODE: 'run'
           CRAWLER_SOURCE: ${{ matrix.board.source }}
           BOARD_ID: ${{ matrix.board.board_id }}
+          BOARD_NAME: ${{ matrix.board.name }}
         run: |
-          echo "🚀 Starting crawler for board: $BOARD_ID (${matrix.board.name})"
+          echo "🚀 Starting crawler for board: $BOARD_ID ($BOARD_NAME)"
           echo "🔧 Mode: $CRAWL_MODE"
 
           case "$CRAWLER_SOURCE" in
