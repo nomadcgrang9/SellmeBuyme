@@ -1,8 +1,9 @@
 'use client';
 
-import { Card } from '@/types';
+import type { Card, PromoCardSettings } from '@/types';
 import { IconChevronLeft, IconChevronRight, IconSparkles, IconMessageCircle } from '@tabler/icons-react';
 import { useState, useRef, useEffect } from 'react';
+import { createBadgeGradient } from '@/lib/colorUtils';
 import CompactJobCard from '../cards/CompactJobCard';
 import CompactTalentCard from '../cards/CompactTalentCard';
 
@@ -12,6 +13,7 @@ interface AIRecommendationsProps {
   loading?: boolean;
   headlineOverride?: string;
   descriptionOverride?: string;
+  promoCard?: PromoCardSettings | null;
 }
 
 export default function AIRecommendations({
@@ -19,7 +21,8 @@ export default function AIRecommendations({
   userName = '방문자',
   loading = false,
   headlineOverride,
-  descriptionOverride
+  descriptionOverride,
+  promoCard
 }: AIRecommendationsProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [visibleCount, setVisibleCount] = useState(3);
@@ -46,15 +49,47 @@ export default function AIRecommendations({
 
   const visibleCards = cards.slice(0, 8);
   const primaryCard = visibleCards[0];
-  const promoCard: CarouselMetaItem = { id: 'promo-card', type: 'promo' };
+  const effectiveInsertPosition = promoCard?.insertPosition ?? 3;
+  const computeInsertIndex = (length: number) => {
+    const zeroBased = Math.max(effectiveInsertPosition - 1, 0);
+    return Math.min(zeroBased, length);
+  };
+  const shouldIncludePromo = Boolean(promoCard) && (!loading || visibleCards.length === 0);
+  const promoCardMeta: CarouselMetaItem | null = shouldIncludePromo ? { id: 'promo-card', type: 'promo' } : null;
   const placeholderCard: CarouselMetaItem = { id: 'placeholder-card', type: 'placeholder' };
   const shouldShowPlaceholder = !loading && visibleCards.length === 0;
   const carouselItems: (Card | CarouselMetaItem)[] = shouldShowPlaceholder
-    ? [placeholderCard, promoCard]
-    : [...visibleCards, promoCard];
+    ? (() => {
+        const working: (Card | CarouselMetaItem)[] = [placeholderCard];
+        if (promoCardMeta) {
+          const insertIndex = computeInsertIndex(working.length);
+          working.splice(insertIndex, 0, promoCardMeta);
+        }
+        return working;
+      })()
+    : (() => {
+        const working: (Card | CarouselMetaItem)[] = [...visibleCards];
+        if (promoCardMeta) {
+          const insertIndex = computeInsertIndex(working.length);
+          working.splice(insertIndex, 0, promoCardMeta);
+        }
+        return promoCardMeta ? working : visibleCards;
+      })();
   const totalItems = carouselItems.length;
   const maxIndex = Math.max(totalItems - visibleCount, 0);
-  const promoImageSrc = '/picture/section%20right%20ad2.png';
+  const promoHeadline = promoCard?.headline ?? '셀바, 학교와 교육자원을 연결하겠습니다';
+  const promoBackground = promoCard?.backgroundColor ?? '#f7c6d9';
+  const promoFontColor = promoCard?.fontColor ?? '#1f2937';
+  const promoFontSize = promoCard?.fontSize ?? 24;
+  const promoImageSrc = promoCard?.imageUrl ?? '/picture/section%20right%20ad2.png';
+  const promoImageScale = Math.min(Math.max(promoCard?.imageScale ?? 1, 0.5), 1.5);
+  const promoImageWrapperStyle = {
+    height: `${180 * promoImageScale}px`
+  } as const;
+  const promoImageStyle = {
+    maxHeight: `${170 * promoImageScale}px`,
+    maxWidth: `${240 * promoImageScale}px`
+  } as const;
 
   useEffect(() => {
     if (currentIndex > maxIndex) {
@@ -64,7 +99,7 @@ export default function AIRecommendations({
 
   useEffect(() => {
     setCurrentIndex(0);
-  }, [cards.length]);
+  }, [cards.length, effectiveInsertPosition]);
 
   const canGoLeft = currentIndex > 0;
   const canGoRight = currentIndex < maxIndex;
@@ -85,32 +120,36 @@ export default function AIRecommendations({
     if (!primaryCard) {
       return {
         headline: '추천을 준비 중이에요',
-        description: '관심 지역과 조건을 파악해 곱 맞춤 카드를 보여드릴게요.'
+        description: '관심 조건을 분석해 맞춤 카드를 정리해둘게요.'
       };
     }
 
     if (primaryCard.type === 'job') {
       const mainTag = primaryCard.tags[0];
       const subTag = primaryCard.tags[1];
-      const tagPhrase = [mainTag, subTag].filter(Boolean).join(', ');
+      const tagPhrase = [mainTag, subTag].filter(Boolean).slice(0, 2).join(', ');
+      const trimmedLocation = primaryCard.location?.split(/[ ,]/).filter(Boolean).slice(0, 2).join(', ');
 
       return {
-        headline: `${primaryCard.location} 근처 ${mainTag ?? '공고'}를 먼저 챙겼어요`,
-        description: `${userName}님이 관심 보인 지역과 ${tagPhrase || '최근 확인한 조건'}을 기준으로 긴급 공고부터 정리해봤어요.`
+        headline: `${trimmedLocation || primaryCard.location} 인근 공고를 먼저 모았어요`,
+        description: `${userName}님 관심 조건과 ${tagPhrase || '최근 저장한 키워드'}를 우선으로 최신 공고를 추렸어요.`
       };
     }
 
     if (primaryCard.type === 'talent') {
       const mainTag = primaryCard.tags[0];
+      const trimmedLocation = Array.isArray(primaryCard.location)
+        ? (primaryCard.location as string[]).slice(0, 2).join(', ')
+        : primaryCard.location?.split(/[ ,]/).filter(Boolean).slice(0, 2).join(', ');
       return {
         headline: `${primaryCard.specialty} 인재를 골라봤어요`,
-        description: `${userName}님 학교와 가까운 ${primaryCard.location} 지역의 ${mainTag ?? '핵심 역량'}을 가진 선생님을 추천드려요.`
+        description: `${trimmedLocation || primaryCard.location}에서 활동 중인 ${mainTag ?? '핵심 역량'} 강사를 우선 추천드려요.`
       };
     }
 
     return {
       headline: '추천을 준비 중이에요',
-      description: '필요한 조건을 분석해 맞춤 카드를 곱 보여드릴게요.'
+      description: '필요한 조건을 분석해 맞춤 카드를 준비하고 있어요.'
     };
   };
 
@@ -143,7 +182,9 @@ export default function AIRecommendations({
                 <span className="block text-sm font-semibold text-gray-900 leading-snug mb-1">
                   {headline}
                 </span>
-                {description}
+                <span className="block line-clamp-3 break-words whitespace-pre-line text-[11px] leading-relaxed text-gray-600">
+                  {description}
+                </span>
               </p>
             </div>
             <div className="mt-3.5 flex gap-1.5">
@@ -215,19 +256,46 @@ export default function AIRecommendations({
                         </p>
                       </article>
                     ) : (
-                      <article className="card-interactive bg-white border border-gray-200 rounded-lg animate-slide-up overflow-hidden h-full">
-                        <div className="h-0.5 bg-gradient-to-r from-[#f7c6d9] via-[#f4a3c4] to-[#ef8ab2]" />
-                        <div className="flex h-full flex-col p-4 text-center">
-                          <h3 className="text-base font-semibold text-gray-900 leading-tight mb-4">
-                            셀바, 학교와 교육자원을<br />연결하겠습니다
+                      <article
+                        className="card-interactive border border-gray-200 rounded-lg animate-slide-up overflow-hidden h-full flex flex-col"
+                        style={{ backgroundColor: promoBackground }}
+                      >
+                        <div className="flex flex-col h-full">
+                          <div
+                            className="w-full flex-shrink-0"
+                            style={{
+                              height: '2px',
+                              backgroundImage: createBadgeGradient(promoCard?.badgeColor),
+                              backgroundSize: '100% 100%',
+                              backgroundRepeat: 'no-repeat',
+                              backgroundPosition: '0 0'
+                            }}
+                          />
+                          <div className="flex-1 flex flex-col items-center justify-center gap-4 px-5 py-6 text-center">
+                          <h3
+                            className="font-semibold leading-tight whitespace-pre-line"
+                            style={{ color: promoFontColor, fontSize: `${promoFontSize}px` }}
+                          >
+                            {promoHeadline}
                           </h3>
-                          <div className="mt-auto flex items-center justify-center w-full">
-                            <img
-                              src={promoImageSrc}
-                              alt="셀바 소개"
-                              className="w-[95%] max-w-[260px] h-full max-h-[200px] object-contain"
-                              draggable={false}
-                            />
+                          <div className="flex w-full flex-1 items-center justify-center" style={promoImageWrapperStyle}>
+                            {promoImageSrc ? (
+                              <img
+                                src={promoImageSrc}
+                                alt={promoHeadline}
+                                className="w-auto object-contain drop-shadow"
+                                style={promoImageStyle}
+                                draggable={false}
+                              />
+                            ) : (
+                              <div
+                                className="flex w-full flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 text-slate-400"
+                                style={promoImageStyle}
+                              >
+                                <span className="text-xs">이미지 없음</span>
+                              </div>
+                            )}
+                          </div>
                           </div>
                         </div>
                       </article>

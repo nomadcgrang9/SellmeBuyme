@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   IconAlertCircle,
-  IconLogout,
   IconMapPin,
   IconSparkles,
   IconUser,
@@ -18,11 +17,12 @@ interface ProfileViewModalProps {
   onClose: () => void;
   userId: string | null | undefined;
   userEmail: string | null | undefined;
+  onRequestEdit?: (profile: UserProfileRow | null) => void;
 }
 
 type LoadState = 'idle' | 'loading' | 'success' | 'empty' | 'error';
 
-export default function ProfileViewModal({ isOpen, onClose, userId, userEmail }: ProfileViewModalProps) {
+export default function ProfileViewModal({ isOpen, onClose, userId, userEmail, onRequestEdit }: ProfileViewModalProps) {
   const logout = useAuthStore((state) => state.logout);
   const [loadState, setLoadState] = useState<LoadState>('idle');
   const [profile, setProfile] = useState<UserProfileRow | null>(null);
@@ -243,19 +243,22 @@ export default function ProfileViewModal({ isOpen, onClose, userId, userEmail }:
               )}
             </div>
 
-            <footer className="flex items-center justify-between px-7 py-5 border-t border-gray-100 bg-[#f9fbfe]">
-              <div className="text-xs text-gray-500">
-                프로필 정보를 업데이트하려면 상단의 회원가입 폼을 다시 열어 수정할 수 있습니다.
-              </div>
-              <button
-                type="button"
-                onClick={handleLogout}
-                disabled={loggingOut}
-                className="inline-flex items-center gap-2 rounded-xl bg-[#4b83c6] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#3d73b4] disabled:opacity-60"
-              >
-                <IconLogout size={16} />
-                {loggingOut ? '로그아웃 중...' : '로그아웃'}
-              </button>
+            <footer className="flex items-center justify-end gap-2 px-7 py-5 border-t border-gray-100 bg-[#f9fbfe]">
+                <button
+                  type="button"
+                  onClick={() => onRequestEdit?.(profile)}
+                  className="inline-flex items-center gap-2 rounded-xl border border-[#4b83c6] px-4 py-2 text-sm font-semibold text-[#4b83c6] transition-colors hover:bg-[#e7f1fb]"
+                >
+                  프로필 수정
+                </button>
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  disabled={loggingOut}
+                  className="inline-flex items-center gap-2 rounded-xl bg-[#4b83c6] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#3d73b4] disabled:opacity-60"
+                >
+                  {loggingOut ? '로그아웃 중...' : '로그아웃'}
+                </button>
             </footer>
           </motion.div>
         </motion.div>

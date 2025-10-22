@@ -16,6 +16,8 @@ import type {
   SortOptionValue,
   StructuredJobContent,
   TalentCard,
+  PromoCardSettings,
+  PromoCardUpdateInput,
   UpdateCrawlBoardInput,
   ViewType
 } from '@/types';
@@ -32,6 +34,44 @@ type RecommendationCacheRow = {
   profile_snapshot: Record<string, unknown> | null;
   updated_at: string;
 };
+
+type PromoCardSettingsRow = {
+  id: string;
+  is_active: boolean;
+  headline: string;
+  image_url: string | null;
+  insert_position: number;
+  last_draft_at: string | null;
+  last_applied_at: string | null;
+  updated_by: string | null;
+  created_at: string;
+  updated_at: string;
+  background_color: string;
+  font_color: string;
+  font_size: number;
+  badge_color: string;
+  image_scale: number | null;
+};
+
+function mapPromoCardFromDbRow(row: PromoCardSettingsRow): PromoCardSettings {
+  return {
+    id: row.id,
+    isActive: row.is_active,
+    headline: row.headline,
+    backgroundColor: row.background_color ?? '#ffffff',
+    fontColor: row.font_color ?? '#1f2937',
+    fontSize: row.font_size ?? 28,
+    badgeColor: row.badge_color ?? '#dbeafe',
+    imageScale: typeof row.image_scale === 'number' ? row.image_scale : 1,
+    imageUrl: row.image_url ?? null,
+    insertPosition: row.insert_position,
+    lastDraftAt: row.last_draft_at,
+    lastAppliedAt: row.last_applied_at,
+    updatedBy: row.updated_by,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
 
 export async function fetchRecommendationsCache(userId: string): Promise<{
   cards: Card[];
@@ -60,6 +100,99 @@ export async function fetchRecommendationsCache(userId: string): Promise<{
     profileSnapshot: data.profile_snapshot ?? null,
     updatedAt: data.updated_at
   };
+}
+
+export async function fetchPromoCardSettings(options?: { onlyActive?: boolean }): Promise<PromoCardSettings | null> {
+  let query = supabase
+    .from('promo_card_settings')
+    .select('*')
+    .order('updated_at', { ascending: false });
+
+  if (options?.onlyActive) {
+    query = query.eq('is_active', true);
+  }
+
+  const { data, error } = await query.limit(1).maybeSingle<PromoCardSettingsRow>();
+
+  if (error) {
+    console.error('프로모 카드 설정 조회 실패:', error);
+    throw error;
+  }
+
+  if (!data) {
+    return null;
+  }
+
+  return mapPromoCardFromDbRow(data);
+}
+
+type PromoCardMutationMode = 'draft' | 'apply';
+
+async function mutatePromoCardSettings(
+  payload: PromoCardUpdateInput,
+  mode: PromoCardMutationMode,
+  options?: { userId?: string | null }
+): Promise<PromoCardSettings> {
+  const timestamp = new Date().toISOString();
+  const mapped: Record<string, unknown> = {
+    is_active: payload.isActive,
+    headline: payload.headline,
+    image_url: payload.imageUrl ?? null,
+    insert_position: payload.insertPosition,
+    background_color: payload.backgroundColor,
+    font_color: payload.fontColor,
+    font_size: payload.fontSize,
+    badge_color: payload.badgeColor,
+    image_scale: payload.imageScale,
+  };
+
+  if (payload.id) mapped.id = payload.id;
+  if (mode === 'draft') mapped.last_draft_at = timestamp;
+  if (mode === 'apply') mapped.last_applied_at = timestamp;
+  if (options?.userId !== undefined) mapped.updated_by = options.userId ?? null;
+
+  console.debug('[PromoCard] mutate request', {
+    mode,
+    mapped,
+    options,
+  });
+
+  const { data, error } = await supabase
+    .from('promo_card_settings')
+    .upsert(mapped, { onConflict: 'id' })
+    .select('*')
+    .single<PromoCardSettingsRow>();
+
+  if (error) {
+    console.error('프로모 카드 설정 저장 실패:', {
+      error,
+      mode,
+      mapped,
+      options,
+    });
+    throw error;
+  }
+
+  console.debug('[PromoCard] mutate success', {
+    mode,
+    response: data,
+  });
+
+  return mapPromoCardFromDbRow(data);
+}
+
+export async function savePromoCardDraft(
+  payload: PromoCardUpdateInput,
+  options?: { userId?: string | null }
+): Promise<PromoCardSettings> {
+  return mutatePromoCardSettings(payload, 'draft', options);
+}
+
+export async function applyPromoCardSettings(
+  payload: PromoCardUpdateInput,
+  options?: { userId?: string | null }
+): Promise<PromoCardSettings> {
+  return mutatePromoCardSettings(payload, 'apply', options);
 }
 
 const DEFAULT_LIMIT = 20;
@@ -685,6 +818,12 @@ async function executeJobSearch({
     query = query.eq('job_type', jobType);
   }
 
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const todayIso = today.toISOString();
+  
+  query = query.or(`deadline.is.null,deadline.gte.${todayIso}`);
+
   query = applyJobSort(query, filters.sort);
 
   const from = Math.max(offset ?? DEFAULT_OFFSET, 0);
@@ -696,7 +835,7 @@ async function executeJobSearch({
     console.error('공고 검색 실패:', error);
     return createEmptySearchResponse(limit, offset);
   }
-
+  
   const shouldSortByRelevance = filters.sort === '추천순' && (tokens.length > 0 || trimmedQuery.length > 0);
   const orderedData = shouldSortByRelevance
     ? sortJobsByRelevance(data, tokens, trimmedQuery)

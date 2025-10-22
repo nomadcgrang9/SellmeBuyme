@@ -2,6 +2,7 @@ import { Fragment, useEffect, useState } from 'react';
 import CrawlBoardList from '@/components/admin/CrawlBoardList';
 import CrawlBoardForm from '@/components/admin/CrawlBoardForm';
 import CrawlLogViewer from '@/components/admin/CrawlLogViewer';
+import PromoCardManager from '@/components/admin/PromoCardManager';
 import type { CrawlBoard, CreateCrawlBoardInput } from '@/types';
 import { createCrawlBoard, updateCrawlBoard } from '@/lib/supabase/queries';
 
@@ -20,6 +21,7 @@ interface AdminTab {
 const ADMIN_TABS: AdminTab[] = [
   { key: 'overview', label: '대시보드', description: '요약 지표' },
   { key: 'crawl', label: '크롤링 관리', description: '게시판 등록 및 상태 모니터링', badge: 'NEW' },
+  { key: 'promo', label: '홍보카드 관리', description: '추천 섹션 프로모·띠지 배너 편집' },
   { key: 'content', label: '콘텐츠 관리', description: '공고 / 인력 검수' },
   { key: 'settings', label: '설정', description: '권한 및 시스템 설정' }
 ];
@@ -107,6 +109,8 @@ export default function AdminPage() {
             />
           </Fragment>
         );
+      case 'promo':
+        return <PromoCardManager />;
       default:
         return (
           <div className="flex h-full flex-col items-center justify-center rounded-lg border border-dashed border-gray-300 bg-white p-10 text-center text-sm text-gray-500">

@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { IconX, IconPlus, IconAlertCircle } from '@tabler/icons-react';
 import { REGION_OPTIONS } from '@/lib/constants/filters';
@@ -8,9 +8,9 @@ import { upsertUserProfile } from '@/lib/supabase/profiles';
 import { supabase } from '@/lib/supabase/client';
 import { useToastStore } from '@/stores/toastStore';
 
-type RoleOption = '교사' | '강사' | '업체' | '학부모' | '학생' | '기타';
+export type RoleOption = '교사' | '강사' | '업체' | '학부모' | '학생' | '기타';
 
-const ROLE_OPTIONS: RoleOption[] = ['교사', '강사', '업체', '학부모', '학생', '기타'];
+export const ROLE_OPTIONS: RoleOption[] = ['교사', '강사', '업체', '학부모', '학생', '기타'];
 const MAX_INTEREST_REGIONS = 5;
 const EXPERIENCE_LIMIT = 30;
 
@@ -34,9 +34,30 @@ interface ProfileSetupModalProps {
   userEmail?: string | null;
   userId?: string | null;
   onComplete?: () => void;
+  mode?: 'create' | 'edit';
+  initialData?: {
+    displayName: string | null;
+    roles: RoleOption[] | null;
+    primaryRegion: string | null;
+    interestRegions: string[] | null;
+    experienceYears: number | null;
+    receiveNotifications: boolean | null;
+    intro: string | null;
+    agreeTerms: boolean | null;
+    agreePrivacy: boolean | null;
+    agreeMarketing: boolean | null;
+  };
 }
 
-export default function ProfileSetupModal({ isOpen, onClose, userEmail, userId, onComplete }: ProfileSetupModalProps) {
+export default function ProfileSetupModal({
+  isOpen,
+  onClose,
+  userEmail,
+  userId,
+  onComplete,
+  mode = 'create',
+  initialData
+}: ProfileSetupModalProps) {
   const showToast = useToastStore((state) => state.showToast);
   const [name, setName] = useState('');
   const [roles, setRoles] = useState<RoleOption[]>([]);
@@ -49,8 +70,46 @@ export default function ProfileSetupModal({ isOpen, onClose, userEmail, userId, 
   const [agreeTerms, setAgreeTerms] = useState(false);
   const [agreePrivacy, setAgreePrivacy] = useState(false);
   const [agreeMarketing, setAgreeMarketing] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    if (mode === 'edit' && initialData) {
+      setName(initialData.displayName ?? '');
+      setRoles(initialData.roles ?? []);
+      setPrimaryRegion(initialData.primaryRegion ?? '');
+      setInterestRegions(initialData.interestRegions ?? []);
+      setExperienceYears(initialData.experienceYears ?? null);
+      setReceiveNotifications(initialData.receiveNotifications ?? true);
+      setIntro(initialData.intro ?? '');
+      setAgreeTerms(initialData.agreeTerms ?? false);
+      setAgreePrivacy(initialData.agreePrivacy ?? false);
+      setAgreeMarketing(initialData.agreeMarketing ?? false);
+    }
+
+    if (mode === 'create') {
+      setName('');
+      setRoles([]);
+      setPrimaryRegion('');
+      setInterestRegions([]);
+      setExperienceYears(null);
+      setReceiveNotifications(true);
+      setIntro('');
+      setAgreeTerms(false);
+      setAgreePrivacy(false);
+      setAgreeMarketing(false);
+    }
+  }, [isOpen, mode, initialData]);
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [submitError, setSubmitError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setSubmitStatus('idle');
+    setSubmitError(null);
+  }, [isOpen, mode, initialData]);
 
   const experienceOptions = useMemo(() => Array.from({ length: EXPERIENCE_LIMIT + 1 }, (_, index) => index), []);
 
@@ -78,7 +137,11 @@ export default function ProfileSetupModal({ isOpen, onClose, userEmail, userId, 
     }
   };
 
-  const canSubmit = Boolean(name.trim()) && roles.length > 0 && agreeTerms && agreePrivacy && !!userId;
+  const canSubmit =
+    Boolean(name.trim()) &&
+    roles.length > 0 &&
+    (mode === 'edit' || (agreeTerms && agreePrivacy)) &&
+    !!userId;
 
   const submitLabel = !userId
     ? '로그인 정보가 필요합니다'
@@ -86,7 +149,9 @@ export default function ProfileSetupModal({ isOpen, onClose, userEmail, userId, 
       ? '이름을 입력해 주세요'
       : roles.length === 0
         ? '역할을 선택해 주세요'
-        : !agreeTerms || !agreePrivacy
+        : mode === 'edit'
+          ? '변경 사항 저장'
+          : !agreeTerms || !agreePrivacy
           ? '필수 약관에 동의해 주세요'
           : '등록 완료';
 
@@ -151,7 +216,7 @@ export default function ProfileSetupModal({ isOpen, onClose, userEmail, userId, 
 
     sessionStorage.removeItem('profileSetupPending');
     setSubmitStatus('success');
-    showToast('가입완료 되었습니다', 'success');
+    showToast(mode === 'edit' ? '프로필이 업데이트되었습니다' : '가입완료 되었습니다', 'success');
     onComplete?.();
     onClose();
   };
@@ -162,6 +227,14 @@ export default function ProfileSetupModal({ isOpen, onClose, userEmail, userId, 
     () => [...roles, ...interestRegions.slice(0, 2)].join(' · '),
     [roles, interestRegions]
   );
+
+  const isEditMode = mode === 'edit';
+  const headerBadge = isEditMode ? '프로필 수정' : 'Step 1 / 기본정보';
+  const headerTitle = isEditMode ? '프로필 정보를 수정해 주세요' : '프로필 정보를 완성해 주세요';
+  const headerDescription = isEditMode
+    ? '필요한 항목만 업데이트할 수 있어요.'
+    : `${userEmail ?? '소셜 계정'} 인증이 완료되었습니다. 맞춤 추천을 위해 아래 정보를 입력해 주세요.`;
+  const cancelLabel = isEditMode ? '취소' : '이전 단계로 돌아가기';
 
   return (
     <AnimatePresence>
@@ -185,10 +258,10 @@ export default function ProfileSetupModal({ isOpen, onClose, userEmail, userId, 
               <div className="space-y-1">
                 <div className="flex items-center gap-2 text-[#7aa3cc] text-xs font-semibold tracking-wide uppercase">
                   <span>셀바바이미</span>
-                  <span className="px-2 py-0.5 rounded-full bg-[#e6f0fb] text-[#4b83c6]">Step 1 / 기본정보</span>
+                  <span className="px-2 py-0.5 rounded-full bg-[#e6f0fb] text-[#4b83c6]">{headerBadge}</span>
                 </div>
-                <h2 className="text-2xl font-extrabold text-gray-900">프로필 정보를 완성해 주세요</h2>
-                <p className="text-sm text-gray-500">{userEmail ?? '소셜 계정'} 인증이 완료되었습니다. 맞춤 추천을 위해 아래 정보를 입력해 주세요.</p>
+                <h2 className="text-2xl font-extrabold text-gray-900">{headerTitle}</h2>
+                <p className="text-sm text-gray-500">{headerDescription}</p>
               </div>
               <div className="flex items-center gap-3">
                 {selectedSummary && (
@@ -227,6 +300,8 @@ export default function ProfileSetupModal({ isOpen, onClose, userEmail, userId, 
                         type="text"
                         value={name}
                         onChange={(event) => setName(event.target.value)}
+                        disabled={isEditMode}
+                        readOnly={isEditMode}
                         placeholder="홍길동"
                         className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none focus:border-[#7aa3cc] focus:ring-2 focus:ring-[#cfe0f3]"
                       />
@@ -289,126 +364,35 @@ export default function ProfileSetupModal({ isOpen, onClose, userEmail, userId, 
                       </select>
                     </label>
 
-                    <div className="space-y-3">
-                      <label className="flex flex-col gap-2">
-                        <span className="text-xs font-semibold text-gray-600">관심 지역</span>
-                        <div className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2">
-                          <input
-                            type="text"
-                            value={interestInput}
-                            onChange={(event) => setInterestInput(event.target.value)}
-                            onKeyDown={handleInterestKeyDown}
-                            placeholder="예: 경기도/수원"
-                            className="flex-1 bg-transparent text-sm outline-none"
-                          />
-                          <button
-                            type="button"
-                            onClick={handleInterestAdd}
-                            disabled={!interestInput.trim() || interestRegions.length >= MAX_INTEREST_REGIONS}
-                            className={`inline-flex h-8 w-8 items-center justify-center rounded-full text-white transition-colors ${
-                              interestInput.trim() && interestRegions.length < MAX_INTEREST_REGIONS
-                                ? 'bg-[#7aa3cc] hover:bg-[#6b95be]'
-                                : 'bg-gray-300 cursor-not-allowed'
-                            }`}
-                            aria-label="관심 지역 추가"
-                          >
-                            <IconPlus size={18} />
-                          </button>
-                        </div>
-                      </label>
-                      <div className="flex flex-wrap gap-2">
-                        {interestRegions.map((region) => (
-                          <span
-                            key={region}
-                            className="inline-flex items-center gap-2 rounded-full bg-[#f0f6fa] px-3 py-1.5 text-xs font-semibold text-[#4b83c6]"
-                          >
-                            {region}
-                            <button
-                              type="button"
-                              onClick={() => handleInterestRemove(region)}
-                              className="ml-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-white text-[#4b83c6] hover:bg-[#e2edf6]"
-                              aria-label={`관심 지역 ${region} 제거`}
-                            >
-                              <IconX size={14} />
-                            </button>
-                          </span>
-                        ))}
-                        {interestRegions.length === 0 && (
-                          <span className="text-xs text-gray-400">입력 후 Enter를 누르거나 추가 버튼을 눌러주세요.</span>
-                        )}
+                    <label className="flex items-center justify-between gap-4 rounded-xl border border-gray-200 bg-white px-4 py-3">
+                      <div className="flex flex-col">
+                        <span className="text-xs font-semibold text-gray-600">서비스 알림 수신</span>
+                        <span className="text-xs text-gray-400">새 공고와 추천을 이메일로 받아보세요</span>
                       </div>
-                      <div className="text-xs text-gray-400">{interestRegions.length} / {MAX_INTEREST_REGIONS}개 입력</div>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col gap-4 rounded-2xl border border-gray-100 bg-white px-5 py-5">
-                    <div className="flex flex-col gap-1">
-                      <span className="text-xs font-semibold text-[#7aa3cc]">추가 정보</span>
-                      <h3 className="text-lg font-bold text-gray-900">경력과 소개를 알려주세요</h3>
-                    </div>
-                    <div className="grid gap-3 md:grid-cols-2">
-                      <label className="space-y-2">
-                        <span className="text-xs font-semibold text-gray-600">주요 경력 연차</span>
-                        <select
-                          value={experienceYears ?? ''}
-                          onChange={(event) => {
-                            const value = event.target.value;
-                            setExperienceYears(value === '' ? null : Number(value));
-                          }}
-                          className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-700 outline-none focus:border-[#7aa3cc] focus:ring-2 focus:ring-[#cfe0f3]"
-                        >
-                          <option value="">선택 안 함</option>
-                          {experienceOptions.map((year) => (
-                            <option key={year} value={year}>
-                              {year}년
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-
-                      <label className="flex items-center justify-between gap-4 rounded-xl border border-gray-200 bg-white px-4 py-3">
-                        <div className="flex flex-col">
-                          <span className="text-xs font-semibold text-gray-600">서비스 알림 수신</span>
-                          <span className="text-xs text-gray-400">새 공고와 추천을 이메일로 받아보세요</span>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => setReceiveNotifications((prev) => !prev)}
-                          className={`relative h-7 w-12 rounded-full transition-colors ${
-                            receiveNotifications ? 'bg-[#7aa3cc]' : 'bg-gray-300'
+                      <button
+                        type="button"
+                        onClick={() => setReceiveNotifications((prev) => !prev)}
+                        disabled={isEditMode}
+                        className={`relative h-7 w-12 rounded-full transition-colors ${
+                          receiveNotifications ? 'bg-[#7aa3cc]' : 'bg-gray-300'
+                        }`}
+                        aria-pressed={receiveNotifications}
+                      >
+                        <span
+                          className={`absolute top-1 left-1 h-5 w-5 rounded-full bg-white shadow transition-transform ${
+                            receiveNotifications ? 'translate-x-5' : 'translate-x-0'
                           }`}
-                          aria-pressed={receiveNotifications}
-                        >
-                          <span
-                            className={`absolute top-1 left-1 h-5 w-5 rounded-full bg-white shadow transition-transform ${
-                              receiveNotifications ? 'translate-x-5' : 'translate-x-0'
-                            }`}
-                          />
-                        </button>
-                      </label>
-                    </div>
-
-                    <label className="space-y-2">
-                      <span className="text-xs font-semibold text-gray-600">한 줄 소개 (선택)</span>
-                      <textarea
-                        value={intro}
-                        onChange={(event) => setIntro(event.target.value)}
-                        maxLength={150}
-                        placeholder="예: 초등 코딩 방과후 수업을 6년째 운영 중입니다. AI 융합 프로젝트 수업을 좋아해요!"
-                        className="min-h-[96px] w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none focus:border-[#7aa3cc] focus:ring-2 focus:ring-[#cfe0f3]"
-                      />
-                      <span className="block text-right text-[11px] text-gray-400">{intro.length}/150자</span>
+                        />
+                      </button>
                     </label>
-                  </div>
 
-                  <div className="space-y-3 rounded-2xl border border-gray-100 bg-white px-5 py-5">
-                    <h3 className="text-lg font-bold text-gray-900">약관 동의</h3>
-                    <div className="space-y-2 text-sm text-gray-600">
+                    <div className="flex flex-col gap-3">
                       <label className="flex items-center gap-3">
                         <input
                           type="checkbox"
                           checked={agreeTerms}
                           onChange={(event) => setAgreeTerms(event.target.checked)}
+                          disabled={isEditMode}
                           className="h-4 w-4 rounded border-gray-300 text-[#7aa3cc] focus:ring-[#7aa3cc]"
                         />
                         <span className="flex-1">이용약관에 동의합니다 (필수)</span>
@@ -419,6 +403,7 @@ export default function ProfileSetupModal({ isOpen, onClose, userEmail, userId, 
                           type="checkbox"
                           checked={agreePrivacy}
                           onChange={(event) => setAgreePrivacy(event.target.checked)}
+                          disabled={isEditMode}
                           className="h-4 w-4 rounded border-gray-300 text-[#7aa3cc] focus:ring-[#7aa3cc]"
                         />
                         <span className="flex-1">개인정보 수집 및 이용에 동의합니다 (필수)</span>
@@ -448,7 +433,7 @@ export default function ProfileSetupModal({ isOpen, onClose, userEmail, userId, 
                       onClick={onClose}
                       className="h-11 rounded-xl border border-gray-300 px-6 text-sm font-semibold text-gray-600 transition-colors hover:bg-gray-100"
                     >
-                      이전 단계로 돌아가기
+                      {cancelLabel}
                     </button>
                     <button
                       type="submit"
