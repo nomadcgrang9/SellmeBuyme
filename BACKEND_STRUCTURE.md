@@ -39,6 +39,8 @@
 
 ### 추가 업데이트 (2025-10-23)
 - **백엔드 영향 없음**: 공고 카드 UI 정리는 `JobCard.tsx` 수준에서 처리되어 API·DB·Functions 스키마에는 추가 조치가 필요하지 않음을 명시.
+- **프로필 스키마 확장**: `supabase/migrations/20250123_extend_user_profiles_schema.sql`로 `teacher_level`, `special_education_type`, `instructor_fields`, `instructor_custom_field`, `profile_image_url` 컬럼을 `user_profiles`에 추가하고, `profiles.ts`의 타입/업서트 로직을 동기화.
+- **프로필 이미지 스토리지**: Supabase Storage 버킷 `profiles`를 생성하고 RLS 정책을 추가해 인증 사용자가 이미지를 업로드·삭제할 수 있도록 준비. 클라이언트는 `ProfileSetupModal.tsx`에서 저장 경로를 `profile_image_url`로 유지.
 
 ## 📊 현재 상태
 

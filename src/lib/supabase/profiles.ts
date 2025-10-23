@@ -4,6 +4,7 @@ import { supabase } from './client';
 export type UserProfileRow = {
   user_id: string;
   display_name: string | null;
+  phone: string | null;
   roles: string[] | null;
   primary_region: string | null;
   interest_regions: string[] | null;
@@ -13,21 +14,36 @@ export type UserProfileRow = {
   agree_terms: boolean | null;
   agree_privacy: boolean | null;
   agree_marketing: boolean | null;
+  preferred_job_types: string[] | null;
+  preferred_subjects: string[] | null;
+  teacher_level: string | null;
+  special_education_type: string | null;
+  instructor_fields: string[] | null;
+  instructor_custom_field: string | null;
+  profile_image_url: string | null;
   created_at: string;
   updated_at: string;
 };
 
 export type ProfileUpsertInput = {
   displayName: string;
+  phone?: string | null;
   roles: string[];
-  primaryRegion: string | null;
+  primaryRegion?: string | null;
   interestRegions: string[];
-  experienceYears: number | null;
+  experienceYears?: number | null;
   receiveNotifications: boolean;
-  intro: string;
+  intro?: string;
   agreeTerms: boolean;
   agreePrivacy: boolean;
   agreeMarketing: boolean;
+  preferredJobTypes?: string[];
+  preferredSubjects?: string[];
+  teacherLevel?: string | null;
+  specialEducationType?: string | null;
+  instructorFields?: string[] | null;
+  instructorCustomField?: string | null;
+  profileImageUrl?: string | null;
 };
 
 export async function fetchUserProfile(
@@ -50,7 +66,7 @@ export async function upsertUserProfile(
   userId: string,
   payload: ProfileUpsertInput
 ): Promise<{ data: UserProfileRow | null; error: PostgrestError | null }> {
-  const { displayName, roles, primaryRegion, interestRegions, experienceYears, receiveNotifications, intro, agreeTerms, agreePrivacy, agreeMarketing } = payload;
+  const { displayName, phone, roles, primaryRegion, interestRegions, experienceYears, receiveNotifications, intro, agreeTerms, agreePrivacy, agreeMarketing, teacherLevel, specialEducationType, instructorFields, instructorCustomField, profileImageUrl } = payload;
 
   const { data, error } = await supabase
     .from('user_profiles')
@@ -58,6 +74,7 @@ export async function upsertUserProfile(
       {
         user_id: userId,
         display_name: displayName,
+        phone: phone || null,
         roles,
         primary_region: primaryRegion,
         interest_regions: interestRegions,
@@ -66,7 +83,14 @@ export async function upsertUserProfile(
         intro: intro || null,
         agree_terms: agreeTerms,
         agree_privacy: agreePrivacy,
-        agree_marketing: agreeMarketing
+        agree_marketing: agreeMarketing,
+        preferred_job_types: payload.preferredJobTypes || null,
+        preferred_subjects: payload.preferredSubjects || null,
+        teacher_level: teacherLevel || null,
+        special_education_type: specialEducationType || null,
+        instructor_fields: instructorFields || null,
+        instructor_custom_field: instructorCustomField || null,
+        profile_image_url: profileImageUrl || null
       },
       { onConflict: 'user_id' }
     )
@@ -77,5 +101,5 @@ export async function upsertUserProfile(
     return { data: null, error };
   }
 
-  return { data, error: null };
+  return { data: data || null, error: null };
 }
