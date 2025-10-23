@@ -38,6 +38,9 @@
 ### 추가 업데이트 (2025-10-23)
 - **공고 카드 하단 구조 정리**: `JobCard.tsx`에서 태그 섹션 여백 제거 및 정보 블록 `mt-auto`를 `mt-3`로 조정해 태그·기본 정보 간 간격을 압축.
 - **호버 확장 레이아웃 재정렬**: 카드 확장 영역을 `top-full` 기준으로 배치하고 초기 `translate` 값을 줄여 본체와 연결된 상태에서 자연스럽게 확장되도록 개선.
+- **프로필 초기 모달 정리**: `App.tsx`에서 `ProfileAwarenessModal`을 제거하고 신규 사용자는 즉시 `ProfileSetupModal`만 보도록 단순화.
+- **프로필 사진 유지 및 업로드 개선**: `ProfileSetupModal.tsx`와 `ProfileStep1Basic.tsx`가 Supabase Storage(`profiles` 버킷)에 이미지를 업로드하고, edit 모드에서도 기존 URL을 미리보기로 표시하도록 상태 구조를 업데이트.
+- **프로필 보기 모달 확장**: `ProfileViewModal.tsx`에서 저장된 교사·강사 상세 필드와 업로드된 프로필 이미지를 렌더링해 편집 시 데이터가 일관되게 노출되도록 조정.
 
 ## 📋 목차
 1. [페이지 레이아웃 구조](#페이지-레이아웃-구조)

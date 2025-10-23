@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { IconUpload, IconX } from '@tabler/icons-react';
 
 interface ProfileStep1BasicProps {
@@ -8,6 +8,7 @@ interface ProfileStep1BasicProps {
   email: string | null;
   phone: string;
   profileImage: File | null;
+  initialImageUrl?: string | null;
   onNameChange: (name: string) => void;
   onPhoneChange: (phone: string) => void;
   onImageChange: (file: File | null) => void;
@@ -19,12 +20,19 @@ export default function ProfileStep1Basic({
   email,
   phone,
   profileImage,
+  initialImageUrl,
   onNameChange,
   onPhoneChange,
   onImageChange,
   isEditMode
 }: ProfileStep1BasicProps) {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!profileImage) {
+      setImagePreview(initialImageUrl || null);
+    }
+  }, [initialImageUrl, profileImage]);
 
   const handleImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -56,22 +64,13 @@ export default function ProfileStep1Basic({
 
   return (
     <div className="space-y-6">
-      <div className="space-y-2">
-        <h3 className="text-lg font-bold text-gray-900">기본 신원 정보</h3>
-        <p className="text-sm text-gray-500">정확한 정보를 입력해 주세요. 이후 수정은 프로필 설정에서 가능합니다.</p>
-      </div>
-
-      <div className="flex flex-col gap-4 rounded-2xl border border-gray-100 bg-[#f8fbff] px-5 py-5">
-        <div className="flex flex-col gap-1">
-          <span className="text-xs font-semibold text-[#7aa3cc]">이름</span>
-          <h4 className="text-base font-bold text-gray-900">어떻게 불러드리면 될까요?</h4>
-        </div>
+      <div className="flex flex-col gap-2 rounded-2xl border border-gray-100 bg-[#f8fbff] px-5 py-5">
         <label className="space-y-2">
-          <span className="text-xs font-semibold text-gray-600">이름</span>
+          <span className="text-xs font-semibold text-[#7aa3cc]">이름 *</span>
           <input
             type="text"
             value={displayName}
-            onChange={(e) => onNameChange(e.target.value)}
+            onChange={(event) => onNameChange(event.target.value)}
             disabled={isEditMode}
             readOnly={isEditMode}
             placeholder="홍길동"
@@ -81,13 +80,8 @@ export default function ProfileStep1Basic({
       </div>
 
       <div className="flex flex-col gap-4 rounded-2xl border border-gray-100 bg-white px-5 py-5">
-        <div className="flex flex-col gap-1">
-          <span className="text-xs font-semibold text-[#7aa3cc]">연락처</span>
-          <h4 className="text-base font-bold text-gray-900">연락처를 알려주세요</h4>
-        </div>
-
         <div className="grid gap-2 text-sm text-gray-600">
-          <span className="font-semibold text-gray-700">이메일</span>
+          <span className="text-xs font-semibold text-[#7aa3cc]">이메일</span>
           <div className="flex items-center justify-between rounded-xl border border-dashed border-gray-300 bg-white px-4 py-3 text-sm font-medium text-gray-700">
             <span>{email ?? '이메일 정보 없음'}</span>
             <span className="text-xs text-gray-400">소셜 계정 연동</span>
@@ -95,11 +89,11 @@ export default function ProfileStep1Basic({
         </div>
 
         <label className="space-y-2">
-          <span className="text-xs font-semibold text-gray-600">전화번호</span>
+          <span className="text-xs font-semibold text-[#7aa3cc]">전화번호</span>
           <input
             type="tel"
             value={phone}
-            onChange={(e) => onPhoneChange(e.target.value)}
+            onChange={(event) => onPhoneChange(event.target.value)}
             placeholder="010-1234-5678"
             className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none focus:border-[#7aa3cc] focus:ring-2 focus:ring-[#cfe0f3]"
           />
@@ -107,11 +101,7 @@ export default function ProfileStep1Basic({
       </div>
 
       <div className="flex flex-col gap-4 rounded-2xl border border-gray-100 bg-white px-5 py-5">
-        <div className="flex flex-col gap-1">
-          <span className="text-xs font-semibold text-[#7aa3cc]">프로필 사진</span>
-          <h4 className="text-base font-bold text-gray-900">프로필 사진을 등록해 주세요</h4>
-          <p className="text-xs text-gray-500">선택 사항입니다. 나중에 수정할 수 있습니다.</p>
-        </div>
+        <span className="text-xs font-semibold text-[#7aa3cc]">프로필 사진 (선택사항)</span>
 
         {imagePreview ? (
           <div className="relative w-full max-w-xs">

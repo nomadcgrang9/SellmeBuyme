@@ -5,7 +5,6 @@ import AIInsightBox from '@/components/ai/AIInsightBox';
 import CardGrid from '@/components/cards/CardGrid';
 import ProfileSetupModal, { ROLE_OPTIONS, type RoleOption } from '@/components/auth/ProfileSetupModal';
 import ProfileViewModal from '@/components/auth/ProfileViewModal';
-import ProfileAwarenessModal from '@/components/auth/ProfileAwarenessModal';
 import ToastContainer from '@/components/common/ToastContainer';
 import { searchCards, fetchRecommendationsCache, fetchPromoCardSettings } from '@/lib/supabase/queries';
 import { fetchUserProfile, type UserProfileRow } from '@/lib/supabase/profiles';
@@ -44,7 +43,6 @@ export default function App() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
-  const [isAwarenessModalOpen, setAwarenessModalOpen] = useState(false);
   const [isProfileModalOpen, setProfileModalOpen] = useState(false);
   const [isProfileViewOpen, setProfileViewOpen] = useState(false);
   const [isEditMode, setEditMode] = useState(false);
@@ -97,17 +95,10 @@ export default function App() {
 
         if (data) {
           sessionStorage.removeItem('profileSetupPending');
-          sessionStorage.removeItem('awarenessModalShown');
-          setAwarenessModalOpen(false);
           setProfileModalOpen(false);
         } else {
           sessionStorage.setItem('profileSetupPending', 'true');
-          const awarenessShown = sessionStorage.getItem('awarenessModalShown');
-          if (!awarenessShown) {
-            setAwarenessModalOpen(true);
-          } else {
-            setProfileModalOpen(true);
-          }
+          setProfileModalOpen(true);
         }
       } catch (profileError) {
         if (cancelled) return;
@@ -122,34 +113,32 @@ export default function App() {
     };
   }, [status, user?.id]);
 
-  const handleAwarenessConfirm = () => {
-    sessionStorage.setItem('awarenessModalShown', 'true');
-    setAwarenessModalOpen(false);
-    setProfileModalOpen(true);
-  };
-
-  const handleAwarenessClose = () => {
-    sessionStorage.removeItem('profileSetupPending');
-    setAwarenessModalOpen(false);
-  };
-
   const handleProfileClose = () => {
+    console.log('[DEBUG] handleProfileClose 호출됨');
     sessionStorage.removeItem('profileSetupPending');
     sessionStorage.removeItem('awarenessModalShown');
     setProfileModalOpen(false);
-    setAwarenessModalOpen(false);
     setEditMode(false);
     setProfileInitialData(null);
+    console.log('[DEBUG] handleProfileClose 종료');
+  };
+
+  const handleProfileViewClose = () => {
+    console.log('[DEBUG] handleProfileViewClose 호출됨');
+    setProfileViewOpen(false);
+    console.log('[DEBUG] handleProfileViewClose 종료');
   };
 
   const handleProfileComplete = () => {
+    console.log('[DEBUG] handleProfileComplete 호출됨', { isEditMode });
     sessionStorage.removeItem('profileSetupPending');
+    console.log('[DEBUG] profileSetupPending 제거됨');
     setProfileModalOpen(false);
+    console.log('[DEBUG] setProfileModalOpen(false) 실행');
     setRecommendationReloadKey((prev) => prev + 1);
-    if (isEditMode) {
-      setProfileViewOpen(true);
-    }
+    console.log('[DEBUG] setRecommendationReloadKey 실행');
     setEditMode(false);
+    console.log('[DEBUG] handleProfileComplete 종료');
   };
 
   const handleOpenProfileView = () => {
@@ -413,11 +402,6 @@ export default function App() {
         </div>
       </footer>
 
-      <ProfileAwarenessModal
-        isOpen={isAwarenessModalOpen}
-        onConfirm={handleAwarenessConfirm}
-        onClose={handleAwarenessClose}
-      />
       <ProfileSetupModal
         isOpen={isProfileModalOpen}
         onClose={handleProfileClose}
@@ -425,11 +409,10 @@ export default function App() {
         userEmail={user?.email ?? null}
         userId={user?.id}
         mode={isEditMode ? 'edit' : 'create'}
-        initialData={profileInitialData ?? undefined}
       />
       <ProfileViewModal
         isOpen={isProfileViewOpen}
-        onClose={() => setProfileViewOpen(false)}
+        onClose={handleProfileViewClose}
         userId={user?.id}
         userEmail={user?.email}
         onRequestEdit={(profileData) => {
@@ -438,6 +421,7 @@ export default function App() {
           }
 
           if (profileData) {
+            console.log('[DEBUG] onRequestEdit - profileData 있음');
             normalizeProfileForEdit(profileData);
             setEditMode(true);
             setProfileViewOpen(false);
@@ -445,6 +429,7 @@ export default function App() {
             return;
           }
 
+          console.log('[DEBUG] onRequestEdit - profileData 없음, 다시 로드');
           void fetchUserProfile(user.id).then(({ data }) => {
             normalizeProfileForEdit(data ?? null);
             setEditMode(true);

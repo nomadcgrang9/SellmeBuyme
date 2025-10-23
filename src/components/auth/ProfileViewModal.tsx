@@ -10,6 +10,7 @@ import {
   IconX
 } from '@tabler/icons-react';
 import { fetchUserProfile, type UserProfileRow } from '@/lib/supabase/profiles';
+import { supabase } from '@/lib/supabase/client';
 import { useAuthStore } from '@/stores/authStore';
 
 interface ProfileViewModalProps {
@@ -164,7 +165,17 @@ export default function ProfileViewModal({ isOpen, onClose, userId, userEmail, o
                 <div className="space-y-6">
                   <section className="rounded-2xl border border-gray-100 bg-[#f8fbff] px-5 py-5">
                     <div className="flex items-start gap-3">
-                      <div className="mt-1 rounded-full bg-white p-2 text-[#4b83c6]"><IconUser size={18} /></div>
+                      {profile.profile_image_url ? (
+                        <div className="relative h-16 w-16 overflow-hidden rounded-full border-2 border-white shadow-lg">
+                          <img
+                            src={supabase.storage.from('profiles').getPublicUrl(profile.profile_image_url).data.publicUrl}
+                            alt="프로필 사진"
+                            className="h-full w-full object-cover"
+                          />
+                        </div>
+                      ) : (
+                        <div className="mt-1 rounded-full bg-white p-2 text-[#4b83c6]"><IconUser size={18} /></div>
+                      )}
                       <div className="space-y-1 text-sm text-gray-700">
                         <p className="text-xs font-semibold text-[#7aa3cc]">기본 정보</p>
                         <p className="text-base font-bold text-gray-900">{profile.display_name}</p>
@@ -190,16 +201,36 @@ export default function ProfileViewModal({ isOpen, onClose, userId, userEmail, o
                         <span className="text-xs text-gray-500">역할 정보가 없습니다.</span>
                       )}
                     </div>
-                    <div className="grid gap-3 text-sm text-gray-700 md:grid-cols-2">
-                      <div className="flex items-center gap-2">
-                        <IconMapPin size={16} className="text-[#4b83c6]" />
-                        <span>주 활동 지역: <strong>{profile.primary_region ?? '미입력'}</strong></span>
-                      </div>
-                      <div>
-                        <span className="text-xs font-semibold text-gray-500">경력 연차</span>
-                        <p className="text-sm text-gray-800">{experienceLabel}</p>
-                      </div>
+                    <div className="space-y-2">
+                      <span className="text-xs font-semibold text-gray-500">경력 연차</span>
+                      <p className="text-sm text-gray-800">{experienceLabel}</p>
                     </div>
+                    {profile.roles?.includes('교사') && profile.teacher_level && (
+                      <div className="space-y-1">
+                        <span className="text-xs font-semibold text-gray-500">교사 역할</span>
+                        <p className="text-sm text-gray-800">{profile.teacher_level}</p>
+                        {profile.special_education_type && (
+                          <p className="text-xs text-gray-600">({profile.special_education_type})</p>
+                        )}
+                      </div>
+                    )}
+                    {profile.roles?.includes('강사') && (profile.instructor_fields?.length || profile.instructor_custom_field) && (
+                      <div className="space-y-1">
+                        <span className="text-xs font-semibold text-gray-500">강사 분야</span>
+                        <div className="flex flex-wrap gap-1">
+                          {profile.instructor_fields?.map((field) => (
+                            <span key={field} className="rounded-full bg-[#eef3fb] px-2 py-1 text-xs font-semibold text-[#4b83c6]">
+                              {field}
+                            </span>
+                          ))}
+                          {profile.instructor_custom_field && (
+                            <span className="rounded-full bg-[#eef3fb] px-2 py-1 text-xs font-semibold text-[#4b83c6]">
+                              {profile.instructor_custom_field}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )}
                     <div className="space-y-2">
                       <span className="text-xs font-semibold text-gray-500">관심 지역</span>
                       {interestRegions.length > 0 ? (

@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { IconX, IconChevronLeft, IconChevronRight } from '@tabler/icons-react';
-import { upsertUserProfile, fetchUserProfile } from '@/lib/supabase/profiles';
+import { upsertUserProfile } from '@/lib/supabase/profiles';
 import { supabase } from '@/lib/supabase/client';
 import { useToastStore } from '@/stores/toastStore';
 import ProfileStep1Basic from './ProfileStep1Basic';
@@ -14,9 +14,6 @@ import ProfileStep3Location from './ProfileStep3Location';
 export type RoleOption = '교사' | '강사' | '업체' | '기타';
 
 export const ROLE_OPTIONS: RoleOption[] = ['교사', '강사', '업체', '기타'];
-
-export type TeacherLevel = '유치원' | '초등' | '중등' | '특수';
-export type SpecialEducationType = '초등특수' | '중등특수';
 
 interface ProfileSetupModalProps {
   isOpen: boolean;
@@ -38,17 +35,11 @@ export default function ProfileSetupModal({
   const showToast = useToastStore((state) => state.showToast);
   const [currentStep, setCurrentStep] = useState(0);
   const [showInitialModal, setShowInitialModal] = useState(true);
-
+  
   const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [profileImage, setProfileImage] = useState<File | null>(null);
-  const [existingProfileImageUrl, setExistingProfileImageUrl] = useState<string | null>(null);
   const [roles, setRoles] = useState<RoleOption[]>([]);
-  const [teacherLevel, setTeacherLevel] = useState<TeacherLevel | null>(null);
-  const [specialEducationType, setSpecialEducationType] = useState<SpecialEducationType | null>(null);
-  const [teacherSubjects, setTeacherSubjects] = useState<string[]>([]);
-  const [instructorFields, setInstructorFields] = useState<string[]>([]);
-  const [instructorCustomField, setInstructorCustomField] = useState('');
+  const [fields, setFields] = useState<string[]>([]);
+  const [customField, setCustomField] = useState('');
   const [interestRegions, setInterestRegions] = useState<string[]>([]);
   const [preferredJobTypes, setPreferredJobTypes] = useState<string[]>([]);
   const [preferredSubjects, setPreferredSubjects] = useState<string[]>([]);
@@ -56,7 +47,6 @@ export default function ProfileSetupModal({
   const [agreeTerms, setAgreeTerms] = useState(false);
   const [agreePrivacy, setAgreePrivacy] = useState(false);
   const [agreeMarketing, setAgreeMarketing] = useState(false);
-  const [introduction, setIntroduction] = useState('');
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -67,83 +57,21 @@ export default function ProfileSetupModal({
       setCurrentStep(0);
       setShowInitialModal(true);
       setName('');
-      setPhone('');
-      setProfileImage(null);
-      setExistingProfileImageUrl(null);
       setRoles([]);
-      setTeacherLevel(null);
-      setSpecialEducationType(null);
-      setTeacherSubjects([]);
-      setInstructorFields([]);
-      setInstructorCustomField('');
+      setFields([]);
+      setCustomField('');
       setInterestRegions([]);
       setPreferredJobTypes([]);
       setPreferredSubjects([]);
-      setIntroduction('');
       setReceiveNotifications(true);
       setAgreeTerms(false);
       setAgreePrivacy(false);
       setAgreeMarketing(false);
-    } else if (mode === 'edit' && userId) {
-      // Load existing profile data
-      void fetchUserProfile(userId).then(({ data }) => {
-        if (data) {
-          setCurrentStep(1);
-          setShowInitialModal(false);
-          setName(data.display_name || '');
-          setPhone(data.phone || '');
-          setRoles((data.roles as RoleOption[]) || []);
-          setInterestRegions(data.interest_regions || []);
-          setPreferredJobTypes(data.preferred_job_types || []);
-          setPreferredSubjects(data.preferred_subjects || []);
-          setIntroduction(data.intro || '');
-          setReceiveNotifications(data.receive_notifications ?? true);
-          setAgreeTerms(data.agree_terms ?? false);
-          setAgreePrivacy(data.agree_privacy ?? false);
-          setAgreeMarketing(data.agree_marketing ?? false);
-          // Load new fields
-          setTeacherLevel(data.teacher_level as TeacherLevel || null);
-          setSpecialEducationType(data.special_education_type as SpecialEducationType || null);
-          setInstructorFields(data.instructor_fields || []);
-          setInstructorCustomField(data.instructor_custom_field || '');
-          setExistingProfileImageUrl(data.profile_image_url || null);
-          // Note: profileImage state is for File objects, not URLs
-          // URL loading will be handled separately if needed
-        }
-      });
     }
     
     setSubmitStatus('idle');
     setSubmitError(null);
-  }, [isOpen, mode, userId]);
-
-  useEffect(() => {
-    if (!roles.includes('교사')) {
-      setTeacherLevel(null);
-      setSpecialEducationType(null);
-      setTeacherSubjects([]);
-      setPreferredJobTypes([]);
-      setPreferredSubjects([]);
-    }
-
-    if (!roles.includes('강사')) {
-      setInstructorFields([]);
-      setInstructorCustomField('');
-    }
-  }, [roles]);
-
-  const profileImagePublicUrl = useMemo(() => {
-    if (!existingProfileImageUrl) return null;
-    const { data } = supabase.storage.from('profiles').getPublicUrl(existingProfileImageUrl);
-    return data?.publicUrl ?? null;
-  }, [existingProfileImageUrl]);
-
-  const handleProfileImageChange = (file: File | null) => {
-    setProfileImage(file);
-    if (!file) {
-      setExistingProfileImageUrl(null);
-    }
-  };
+  }, [isOpen, mode]);
 
   const canSubmit =
     Boolean(name.trim()) &&
@@ -152,97 +80,31 @@ export default function ProfileSetupModal({
     agreeTerms &&
     agreePrivacy &&
     !!userId;
-  
-  useEffect(() => {
-    console.log('[TRACE] canSubmit 변경됨', {
-      canSubmit,
-      currentStep,
-      name: name.trim(),
-      roles: roles.length,
-      interestRegions: interestRegions.length,
-      agreeTerms,
-      agreePrivacy,
-      userId: !!userId
-    });
-  }, [canSubmit, currentStep, name, roles, interestRegions, agreeTerms, agreePrivacy, userId]);
 
-  const handleSubmit = async () => {
-    if (currentStep !== 3) {
-      return;
-    }
-
-    if (!canSubmit || !userId) {
-      return;
-    }
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!canSubmit || !userId) return;
 
     setSubmitStatus('loading');
     setSubmitError(null);
 
-    let profileImageUrl: string | null = existingProfileImageUrl;
-
-    // Upload profile image if exists
-    if (profileImage) {
-      try {
-        const fileExt = profileImage.name.split('.').pop();
-        const fileName = `${userId}/${Date.now()}.${fileExt}`;
-        const filePath = `profile-images/${fileName}`;
-
-        console.log('[IMAGE UPLOAD] Starting upload:', { filePath, fileSize: profileImage.size, fileType: profileImage.type });
-
-        const { error: uploadError, data: uploadData } = await supabase.storage
-          .from('profiles')
-          .upload(filePath, profileImage, { upsert: true });
-
-        if (uploadError) {
-          console.error('[IMAGE UPLOAD] Failed:', uploadError);
-          // Continue without image - don't fail the whole process
-        } else {
-          console.log('[IMAGE UPLOAD] Success:', { uploadData, filePath });
-          profileImageUrl = filePath;
-          setExistingProfileImageUrl(filePath);
-        }
-      } catch (uploadError) {
-        console.error('[IMAGE UPLOAD] Exception:', uploadError);
-        // Continue without image
-      }
-    }
-    console.log('[PROFILE SAVE] profileImageUrl:', profileImageUrl);
-
-    console.log('[PROFILE SAVE] Saving with payload:', { profileImageUrl, hasImage: !!profileImage });
-    
-    const { error, data: savedData } = await upsertUserProfile(userId, {
+    const { error } = await upsertUserProfile(userId, {
       displayName: name.trim(),
-      phone: phone.trim() || undefined,
       roles,
       interestRegions,
       preferredJobTypes,
       preferredSubjects,
-      intro: introduction.trim() || undefined,
       receiveNotifications,
       agreeTerms,
       agreePrivacy,
-      agreeMarketing,
-      teacherLevel: teacherLevel || undefined,
-      specialEducationType: specialEducationType || undefined,
-      instructorFields: instructorFields.length > 0 ? instructorFields : undefined,
-      instructorCustomField: instructorCustomField.trim() || undefined,
-      profileImageUrl: profileImageUrl ?? null
+      agreeMarketing
     });
-
-    console.log('[PROFILE SAVE] Result:', { error, savedData: savedData?.profile_image_url });
 
     if (error) {
       setSubmitStatus('error');
       setSubmitError(error.message);
       return;
     }
-
-    if (savedData?.profile_image_url ?? profileImageUrl) {
-      setExistingProfileImageUrl(savedData?.profile_image_url ?? profileImageUrl ?? null);
-    } else {
-      setExistingProfileImageUrl(null);
-    }
-    setProfileImage(null);
 
     try {
       const { data: sessionData } = await supabase.auth.getSession();
@@ -261,19 +123,13 @@ export default function ProfileSetupModal({
 
     sessionStorage.removeItem('profileSetupPending');
     setSubmitStatus('success');
-    // Only show toast for new profile (not edit mode)
-    if (mode === 'create') {
-      showToast('가입완료 되었습니다', 'success');
-    }
+    showToast('가입완료 되었습니다', 'success');
     onComplete?.();
     onClose();
-    setCurrentStep(1);
   };
 
   const stepTitles = ['기본 정보', '역할 & 분야', '지역 & 선호도'];
   const totalSteps = 3;
-  
-  console.log('[DEBUG] 현재 상태', { currentStep, totalSteps, canSubmit, isOpen });
 
   const getCanProceedToNext = () => {
     switch (currentStep) {
@@ -282,9 +138,9 @@ export default function ProfileSetupModal({
       case 2:
         return roles.length > 0;
       case 3:
-        return false;
+        return interestRegions.length > 0;
       default:
-        return false;
+        return true;
     }
   };
 
@@ -377,17 +233,7 @@ export default function ProfileSetupModal({
                   </button>
                 </header>
 
-                <form
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                  }}
-                  className="px-8 pb-8 pt-6 max-h-[80vh] overflow-y-auto"
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && e.ctrlKey === false && e.target instanceof HTMLTextAreaElement) {
-                      e.preventDefault();
-                    }
-                  }}
-                >
+                <form onSubmit={handleSubmit} className="px-8 pb-8 pt-6 max-h-[80vh] overflow-y-auto">
                   <section className="space-y-6">
                     {submitError && (
                       <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
@@ -399,32 +245,23 @@ export default function ProfileSetupModal({
                       <ProfileStep1Basic
                         displayName={name}
                         email={userEmail ?? null}
-                        phone={phone}
-                        profileImage={profileImage}
-                        initialImageUrl={profileImagePublicUrl}
                         onNameChange={setName}
-                        onPhoneChange={setPhone}
-                        onImageChange={handleProfileImageChange}
                         isEditMode={false}
                       />
                     )}
 
                     {currentStep === 2 && (
                       <div className="space-y-6">
-                        <ProfileStep1Role roles={roles} onRolesChange={setRoles} />
+                        <ProfileStep1Role
+                          roles={roles}
+                          onRolesChange={setRoles}
+                        />
                         <ProfileStep2Field
                           roles={roles}
-                          teacherLevel={teacherLevel}
-                          specialEducationType={specialEducationType}
-                          teacherSubjects={teacherSubjects}
-                          instructorFields={instructorFields}
-                          instructorCustomField={instructorCustomField}
-                          onTeacherLevelChange={setTeacherLevel}
-                          onSpecialEducationTypeChange={setSpecialEducationType}
-                          onTeacherSubjectsChange={setTeacherSubjects}
-                          onInstructorFieldsChange={setInstructorFields}
-                          onInstructorCustomFieldChange={setInstructorCustomField}
-                          onSyncPreferredSubjects={setPreferredSubjects}
+                          selectedFields={fields}
+                          customField={customField}
+                          onFieldsChange={setFields}
+                          onCustomFieldChange={setCustomField}
                         />
                       </div>
                     )}
@@ -438,14 +275,7 @@ export default function ProfileSetupModal({
                           preferredJobTypes={preferredJobTypes}
                           onJobTypesChange={setPreferredJobTypes}
                           preferredSubjects={preferredSubjects}
-                          onSubjectsChange={(subjects) => {
-                            setPreferredSubjects(subjects);
-                            if (roles.includes('교사')) {
-                              setTeacherSubjects(subjects);
-                            }
-                          }}
-                          introduction={introduction}
-                          onIntroductionChange={setIntroduction}
+                          onSubjectsChange={setPreferredSubjects}
                         />
 
                         <div className="space-y-4 border-t border-gray-100 pt-6">
@@ -511,11 +341,8 @@ export default function ProfileSetupModal({
                           <button
                             type="button"
                             onClick={() => {
-                              console.log('[TRACE] 다음 단계 버튼 클릭', { currentStep, canProceedToNext });
                               if (!canProceedToNext) return;
-                              console.log('[TRACE] Step 변경 전', { currentStep });
                               setCurrentStep(currentStep + 1);
-                              console.log('[TRACE] Step 변경 후', { newStep: currentStep + 1 });
                             }}
                             disabled={!canProceedToNext}
                             className={`h-11 rounded-xl px-6 text-sm font-semibold transition-colors flex items-center justify-center gap-2 ${
@@ -529,8 +356,7 @@ export default function ProfileSetupModal({
                           </button>
                         ) : (
                           <button
-                            type="button"
-                            onClick={handleSubmit}
+                            type="submit"
                             disabled={!canSubmit || submitStatus === 'loading'}
                             className={`h-11 rounded-xl px-6 text-sm font-semibold transition-colors ${
                               canSubmit ? 'bg-[#4b83c6] text-white hover:bg-[#3d73b4]' : 'bg-gray-300 text-gray-600 cursor-not-allowed'

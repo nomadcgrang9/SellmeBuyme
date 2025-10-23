@@ -63,7 +63,7 @@ export default function ProfileAwarenessModal({ isOpen, onConfirm, onClose }: Pr
                   onClick={onConfirm}
                   className="inline-flex min-w-[120px] items-center justify-center rounded-xl bg-[#4b83c6] px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#3d73b4]"
                 >
-                  확인
+                  시작하기
                 </button>
               </footer>
             </div>
