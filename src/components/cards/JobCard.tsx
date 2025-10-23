@@ -51,7 +51,7 @@ export default function JobCard({ job, onClick }: JobCardProps) {
       onClick={onClick}
     >
       <div
-        className="bg-white border border-gray-200 rounded-lg shadow-md animate-slide-up flex h-[280px] flex-col cursor-pointer transition-all duration-300 ease-out group-hover:shadow-none group-hover:rounded-b-none group-hover:border-b-0 group-hover:z-40"
+        className="bg-white border border-gray-200 rounded-lg shadow-md animate-slide-up flex flex-col min-h-[240px] cursor-pointer transition-all duration-300 ease-out group-hover:shadow-none group-hover:rounded-b-none group-hover:border-b-0 group-hover:z-40"
         style={{ overflow: 'visible' }}
       >
         {/* 상단 컬러 바 */}
@@ -79,7 +79,7 @@ export default function JobCard({ job, onClick }: JobCardProps) {
           </p>
 
           {/* 태그 (중복 제거) */}
-          <div className="mb-4 flex flex-wrap gap-1.5 max-h-[44px] overflow-hidden">
+          <div className="flex flex-wrap gap-1.5 max-h-[44px] overflow-hidden">
             {uniqueTags.map((tag, index) => (
               <span
                 key={index}
@@ -91,7 +91,7 @@ export default function JobCard({ job, onClick }: JobCardProps) {
           </div>
 
           {/* 기본 정보 */}
-          <div className="mt-auto space-y-1.5 text-sm text-gray-700">
+          <div className="mt-3 space-y-1.5 text-sm text-gray-700">
             <div className="flex items-center gap-2 truncate">
               <IconMapPin size={16} stroke={1.5} className="text-[#7aa3cc] flex-shrink-0" />
               <span className="font-medium truncate">{job.location}</span>
@@ -123,10 +123,10 @@ export default function JobCard({ job, onClick }: JobCardProps) {
       {/* 데스크톱 호버 확장 영역 */}
       {hasOverlayContent && (
         <div
-          className="hidden md:block absolute inset-x-0 top-[280px] z-50 pointer-events-none opacity-0 translate-y-2 transition-all duration-300 ease-out group-hover:translate-y-0 group-hover:opacity-100 group-hover:pointer-events-auto"
+          className="hidden md:block absolute inset-x-0 top-full z-50 pointer-events-none opacity-0 translate-y-1 transition-all duration-300 ease-out group-hover:translate-y-0 group-hover:opacity-100 group-hover:pointer-events-auto"
           onClick={(event) => event.stopPropagation()}
         >
-          <div className="rounded-b-lg rounded-t-none border border-gray-200 border-t-0 bg-white shadow-2xl p-4 space-y-3">
+          <div className="rounded-b-lg rounded-t-none border border-gray-200 bg-white shadow-2xl p-4 space-y-3">
             {job.application_period && (
               <div className="flex items-start gap-2 text-sm text-gray-700">
                 <IconCalendar size={18} stroke={1.5} className="text-blue-500 flex-shrink-0 mt-0.5" />

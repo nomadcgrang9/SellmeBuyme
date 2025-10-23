@@ -1,5 +1,6 @@
 export const REGION_OPTIONS = [
-  '전지역',
+  '서울 전체',
+  '경기도 전체',
   '수원',
   '성남',
   '용인',
