@@ -2,15 +2,20 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { IconX, IconPlus, IconAlertCircle } from '@tabler/icons-react';
+import { IconX, IconPlus, IconAlertCircle, IconChevronLeft, IconChevronRight } from '@tabler/icons-react';
 import { REGION_OPTIONS } from '@/lib/constants/filters';
 import { upsertUserProfile } from '@/lib/supabase/profiles';
 import { supabase } from '@/lib/supabase/client';
 import { useToastStore } from '@/stores/toastStore';
+import ProfileStep1Basic from './ProfileStep1Basic';
+import ProfileStep2Education from './ProfileStep2Education';
+import ProfileStep3Preferences from './ProfileStep3Preferences';
+import ProfileStep4Priority from './ProfileStep4Priority';
+import ProfileStep5Skills from './ProfileStep5Skills';
 
-export type RoleOption = '교사' | '강사' | '업체' | '학부모' | '학생' | '기타';
+export type RoleOption = '교사' | '강사' | '업체' | '기타';
 
-export const ROLE_OPTIONS: RoleOption[] = ['교사', '강사', '업체', '학부모', '학생', '기타'];
+export const ROLE_OPTIONS: RoleOption[] = ['교사', '강사', '업체', '기타'];
 const MAX_INTEREST_REGIONS = 5;
 const EXPERIENCE_LIMIT = 30;
 
@@ -59,10 +64,24 @@ export default function ProfileSetupModal({
   initialData
 }: ProfileSetupModalProps) {
   const showToast = useToastStore((state) => state.showToast);
+  const [currentStep, setCurrentStep] = useState(1);
+  const [phone, setPhone] = useState('');
+  const [profileImage, setProfileImage] = useState<File | null>(null);
   const [name, setName] = useState('');
   const [roles, setRoles] = useState<RoleOption[]>([]);
+  const [instructorCategories, setInstructorCategories] = useState<string[]>([]);
+  const [instructorCustom, setInstructorCustom] = useState('');
+  const [experienceLevel, setExperienceLevel] = useState('');
+  const [certificates, setCertificates] = useState<string[]>([]);
   const [primaryRegion, setPrimaryRegion] = useState('');
   const [interestRegions, setInterestRegions] = useState<string[]>([]);
+  const [regionExpansionMode, setRegionExpansionMode] = useState('선택한 지역만');
+  const [preferredJobTypes, setPreferredJobTypes] = useState<string[]>([]);
+  const [preferredSubjects, setPreferredSubjects] = useState<string[]>([]);
+  const [regionPriority, setRegionPriority] = useState<string[]>([]);
+  const [jobTypePriority, setJobTypePriority] = useState<string[]>([]);
+  const [subjectPriority, setSubjectPriority] = useState<string[]>([]);
+  const [additionalSkills, setAdditionalSkills] = useState('');
   const [interestInput, setInterestInput] = useState('');
   const [experienceYears, setExperienceYears] = useState<number | null>(null);
   const [receiveNotifications, setReceiveNotifications] = useState(true);
@@ -229,12 +248,43 @@ export default function ProfileSetupModal({
   );
 
   const isEditMode = mode === 'edit';
-  const headerBadge = isEditMode ? '프로필 수정' : 'Step 1 / 기본정보';
-  const headerTitle = isEditMode ? '프로필 정보를 수정해 주세요' : '프로필 정보를 완성해 주세요';
+  const stepTitles = ['기본 신원', '교육 자격', '선호도 설정', '우선순위 설정', '추가 역량'];
+  const stepDescriptions = [
+    '정확한 기본 정보를 입력해 주세요.',
+    '교육 자격과 경력을 선택해 주세요.',
+    '선호하는 지역, 직종, 과목을 선택해 주세요.',
+    '우선순위를 드래그로 정렬해 주세요.',
+    '추가 역량을 입력해 주세요. (선택사항)'
+  ];
+  
+  const headerBadge = isEditMode ? '프로필 수정' : `Step ${currentStep} / ${stepTitles[currentStep - 1]}`;
+  const headerTitle = isEditMode ? '프로필 정보를 수정해 주세요' : stepTitles[currentStep - 1];
   const headerDescription = isEditMode
     ? '필요한 항목만 업데이트할 수 있어요.'
-    : `${userEmail ?? '소셜 계정'} 인증이 완료되었습니다. 맞춤 추천을 위해 아래 정보를 입력해 주세요.`;
-  const cancelLabel = isEditMode ? '취소' : '이전 단계로 돌아가기';
+    : stepDescriptions[currentStep - 1];
+  const cancelLabel = isEditMode ? '취소' : currentStep === 1 ? '닫기' : '이전 단계';
+  const nextLabel = currentStep === 5 ? '완료' : '다음 단계';
+  const prevLabel = '이전 단계';
+  
+  const getCanProceedToNext = () => {
+    switch (currentStep) {
+      case 1:
+        return Boolean(name.trim());
+      case 2:
+        return roles.length > 0 && Boolean(experienceLevel);
+      case 3:
+        return interestRegions.length > 0 && preferredJobTypes.length > 0;
+      case 4:
+        return true;
+      case 5:
+        return true;
+      default:
+        return true;
+    }
+  };
+  
+  const canProceedToNext = getCanProceedToNext();
+  const totalSteps = 5;
 
   return (
     <AnimatePresence>
@@ -288,7 +338,60 @@ export default function ProfileSetupModal({
                     저장에 실패했습니다: {submitError}
                   </div>
                 )}
-                <div className="space-y-4">
+                {currentStep === 1 ? (
+                  <ProfileStep1Basic
+                    displayName={name}
+                    email={userEmail ?? null}
+                    phone={phone}
+                    profileImage={profileImage}
+                    onNameChange={setName}
+                    onPhoneChange={setPhone}
+                    onImageChange={setProfileImage}
+                    isEditMode={isEditMode}
+                  />
+                ) : currentStep === 2 ? (
+                  <ProfileStep2Education
+                    roles={roles}
+                    instructorCategories={instructorCategories}
+                    instructorCustom={instructorCustom}
+                    experienceLevel={experienceLevel}
+                    certificates={certificates}
+                    onRolesChange={setRoles}
+                    onInstructorCategoriesChange={setInstructorCategories}
+                    onInstructorCustomChange={setInstructorCustom}
+                    onExperienceLevelChange={setExperienceLevel}
+                    onCertificatesChange={setCertificates}
+                  />
+                ) : currentStep === 3 ? (
+                  <ProfileStep3Preferences
+                    preferredRegions={interestRegions}
+                    regionExpansionMode={regionExpansionMode}
+                    preferredJobTypes={preferredJobTypes}
+                    preferredSubjects={preferredSubjects}
+                    onRegionsChange={setInterestRegions}
+                    onRegionExpansionChange={setRegionExpansionMode}
+                    onJobTypesChange={setPreferredJobTypes}
+                    onSubjectsChange={setPreferredSubjects}
+                  />
+                ) : currentStep === 4 ? (
+                  <ProfileStep4Priority
+                    regionPriority={regionPriority}
+                    jobTypePriority={jobTypePriority}
+                    subjectPriority={subjectPriority}
+                    availableRegions={interestRegions}
+                    availableJobTypes={preferredJobTypes}
+                    availableSubjects={preferredSubjects}
+                    onRegionPriorityChange={setRegionPriority}
+                    onJobTypePriorityChange={setJobTypePriority}
+                    onSubjectPriorityChange={setSubjectPriority}
+                  />
+                ) : currentStep === 5 ? (
+                  <ProfileStep5Skills
+                    additionalSkills={additionalSkills}
+                    onSkillsChange={setAdditionalSkills}
+                  />
+                ) : (
+                  <div className="space-y-4">
                   <div className="flex flex-col gap-3 rounded-2xl border border-gray-100 bg-[#f8fbff] px-5 py-5">
                     <div>
                       <span className="text-xs font-semibold text-[#4b83c6]">기본 정보</span>
@@ -420,30 +523,65 @@ export default function ProfileSetupModal({
                       </label>
                     </div>
                   </div>
-                </div>
+                  </div>
+                )}
 
                 <footer className="flex flex-col gap-3 border-t border-gray-100 pt-4">
                   <div className="flex items-center justify-between text-xs text-gray-500">
-                    <span>입력하신 정보는 맞춤 추천과 통계 목적으로만 사용됩니다.</span>
-                    <span className="text-[#7aa3cc] font-semibold">AI 추천 활성화까지 1분 이내</span>
+                    <span>단계 {currentStep} / {totalSteps}</span>
+                    <div className="flex gap-1">
+                      {Array.from({ length: totalSteps }).map((_, idx) => (
+                        <div
+                          key={idx}
+                          className={`h-1 flex-1 rounded-full transition-colors ${
+                            idx < currentStep ? 'bg-[#7aa3cc]' : 'bg-gray-200'
+                          }`}
+                        />
+                      ))}
+                    </div>
                   </div>
-                  <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                  <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-between">
                     <button
                       type="button"
-                      onClick={onClose}
-                      className="h-11 rounded-xl border border-gray-300 px-6 text-sm font-semibold text-gray-600 transition-colors hover:bg-gray-100"
+                      onClick={currentStep === 1 ? onClose : () => setCurrentStep(currentStep - 1)}
+                      className="h-11 rounded-xl border border-gray-300 px-6 text-sm font-semibold text-gray-600 transition-colors hover:bg-gray-100 flex items-center justify-center gap-2"
                     >
+                      {currentStep > 1 && <IconChevronLeft size={16} />}
                       {cancelLabel}
                     </button>
-                    <button
-                      type="submit"
-                      disabled={!canSubmit || submitStatus === 'loading'}
-                      className={`w-full rounded-xl px-5 py-3 text-sm font-semibold text-white transition-colors ${
-                        canSubmit ? 'bg-[#4b83c6] hover:bg-[#3d73b4]' : 'bg-gray-300 cursor-not-allowed'
-                      }`}
-                    >
-                      {submitButtonLabel}
-                    </button>
+                    {currentStep < totalSteps ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!canProceedToNext) return;
+                          if (currentStep === 3) {
+                            setRegionPriority(interestRegions);
+                            setJobTypePriority(preferredJobTypes);
+                            setSubjectPriority(preferredSubjects);
+                          }
+                          setCurrentStep(currentStep + 1);
+                        }}
+                        disabled={!canProceedToNext}
+                        className={`h-11 rounded-xl px-6 text-sm font-semibold transition-colors flex items-center justify-center gap-2 ${
+                          canProceedToNext
+                            ? 'bg-[#4b83c6] text-white hover:bg-[#3d73b4]'
+                            : 'bg-gray-300 text-gray-600 cursor-not-allowed'
+                        }`}
+                      >
+                        {nextLabel}
+                        <IconChevronRight size={16} />
+                      </button>
+                    ) : (
+                      <button
+                        type="submit"
+                        disabled={!canSubmit || submitStatus === 'loading'}
+                        className={`h-11 rounded-xl px-6 text-sm font-semibold transition-colors ${
+                          canSubmit ? 'bg-[#4b83c6] text-white hover:bg-[#3d73b4]' : 'bg-gray-300 text-gray-600 cursor-not-allowed'
+                        }`}
+                      >
+                        {submitButtonLabel}
+                      </button>
+                    )}
                   </div>
                 </footer>
               </section>

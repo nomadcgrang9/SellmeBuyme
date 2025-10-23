@@ -5,6 +5,7 @@ import AIInsightBox from '@/components/ai/AIInsightBox';
 import CardGrid from '@/components/cards/CardGrid';
 import ProfileSetupModal, { ROLE_OPTIONS, type RoleOption } from '@/components/auth/ProfileSetupModal';
 import ProfileViewModal from '@/components/auth/ProfileViewModal';
+import ProfileAwarenessModal from '@/components/auth/ProfileAwarenessModal';
 import ToastContainer from '@/components/common/ToastContainer';
 import { searchCards, fetchRecommendationsCache, fetchPromoCardSettings } from '@/lib/supabase/queries';
 import { fetchUserProfile, type UserProfileRow } from '@/lib/supabase/profiles';
@@ -43,6 +44,7 @@ export default function App() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
+  const [isAwarenessModalOpen, setAwarenessModalOpen] = useState(false);
   const [isProfileModalOpen, setProfileModalOpen] = useState(false);
   const [isProfileViewOpen, setProfileViewOpen] = useState(false);
   const [isEditMode, setEditMode] = useState(false);
@@ -95,10 +97,17 @@ export default function App() {
 
         if (data) {
           sessionStorage.removeItem('profileSetupPending');
+          sessionStorage.removeItem('awarenessModalShown');
+          setAwarenessModalOpen(false);
           setProfileModalOpen(false);
         } else {
           sessionStorage.setItem('profileSetupPending', 'true');
-          setProfileModalOpen(true);
+          const awarenessShown = sessionStorage.getItem('awarenessModalShown');
+          if (!awarenessShown) {
+            setAwarenessModalOpen(true);
+          } else {
+            setProfileModalOpen(true);
+          }
         }
       } catch (profileError) {
         if (cancelled) return;
@@ -113,9 +122,22 @@ export default function App() {
     };
   }, [status, user?.id]);
 
+  const handleAwarenessConfirm = () => {
+    sessionStorage.setItem('awarenessModalShown', 'true');
+    setAwarenessModalOpen(false);
+    setProfileModalOpen(true);
+  };
+
+  const handleAwarenessClose = () => {
+    sessionStorage.removeItem('profileSetupPending');
+    setAwarenessModalOpen(false);
+  };
+
   const handleProfileClose = () => {
     sessionStorage.removeItem('profileSetupPending');
+    sessionStorage.removeItem('awarenessModalShown');
     setProfileModalOpen(false);
+    setAwarenessModalOpen(false);
     setEditMode(false);
     setProfileInitialData(null);
   };
@@ -391,6 +413,11 @@ export default function App() {
         </div>
       </footer>
 
+      <ProfileAwarenessModal
+        isOpen={isAwarenessModalOpen}
+        onConfirm={handleAwarenessConfirm}
+        onClose={handleAwarenessClose}
+      />
       <ProfileSetupModal
         isOpen={isProfileModalOpen}
         onClose={handleProfileClose}

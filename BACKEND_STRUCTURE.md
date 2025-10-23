@@ -37,6 +37,9 @@
 - **프론트 트리거**: `ProfileSetupModal.tsx`에서 `upsertUserProfile()` 성공 후 `supabase.functions.invoke('profile-recommendations')`를 호출해 캐시를 갱신. `App.tsx`는 `fetchRecommendationsCache()`로 캐시 결과를 불러와 `AIRecommendations`에 주입.
 - **환경 변수 관리**: Edge Function은 `PROJECT_URL`·`ANON_KEY` 시크릿을 사용해 Supabase JS 클라이언트를 초기화. 배포 시 Secrets에 값을 확인/추가해야 함.
 
+### 추가 업데이트 (2025-10-23)
+- **백엔드 영향 없음**: 공고 카드 UI 정리는 `JobCard.tsx` 수준에서 처리되어 API·DB·Functions 스키마에는 추가 조치가 필요하지 않음을 명시.
+
 ## 📊 현재 상태
 
 ### 프론트엔드
