@@ -6,7 +6,7 @@ const ROLE_LABELS: Record<RoleOption, string> = {
   '교사': '교사',
   '강사': '강사',
   '업체': '업체',
-  '기타': '학교행정'
+  '기타': '학교행정' // 내부 코드: '기타', UI: '학교행정'
 };
 
 const ROLE_DESCRIPTIONS: Record<RoleOption, string> = {

@@ -149,18 +149,6 @@ export default function ProfileSetupModal({
     agreePrivacy &&
     !!userId;
   
-  useEffect(() => {
-    console.log('[TRACE] canSubmit 변경됨', {
-      canSubmit,
-      currentStep,
-      name: name.trim(),
-      roles: roles.length,
-      interestRegions: interestRegions.length,
-      agreeTerms,
-      agreePrivacy,
-      userId: !!userId
-    });
-  }, [canSubmit, currentStep, name, roles, interestRegions, agreeTerms, agreePrivacy, userId]);
 
   const handleSubmit = async () => {
     if (currentStep !== 3) {
@@ -183,28 +171,21 @@ export default function ProfileSetupModal({
         const fileName = `${userId}/${Date.now()}.${fileExt}`;
         const filePath = `profile-images/${fileName}`;
 
-        console.log('[IMAGE UPLOAD] Starting upload:', { filePath, fileSize: profileImage.size, fileType: profileImage.type });
 
         const { error: uploadError, data: uploadData } = await supabase.storage
           .from('profiles')
           .upload(filePath, profileImage, { upsert: true });
 
         if (uploadError) {
-          console.error('[IMAGE UPLOAD] Failed:', uploadError);
           // Continue without image - don't fail the whole process
         } else {
-          console.log('[IMAGE UPLOAD] Success:', { uploadData, filePath });
           profileImageUrl = filePath;
           setExistingProfileImageUrl(filePath);
         }
       } catch (uploadError) {
-        console.error('[IMAGE UPLOAD] Exception:', uploadError);
         // Continue without image
       }
     }
-    console.log('[PROFILE SAVE] profileImageUrl:', profileImageUrl);
-
-    console.log('[PROFILE SAVE] Saving with payload:', { profileImageUrl, hasImage: !!profileImage });
     
     const { error, data: savedData } = await upsertUserProfile(userId, {
       displayName: name.trim(),
@@ -224,7 +205,6 @@ export default function ProfileSetupModal({
       profileImageUrl: profileImageUrl ?? null
     });
 
-    console.log('[PROFILE SAVE] Result:', { error, savedData: savedData?.profile_image_url });
 
     if (error) {
       setSubmitStatus('error');
@@ -267,8 +247,6 @@ export default function ProfileSetupModal({
 
   const stepTitles = ['기본 정보', '역할 & 분야', '지역 & 선호도'];
   const totalSteps = 3;
-  
-  console.log('[DEBUG] 현재 상태', { currentStep, totalSteps, canSubmit, isOpen });
 
   const getCanProceedToNext = () => {
     switch (currentStep) {
