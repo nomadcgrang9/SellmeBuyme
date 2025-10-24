@@ -6,7 +6,7 @@ import CardGrid from '@/components/cards/CardGrid';
 import ProfileSetupModal, { ROLE_OPTIONS, type RoleOption } from '@/components/auth/ProfileSetupModal';
 import ProfileViewModal from '@/components/auth/ProfileViewModal';
 import ToastContainer from '@/components/common/ToastContainer';
-import { searchCards, fetchRecommendationsCache, fetchPromoCardSettings } from '@/lib/supabase/queries';
+import { searchCards, fetchRecommendationsCache, isCacheValid, hasProfileChanged, fetchPromoCardSettings, selectRecommendationCards, filterByTeacherLevel, filterByJobType, calculateSubjectScore, filterByExperience, generateRecommendations } from '@/lib/supabase/queries';
 import { fetchUserProfile, type UserProfileRow } from '@/lib/supabase/profiles';
 import { useSearchStore } from '@/stores/searchStore';
 import { useAuthStore } from '@/stores/authStore';
@@ -59,11 +59,13 @@ export default function App() {
     agreeMarketing: boolean | null;
   } | null>(null);
   const [recommendationCards, setRecommendationCards] = useState<Card[]>([]);
-  const [recommendationHeadline, setRecommendationHeadline] = useState<string>('추천을 준비 중이에요');
-  const [recommendationDescription, setRecommendationDescription] = useState<string>('프로필 정보를 기반으로 맞춤 카드를 정리하고 있습니다.');
+  const [recommendationHeadline, setRecommendationHeadline] = useState<string | undefined>(undefined);
+  const [recommendationDescription, setRecommendationDescription] = useState<string | undefined>(undefined);
   const [recommendationLoading, setRecommendationLoading] = useState(true);
   const [recommendationReloadKey, setRecommendationReloadKey] = useState(0);
   const [promoCard, setPromoCard] = useState<PromoCardSettings | null>(null);
+  const [recommendedIds, setRecommendedIds] = useState<Set<string>>(new Set());
+  const [userProfile, setUserProfile] = useState<UserProfileRow | null>(null);
 
   useEffect(() => {
     void initialize();
@@ -214,19 +216,100 @@ export default function App() {
     async function loadRecommendations() {
       setRecommendationLoading(true);
       try {
-        const cache = await fetchRecommendationsCache(targetUserId);
+        // 프로필과 캐시 동시 조회
+        const [cacheResult, profileResult] = await Promise.all([
+          fetchRecommendationsCache(targetUserId),
+          fetchUserProfile(targetUserId)
+        ]);
+        
         if (cancelled) return;
 
-        if (cache && cache.cards.length > 0) {
-          setRecommendationCards(cache.cards);
-          const headline = cache.aiComment?.headline ?? `${targetUserEmail ?? '회원님'}을 위한 추천을 준비했어요`;
-          const description = cache.aiComment?.description ?? '프로필 기반으로 최근 카드들을 정리했습니다.';
-          setRecommendationHeadline(headline);
-          setRecommendationDescription(description);
+        const cache = cacheResult;
+        const profile = profileResult.data;
+        
+        // 프로필 상태 업데이트
+        if (profile) {
+          setUserProfile(profile);
+        }
+
+        // 캐시 유효성 검사 및 프로필 변경 감지
+        const { isCacheValid, hasProfileChanged } = await import('@/lib/supabase/queries');
+        
+        const isCacheStillValid = cache && isCacheValid(cache.updatedAt);
+        const profileHasChanged = cache && profile && hasProfileChanged(cache.profileSnapshot as Record<string, unknown>, profile as Record<string, unknown>);
+        
+        if (isCacheStillValid && !profileHasChanged && cache && cache.cards.length > 0) {
+          // 캐시가 유효하고 프로필이 변경되지 않았으면 캐시 사용
+          const sourceCards = cache.cards;
+          let filteredCards = selectRecommendationCards(sourceCards, profile?.roles);
+          
+          // 교사급 필터링
+          if (profile?.teacher_level) {
+            filteredCards = filterByTeacherLevel(filteredCards, profile.teacher_level);
+          }
+          
+          // 직종 필터링
+          if (profile?.preferred_job_types && profile.preferred_job_types.length > 0) {
+            filteredCards = filterByJobType(filteredCards, profile.preferred_job_types);
+          }
+          
+          // 과목 가중치 적용 (정렬)
+          if (profile?.preferred_subjects && profile.preferred_subjects.length > 0) {
+            filteredCards = filteredCards.sort((a, b) => {
+              const scoreA = calculateSubjectScore(a, profile.preferred_subjects);
+              const scoreB = calculateSubjectScore(b, profile.preferred_subjects);
+              return scoreB - scoreA;
+            });
+          }
+
+          // 경력 필터링
+          if (typeof profile?.experience_years === 'number') {
+            filteredCards = filterByExperience(filteredCards, profile.experience_years);
+          }
+          
+          // 필터링 결과가 비면 원본 추천으로 폴백
+          const finalCards = (filteredCards.length > 0 ? filteredCards : selectRecommendationCards(sourceCards, profile?.roles)).slice(0, 6);
+          setRecommendationCards(finalCards);
+          setRecommendedIds(new Set(finalCards.map((c) => c.id)));
+          // AI 코멘트는 컴포넌트 내부(getAiComment)에서 프로필+카드로 생성
+          setRecommendationHeadline(undefined);
+          setRecommendationDescription(undefined);
         } else {
-          setRecommendationCards([]);
-          setRecommendationHeadline('추천을 준비 중이에요');
-          setRecommendationDescription('프로필을 최신 상태로 저장하면 맞춤 추천을 받을 수 있어요.');
+          // 캐시가 무효하거나 없음 → Edge Function을 호출하여 추천 생성
+          const gen = await generateRecommendations();
+          if (gen && Array.isArray(gen.cards) && gen.cards.length > 0) {
+            const sourceCards = gen.cards;
+            let filteredCards = selectRecommendationCards(sourceCards, profile?.roles);
+
+            if (profile?.teacher_level) {
+              filteredCards = filterByTeacherLevel(filteredCards, profile.teacher_level);
+            }
+            if (profile?.preferred_job_types && profile.preferred_job_types.length > 0) {
+              filteredCards = filterByJobType(filteredCards, profile.preferred_job_types);
+            }
+            if (profile?.preferred_subjects && profile.preferred_subjects.length > 0) {
+              filteredCards = filteredCards.sort((a, b) => {
+                const scoreA = calculateSubjectScore(a, profile.preferred_subjects);
+                const scoreB = calculateSubjectScore(b, profile.preferred_subjects);
+                return scoreB - scoreA;
+              });
+            }
+            if (typeof profile?.experience_years === 'number') {
+              filteredCards = filterByExperience(filteredCards, profile.experience_years);
+            }
+
+            const finalCards = (filteredCards.length > 0 ? filteredCards : selectRecommendationCards(sourceCards, profile?.roles)).slice(0, 6);
+            setRecommendationCards(finalCards);
+            setRecommendedIds(new Set(finalCards.map((c) => c.id)));
+            // AI 코멘트는 컴포넌트 내부(getAiComment)에서 프로필+카드로 생성
+            setRecommendationHeadline(undefined);
+            setRecommendationDescription(undefined);
+          } else {
+            // 생성 실패 시 최소한 기본 상태 유지
+            setRecommendationCards([]);
+            setRecommendationHeadline(undefined);
+            setRecommendationDescription(undefined);
+          }
         }
       } catch (loadError) {
         console.error('추천 캐시 조회 실패:', loadError);
@@ -271,7 +354,16 @@ export default function App() {
 
         if (!active) return;
 
-        setCards((prev) => (offset === 0 ? nextCards : [...prev, ...nextCards]));
+        // 추천 ID 우선 정렬: 상단 추천과 동일 카드가 하단에서도 위로 오도록
+        const promote = (arr: typeof nextCards) => {
+          if (!recommendedIds || recommendedIds.size === 0) return arr;
+          const withScore = arr.map((c) => ({ c, s: recommendedIds.has(c.id) ? 1 : 0 }));
+          withScore.sort((a, b) => b.s - a.s);
+          return withScore.map((x) => x.c);
+        };
+
+        const promoted = promote(nextCards);
+        setCards((prev) => (offset === 0 ? promoted : [...prev, ...promoted]));
         setTotalCount(nextTotalCount);
       } catch (fetchError) {
         if (!active) return;
@@ -340,6 +432,7 @@ export default function App() {
         headlineOverride={recommendationHeadline}
         descriptionOverride={recommendationDescription}
         promoCard={promoCard}
+        profile={userProfile}
       />
 
       {/* 메인 콘텐츠 */}

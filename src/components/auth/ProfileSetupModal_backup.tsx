@@ -11,9 +11,9 @@ import ProfileStep1Role from './ProfileStep1Role';
 import ProfileStep2Field from './ProfileStep2Field';
 import ProfileStep3Location from './ProfileStep3Location';
 
-export type RoleOption = '교사' | '강사' | '업체' | '기타';
+export type RoleOption = '교사' | '강사' | '업체' | '학교행정';
 
-export const ROLE_OPTIONS: RoleOption[] = ['교사', '강사', '업체', '기타'];
+export const ROLE_OPTIONS: RoleOption[] = ['교사', '강사', '업체', '학교행정'];
 
 interface ProfileSetupModalProps {
   isOpen: boolean;

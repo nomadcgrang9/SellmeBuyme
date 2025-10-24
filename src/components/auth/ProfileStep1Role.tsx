@@ -2,11 +2,18 @@
 
 import type { RoleOption } from './ProfileSetupModal';
 
+const ROLE_LABELS: Record<RoleOption, string> = {
+  '교사': '교사',
+  '강사': '강사',
+  '업체': '업체',
+  '기타': '학교행정'
+};
+
 const ROLE_DESCRIPTIONS: Record<RoleOption, string> = {
   '교사': '공고를 직접 등록하거나 기간제 교사로 활동',
   '강사': '교사와 함께 정규시간 협력수업을 하거나 방과후 단독수업 진행, 교직원·학부모 대상 강의',
   '업체': '개발한 프로그램이나 커리큘럼을 학교에 적용하고 비용을 받음',
-  '기타': '기타 교육 관련 활동'
+  '기타': '자원봉사자, 조리사, 행정인력 대체 등 교육활동 지원'
 };
 
 interface ProfileStep1RoleProps {
@@ -63,8 +70,8 @@ export default function ProfileStep1Role({
                   )}
                 </div>
                 <div className="flex-1">
-                  <div className="font-semibold text-gray-900">{role}</div>
-                  <div className="text-sm text-gray-600 mt-1">{ROLE_DESCRIPTIONS[role]}</div>
+                  <span className="text-sm font-semibold text-gray-900">{ROLE_LABELS[role]}</span>
+                  <span className="text-xs text-gray-500">{ROLE_DESCRIPTIONS[role]}</span>
                 </div>
               </div>
             </button>

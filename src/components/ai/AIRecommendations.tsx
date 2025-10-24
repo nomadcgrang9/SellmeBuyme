@@ -1,6 +1,7 @@
 'use client';
 
 import type { Card, PromoCardSettings } from '@/types';
+import type { UserProfileRow } from '@/lib/supabase/profiles';
 import { IconChevronLeft, IconChevronRight, IconSparkles, IconMessageCircle } from '@tabler/icons-react';
 import { useState, useRef, useEffect } from 'react';
 import { createBadgeGradient } from '@/lib/colorUtils';
@@ -14,6 +15,7 @@ interface AIRecommendationsProps {
   headlineOverride?: string;
   descriptionOverride?: string;
   promoCard?: PromoCardSettings | null;
+  profile?: UserProfileRow | null;
 }
 
 export default function AIRecommendations({
@@ -22,7 +24,8 @@ export default function AIRecommendations({
   loading = false,
   headlineOverride,
   descriptionOverride,
-  promoCard
+  promoCard,
+  profile
 }: AIRecommendationsProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [visibleCount, setVisibleCount] = useState(3);
@@ -124,11 +127,26 @@ export default function AIRecommendations({
       };
     }
 
+    // 프로필 정보 추출
+    const displayName = profile?.display_name || userName;
+    const roleText = profile?.roles?.[0] === '교사' ? '선생님' : profile?.roles?.[0] === '강사' ? '강사님' : '회원님';
+    const regionText = profile?.interest_regions?.[0] || '관심 지역';
+    const jobTypeText = profile?.preferred_job_types?.[0] || '공고';
+    const teacherLevelText = profile?.teacher_level || '교사';
+
     if (primaryCard.type === 'job') {
       const mainTag = primaryCard.tags[0];
       const subTag = primaryCard.tags[1];
       const tagPhrase = [mainTag, subTag].filter(Boolean).slice(0, 2).join(', ');
       const trimmedLocation = primaryCard.location?.split(/[ ,]/).filter(Boolean).slice(0, 2).join(', ');
+
+      // 프로필이 있으면 맞춤 코멘트, 없으면 기본 코멘트
+      if (profile) {
+        return {
+          headline: `${regionText} 지역 ${jobTypeText}를 먼저 모았어요`,
+          description: `${displayName}님(${teacherLevelText})의 관심 조건을 분석해 최신 공고를 정렬했습니다.`
+        };
+      }
 
       return {
         headline: `${trimmedLocation || primaryCard.location} 인근 공고를 먼저 모았어요`,
@@ -141,6 +159,15 @@ export default function AIRecommendations({
       const trimmedLocation = Array.isArray(primaryCard.location)
         ? (primaryCard.location as string[]).slice(0, 2).join(', ')
         : primaryCard.location?.split(/[ ,]/).filter(Boolean).slice(0, 2).join(', ');
+
+      // 프로필이 있으면 맞춤 코멘트, 없으면 기본 코멘트
+      if (profile) {
+        return {
+          headline: `${regionText} 지역 인재를 골라봤어요`,
+          description: `${displayName}님이 찾는 조건의 전문가를 우선 추천드려요.`
+        };
+      }
+
       return {
         headline: `${primaryCard.specialty} 인재를 골라봤어요`,
         description: `${trimmedLocation || primaryCard.location}에서 활동 중인 ${mainTag ?? '핵심 역량'} 강사를 우선 추천드려요.`

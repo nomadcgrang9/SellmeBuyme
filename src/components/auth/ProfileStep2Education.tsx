@@ -4,6 +4,13 @@ import { useState } from 'react';
 import { IconChevronDown } from '@tabler/icons-react';
 import type { RoleOption } from './ProfileSetupModal';
 
+const ROLE_LABELS: Record<RoleOption, string> = {
+  '교사': '교사',
+  '강사': '강사',
+  '업체': '업체',
+  '기타': '학교행정'
+};
+
 const INSTRUCTOR_CATEGORIES = [
   '요리',
   '코딩',
@@ -102,7 +109,11 @@ export default function ProfileStep2Education({
             onClick={() => setRoleDropdownOpen(!roleDropdownOpen)}
             className="w-full flex items-center justify-between rounded-xl border border-gray-200 bg-white px-4 py-3 text-left text-sm font-medium text-gray-700 hover:border-[#7aa3cc] transition-colors"
           >
-            <span>{roles.length > 0 ? `${roles.join(', ')} (${roles.length}개)` : '역할을 선택해 주세요'}</span>
+            <span>
+              {roles.length > 0
+                ? `${roles.map((role) => ROLE_LABELS[role]).join(', ')} (${roles.length}개)`
+                : '역할을 선택해 주세요'}
+            </span>
             <IconChevronDown size={18} className={`transition-transform ${roleDropdownOpen ? 'rotate-180' : ''}`} />
           </button>
 
@@ -119,7 +130,7 @@ export default function ProfileStep2Education({
                     onChange={() => handleRoleSelect(role)}
                     className="h-4 w-4 rounded border-gray-300 text-[#7aa3cc] focus:ring-[#7aa3cc]"
                   />
-                  <span className="text-sm text-gray-700">{role}</span>
+                  <span className="text-sm text-gray-700">{ROLE_LABELS[role]}</span>
                 </label>
               ))}
             </div>

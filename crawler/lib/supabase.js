@@ -111,6 +111,9 @@ export async function saveJobPosting(jobData, crawlSourceId, hasContentImages = 
     contact: jobData.contact,
     qualifications: jobData.qualifications || [],
     structured_content: jobData.structured_content,
+    school_level: jobData.school_level,
+    subject: jobData.subject,
+    required_license: jobData.required_license,
   };
 
   if (existing) {

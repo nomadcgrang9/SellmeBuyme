@@ -42,6 +42,11 @@
 - **프로필 스키마 확장**: `supabase/migrations/20250123_extend_user_profiles_schema.sql`로 `teacher_level`, `special_education_type`, `instructor_fields`, `instructor_custom_field`, `profile_image_url` 컬럼을 `user_profiles`에 추가하고, `profiles.ts`의 타입/업서트 로직을 동기화.
 - **프로필 이미지 스토리지**: Supabase Storage 버킷 `profiles`를 생성하고 RLS 정책을 추가해 인증 사용자가 이미지를 업로드·삭제할 수 있도록 준비. 클라이언트는 `ProfileSetupModal.tsx`에서 저장 경로를 `profile_image_url`로 유지.
 
+### 추가 업데이트 (2025-10-24)
+- **검색 토큰 파이프라인 개편**: `src/lib/supabase/queries.ts`의 `searchCards()`가 `TokenGroup` 구조를 사용해 검색어 동의어를 유지하고, `executeJobSearch()`/`executeTalentSearch()`는 그룹 단위로 FTS 표현식을 구성하도록 수정.
+- **ILIKE 조건 통합**: 동일 파일에서 토큰별 `or()` 호출을 단일 OR 문자열로 합쳐 Supabase 쿼리에서 이전 조건이 덮어써지는 문제를 해결.
+- **후처리 필터 강화를 통한 품질 보증**: `filterJobsByTokenGroups()`와 `filterTalentsByTokenGroups()`가 각 그룹에서 최소 한 토큰이 매칭되어야 결과를 남기도록 적용해 검색 정확도를 높임.
+
 ## 📊 현재 상태
 
 ### 프론트엔드

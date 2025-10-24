@@ -1,11 +1,12 @@
 import { readFileSync } from 'fs';
 import { createBrowser } from './lib/playwright.js';
-import { normalizeJobData, validateJobData, analyzePageScreenshot, structureDetailContent } from './lib/gemini.js';
+import { normalizeJobData, validateJobData, analyzePageScreenshot, structureDetailContent, inferMissingJobAttributes } from './lib/gemini.js';
 import { getOrCreateCrawlSource, saveJobPosting, updateCrawlSuccess, incrementErrorCount, getExistingJobBySource } from './lib/supabase.js';
 import { crawlSeongnam } from './sources/seongnam.js';
 import { crawlGyeonggi } from './sources/gyeonggi.js';
 import { crawlUijeongbu } from './sources/uijeongbu.js';
 import { getTokenUsage, resetTokenUsage } from './lib/gemini.js';
+import { parseJobField, deriveJobAttributes } from './lib/jobFieldParser.js';
 import dotenv from 'dotenv';
 import { logInfo, logStep, logWarn, logError, logDebug } from './lib/logger.js';
 
@@ -224,9 +225,15 @@ async function main() {
           !existing.attachment_url.includes('filename=')
         );
 
+        const missingDerivedFields = existing && (
+          !existing.school_level ||
+          !existing.subject ||
+          !existing.required_license
+        );
+
         if (existing) {
-          if (needsAttachmentRefresh) {
-            logStep('pipeline', '기존 공고 재처리 (첨부파일 갱신)', {
+          if (needsAttachmentRefresh || missingDerivedFields) {
+            logStep('pipeline', missingDerivedFields ? '기존 공고 재처리 (학교급/과목 보강)' : '기존 공고 재처리 (첨부파일 갱신)', {
               title: rawJob.title,
               link: rawJob.link,
               previousAttachmentUrl: existing.attachment_url
@@ -310,12 +317,101 @@ async function main() {
           canonicalAttachmentFilename
         );
 
-        // 6-6. 원본 데이터 병합 (우선순위: 게시판 정보 > AI 분석 > Vision)
+        // 6-6. 직무 속성 추론 (학교급, 과목, 라이센스)
+        // organization 우선순위: AI 정리 > 크롤러 추출 > 기타
+        const bestOrganization = validation.corrected_data?.organization || rawJob.schoolName || normalized?.organization;
+        
+        const derivedJobAttributes = deriveJobAttributes({
+          jobField: rawJob.jobField,
+          title: rawJob.title,
+          normalizedTitle: normalized?.title || validation.corrected_data?.title,
+          schoolName: bestOrganization,
+          detailContent: rawJob.detailContent,
+          tags: Array.isArray(normalized?.tags) ? normalized.tags : [],
+          correctedTags: Array.isArray(validation.corrected_data?.tags) ? validation.corrected_data.tags : [],
+        });
+
+        logDebug('pipeline', '직무 속성 추론 결과', {
+          jobField: rawJob.jobField,
+          title: rawJob.title,
+          organization: bestOrganization,
+          derived: derivedJobAttributes,
+        });
+
+        // 6-6-1. LLM Fallback: school_level이 없을 때만 호출 (가장 중요)
+        let finalSchoolLevel = derivedJobAttributes.schoolLevel;
+        let finalSubject = derivedJobAttributes.subject;
+        let finalLocation = rawJob.location || validation.corrected_data.location || config.region;
+
+        // 디버깅: 규칙 파싱 결과 로그
+        logDebug('pipeline', '규칙 파싱 완료', {
+          title: rawJob.title,
+          organization: bestOrganization,
+          school_level: finalSchoolLevel,
+          subject: finalSubject,
+          location: finalLocation
+        });
+
+        if (!finalSchoolLevel) {
+          logStep('pipeline', 'LLM Fallback 시작 (school_level 누락)', {
+            title: rawJob.title,
+            organization: bestOrganization,
+            jobField: rawJob.jobField
+          });
+
+          const llmResult = await inferMissingJobAttributes({
+            schoolName: bestOrganization,
+            title: rawJob.title,
+            contentPreview: rawJob.detailContent ? rawJob.detailContent.slice(0, 1000) : null,
+            jobField: rawJob.jobField,
+            currentSchoolLevel: finalSchoolLevel,
+            currentSubject: finalSubject,
+            currentLocation: finalLocation
+          });
+
+          if (llmResult.inferred) {
+            finalSchoolLevel = llmResult.school_level;
+            finalSubject = llmResult.subject || finalSubject; // subject는 선택적 업데이트
+            finalLocation = llmResult.location || finalLocation; // location도 선택적 업데이트
+            
+            logInfo('pipeline', 'LLM Fallback 완료', {
+              title: rawJob.title,
+              school_level: finalSchoolLevel,
+              subject: finalSubject,
+              location: finalLocation,
+              confidence: llmResult.confidence
+            });
+          } else {
+            logWarn('pipeline', 'LLM Fallback 실패', {
+              title: rawJob.title,
+              organization: bestOrganization
+            });
+          }
+        }
+
+        // 6-6-2. 최종 검증: school_level이 여전히 null이면 저장 안 함
+        if (!finalSchoolLevel || finalSchoolLevel === '미상') {
+          logWarn('pipeline', '학교급 정보 누락 - 저장 건너뛰기', {
+            title: rawJob.title,
+            link: rawJob.link,
+            jobField: rawJob.jobField,
+            schoolName: rawJob.schoolName
+          });
+          failCount++;
+          continue;
+        }
+
+        // required_license 재계산 (LLM 결과 반영)
+        const finalRequiredLicense = finalSchoolLevel && finalSubject
+          ? `${finalSchoolLevel}${finalSubject}`
+          : null;
+
+        // 6-7. 원본 데이터 병합 (우선순위: 게시판 정보 > AI 분석 > Vision)
         const finalData = {
           ...validation.corrected_data,
           
-          // 게시판에서 추출한 구조화된 정보 우선 반영
-          location: rawJob.location || validation.corrected_data.location || config.region || '미상',
+          // 게시판에서 추출한 구조화된 정보 우선 반영 (LLM Fallback 적용)
+          location: finalLocation || '미상',
           organization: rawJob.schoolName || validation.corrected_data.organization,
           
           // 상세 정보
@@ -335,9 +431,14 @@ async function main() {
           contact: rawJob.phone || normalized.contact || visionData?.contact || null,
           qualifications: normalized.qualifications || visionData?.qualifications || [],
           structured_content: structuredContent,
+          
+          // 학교급, 과목, 라이센스 정보 (LLM Fallback 적용)
+          school_level: finalSchoolLevel,
+          subject: finalSubject,
+          required_license: finalRequiredLicense,
         };
 
-        // 6-6. Supabase 저장
+        // 6-8. Supabase 저장
         logDebug('pipeline', '저장 시도', { title: finalData.title, crawlSourceId });
         const hasContentImages = !!rawJob.hasContentImages;
         const saved = await saveJobPosting(finalData, crawlSourceId, hasContentImages);

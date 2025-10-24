@@ -50,8 +50,7 @@ export default function ProfileSetupModal({
   const [instructorFields, setInstructorFields] = useState<string[]>([]);
   const [instructorCustomField, setInstructorCustomField] = useState('');
   const [interestRegions, setInterestRegions] = useState<string[]>([]);
-  const [preferredJobTypes, setPreferredJobTypes] = useState<string[]>([]);
-  const [preferredSubjects, setPreferredSubjects] = useState<string[]>([]);
+  const [capableSubjects, setCapableSubjects] = useState<string[]>([]);
   const [receiveNotifications, setReceiveNotifications] = useState(true);
   const [agreeTerms, setAgreeTerms] = useState(false);
   const [agreePrivacy, setAgreePrivacy] = useState(false);
@@ -77,8 +76,7 @@ export default function ProfileSetupModal({
       setInstructorFields([]);
       setInstructorCustomField('');
       setInterestRegions([]);
-      setPreferredJobTypes([]);
-      setPreferredSubjects([]);
+      setCapableSubjects([]);
       setIntroduction('');
       setReceiveNotifications(true);
       setAgreeTerms(false);
@@ -94,8 +92,7 @@ export default function ProfileSetupModal({
           setPhone(data.phone || '');
           setRoles((data.roles as RoleOption[]) || []);
           setInterestRegions(data.interest_regions || []);
-          setPreferredJobTypes(data.preferred_job_types || []);
-          setPreferredSubjects(data.preferred_subjects || []);
+          setCapableSubjects(data.capable_subjects || []);
           setIntroduction(data.intro || '');
           setReceiveNotifications(data.receive_notifications ?? true);
           setAgreeTerms(data.agree_terms ?? false);
@@ -122,8 +119,7 @@ export default function ProfileSetupModal({
       setTeacherLevel(null);
       setSpecialEducationType(null);
       setTeacherSubjects([]);
-      setPreferredJobTypes([]);
-      setPreferredSubjects([]);
+      setCapableSubjects([]);
     }
 
     if (!roles.includes('강사')) {
@@ -215,8 +211,7 @@ export default function ProfileSetupModal({
       phone: phone.trim() || undefined,
       roles,
       interestRegions,
-      preferredJobTypes,
-      preferredSubjects,
+      capableSubjects: capableSubjects.length > 0 ? capableSubjects : undefined,
       intro: introduction.trim() || undefined,
       receiveNotifications,
       agreeTerms,
@@ -424,7 +419,7 @@ export default function ProfileSetupModal({
                           onTeacherSubjectsChange={setTeacherSubjects}
                           onInstructorFieldsChange={setInstructorFields}
                           onInstructorCustomFieldChange={setInstructorCustomField}
-                          onSyncPreferredSubjects={setPreferredSubjects}
+                          onSyncCapableSubjects={setCapableSubjects}
                         />
                       </div>
                     )}
@@ -435,15 +430,6 @@ export default function ProfileSetupModal({
                           roles={roles}
                           selectedRegions={interestRegions}
                           onRegionsChange={setInterestRegions}
-                          preferredJobTypes={preferredJobTypes}
-                          onJobTypesChange={setPreferredJobTypes}
-                          preferredSubjects={preferredSubjects}
-                          onSubjectsChange={(subjects) => {
-                            setPreferredSubjects(subjects);
-                            if (roles.includes('교사')) {
-                              setTeacherSubjects(subjects);
-                            }
-                          }}
                           introduction={introduction}
                           onIntroductionChange={setIntroduction}
                         />
