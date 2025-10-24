@@ -73,6 +73,281 @@ function mapPromoCardFromDbRow(row: PromoCardSettingsRow): PromoCardSettings {
   };
 }
 
+// 캐시 유효성 검사: 24시간 이상 지난 캐시는 무효
+export function isCacheValid(updatedAt: string): boolean {
+  if (!updatedAt) return false;
+  
+  const now = new Date();
+  const cacheTime = new Date(updatedAt);
+  const diffHours = (now.getTime() - cacheTime.getTime()) / (1000 * 60 * 60);
+  
+  return diffHours < 24;
+}
+
+// 프로필 변경 감지: 추천에 영향을 주는 필드만 비교
+export function hasProfileChanged(
+  cachedProfile: Record<string, unknown> | null,
+  currentProfile: Record<string, unknown> | null
+): boolean {
+  if (!cachedProfile || !currentProfile) return true;
+  
+  // 추천에 영향을 주는 필드들
+  const criticalFields = [
+    'interest_regions',
+    'teacher_level',
+    'preferred_job_types',
+    'preferred_subjects',
+    'roles'
+  ];
+  
+  for (const field of criticalFields) {
+    const cached = JSON.stringify(cachedProfile[field]);
+    const current = JSON.stringify(currentProfile[field]);
+    if (cached !== current) {
+      return true;
+    }
+  }
+  
+  return false;
+}
+
+const ADJACENT_REGIONS: Record<string, string[]> = {
+  '서울': ['고양', '광명', '구리', '과천', '성남', '부천'],
+  '고양': ['서울', '파주', '김포', '양주'],
+  '수원': ['용인', '화성', '의왕', '오산'],
+  '용인': ['수원', '화성', '이천', '광주'],
+  '화성': ['수원', '용인', '오산', '평택'],
+  '시흥': ['안산', '부천', '광명', '인천'],
+  '부천': ['서울', '시흥', '김포', '광명'],
+  '인천': ['시흥', '김포', '부천', '안산'],
+  '김포': ['고양', '인천', '부천'],
+  '안산': ['시흥', '인천', '화성'],
+  '의정부': ['서울', '양주', '포천'],
+  '성남': ['서울', '용인', '하남', '광주'],
+  '하남': ['서울', '성남', '남양주'],
+  '남양주': ['구리', '하남', '양평'],
+  '평택': ['화성', '안성', '천안'],
+  '안양': ['의왕', '군포', '과천'],
+  '군포': ['안양', '의왕', '안산'],
+  '의왕': ['수원', '안양', '군포'],
+  '오산': ['수원', '화성', '평택'],
+  '광주': ['성남', '용인', '이천'],
+  '이천': ['용인', '광주', '여주'],
+  '여주': ['이천', '양평'],
+  '양평': ['여주', '남양주'],
+  '춘천': ['원주', '홍천'],
+  '원주': ['이천', '춘천', '제천'],
+  '청주': ['세종', '대전', '천안'],
+  '대전': ['청주', '세종', '논산'],
+  '천안': ['평택', '청주', '아산']
+};
+
+const REGION_FALLBACKS = ['경기도', '서울', '인천'];
+
+export function buildRegionFilter(interestRegions: string[] | null | undefined): string[] {
+  const result = new Set<string>();
+
+  if (!interestRegions || interestRegions.length === 0) {
+    REGION_FALLBACKS.forEach((region) => result.add(region));
+    return Array.from(result);
+  }
+
+  interestRegions.forEach((region) => {
+    if (!region) {
+      return;
+    }
+
+    result.add(region);
+
+    const adjacent = ADJACENT_REGIONS[region];
+    if (adjacent) {
+      adjacent.forEach((adjRegion) => result.add(adjRegion));
+    }
+  });
+
+  if (result.size < 3) {
+    REGION_FALLBACKS.forEach((region) => result.add(region));
+  }
+
+  return Array.from(result);
+}
+
+export function filterByTeacherLevel(
+  cards: Card[],
+  teacherLevel: string | null | undefined
+): Card[] {
+  if (!cards || cards.length === 0) return [];
+  if (!teacherLevel) return cards;
+
+  const normalizedLevel = teacherLevel.toLowerCase().trim();
+  const jobCards = cards.filter((card) => card.type === 'job');
+
+  if (normalizedLevel.includes('유치원')) {
+    return jobCards.filter((card) => {
+      const title = (card.title ?? '').toLowerCase();
+      const tags = Array.isArray(card.tags) ? card.tags.map((t) => t.toLowerCase()) : [];
+      const hasSignal = tags.some((tag) => tag.includes('유치원')) || title.includes('유치원');
+      if (!hasSignal) return true; // 신호 없으면 포함
+      return true; // 유치원 신호면 포함
+    });
+  }
+
+  if (normalizedLevel.includes('초등')) {
+    return jobCards.filter((card) => {
+      const title = (card.title ?? '').toLowerCase();
+      const tags = Array.isArray(card.tags) ? card.tags.map((t) => t.toLowerCase()) : [];
+      const hasElementary = tags.some((tag) => tag.includes('초등') || tag.includes('초등학교')) || title.includes('초등');
+      const hasMiddle = tags.some((tag) => tag.includes('중등') || tag.includes('중학교')) || title.includes('중등');
+      const hasKindergarten = tags.some((tag) => tag.includes('유치원')) || title.includes('유치원');
+      const hasSpecial = tags.some((tag) => tag.includes('특수')) || title.includes('특수');
+      const hasAnySignal = hasElementary || hasMiddle || hasKindergarten || hasSpecial;
+      if (!hasAnySignal) return true; // 신호 없으면 포함
+      return hasElementary; // 초등 신호일 때만 포함
+    });
+  }
+
+  if (normalizedLevel.includes('중등')) {
+    return jobCards.filter((card) => {
+      const title = (card.title ?? '').toLowerCase();
+      const tags = Array.isArray(card.tags) ? card.tags.map((t) => t.toLowerCase()) : [];
+      const hasElementary = tags.some((tag) => tag.includes('초등') || tag.includes('초등학교')) || title.includes('초등');
+      const hasMiddle = tags.some((tag) => tag.includes('중등') || tag.includes('중학교')) || title.includes('중등');
+      const hasAnySignal = hasElementary || hasMiddle;
+      if (!hasAnySignal) return true; // 신호 없으면 포함
+      return hasMiddle; // 중등 신호일 때만 포함
+    });
+  }
+
+  if (normalizedLevel.includes('단실')) {
+    return jobCards.filter((card) => {
+      const title = (card.title ?? '').toLowerCase();
+      const tags = Array.isArray(card.tags) ? card.tags.map((t) => t.toLowerCase()) : [];
+      const hasSignal = tags.some((tag) => tag.includes('단실') || tag.includes('단실교육')) || title.includes('단실');
+      if (!hasSignal) return true; // 신호 없으면 포함
+      return true; // 단실 표기된 공고 포함
+    });
+  }
+
+  return cards;
+}
+
+export function filterByJobType(
+  cards: Card[],
+  preferredJobTypes: string[] | null | undefined
+): Card[] {
+  if (!cards || cards.length === 0) return [];
+  if (!preferredJobTypes || preferredJobTypes.length === 0) return cards;
+
+  const jobCards = cards.filter((card) => card.type === 'job');
+  const normalizedTypes = preferredJobTypes.map((type) => type.toLowerCase().trim());
+
+  return jobCards.filter((card) => {
+    const title = card.title?.toLowerCase() ?? '';
+    const tags = Array.isArray(card.tags) ? card.tags.map((t) => t.toLowerCase()) : [];
+    const allText = `${title} ${tags.join(' ')}`;
+
+    return normalizedTypes.some((type) => {
+      if (type.includes('기간제')) {
+        return allText.includes('기간제') || allText.includes('기간');
+      }
+      if (type.includes('시간제')) {
+        return allText.includes('시간제') || allText.includes('시간');
+      }
+      if (type.includes('협력수업')) {
+        return allText.includes('협력') || allText.includes('협력수업');
+      }
+      return false;
+    });
+  });
+}
+
+export function calculateSubjectScore(
+  card: Card,
+  preferredSubjects: string[] | null | undefined
+): number {
+  if (!preferredSubjects || preferredSubjects.length === 0) return 0;
+  if (card.type !== 'job') return 0;
+
+  const title = card.title?.toLowerCase() ?? '';
+  const tags = Array.isArray(card.tags) ? card.tags.map((t) => t.toLowerCase()) : [];
+  const allText = `${title} ${tags.join(' ')}`;
+
+  let score = 0;
+  const normalizedSubjects = preferredSubjects.map((s) => s.toLowerCase().trim());
+
+  for (const subject of normalizedSubjects) {
+    if (allText.includes(subject)) {
+      score += 20;
+    }
+  }
+
+  return score;
+}
+
+export function filterByExperience(
+  cards: Card[],
+  experienceYears: number | null | undefined
+): Card[] {
+  if (!cards || cards.length === 0) return [];
+  if (!experienceYears || experienceYears <= 0) return cards;
+
+  const jobCards = cards.filter((card) => card.type === 'job') as Array<Card & { type: 'job' }>;
+
+  return jobCards.filter((card) => {
+    if (card.type !== 'job') return true;
+    
+    const jobCard = card as any;
+    const cardContent = `${jobCard.title ?? ''} ${jobCard.detail_content ?? ''} ${(jobCard.tags ?? []).join(' ')}`.toLowerCase();
+    
+    // 경력 요구사항 추출 (예: "3년 이상", "5년 경력", "경력 무관")
+    const experienceMatch = cardContent.match(/(\d+)\s*년\s*(?:이상|경력|근무)/);
+    
+    if (!experienceMatch) {
+      // 경력 요구사항이 명시되지 않으면 포함
+      return true;
+    }
+    
+    const requiredExperience = parseInt(experienceMatch[1], 10);
+    
+    // 사용자 경력이 요구사항을 충족하면 포함 (여유 1년)
+    return experienceYears + 1 >= requiredExperience;
+  });
+}
+
+export function selectRecommendationCards(
+  cards: Card[],
+  roles: string[] | null | undefined
+): Card[] {
+  if (!cards || cards.length === 0) return [];
+  if (!roles || roles.length === 0) return cards.slice(0, 6);
+
+  const isTeacher = roles.some((role) =>
+    role.toLowerCase().includes('교사') || role.toLowerCase().includes('선생')
+  );
+  const isInstructor = roles.some((role) =>
+    role.toLowerCase().includes('강사') || role.toLowerCase().includes('instructor')
+  );
+
+  if (!isTeacher && !isInstructor) {
+    return cards.slice(0, 6);
+  }
+
+  const jobCards = cards.filter((card) => card.type === 'job');
+  const talentCards = cards.filter((card) => card.type === 'talent');
+
+  let selected: Card[] = [];
+
+  if (isTeacher) {
+    selected.push(...jobCards.slice(0, 4));
+    selected.push(...talentCards.slice(0, 2));
+  } else if (isInstructor) {
+    selected.push(...talentCards.slice(0, 4));
+    selected.push(...jobCards.slice(0, 2));
+  }
+
+  return selected.slice(0, 6);
+}
+
 export async function fetchRecommendationsCache(userId: string): Promise<{
   cards: Card[];
   aiComment: RecommendationAiComment;
@@ -100,6 +375,32 @@ export async function fetchRecommendationsCache(userId: string): Promise<{
     profileSnapshot: data.profile_snapshot ?? null,
     updatedAt: data.updated_at
   };
+}
+
+// Edge Function 호출: 프로필 기반 추천 생성
+export async function generateRecommendations(): Promise<{
+  cards: Card[];
+  aiComment: RecommendationAiComment;
+} | null> {
+  try {
+    // Supabase JS v2: functions.invoke 사용
+    const anyClient = supabase as unknown as { functions: { invoke: (name: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }> } };
+    const { data, error } = await anyClient.functions.invoke('profile-recommendations', {
+      body: {}
+    });
+
+    if (error) {
+      console.error('추천 생성 실패:', error);
+      return null;
+    }
+
+    const cards: Card[] = (data as any)?.cards ?? [];
+    const aiComment: RecommendationAiComment = ((data as any)?.ai_comment ?? null) as RecommendationAiComment;
+    return { cards, aiComment };
+  } catch (e) {
+    console.error('추천 생성 호출 예외:', e);
+    return null;
+  }
 }
 
 export async function fetchPromoCardSettings(options?: { onlyActive?: boolean }): Promise<PromoCardSettings | null> {
@@ -456,7 +757,9 @@ export async function searchCards(params: SearchQueryParams = {}): Promise<Searc
 
   const filters = mergeFilters(overrides);
   const normalizedViewType: ViewType = viewType ?? 'all';
-  const tokens = tokenizeSearchQuery(searchQuery);
+  const baseTokens = tokenizeSearchQuery(searchQuery);
+  const tokenGroups = buildTokenGroups(baseTokens);
+  const tokens = flattenTokenGroups(tokenGroups);
   const startedAt = getHighResolutionTime();
 
   try {
@@ -466,6 +769,7 @@ export async function searchCards(params: SearchQueryParams = {}): Promise<Searc
       response = await executeAllSearch({
         searchQuery,
         tokens,
+        tokenGroups,
         filters,
         limit,
         offset,
@@ -475,6 +779,7 @@ export async function searchCards(params: SearchQueryParams = {}): Promise<Searc
       response = await executeTalentSearch({
         searchQuery,
         tokens,
+        tokenGroups,
         filters,
         limit,
         offset,
@@ -484,6 +789,7 @@ export async function searchCards(params: SearchQueryParams = {}): Promise<Searc
       response = await executeJobSearch({
         searchQuery,
         tokens,
+        tokenGroups,
         filters,
         limit,
         offset,
@@ -532,6 +838,127 @@ function tokenizeSearchQuery(query: string): string[] {
     .split(/\s+/)
     .map((token) => token.trim())
     .filter((token) => token.length > 0);
+}
+
+type TokenGroup = string[];
+
+function buildTokenGroups(tokens: string[]): TokenGroup[] {
+  if (tokens.length === 0) {
+    return [];
+  }
+
+  const synonymMap: Record<string, string[]> = {
+    '중등': ['중학교', '고등학교'],
+    '고등': ['고등학교'],
+    '초등': ['초등학교'],
+    '유치원': ['유아'],
+    '특수': ['특수학교']
+  };
+
+  return tokens.map((token) => {
+    const variants = new Set<string>();
+    variants.add(token);
+    const synonyms = synonymMap[token];
+    if (Array.isArray(synonyms)) {
+      synonyms.forEach((synonym) => {
+        const trimmed = synonym.trim();
+        if (trimmed.length > 0) {
+          variants.add(trimmed);
+        }
+      });
+    }
+    return Array.from(variants);
+  });
+}
+
+function flattenTokenGroups(groups: TokenGroup[]): string[] {
+  const flattened: string[] = [];
+  const seen = new Set<string>();
+  groups.forEach((group) => {
+    group.forEach((token) => {
+      if (!seen.has(token)) {
+        flattened.push(token);
+        seen.add(token);
+      }
+    });
+  });
+  return flattened;
+}
+
+function normalizeToken(token: string): string {
+  return token.replace(/[&|!:*<>()"\[\]]+/g, '').trim();
+}
+
+function buildWebsearchExpressionFromGroups(groups: TokenGroup[], fallbackQuery: string): string | null {
+  if (groups.length === 0) {
+    return null;
+  }
+
+  const expressions = groups
+    .map((group) => group
+      .map((token) => normalizeToken(token))
+      .filter((token) => token.length > 0))
+    .filter((groupTokens) => groupTokens.length > 0)
+    .map((groupTokens) => (groupTokens.length > 1 ? `(${groupTokens.join(' | ')})` : groupTokens[0]));
+
+  if (expressions.length > 0) {
+    return expressions.join(' & ');
+  }
+
+  const fallback = normalizeToken(fallbackQuery);
+  return fallback.length > 0 ? fallback : null;
+}
+
+function filterJobsByTokenGroups(jobs: any[], tokenGroups: TokenGroup[]): any[] {
+  if (tokenGroups.length === 0) {
+    return jobs;
+  }
+
+  return jobs.filter((job) => {
+    const title = (job?.title ?? '').toLowerCase();
+    const organization = (job?.organization ?? '').toLowerCase();
+    const location = (job?.location ?? '').toLowerCase();
+    const tags = Array.isArray(job?.tags)
+      ? job.tags.map((tag: string) => (tag ?? '').toLowerCase())
+      : [];
+
+    const fields = [title, organization, location, ...tags];
+
+    return tokenGroups.every((group) => {
+      return group.some((token) => {
+        const normalized = token.toLowerCase();
+        if (!normalized) return false;
+        return fields.some((field) => field.includes(normalized));
+      });
+    });
+  });
+}
+
+function filterTalentsByTokenGroups(talents: any[], tokenGroups: TokenGroup[]): any[] {
+  if (tokenGroups.length === 0) {
+    return talents;
+  }
+
+  return talents.filter((talent) => {
+    const name = (talent?.name ?? '').toLowerCase();
+    const specialty = (talent?.specialty ?? '').toLowerCase();
+    const locations = Array.isArray(talent?.location)
+      ? talent.location.map((loc: string) => (loc ?? '').toLowerCase())
+      : [(talent?.location ?? '').toLowerCase()];
+    const tags = Array.isArray(talent?.tags)
+      ? talent.tags.map((tag: string) => (tag ?? '').toLowerCase())
+      : [];
+
+    const fields = [name, specialty, ...locations, ...tags];
+
+    return tokenGroups.every((group) => {
+      return group.some((token) => {
+        const normalized = token.toLowerCase();
+        if (!normalized) return false;
+        return fields.some((field) => field.includes(normalized));
+      });
+    });
+  });
 }
 
 function buildWebsearchExpression(tokens: string[], fallbackQuery: string): string | null {
@@ -683,6 +1110,7 @@ function calculateTalentRelevance(talent: any, tokens: string[], fallbackQuery: 
 interface AllSearchArgs {
   searchQuery: string;
   tokens: string[];
+  tokenGroups: TokenGroup[];
   filters: SearchFilters;
   limit: number;
   offset: number;
@@ -692,6 +1120,7 @@ interface AllSearchArgs {
 async function executeAllSearch({
   searchQuery,
   tokens,
+  tokenGroups,
   filters,
   limit,
   offset,
@@ -701,6 +1130,7 @@ async function executeAllSearch({
     executeJobSearch({
       searchQuery,
       tokens,
+      tokenGroups,
       filters,
       limit: 1000, // 충분히 큰 값으로 모든 데이터 가져오기
       offset: 0,
@@ -708,6 +1138,7 @@ async function executeAllSearch({
     executeTalentSearch({
       searchQuery,
       tokens,
+      tokenGroups,
       filters,
       limit: 1000,
       offset: 0,
@@ -758,6 +1189,7 @@ async function executeAllSearch({
 interface JobSearchArgs {
   searchQuery: string;
   tokens: string[];
+  tokenGroups: TokenGroup[];
   filters: SearchFilters;
   limit: number;
   offset: number;
@@ -768,6 +1200,7 @@ interface JobSearchArgs {
 async function executeJobSearch({
   searchQuery,
   tokens,
+  tokenGroups,
   filters,
   limit,
   offset,
@@ -778,10 +1211,11 @@ async function executeJobSearch({
     .select('*', { count: 'exact' });
 
   const trimmedQuery = searchQuery.trim();
-  const websearchExpression = buildWebsearchExpression(tokens, trimmedQuery);
+  const ftsTokenGroups = tokenGroups.filter((group) => group.length === 1);
+  const ftsExpression = buildWebsearchExpressionFromGroups(ftsTokenGroups, trimmedQuery);
   let ftsApplied = false;
-  if (websearchExpression) {
-    query = query.textSearch('search_vector', websearchExpression, {
+  if (ftsExpression) {
+    query = query.textSearch('search_vector', ftsExpression, {
       type: 'websearch',
       config: 'simple'
     });
@@ -789,18 +1223,20 @@ async function executeJobSearch({
   }
 
   if (tokens.length > 0) {
-    tokens.forEach((token) => {
+    const orConditions = tokens.flatMap((token) => {
       const pattern = buildIlikePattern(token);
-      const likeExpression = ['title', 'organization', 'location']
-        .map((column) => `${column}.ilike.${pattern}`)
-        .join(',');
-      query = query.or(likeExpression);
+      return ['title', 'organization', 'location'].map((column) => `${column}.ilike.${pattern}`);
     });
+
+    if (orConditions.length > 0) {
+      query = query.or(orConditions.join(','));
+    }
   } else if (!ftsApplied && trimmedQuery.length > 0) {
     const pattern = buildIlikePattern(trimmedQuery);
-    query = query.or(
-      ['title', 'organization', 'location'].map((column) => `${column}.ilike.${pattern}`).join(',')
+    const orConditions = ['title', 'organization', 'location'].map(
+      (column) => `${column}.ilike.${pattern}`
     );
+    query = query.or(orConditions.join(','));
   }
 
   if (hasFilterValue(filters.region, DEFAULT_REGION)) {
@@ -835,9 +1271,10 @@ async function executeJobSearch({
   }
   
   const shouldSortByRelevance = filters.sort === '추천순' && (tokens.length > 0 || trimmedQuery.length > 0);
+  const filteredData = filterJobsByTokenGroups(data, tokenGroups);
   const orderedData = shouldSortByRelevance
-    ? sortJobsByRelevance(data, tokens, trimmedQuery)
-    : data;
+    ? sortJobsByRelevance(filteredData, tokens, trimmedQuery)
+    : filteredData;
 
   return {
     cards: orderedData.map(mapJobPostingToCard),
@@ -852,6 +1289,7 @@ async function executeJobSearch({
 interface TalentSearchArgs {
   searchQuery: string;
   tokens: string[];
+  tokenGroups: TokenGroup[];
   filters: SearchFilters;
   limit: number;
   offset: number;
@@ -861,6 +1299,7 @@ interface TalentSearchArgs {
 async function executeTalentSearch({
   searchQuery,
   tokens,
+  tokenGroups,
   filters,
   limit,
   offset,
@@ -870,10 +1309,11 @@ async function executeTalentSearch({
     .select('*', { count: 'exact' });
 
   const trimmedQuery = searchQuery.trim();
-  const websearchExpression = buildWebsearchExpression(tokens, trimmedQuery);
+  const ftsTokenGroups = tokenGroups.filter((group) => group.length === 1);
+  const ftsExpression = buildWebsearchExpressionFromGroups(ftsTokenGroups, trimmedQuery);
   let ftsApplied = false;
-  if (websearchExpression) {
-    query = query.textSearch('search_vector', websearchExpression, {
+  if (ftsExpression) {
+    query = query.textSearch('search_vector', ftsExpression, {
       type: 'websearch',
       config: 'simple'
     });
@@ -881,18 +1321,18 @@ async function executeTalentSearch({
   }
 
   if (tokens.length > 0) {
-    tokens.forEach((token) => {
+    const orConditions = tokens.flatMap((token) => {
       const pattern = buildIlikePattern(token);
-      const likeExpression = ['name', 'specialty']
-        .map((column) => `${column}.ilike.${pattern}`)
-        .join(',');
-      query = query.or(likeExpression);
+      return ['name', 'specialty'].map((column) => `${column}.ilike.${pattern}`);
     });
+
+    if (orConditions.length > 0) {
+      query = query.or(orConditions.join(','));
+    }
   } else if (!ftsApplied && trimmedQuery.length > 0) {
     const pattern = buildIlikePattern(trimmedQuery);
-    query = query.or(
-      ['name', 'specialty'].map((column) => `${column}.ilike.${pattern}`).join(',')
-    );
+    const orConditions = ['name', 'specialty'].map((column) => `${column}.ilike.${pattern}`);
+    query = query.or(orConditions.join(','));
   }
 
   if (hasFilterValue(filters.region, DEFAULT_REGION)) {
@@ -917,9 +1357,10 @@ async function executeTalentSearch({
   }
 
   const shouldSortByRelevance = filters.sort === '추천순' && (tokens.length > 0 || trimmedQuery.length > 0);
+  const filteredData = filterTalentsByTokenGroups(data, tokenGroups);
   const orderedData = shouldSortByRelevance
-    ? sortTalentsByRelevance(data, tokens, trimmedQuery)
-    : data;
+    ? sortTalentsByRelevance(filteredData, tokens, trimmedQuery)
+    : filteredData;
 
   return {
     cards: orderedData.map(mapTalentToCard),

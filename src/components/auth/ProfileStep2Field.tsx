@@ -84,7 +84,7 @@ interface ProfileStep2FieldProps {
   onTeacherSubjectsChange: (subjects: string[]) => void;
   onInstructorFieldsChange: (fields: string[]) => void;
   onInstructorCustomFieldChange: (field: string) => void;
-  onSyncPreferredSubjects: (subjects: string[]) => void;
+  onSyncCapableSubjects: (subjects: string[]) => void;
 }
 
 export default function ProfileStep2Field({
@@ -99,7 +99,7 @@ export default function ProfileStep2Field({
   onTeacherSubjectsChange,
   onInstructorFieldsChange,
   onInstructorCustomFieldChange,
-  onSyncPreferredSubjects
+  onSyncCapableSubjects
 }: ProfileStep2FieldProps) {
   const isTeacher = roles.includes("교사");
   const isInstructor = roles.includes("강사");
@@ -118,13 +118,13 @@ export default function ProfileStep2Field({
 
     if (level === "유치원") {
       onTeacherSubjectsChange(["유치원 담임"]);
-      onSyncPreferredSubjects(["유치원 담임"]);
+      onSyncCapableSubjects(["유치원 담임"]);
     } else if (level === "초등") {
       onTeacherSubjectsChange(["초등 담임"]);
-      onSyncPreferredSubjects(["초등 담임"]);
+      onSyncCapableSubjects(["초등 담임"]);
     } else {
       onTeacherSubjectsChange([]);
-      onSyncPreferredSubjects([]);
+      onSyncCapableSubjects([]);
     }
   };
 
@@ -134,13 +134,13 @@ export default function ProfileStep2Field({
       ? teacherSubjects.filter((item) => item !== subject)
       : [...teacherSubjects, subject];
     onTeacherSubjectsChange(nextSubjects);
-    onSyncPreferredSubjects(nextSubjects);
+    onSyncCapableSubjects(nextSubjects);
   };
 
   const handleSpecialEducationSelect = (type: SpecialEducationType) => {
     onSpecialEducationTypeChange(type);
     onTeacherSubjectsChange([type]);
-    onSyncPreferredSubjects([type]);
+    onSyncCapableSubjects([type]);
   };
 
   const toggleInstructorField = (field: string) => {
@@ -207,27 +207,8 @@ export default function ProfileStep2Field({
           )}
 
           {teacherLevel === "초등" && (
-            <div className="space-y-3">
-              <span className="text-sm font-semibold text-gray-900">어떤 초등 과목을 맡으실 수 있나요?</span>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                {ELEMENTARY_SUBJECTS.map((subject) => {
-                  const isSelected = teacherSubjects.includes(subject);
-                  return (
-                    <button
-                      key={subject}
-                      type="button"
-                      onClick={() => toggleTeacherSubject(subject)}
-                      className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
-                        isSelected
-                          ? "border-[#4b83c6] bg-[#4b83c6] text-white"
-                          : "border-gray-200 bg-white text-gray-700 hover:border-[#7aa3cc]"
-                      }`}
-                    >
-                      {subject}
-                    </button>
-                  );
-                })}
-              </div>
+            <div className="space-y-2">
+              <span className="text-sm text-gray-600">초등 담임 기준으로 추천해 드릴게요.</span>
             </div>
           )}
 

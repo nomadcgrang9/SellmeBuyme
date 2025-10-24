@@ -6,7 +6,6 @@ export type UserProfileRow = {
   display_name: string | null;
   phone: string | null;
   roles: string[] | null;
-  primary_region: string | null;
   interest_regions: string[] | null;
   experience_years: number | null;
   receive_notifications: boolean | null;
@@ -14,8 +13,7 @@ export type UserProfileRow = {
   agree_terms: boolean | null;
   agree_privacy: boolean | null;
   agree_marketing: boolean | null;
-  preferred_job_types: string[] | null;
-  preferred_subjects: string[] | null;
+  capable_subjects: string[] | null;
   teacher_level: string | null;
   special_education_type: string | null;
   instructor_fields: string[] | null;
@@ -29,7 +27,6 @@ export type ProfileUpsertInput = {
   displayName: string;
   phone?: string | null;
   roles: string[];
-  primaryRegion?: string | null;
   interestRegions: string[];
   experienceYears?: number | null;
   receiveNotifications: boolean;
@@ -37,8 +34,7 @@ export type ProfileUpsertInput = {
   agreeTerms: boolean;
   agreePrivacy: boolean;
   agreeMarketing: boolean;
-  preferredJobTypes?: string[];
-  preferredSubjects?: string[];
+  capableSubjects?: string[];
   teacherLevel?: string | null;
   specialEducationType?: string | null;
   instructorFields?: string[] | null;
@@ -66,7 +62,7 @@ export async function upsertUserProfile(
   userId: string,
   payload: ProfileUpsertInput
 ): Promise<{ data: UserProfileRow | null; error: PostgrestError | null }> {
-  const { displayName, phone, roles, primaryRegion, interestRegions, experienceYears, receiveNotifications, intro, agreeTerms, agreePrivacy, agreeMarketing, teacherLevel, specialEducationType, instructorFields, instructorCustomField, profileImageUrl } = payload;
+  const { displayName, phone, roles, interestRegions, experienceYears, receiveNotifications, intro, agreeTerms, agreePrivacy, agreeMarketing, capableSubjects, teacherLevel, specialEducationType, instructorFields, instructorCustomField, profileImageUrl } = payload;
 
   const { data, error } = await supabase
     .from('user_profiles')
@@ -76,7 +72,6 @@ export async function upsertUserProfile(
         display_name: displayName,
         phone: phone || null,
         roles,
-        primary_region: primaryRegion,
         interest_regions: interestRegions,
         experience_years: experienceYears,
         receive_notifications: receiveNotifications,
@@ -84,8 +79,7 @@ export async function upsertUserProfile(
         agree_terms: agreeTerms,
         agree_privacy: agreePrivacy,
         agree_marketing: agreeMarketing,
-        preferred_job_types: payload.preferredJobTypes || null,
-        preferred_subjects: payload.preferredSubjects || null,
+        capable_subjects: capableSubjects || null,
         teacher_level: teacherLevel || null,
         special_education_type: specialEducationType || null,
         instructor_fields: instructorFields || null,

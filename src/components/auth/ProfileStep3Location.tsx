@@ -11,19 +11,19 @@ const SEOUL_DISTRICTS = [
 ];
 
 const GYEONGGI_CITIES = [
-  '수원', '화성', '오산', '성남', '용인', '안양', '의왕', '군포',
-  '부천', '광명', '시흥', '안산', '평택', '이천', '여주', '여수',
-  '광주', '하남', '파주', '포천', '연천', '가평', '남양주', '구리'
+  '수원', '고양', '용인', '성남', '부천', '안산', '안양', '화성',
+  '평택', '시흥', '의정부', '파주', '김포', '광명', '광주', '군포',
+  '오산', '이천', '안성', '구리', '남양주', '의왕', '하남', '포천',
+  '여주', '동두천', '과천', '가평', '양주', '양평', '연천'
 ];
+
+const SEOUL_DISTRICT_SET = new Set(SEOUL_DISTRICTS);
+const GYEONGGI_CITY_SET = new Set(GYEONGGI_CITIES);
 
 interface ProfileStep3LocationProps {
   roles: RoleOption[];
   selectedRegions: string[];
   onRegionsChange: (regions: string[]) => void;
-  preferredJobTypes: string[];
-  onJobTypesChange: (types: string[]) => void;
-  preferredSubjects: string[];
-  onSubjectsChange: (subjects: string[]) => void;
   introduction: string;
   onIntroductionChange: (value: string) => void;
 }
@@ -32,48 +32,29 @@ export default function ProfileStep3Location({
   roles,
   selectedRegions,
   onRegionsChange,
-  preferredJobTypes,
-  onJobTypesChange,
-  preferredSubjects,
-  onSubjectsChange,
   introduction,
   onIntroductionChange
 }: ProfileStep3LocationProps) {
   const [seoulExpanded, setSeoulExpanded] = useState(false);
   const [gyeonggiExpanded, setGyeonggiExpanded] = useState(false);
 
-  const isTeacher = roles.includes('교사');
-
   const handleRegionToggle = (region: string) => {
-    if (selectedRegions.includes(region)) {
-      onRegionsChange(selectedRegions.filter((r) => r !== region));
+    let nextRegions = selectedRegions;
+
+    if (SEOUL_DISTRICT_SET.has(region)) {
+      nextRegions = nextRegions.filter((r) => r !== '서울 전체');
+    }
+
+    if (GYEONGGI_CITY_SET.has(region)) {
+      nextRegions = nextRegions.filter((r) => r !== '경기도 전체');
+    }
+
+    if (nextRegions.includes(region)) {
+      onRegionsChange(nextRegions.filter((r) => r !== region));
     } else {
-      onRegionsChange([...selectedRegions, region]);
+      onRegionsChange([...nextRegions, region]);
     }
   };
-
-  const handleJobTypeToggle = (type: string) => {
-    if (preferredJobTypes.includes(type)) {
-      onJobTypesChange(preferredJobTypes.filter((t) => t !== type));
-    } else {
-      onJobTypesChange([...preferredJobTypes, type]);
-    }
-  };
-
-  const handleSubjectToggle = (subject: string) => {
-    if (preferredSubjects.includes(subject)) {
-      onSubjectsChange(preferredSubjects.filter((s) => s !== subject));
-    } else {
-      onSubjectsChange([...preferredSubjects, subject]);
-    }
-  };
-
-  const SUBJECT_OPTIONS = [
-    '담임', '과학', '영어', '체육', '음악', '미술', '실과',
-    '국어', '수학', '사회', '도덕', '기술·가정'
-  ];
-
-  const JOB_TYPE_OPTIONS = ['기간제 교사', '시간제 교사'];
 
   return (
     <div className="space-y-8">
@@ -90,7 +71,7 @@ export default function ProfileStep3Location({
                 onRegionsChange(selectedRegions.filter((r) => r !== '서울 전체'));
               } else {
                 onRegionsChange([
-                  ...selectedRegions.filter((r) => !r.includes('서울')),
+                  ...selectedRegions.filter((r) => !SEOUL_DISTRICT_SET.has(r) && r !== '서울 전체'),
                   '서울 전체'
                 ]);
               }
@@ -125,7 +106,7 @@ export default function ProfileStep3Location({
                 onRegionsChange(selectedRegions.filter((r) => r !== '경기도 전체'));
               } else {
                 onRegionsChange([
-                  ...selectedRegions.filter((r) => !r.includes('경기')),
+                  ...selectedRegions.filter((r) => !GYEONGGI_CITY_SET.has(r) && r !== '경기도 전체'),
                   '경기도 전체'
                 ]);
               }
@@ -171,20 +152,27 @@ export default function ProfileStep3Location({
             </button>
             {seoulExpanded && (
               <div className="grid grid-cols-3 gap-2 pl-2">
-                {SEOUL_DISTRICTS.map((district) => (
-                  <button
-                    key={district}
-                    type="button"
-                    onClick={() => handleRegionToggle(district)}
-                    className={`px-3 py-2 rounded-lg border text-sm transition-all ${
-                      selectedRegions.includes(district)
-                        ? 'border-[#4b83c6] bg-[#4b83c6] text-white'
-                        : 'border-gray-200 bg-white text-gray-700 hover:border-[#7aa3cc]'
-                    }`}
-                  >
-                    {district}
-                  </button>
-                ))}
+                {SEOUL_DISTRICTS.map((district) => {
+                  const disabled = selectedRegions.includes('서울 전체');
+
+                  return (
+                    <button
+                      key={district}
+                      type="button"
+                      onClick={() => handleRegionToggle(district)}
+                      disabled={disabled}
+                      className={`px-3 py-2 rounded-lg border text-sm transition-all ${
+                        selectedRegions.includes(district)
+                          ? 'border-[#4b83c6] bg-[#4b83c6] text-white'
+                          : disabled
+                            ? 'border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed'
+                            : 'border-gray-200 bg-white text-gray-700 hover:border-[#7aa3cc]'
+                      }`}
+                    >
+                      {district}
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -208,48 +196,32 @@ export default function ProfileStep3Location({
             </button>
             {gyeonggiExpanded && (
               <div className="grid grid-cols-3 gap-2 pl-2">
-                {GYEONGGI_CITIES.map((city) => (
-                  <button
-                    key={city}
-                    type="button"
-                    onClick={() => handleRegionToggle(city)}
-                    className={`px-3 py-2 rounded-lg border text-sm transition-all ${
-                      selectedRegions.includes(city)
-                        ? 'border-[#4b83c6] bg-[#4b83c6] text-white'
-                        : 'border-gray-200 bg-white text-gray-700 hover:border-[#7aa3cc]'
-                    }`}
-                  >
-                    {city}
-                  </button>
-                ))}
+                {GYEONGGI_CITIES.map((city) => {
+                  const disabled = selectedRegions.includes('경기도 전체');
+
+                  return (
+                    <button
+                      key={city}
+                      type="button"
+                      onClick={() => handleRegionToggle(city)}
+                      disabled={disabled}
+                      className={`px-3 py-2 rounded-lg border text-sm transition-all ${
+                        selectedRegions.includes(city)
+                          ? 'border-[#4b83c6] bg-[#4b83c6] text-white'
+                          : disabled
+                            ? 'border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed'
+                            : 'border-gray-200 bg-white text-gray-700 hover:border-[#7aa3cc]'
+                      }`}
+                    >
+                      {city}
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
         </div>
       </div>
-
-      {/* 선호 형태 (교사만) */}
-      {isTeacher && (
-        <div className="space-y-4">
-          <h3 className="text-lg font-bold text-gray-900">선호 형태를 선택해주세요</h3>
-          <div className="grid grid-cols-1 gap-2">
-            {JOB_TYPE_OPTIONS.map((type) => (
-              <button
-                key={type}
-                type="button"
-                onClick={() => handleJobTypeToggle(type)}
-                className={`px-4 py-2 rounded-lg border transition-all text-sm font-medium ${
-                  preferredJobTypes.includes(type)
-                    ? 'border-[#4b83c6] bg-[#4b83c6] text-white'
-                    : 'border-gray-200 bg-white text-gray-700 hover:border-[#7aa3cc]'
-                }`}
-              >
-                {type}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* 소개 입력 */}
       <div className="space-y-3">
@@ -266,29 +238,6 @@ export default function ProfileStep3Location({
         />
         <p className="text-right text-xs text-gray-400">최대 500자</p>
       </div>
-
-      {/* 선호 과목 (교사만) */}
-      {isTeacher && (
-        <div className="space-y-4">
-          <h3 className="text-lg font-bold text-gray-900">선호 과목을 선택해주세요</h3>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-            {SUBJECT_OPTIONS.map((subject) => (
-              <button
-                key={subject}
-                type="button"
-                onClick={() => handleSubjectToggle(subject)}
-                className={`px-3 py-2 rounded-lg border transition-all text-sm font-medium ${
-                  preferredSubjects.includes(subject)
-                    ? 'border-[#4b83c6] bg-[#4b83c6] text-white'
-                    : 'border-gray-200 bg-white text-gray-700 hover:border-[#7aa3cc]'
-                }`}
-              >
-                {subject}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

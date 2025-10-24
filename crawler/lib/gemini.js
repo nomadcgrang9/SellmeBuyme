@@ -299,6 +299,134 @@ export async function analyzePageScreenshot(imageBase64) {
 }
 
 /**
+ * LLM Fallback: 학교급·과목·지역 추론
+ * 규칙 기반 파싱이 실패했을 때 Gemini에게 추론 요청
+ */
+export async function inferMissingJobAttributes({
+  schoolName,
+  title,
+  contentPreview,
+  jobField,
+  currentSchoolLevel,
+  currentSubject,
+  currentLocation
+}) {
+  // 이미 모든 정보가 있으면 호출 불필요
+  if (currentSchoolLevel && currentSubject && currentLocation) {
+    return {
+      school_level: currentSchoolLevel,
+      subject: currentSubject,
+      location: currentLocation,
+      inferred: false
+    };
+  }
+
+  const prompt = `
+다음 교원 채용 공고를 분석하여 누락된 정보를 추론해주세요.
+
+🔴 가장 중요: 학교명에서 학교급을 반드시 추출하세요!
+
+공고 정보:
+- **학교명**: ${schoolName || '미상'} ← 이 필드에서 학교급 추출 필수!
+- 제목: ${title || '미상'}
+- 직무분야: ${jobField || '미상'}
+- 본문 앞 1000자:
+${contentPreview || '정보 없음'}
+
+현재 파악된 정보:
+- 학교급: ${currentSchoolLevel || 'null'}
+- 과목: ${currentSubject || 'null'}
+- 지역: ${currentLocation || 'null'}
+
+추론 규칙 (우선순위):
+1. **학교급** (필수) - 반드시 학교명에서 추출:
+   - "○○초등학교" → "초등"
+   - "○○초등학교병설유치원" → "유치원"
+   - "○○중학교" → "중등"
+   - "○○고등학교" → "고등"
+   - "○○여자고등학교", "○○여고" → "고등"
+   - "○○남자고등학교", "○○남고" → "고등"
+   - "○○유치원" → "유치원"
+   - "○○특수학교" → "특수"
+
+2. **과목** (선택적):
+   - 초등: "담임" 또는 null (대부분 담임)
+   - 중등: 제목에서 과목 추출 (국어, 영어, 수학, 과학, 사회, 체육, 음악, 미술, 도덕, 기술가정, 정보)
+   - 유치원: null
+
+3. **지역** (선택적):
+   - 본문에서 시/군 이름 추출 (예: "성남시", "수원시", "고양시")
+
+출력 형식 (JSON만):
+{
+  "school_level": "초등",
+  "subject": "담임",
+  "location": "성남시",
+  "confidence": "high | medium | low"
+}
+
+예시:
+- 학교명: "경안초등학교" → school_level: "초등"
+- 학교명: "대곶중학교" → school_level: "중등"
+- 학교명: "분당영덕여자고등학교" → school_level: "고등"
+- 학교명: "금오초등학교병설유치원" → school_level: "유치원"
+- 학교명: "늘푸른고등학교" → school_level: "고등"
+
+⚠️ 중요: school_level이 정말 확실하지 않을 때만 "미상"으로 설정하세요.
+학교명에 "초등", "중", "고등", "유치원" 등의 키워드가 있으면 반드시 추출하세요.
+`;
+
+  try {
+    const result = await model.generateContent(prompt);
+    
+    // 토큰 사용량 추적
+    const usage = result.response.usageMetadata;
+    if (usage) {
+      tokenUsageStats.totalPromptTokens += usage.promptTokenCount || 0;
+      tokenUsageStats.totalCandidatesTokens += usage.candidatesTokenCount || 0;
+      tokenUsageStats.totalTokens += usage.totalTokenCount || 0;
+      tokenUsageStats.apiCalls += 1;
+    }
+    
+    const text = result.response.text();
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    
+    if (!jsonMatch) {
+      console.warn('⚠️  LLM Fallback: JSON 응답 없음');
+      return {
+        school_level: currentSchoolLevel,
+        subject: currentSubject,
+        location: currentLocation,
+        inferred: false
+      };
+    }
+
+    const inferred = JSON.parse(jsonMatch[0]);
+    
+    console.log(`🤖 LLM Fallback 추론 완료 (confidence: ${inferred.confidence})`);
+    console.log(`   학교급: ${currentSchoolLevel} → ${inferred.school_level}`);
+    console.log(`   과목: ${currentSubject} → ${inferred.subject}`);
+    console.log(`   지역: ${currentLocation} → ${inferred.location}`);
+    
+    return {
+      school_level: inferred.school_level || currentSchoolLevel,
+      subject: inferred.subject || currentSubject,
+      location: inferred.location || currentLocation,
+      confidence: inferred.confidence || 'low',
+      inferred: true
+    };
+  } catch (error) {
+    console.error(`❌ LLM Fallback 실패: ${error.message}`);
+    return {
+      school_level: currentSchoolLevel,
+      subject: currentSubject,
+      location: currentLocation,
+      inferred: false
+    };
+  }
+}
+
+/**
  * 정규화된 데이터 검증
  */
 export async function validateJobData(jobData) {

@@ -42,6 +42,11 @@
 - **프로필 사진 유지 및 업로드 개선**: `ProfileSetupModal.tsx`와 `ProfileStep1Basic.tsx`가 Supabase Storage(`profiles` 버킷)에 이미지를 업로드하고, edit 모드에서도 기존 URL을 미리보기로 표시하도록 상태 구조를 업데이트.
 - **프로필 보기 모달 확장**: `ProfileViewModal.tsx`에서 저장된 교사·강사 상세 필드와 업로드된 프로필 이미지를 렌더링해 편집 시 데이터가 일관되게 노출되도록 조정.
 
+### 추가 업데이트 (2025-10-24)
+- **검색 토큰 그룹화**: `src/lib/supabase/queries.ts`가 `TokenGroup` 기반으로 검색어를 확장해 `중등 → [중등, 중학교, 고등학교]` 식의 동의어 묶음을 유지하도록 개선.
+- **FTS + ILIKE 동작 안정화**: 동일 파일에서 FTS 표현식과 ILIKE 조건을 통합해 `성남 중학교`, `의정부 고등학교`처럼 접미사 `학교`가 포함된 검색도 일관되게 결과가 노출되도록 수정.
+- **결과 후처리 강화**: `filterJobsByTokenGroups()`와 `filterTalentsByTokenGroups()`가 모든 토큰 그룹에서 최소 1개 키워드가 매칭되도록 보장해, 확장된 동의어가 카드 정렬과 추천 점수에 반영되도록 조정.
+
 ## 📋 목차
 1. [페이지 레이아웃 구조](#페이지-레이아웃-구조)
 2. [1. 헤더 (Header)](#1-헤더-header)

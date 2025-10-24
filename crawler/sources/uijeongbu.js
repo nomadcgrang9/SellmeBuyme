@@ -6,8 +6,49 @@ import { loadPage, getTextBySelectors, getAttributeBySelectors, resolveUrl } fro
 export async function crawlUijeongbu(page, config) {
   console.log(`\n📍 ${config.name} 크롤링 시작`);
   
+  async function captureDebugSnapshot(page, reason) {
+    try {
+      const screenshotPath = `debug-uijeongbu-${Date.now()}.png`;
+      await page.screenshot({ path: screenshotPath, fullPage: true }).catch(() => null);
+      const htmlSnippet = await page.content().catch(() => null);
+      console.warn(`[debug] ${reason} | screenshot: ${screenshotPath}`, {
+        snippet: htmlSnippet ? htmlSnippet.substring(0, 5000) : null,
+      });
+    } catch (snapshotError) {
+      console.warn(`[debug] 스냅샷 캡처 실패: ${snapshotError.message}`);
+    }
+  }
+
+  function waitSelectorsForRows(rows) {
+    if (!rows || rows.length === 0) {
+      return 'table.board-list tbody tr';
+    }
+    return rows.join(', ');
+  }
+
+  const fallbackSelectors = {
+    listContainer: [
+      config.selectors.listContainer,
+      'table.board-list',
+      '.board_list',
+      '.tbl_list',
+      '.board-list-wrap',
+      '.board-table'
+    ].filter(Boolean),
+    rows: [
+      config.selectors.rows,
+      'table.board-list tbody tr',
+      '.board_list tbody tr',
+      '.tbl_list tbody tr',
+      '.board-list-wrap tbody tr',
+      '.board-table tbody tr'
+    ].filter(Boolean),
+  };
+
+  const waitSelectors = fallbackSelectors.listContainer.join(', ');
+
   // 1. 목록 페이지 로딩
-  await loadPage(page, config.baseUrl, config.selectors.listContainer);
+  await loadPage(page, config.baseUrl, waitSelectors);
   
   // 2. 페이지 구조 분석 (디버깅용)
   const pageTitle = await page.title();
@@ -18,15 +59,16 @@ export async function crawlUijeongbu(page, config) {
   
   try {
     // 여러 선택자 시도
-    const rows = await page.$$(config.selectors.rows);
+    const rows = await page.$$(waitSelectorsForRows(fallbackSelectors.rows));
     
     if (rows.length === 0) {
       console.warn('⚠️  공고 목록을 찾을 수 없습니다. HTML 구조 확인 필요');
-      
+
       // 디버깅: 페이지 HTML 일부 출력
-      const bodyText = await page.evaluate(() => document.body.innerText.substring(0, 500));
+      const bodyText = await page.evaluate(() => document.body.innerText.substring(0, 500)).catch(() => '미확인');
       console.log('페이지 내용 샘플:', bodyText);
-      
+      await captureDebugSnapshot(page, '목록 선택자 미검출');
+
       return [];
     }
     
@@ -38,9 +80,10 @@ export async function crawlUijeongbu(page, config) {
     for (let i = 0; i < maxRows; i++) {
       try {
         // 매번 새로 rows를 가져와서 stale element 방지
-        const currentRows = await page.$$(config.selectors.rows);
+        const currentRows = await page.$$(waitSelectorsForRows(fallbackSelectors.rows));
         if (i >= currentRows.length) {
           console.warn(`  ⚠️  행 ${i + 1} 찾을 수 없음`);
+          await captureDebugSnapshot(page, `목록 행 ${i + 1} 미검출`);
           continue;
         }
         
@@ -78,7 +121,11 @@ export async function crawlUijeongbu(page, config) {
         console.log(`     상세 페이지 접속 중...`);
         
         // 상세 페이지 크롤링 (텍스트 + 스크린샷)
-        const detailData = await crawlDetailPage(page, absoluteLink, config);
+        const detailData = await crawlDetailPage(page, absoluteLink, config).catch(async (detailError) => {
+          console.warn(`  ⚠️  상세 페이지 로드 실패: ${detailError.message}`);
+          await captureDebugSnapshot(page, `상세 페이지 실패 (${absoluteLink})`);
+          throw detailError;
+        });
         
         jobs.push({
           title: title,
