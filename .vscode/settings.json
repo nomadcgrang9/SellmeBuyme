@@ -1,13 +1,13 @@
 {
-    "editor.fontSize": 60,
-    "markdown.preview.fontSize": 40,
-    "chat.fontSize": 40,
-    "chat.editor.fontSize": 40,
-    "terminal.integrated.fontSize": 40,
-    "scm.inputFontSize": 40,
-    "debug.console.fontSize": 40,
-    "editor.suggestFontSize": 40,
-    "editor.minimap.sectionHeaderFontSize": 40,
-    "editor.inlayHints.fontSize": 40,
-    "editor.codeLensFontSize": 40
+    "editor.fontSize": 14,
+    "markdown.preview.fontSize": 14,
+    "chat.fontSize": 14,
+    "chat.editor.fontSize": 14,
+    "terminal.integrated.fontSize": 14,
+    "scm.inputFontSize": 14,
+    "debug.console.fontSize": 14,
+    "editor.suggestFontSize": 14,
+    "editor.minimap.sectionHeaderFontSize": 9,
+    "editor.inlayHints.fontSize": 12,
+    "editor.codeLensFontSize": 12
 }
