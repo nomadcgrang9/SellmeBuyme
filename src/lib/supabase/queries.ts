@@ -327,8 +327,11 @@ export function selectRecommendationCards(
   const isInstructor = roles.some((role) =>
     role.toLowerCase().includes('강사') || role.toLowerCase().includes('instructor')
   );
+  const isSupport = roles.some((role) =>
+    role.toLowerCase().includes('기타') || role.toLowerCase().includes('행정')
+  );
 
-  if (!isTeacher && !isInstructor) {
+  if (!isTeacher && !isInstructor && !isSupport) {
     return cards.slice(0, 6);
   }
 
@@ -343,6 +346,9 @@ export function selectRecommendationCards(
   } else if (isInstructor) {
     selected.push(...talentCards.slice(0, 4));
     selected.push(...jobCards.slice(0, 2));
+  } else if (isSupport) {
+    selected.push(...jobCards.slice(0, 4));
+    selected.push(...talentCards.slice(0, 2));
   }
 
   return selected.slice(0, 6);
@@ -404,27 +410,32 @@ export async function generateRecommendations(): Promise<{
 }
 
 export async function fetchPromoCardSettings(options?: { onlyActive?: boolean }): Promise<PromoCardSettings | null> {
-  let query = supabase
-    .from('promo_card_settings')
-    .select('*')
-    .order('updated_at', { ascending: false });
+  try {
+    let query = supabase
+      .from('promo_card_settings')
+      .select('*')
+      .order('updated_at', { ascending: false });
 
-  if (options?.onlyActive) {
-    query = query.eq('is_active', true);
-  }
+    if (options?.onlyActive) {
+      query = query.eq('is_active', true);
+    }
 
-  const { data, error } = await query.limit(1).maybeSingle<PromoCardSettingsRow>();
+    const { data, error } = await query.limit(1).maybeSingle<PromoCardSettingsRow>();
 
-  if (error) {
-    console.error('프로모 카드 설정 조회 실패:', error);
-    throw error;
-  }
+    if (error) {
+      console.error('프로모 카드 설정 조회 실패:', error);
+      throw error;
+    }
 
-  if (!data) {
+    if (!data) {
+      return null;
+    }
+
+    return mapPromoCardFromDbRow(data);
+  } catch (error) {
+    // RLS 정책으로 인한 접근 불가 또는 테이블 없음 - 조용히 실패
     return null;
   }
-
-  return mapPromoCardFromDbRow(data);
 }
 
 type PromoCardMutationMode = 'draft' | 'apply';

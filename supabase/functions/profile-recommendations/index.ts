@@ -382,22 +382,45 @@ function scoreJobCard(profile: UserProfileRow, job: JobPostingRow, preferredRegi
     score += 8;
   }
 
-  // 교과 담당 가능 여부 검사 (불가능 시 즉시 제외)
-  if (!isCapableOfTeaching(profile.capable_subjects, job.school_level, job.subject, profile.teacher_level)) {
-    return {
-      score: -999,
-      card: {
-        id: job.id,
-        type: 'job',
-        organization: job.organization,
-        title: job.title,
-        tags: job.tags ?? [],
-        location: job.location,
-        compensation: job.compensation ?? '',
-        deadline: job.deadline,
-        isUrgent: Boolean(job.is_urgent)
-      }
-    };
+  const roleSet = toLowerSet(roles);
+  const isAdminRole = roleSet.has('기타');
+
+  // 학교행정 역할('기타')은 support/volunteer 공고만 추천
+  if (isAdminRole) {
+    if (category !== 'support' && category !== 'volunteer') {
+      return {
+        score: -999,
+        card: {
+          id: job.id,
+          type: 'job',
+          organization: job.organization,
+          title: job.title,
+          tags: job.tags ?? [],
+          location: job.location,
+          compensation: job.compensation ?? '',
+          deadline: job.deadline,
+          isUrgent: Boolean(job.is_urgent)
+        }
+      };
+    }
+  } else {
+    // 교과 담당 가능 여부 검사 (불가능 시 즉시 제외) - 교사/강사 역할만
+    if (!isCapableOfTeaching(profile.capable_subjects, job.school_level, job.subject, profile.teacher_level)) {
+      return {
+        score: -999,
+        card: {
+          id: job.id,
+          type: 'job',
+          organization: job.organization,
+          title: job.title,
+          tags: job.tags ?? [],
+          location: job.location,
+          compensation: job.compensation ?? '',
+          deadline: job.deadline,
+          isUrgent: Boolean(job.is_urgent)
+        }
+      };
+    }
   }
 
   // 과목 매칭 (호환성 통과한 경우 추가 가점)
@@ -419,7 +442,6 @@ function scoreJobCard(profile: UserProfileRow, job: JobPostingRow, preferredRegi
     }
   }
 
-  const roleSet = toLowerSet(roles);
   if (roleSet.has('교사')) {
     if (category === 'teaching') score += 25;
     if (category === 'support') score -= 40;
@@ -434,8 +456,8 @@ function scoreJobCard(profile: UserProfileRow, job: JobPostingRow, preferredRegi
   }
 
   if (roleSet.has('기타')) {
-    if (category === 'support') score += 18;
-    if (category === 'volunteer') score += 22;
+    if (category === 'support') score += 28;
+    if (category === 'volunteer') score += 26;
     if (category === 'teaching') score -= 12;
   }
 
@@ -444,7 +466,7 @@ function scoreJobCard(profile: UserProfileRow, job: JobPostingRow, preferredRegi
   }
 
   if (job.is_urgent) {
-    score += 1;
+    score += isAdminRole ? 4 : 1;
   }
 
   // 최신성 가중치: 최근 3일 +3, 최근 7일 +1, 3일 초과는 강한 패널티
@@ -453,7 +475,13 @@ function scoreJobCard(profile: UserProfileRow, job: JobPostingRow, preferredRegi
     const now = new Date();
     const days = Math.floor((now.getTime() - created.getTime()) / (1000 * 60 * 60 * 24));
     if (!isNaN(days)) {
-      if (days <= 3) score += 3; else if (days <= 7) score += 1; else score -= 100;
+      if (days <= 3) {
+        score += 3;
+      } else if (days <= 7) {
+        score += 1;
+      } else {
+        score += isAdminRole ? -18 : -100;
+      }
     }
   } catch(_) {}
 
@@ -512,7 +540,7 @@ function scoreTalentCard(profile: UserProfileRow, talent: TalentRow, preferredRe
   }
 
   if (profileRoles.has('기타')) {
-    score -= 10;
+    score -= 40;
   }
 
   if ((talent.rating ?? 0) >= 4.5) {
