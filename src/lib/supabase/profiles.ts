@@ -6,6 +6,7 @@ export type UserProfileRow = {
   display_name: string | null;
   phone: string | null;
   roles: string[] | null;
+  primary_region: string | null;
   interest_regions: string[] | null;
   experience_years: number | null;
   receive_notifications: boolean | null;
@@ -15,6 +16,8 @@ export type UserProfileRow = {
   agree_marketing: boolean | null;
   capable_subjects: string[] | null;
   teacher_level: string | null;
+  preferred_job_types: string[] | null;
+  preferred_subjects: string[] | null;
   special_education_type: string | null;
   instructor_fields: string[] | null;
   instructor_custom_field: string | null;
@@ -27,6 +30,7 @@ export type ProfileUpsertInput = {
   displayName: string;
   phone?: string | null;
   roles: string[];
+  primaryRegion?: string | null;
   interestRegions: string[];
   experienceYears?: number | null;
   receiveNotifications: boolean;
@@ -39,6 +43,9 @@ export type ProfileUpsertInput = {
   specialEducationType?: string | null;
   instructorFields?: string[] | null;
   instructorCustomField?: string | null;
+  preferredJobTypes?: string[] | null;
+  preferredSubjects?: string[] | null;
+  primaryRegionOverride?: string | null;
   profileImageUrl?: string | null;
 };
 

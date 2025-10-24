@@ -1,0 +1,33 @@
+{
+  "mcpServers": {
+    "postgres": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-postgres",
+        "postgresql://postgres.qpwnsvsiduvvqdijyxio:your-password@aws-0-ap-northeast-2.pooler.supabase.com:6543/postgres"
+      ],
+      "env": {
+        "PGHOST": "aws-0-ap-northeast-2.pooler.supabase.com",
+        "PGPORT": "6543",
+        "PGUSER": "postgres.qpwnsvsiduvvqdijyxio",
+        "PGDATABASE": "postgres"
+      }
+    },
+    "puppeteer": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-puppeteer"
+      ]
+    },
+    "filesystem": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "C:\\Users\\cgran\\OneDrive\\MAYNINEE\\PRODUCT\\Sellme Buyme"
+      ]
+    }
+  }
+}
