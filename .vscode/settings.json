@@ -1,0 +1,13 @@
+{
+    "editor.fontSize": 60,
+    "markdown.preview.fontSize": 40,
+    "chat.fontSize": 40,
+    "chat.editor.fontSize": 40,
+    "terminal.integrated.fontSize": 40,
+    "scm.inputFontSize": 40,
+    "debug.console.fontSize": 40,
+    "editor.suggestFontSize": 40,
+    "editor.minimap.sectionHeaderFontSize": 40,
+    "editor.inlayHints.fontSize": 40,
+    "editor.codeLensFontSize": 40
+}

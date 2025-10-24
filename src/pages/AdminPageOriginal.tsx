@@ -1,5 +1,4 @@
 import { Fragment, useEffect, useState } from 'react';
-import { IconMenu2, IconX } from '@tabler/icons-react';
 import CrawlBoardList from '@/components/admin/CrawlBoardList';
 import CrawlBoardForm from '@/components/admin/CrawlBoardForm';
 import CrawlLogViewer from '@/components/admin/CrawlLogViewer';
@@ -27,9 +26,8 @@ const ADMIN_TABS: AdminTab[] = [
   { key: 'settings', label: '설정', description: '권한 및 시스템 설정' }
 ];
 
-export default function AdminPageWithHamburger() {
-  const [activeTab, setActiveTab] = useState<string>('overview');
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+export default function AdminPage() {
+  const [activeTab, setActiveTab] = useState<string>('crawl');
   const [showBoardForm, setShowBoardForm] = useState(false);
   const [editingBoard, setEditingBoard] = useState<CrawlBoard | undefined>();
   const [logsBoard, setLogsBoard] = useState<CrawlBoard | undefined>();
@@ -86,20 +84,8 @@ export default function AdminPageWithHamburger() {
     }
   };
 
-  const handleTabClick = (tabKey: string) => {
-    setActiveTab(tabKey);
-    setIsSidebarOpen(false);
-  };
-
   const renderTabContent = () => {
     switch (activeTab) {
-      case 'overview':
-        return (
-          <div className="flex h-full flex-col items-center justify-center rounded-lg border border-dashed border-slate-300 bg-white p-10 text-center text-sm text-slate-500">
-            <h3 className="text-lg font-medium text-slate-700">대시보드</h3>
-            <p className="mt-2 text-xs text-slate-400">향후 관리자 기능이 추가될 예정입니다.</p>
-          </div>
-        );
       case 'crawl':
         return (
           <Fragment>
@@ -127,9 +113,9 @@ export default function AdminPageWithHamburger() {
         return <PromoTabManager />;
       default:
         return (
-          <div className="flex h-full flex-col items-center justify-center rounded-lg border border-dashed border-slate-300 bg-white p-10 text-center text-sm text-slate-500">
-            <p className="font-medium text-slate-700">선택한 메뉴는 준비 중입니다.</p>
-            <p className="mt-2 text-xs text-slate-400">향후 관리자 기능이 추가될 예정입니다.</p>
+          <div className="flex h-full flex-col items-center justify-center rounded-lg border border-dashed border-gray-300 bg-white p-10 text-center text-sm text-gray-500">
+            <p className="font-medium text-gray-700">선택한 메뉴는 준비 중입니다.</p>
+            <p className="mt-2 text-xs text-gray-400">향후 관리자 기능이 추가될 예정입니다.</p>
           </div>
         );
     }
@@ -137,22 +123,11 @@ export default function AdminPageWithHamburger() {
 
   return (
     <div className="min-h-screen bg-slate-100">
-      {/* 헤더 */}
-      <header className="fixed left-0 right-0 top-0 z-[60] border-b border-slate-200 bg-white">
-        <div className="flex items-center justify-between px-4 py-4">
-          <div className="flex items-center gap-3">
-            {/* 햄버거 메뉴 버튼 */}
-            <button
-              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-              className="rounded-lg p-2 text-slate-600 transition hover:bg-slate-100"
-            >
-              <IconMenu2 size={24} stroke={1.5} />
-            </button>
-
-            <div>
-              <h1 className="text-xl font-bold text-slate-900">셀미바이미 관리자</h1>
-              <p className="text-xs text-slate-500">운영을 위한 전용 관리 센터입니다.</p>
-            </div>
+      <header className="border-b border-slate-200 bg-white">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900">셀미바이미 관리자</h1>
+            <p className="text-sm text-slate-500">운영을 위한 전용 관리 센터입니다.</p>
           </div>
           <span className="rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
             관리자 전용
@@ -160,44 +135,19 @@ export default function AdminPageWithHamburger() {
         </div>
       </header>
 
-      {/* 오버레이 */}
-      {isSidebarOpen && (
-        <div
-          className="fixed inset-0 z-40 bg-black/30"
-          onClick={() => setIsSidebarOpen(false)}
-        />
-      )}
-
-      {/* 사이드바 */}
-      <aside
-        className={`fixed left-0 top-[73px] z-50 h-[calc(100vh-73px)] w-64 transform border-r border-slate-200 bg-white transition-transform duration-300 ${
-          isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
-        }`}
-      >
-        <div className="flex h-full flex-col">
-          {/* 사이드바 헤더 */}
-          <div className="flex items-center justify-between border-b border-slate-200 px-4 py-4">
-            <h2 className="text-lg font-semibold text-slate-900">메뉴</h2>
-            <button
-              onClick={() => setIsSidebarOpen(false)}
-              className="rounded-lg p-2 text-slate-600 transition hover:bg-slate-100"
-            >
-              <IconX size={20} stroke={1.5} />
-            </button>
-          </div>
-
-          {/* 네비게이션 */}
-          <nav className="flex-1 space-y-1 overflow-y-auto p-4">
+      <div className="mx-auto flex max-w-6xl gap-6 px-6 py-6">
+        <aside className="w-64 shrink-0">
+          <nav className="space-y-1">
             {ADMIN_TABS.map((tab) => {
               const isActive = tab.key === activeTab;
               return (
                 <button
                   key={tab.key}
-                  onClick={() => handleTabClick(tab.key)}
+                  onClick={() => setActiveTab(tab.key)}
                   className={`flex w-full flex-col rounded-lg border px-4 py-3 text-left transition ${
                     isActive
                       ? 'border-primary bg-primary/10 text-primary shadow-sm'
-                      : 'border-transparent bg-white text-slate-600 hover:border-slate-200 hover:bg-slate-50'
+                      : 'border-transparent bg-white text-slate-600 hover:border-primary/40 hover:bg-primary/5'
                   }`}
                 >
                   <span className="flex items-center gap-2 text-sm font-semibold">
@@ -217,15 +167,12 @@ export default function AdminPageWithHamburger() {
               );
             })}
           </nav>
-        </div>
-      </aside>
+        </aside>
 
-      {/* 메인 콘텐츠 */}
-      <main className="mt-[73px] p-4">
-        <div className="mx-auto max-w-6xl">
-          <div className="rounded-xl border border-slate-200 bg-white px-4 py-4 shadow-sm">
+        <main className="flex-1">
+          <div className="rounded-xl border border-slate-200 bg-white px-6 py-6 shadow-sm">
             <div className="mb-6 border-b border-slate-100 pb-4">
-              <h2 className="text-lg font-semibold text-slate-900">
+              <h2 className="text-xl font-semibold text-slate-900">
                 {ADMIN_TABS.find((tab) => tab.key === activeTab)?.label}
               </h2>
               <p className="mt-1 text-sm text-slate-500">
@@ -235,8 +182,8 @@ export default function AdminPageWithHamburger() {
 
             {renderTabContent()}
           </div>
-        </div>
-      </main>
+        </main>
+      </div>
 
       {showBoardForm && (
         <CrawlBoardForm
