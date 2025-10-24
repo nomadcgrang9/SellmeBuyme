@@ -78,12 +78,20 @@ const corsHeaders = {
 type UserProfileRow = {
   user_id: string;
   display_name: string | null;
+  phone: string | null;
   roles: string[] | null;
+  primary_region: string | null;
   interest_regions: string[] | null;
   experience_years: number | null;
+  receive_notifications: boolean | null;
   intro: string | null;
+  agree_terms: boolean | null;
+  agree_privacy: boolean | null;
+  agree_marketing: boolean | null;
   capable_subjects: string[] | null;
   teacher_level: string | null;
+  preferred_job_types: string[] | null;
+  preferred_subjects: string[] | null;
   updated_at: string;
 };
 
