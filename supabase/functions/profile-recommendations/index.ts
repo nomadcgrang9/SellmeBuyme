@@ -70,6 +70,280 @@ async function aiFilterWithGemini(profile: UserProfileRow, scored: ScoredCard[])
   }
 }
 
+/**
+ * ==================== Option 1: Hybrid Approach ====================
+ * Rule-based card selection (accurate) + AI comment generation (natural)
+ */
+
+/**
+ * 코멘트 길이 검증 함수
+ */
+function validateCommentLength(
+  headline: string,
+  description: string
+): { valid: boolean; reason?: string } {
+  const headlineLength = headline.length;
+  const descriptionLength = description.length;
+
+  if (headlineLength > 30) {
+    return {
+      valid: false,
+      reason: `Headline 너무 김 (${headlineLength}자 > 30자)`
+    };
+  }
+
+  if (descriptionLength > 80) {
+    return {
+      valid: false,
+      reason: `Description 너무 김 (${descriptionLength}자 > 80자)`
+    };
+  }
+
+  return { valid: true };
+}
+
+/**
+ * Gemini AI를 사용한 코멘트 ONLY 생성 (카드 선택은 하지 않음)
+ * 이미 선택된 카드를 기반으로 짧고 정확한 코멘트만 생성합니다.
+ */
+async function generateCommentWithGemini(
+  profile: UserProfileRow,
+  selectedCards: ScoredCard[]
+): Promise<{ headline: string; description: string } | null> {
+  const apiKey = Deno.env.get('GEMINI_API_KEY');
+  if (!apiKey) {
+    console.log('[AI Comment] Gemini API key 없음 - fallback 사용');
+    return null;
+  }
+
+  const displayName = profile.display_name ?? '선생님';
+  const capableSubjects = profile.capable_subjects ?? [];
+  const interestRegions = profile.interest_regions ?? [];
+
+  // 선택된 카드 정보 요약 (간결하게)
+  const cardSummaries = selectedCards.map((s, idx) => {
+    const card = s.card as any;
+    return {
+      번호: idx + 1,
+      조직: card.organization || card.name || '',
+      지역: card.location || '',
+      과목: card.subject || card.specialty || '',
+      마감: card.deadline || '',
+      생성일: card.created_at || ''
+    };
+  });
+
+  const promptText = `당신은 이미 선택된 추천 카드에 대한 **짧은 코멘트**만 작성합니다.
+
+**중요한 제약조건:**
+- headline: **최대 30자 이내** (필수!)
+- description: **최대 80자 이내** (필수!)
+- 콜론(:) 사용 금지
+- 친근하고 자연스러운 말투 사용
+
+**사용자 정보:**
+- 이름: ${displayName}
+- 담당 가능 과목: ${capableSubjects.join(', ') || '미설정'}
+- 관심 지역: ${interestRegions.join(', ') || '미설정'}
+
+**선택된 카드 정보:**
+${JSON.stringify(cardSummaries, null, 2)}
+
+**작성 예시:**
+\`\`\`json
+{
+  "headline": "화성·광주 초등 공고 6건",
+  "description": "이번 주 최신 공고예요. 마감 임박한 것부터 확인하세요!"
+}
+\`\`\`
+
+**반드시 JSON 형식으로만 응답하세요:**`;
+
+  const prompt = {
+    contents: [
+      {
+        role: 'user',
+        parts: [{ text: promptText }]
+      }
+    ]
+  };
+
+  try {
+    console.log('[AI Comment] Gemini API 호출 (코멘트 전용)...');
+    const resp = await fetch(
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=' + apiKey,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(prompt)
+      }
+    );
+
+    if (!resp.ok) {
+      console.error('[AI Comment] Gemini API 응답 실패:', resp.status);
+      return null;
+    }
+
+    const data = await resp.json();
+    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+    console.log('[AI Comment] Gemini 응답:', text.substring(0, 150) + '...');
+
+    // JSON 추출
+    let jsonText = text;
+    const codeBlockMatch = text.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
+    if (codeBlockMatch) {
+      jsonText = codeBlockMatch[1];
+    } else {
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        jsonText = jsonMatch[0];
+      }
+    }
+
+    const parsed = JSON.parse(jsonText);
+    const headline: string = parsed.headline ?? '';
+    const description: string = parsed.description ?? '';
+
+    if (!headline || !description) {
+      console.error('[AI Comment] Gemini 응답 형식 오류 - headline/description 누락');
+      return null;
+    }
+
+    // 길이 검증
+    const validation = validateCommentLength(headline, description);
+    if (!validation.valid) {
+      console.warn('[AI Comment] 길이 검증 실패:', validation.reason);
+      console.warn('[AI Comment] Gemini 응답:', { headline, description });
+      return null; // 길이 초과 시 fallback으로 전환
+    }
+
+    console.log('[AI Comment] Gemini 코멘트 생성 성공 ✅', {
+      headline: `${headline} (${headline.length}자)`,
+      description: `${description} (${description.length}자)`
+    });
+
+    return { headline, description };
+  } catch (err) {
+    console.error('[AI Comment] Gemini API 호출 오류:', err);
+    return null;
+  }
+}
+
+/**
+ * ==================== AI 코멘트 검증 함수 ====================
+ * AI가 생성한 코멘트가 실제 선택된 카드와 일치하는지 검증합니다.
+ */
+function validateAiComment(
+  headline: string,
+  description: string,
+  selectedCards: ScoredCard[],
+  profile: UserProfileRow
+): { valid: boolean; warnings: string[] } {
+  const warnings: string[] = [];
+  const fullText = (headline + ' ' + description).toLowerCase();
+
+  // 1. "마감 임박" 검증
+  if (fullText.includes('마감') || fullText.includes('서둘') || fullText.includes('급해') || fullText.includes('임박')) {
+    const now = new Date();
+    const hasUrgent = selectedCards.some(s => {
+      if (s.card.type === 'job') {
+        const job = s.card as any;
+        const deadline = job.deadline;
+        if (deadline) {
+          try {
+            const deadlineDate = new Date(deadline);
+            const daysLeft = (deadlineDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
+            return daysLeft < 3; // 3일 이내
+          } catch (_) {
+            return false;
+          }
+        }
+      }
+      return false;
+    });
+
+    if (!hasUrgent) {
+      warnings.push('⚠️  "마감 임박" 언급했지만 실제로 3일 이내 마감인 카드가 없음');
+    }
+  }
+
+  // 2. "오늘 올라온" / "24시간" 검증
+  if (fullText.includes('오늘') || fullText.includes('24시간') || fullText.includes('방금') || fullText.includes('따끈')) {
+    const now = new Date();
+    const hasFresh = selectedCards.some(s => {
+      const createdAt = (s.card as any).created_at;
+      if (createdAt) {
+        try {
+          const created = new Date(createdAt);
+          const hoursAgo = (now.getTime() - created.getTime()) / (1000 * 60 * 60);
+          return hoursAgo <= 24;
+        } catch (_) {
+          return false;
+        }
+      }
+      return false;
+    });
+
+    if (!hasFresh) {
+      warnings.push('⚠️  "오늘 올라온" 언급했지만 실제로 24시간 이내 카드가 없음');
+    }
+  }
+
+  // 3. 지역 검증 (관심 지역 언급 시)
+  const interestRegions = profile.interest_regions ?? [];
+  if (interestRegions.length > 0) {
+    const mentionedRegion = interestRegions.some(region => fullText.includes(region.toLowerCase()));
+
+    if (mentionedRegion) {
+      const hasMatchingRegion = selectedCards.some(s => {
+        const location = (s.card as any).location ?? '';
+        return interestRegions.some(region =>
+          location.toLowerCase().includes(region.toLowerCase())
+        );
+      });
+
+      if (!hasMatchingRegion) {
+        warnings.push(`⚠️  관심 지역(${interestRegions.join(', ')}) 언급했지만 실제 카드에 해당 지역 없음`);
+      }
+    }
+  }
+
+  // 4. 과목 검증 (담당 가능 과목 언급 시)
+  const capableSubjects = profile.capable_subjects ?? [];
+  if (capableSubjects.length > 0) {
+    const mentionedSubject = capableSubjects.some(subject => {
+      const cleanSubject = subject.replace(/초등|중등|유치원|특수/g, '').trim();
+      return fullText.includes(cleanSubject.toLowerCase());
+    });
+
+    if (mentionedSubject) {
+      const hasMatchingSubject = selectedCards.some(s => {
+        if (s.card.type === 'job') {
+          const job = s.card as any;
+          const jobSubject = job.subject ?? '';
+          const jobTags = job.tags ?? [];
+
+          return capableSubjects.some(subject => {
+            const cleanSubject = subject.replace(/초등|중등|유치원|특수/g, '').trim();
+            return jobSubject.toLowerCase().includes(cleanSubject.toLowerCase()) ||
+                   jobTags.some((tag: string) => tag.toLowerCase().includes(cleanSubject.toLowerCase()));
+          });
+        }
+        return false;
+      });
+
+      if (!hasMatchingSubject) {
+        warnings.push(`⚠️  과목(${capableSubjects.join(', ')}) 언급했지만 실제 카드에 해당 과목 없음`);
+      }
+    }
+  }
+
+  return {
+    valid: warnings.length === 0,
+    warnings
+  };
+}
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type'
@@ -168,6 +442,9 @@ const ADJACENT_REGIONS: Record<string, string[]> = {
 };
 
 const REGION_FALLBACKS = ['경기도', '서울', '인천'];
+
+// 광역 지역 목록 (시/군과 구분)
+const WIDE_REGIONS = new Set(['경기도', '서울', '인천', '부산', '대구', '광주', '대전', '울산', '세종', '강원도', '충청북도', '충청남도', '전라북도', '전라남도', '경상북도', '경상남도', '제주도']);
 
 function buildRegionFilter(interestRegions: string[] | null | undefined): string[] {
   const result = new Set<string>();
@@ -319,12 +596,22 @@ function isCapableOfTeaching(
       }
     }
     
-    // 중등 과목 프로필 (예: 중등 과학, 중등 국어)
+    // 중등 과목 프로필 (예: 중등 국어, 중등 물리, 중등 한문)
     if (profileSubject.includes('중등')) {
       // 중등 공고는 항상 가능
       if (jobLevel === '중등') {
         if (!jobSubj) return true;
-        if (profileSubject.includes('과학') && jobSubj === '과학') return true;
+
+        // 과학 세분화 과목: 물리/화학/생물/지구과학 → "과학" 공고 포함
+        const scienceSubjects = ['물리', '화학', '생물', '지구과학'];
+        const hasScienceSubject = scienceSubjects.some(sci => profileSubject.includes(sci));
+        if (hasScienceSubject && jobSubj === '과학') return true;
+
+        // 정확 매칭
+        if (profileSubject.includes('물리') && jobSubj === '물리') return true;
+        if (profileSubject.includes('화학') && jobSubj === '화학') return true;
+        if (profileSubject.includes('생물') && jobSubj === '생물') return true;
+        if (profileSubject.includes('지구과학') && jobSubj === '지구과학') return true;
         if (profileSubject.includes('영어') && jobSubj === '영어') return true;
         if (profileSubject.includes('체육') && jobSubj === '체육') return true;
         if (profileSubject.includes('음악') && jobSubj === '음악') return true;
@@ -332,12 +619,24 @@ function isCapableOfTeaching(
         if (profileSubject.includes('국어') && jobSubj === '국어') return true;
         if (profileSubject.includes('수학') && jobSubj === '수학') return true;
         if (profileSubject.includes('사회') && jobSubj === '사회') return true;
-        if (profileSubject.includes('도덕') && jobSubj === '도덕') return true;
+        if (profileSubject.includes('윤리') && (jobSubj === '윤리' || jobSubj === '도덕')) return true;
+        if (profileSubject.includes('상담') && (jobSubj === '상담' || jobSubj === '생활지도')) return true;
+        if (profileSubject.includes('진로') && jobSubj === '진로') return true;
+        if (profileSubject.includes('역사') && jobSubj === '역사') return true;
+
+        // 기타 직접 입력 과목 (예: 중등 한문, 중등 일본어)
+        const subjectName = profileSubject.replace('중등', '').trim();
+        if (jobSubj && jobSubj.includes(subjectName.toLowerCase())) return true;
       }
       // 중등 과목 교사는 초등 해당 과목 전담 가능 (상향식 호환)
       if (jobLevel === '초등') {
         if (!jobSubj) return false;
-        if (profileSubject.includes('과학') && jobSubj === '과학') return true;
+
+        // 과학 세분화 과목도 초등 과학 전담 가능
+        const scienceSubjects = ['물리', '화학', '생물', '지구과학', '과학'];
+        const hasScienceSubject = scienceSubjects.some(sci => profileSubject.includes(sci));
+        if (hasScienceSubject && jobSubj === '과학') return true;
+
         if (profileSubject.includes('영어') && jobSubj === '영어') return true;
         if (profileSubject.includes('체육') && jobSubj === '체육') return true;
         if (profileSubject.includes('음악') && jobSubj === '음악') return true;
@@ -473,14 +772,49 @@ function scoreJobCard(profile: UserProfileRow, job: JobPostingRow, preferredRegi
     if (category === 'support') score += 8;
   }
 
+  // 마감 임박 및 긴급 공고 가중치 (최우선)
+  const now = new Date();
+  let isDeadlineNear = false;
+
+  if (job.deadline) {
+    try {
+      const deadline = new Date(job.deadline);
+      const todayStart = new Date(now.toDateString());
+
+      // 마감 지난 공고는 강한 패널티(사실상 제외)
+      if (!isNaN(deadline.getTime()) && deadline.getTime() < todayStart.getTime()) {
+        score -= 100;
+      } else if (deadline.getTime() >= todayStart.getTime()) {
+        // 마감 임박 공고 우선순위 대폭 상향
+        const daysUntilDeadline = Math.ceil((deadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+
+        if (daysUntilDeadline <= 1) {
+          // 내일까지 마감: 최고 우선순위
+          score += 50;
+          isDeadlineNear = true;
+        } else if (daysUntilDeadline <= 2) {
+          // 2일 내 마감: 매우 높은 우선순위
+          score += 35;
+          isDeadlineNear = true;
+        } else if (daysUntilDeadline <= 3) {
+          // 3일 내 마감: 높은 우선순위
+          score += 20;
+        } else if (daysUntilDeadline <= 7) {
+          // 일주일 내 마감: 중간 우선순위
+          score += 8;
+        }
+      }
+    } catch(_) {}
+  }
+
+  // is_urgent 플래그 가중치 (마감일 임박과 함께 있으면 더 강화)
   if (job.is_urgent) {
-    score += isAdminRole ? 4 : 1;
+    score += isDeadlineNear ? 25 : 15;
   }
 
   // 최신성 가중치: 최근 3일 +3, 최근 7일 +1, 3일 초과는 강한 패널티
   try {
     const created = new Date(job.created_at);
-    const now = new Date();
     const days = Math.floor((now.getTime() - created.getTime()) / (1000 * 60 * 60 * 24));
     if (!isNaN(days)) {
       if (days <= 3) {
@@ -492,17 +826,6 @@ function scoreJobCard(profile: UserProfileRow, job: JobPostingRow, preferredRegi
       }
     }
   } catch(_) {}
-
-  // 마감 지난 공고는 강한 패널티(사실상 제외)
-  if (job.deadline) {
-    try {
-      const d = new Date(job.deadline);
-      const today = new Date();
-      if (!isNaN(d.getTime()) && d.getTime() < new Date(today.toDateString()).getTime()) {
-        score -= 100;
-      }
-    } catch(_) {}
-  }
 
   return {
     score,
@@ -630,66 +953,451 @@ function selectWithRegionMix(
   return { selected, discarded };
 }
 
-function generateAiComment(profile: UserProfileRow, selected: ScoredCard[], discardedCount: number) {
-  const displayName = profile.display_name ?? '회원님';
-  const roles = profile.roles ?? [];
-  const interestRegions = profile.interest_regions ?? [];
+// ==================== AI 코멘트 개선: 메타데이터 분석 함수 ====================
 
-  const roleText = roles.length > 0 ? roles.join(', ') : '관심 역할';
-  const regionFallback = interestRegions.length > 0 ? interestRegions[0] : '관심 지역';
+/**
+ * 1. 지역 매칭 상태 분석
+ */
+function analyzeRegionMatching(
+  selected: ScoredCard[],
+  interestRegions: string[] | null | undefined
+): {
+  exactMatch: number;
+  adjacentMatch: number;
+  expandedMatch: number;
+  regions: string[];
+  userSpecificRegions: string[]; // 사용자가 선택한 구체적 시/군 (광역 지역 제외)
+} {
+  // 사용자가 선택한 구체적인 시/군만 추출 (광역 지역 제외)
+  const userSpecificRegions = (interestRegions ?? [])
+    .filter(region => !WIDE_REGIONS.has(region))
+    .map(r => r.toLowerCase());
 
-  // 선택된 카드로부터 지역 상위 2~3개 추출
   const regionCounts = new Map<string, number>();
+
+  let exactMatch = 0;
+  let adjacentMatch = 0;
+  let expandedMatch = 0;
+
   for (const item of selected) {
-    const loc = typeof item.card.location === 'string' ? getRegionKey(item.card.location) : null;
-    if (!loc) continue;
-    regionCounts.set(loc, (regionCounts.get(loc) ?? 0) + 1);
+    if (item.card.type !== 'job') continue;
+    const location = (item.card as any).location ?? '';
+    const regionKey = getRegionKey(location).toLowerCase();
+
+    regionCounts.set(regionKey, (regionCounts.get(regionKey) ?? 0) + 1);
+
+    // 정확 일치 확인 (광역 지역 제외한 구체적 시/군 기준)
+    if (userSpecificRegions.some(ur => regionKey.includes(ur) || ur.includes(regionKey))) {
+      exactMatch++;
+    } else {
+      // 인접 지역 확인
+      const isAdjacent = userSpecificRegions.some(userRegion => {
+        const adjacentList = ADJACENT_REGIONS[userRegion] ?? [];
+        return adjacentList.some(adj => regionKey.includes(adj.toLowerCase()) || adj.toLowerCase().includes(regionKey));
+      });
+
+      if (isAdjacent) {
+        adjacentMatch++;
+      } else {
+        expandedMatch++;
+      }
+    }
   }
-  const topRegions = Array.from(regionCounts.entries())
+
+  const regions = Array.from(regionCounts.entries())
     .sort((a, b) => b[1] - a[1])
     .map(([name]) => name)
-    .slice(0, 3);
-  const regionPhrase = topRegions.length > 0 ? topRegions.join('·') : regionFallback;
-  const headline = `${displayName}님 프로필에 맞춰 ${regionPhrase} 인근 추천을 준비했어요`;
+    .slice(0, 4);
 
+  return { exactMatch, adjacentMatch, expandedMatch, regions, userSpecificRegions };
+}
+
+/**
+ * 2. 시간 긴급도 분석
+ */
+function analyzeUrgency(selected: ScoredCard[]): {
+  urgent: number;
+  within24h: number;
+  within3days: number;
+  deadlineNear: number;
+  deadlineSoon: Array<{ organization: string; deadline: string }>;
+} {
+  let urgent = 0;
+  let within24h = 0;
+  let within3days = 0;
+  let deadlineNear = 0;
+  const deadlineSoon: Array<{ organization: string; deadline: string }> = [];
+
+  const now = new Date();
+  const oneDayLater = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+  const threeDaysLater = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
+  const twoDaysLater = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000);
+
+  for (const item of selected) {
+    if (item.card.type !== 'job') continue;
+
+    const jobCard = item.card as any;
+
+    // 긴급 공고
+    if (jobCard.isUrgent) {
+      urgent++;
+    }
+
+    // 생성일 기준 분석
+    try {
+      const createdAt = new Date(jobCard.created_at ?? '');
+      if (!isNaN(createdAt.getTime())) {
+        const hoursDiff = (now.getTime() - createdAt.getTime()) / (1000 * 60 * 60);
+        if (hoursDiff <= 24) within24h++;
+        else if (hoursDiff <= 72) within3days++;
+      }
+    } catch (_) {}
+
+    // 마감일 임박 분석
+    if (jobCard.deadline) {
+      try {
+        const deadline = new Date(jobCard.deadline);
+        if (!isNaN(deadline.getTime()) && deadline.getTime() > now.getTime()) {
+          if (deadline.getTime() <= twoDaysLater.getTime()) {
+            deadlineNear++;
+            deadlineSoon.push({
+              organization: jobCard.organization ?? '학교',
+              deadline: jobCard.deadline
+            });
+          }
+        }
+      } catch (_) {}
+    }
+  }
+
+  return { urgent, within24h, within3days, deadlineNear, deadlineSoon };
+}
+
+/**
+ * 3. 교과 호환성 분석
+ */
+function analyzeSubjectCompatibility(
+  selected: ScoredCard[],
+  capableSubjects: string[] | null | undefined,
+  teacherLevel: string | null | undefined
+): {
+  exactMatch: number;
+  upwardCompatible: number;
+  general: number;
+} {
+  let exactMatch = 0;
+  let upwardCompatible = 0;
+  let general = 0;
+
+  const capableSet = toLowerSet(capableSubjects ?? []);
+  const levelLower = teacherLevel?.toLowerCase().trim();
+
+  for (const item of selected) {
+    if (item.card.type !== 'job') continue;
+
+    const jobCard = item.card as any;
+    const jobLevel = (jobCard.school_level ?? '').toLowerCase().trim();
+    const jobSubj = (jobCard.subject ?? '').toLowerCase().trim();
+
+    if (!jobLevel) {
+      general++;
+      continue;
+    }
+
+    // 교과 정확 일치
+    let matched = false;
+    if (capableSet.size > 0 && jobSubj) {
+      if (capableSet.has(jobSubj)) {
+        exactMatch++;
+        matched = true;
+        continue;
+      }
+    }
+
+    // 상향식 호환 (중등 → 초등)
+    if (!matched && levelLower === '중등' && jobLevel === '초등' && jobSubj) {
+      // 중등 과학 → 초등 과학 등
+      const hasSameSubject = Array.from(capableSet).some(cap => cap.includes(jobSubj));
+      if (hasSameSubject) {
+        upwardCompatible++;
+        matched = true;
+        continue;
+      }
+    }
+
+    if (!matched) {
+      general++;
+    }
+  }
+
+  return { exactMatch, upwardCompatible, general };
+}
+
+/**
+ * 4. 지역 분포 분석
+ */
+function analyzeRegionDistribution(selected: ScoredCard[]): {
+  isDiverse: boolean;
+  topRegion: string;
+  regionCounts: Map<string, number>;
+} {
+  const regionCounts = new Map<string, number>();
+
+  for (const item of selected) {
+    const location = (item.card as any).location ?? '';
+    const regionKey = getRegionKey(location);
+    regionCounts.set(regionKey, (regionCounts.get(regionKey) ?? 0) + 1);
+  }
+
+  const sortedRegions = Array.from(regionCounts.entries()).sort((a, b) => b[1] - a[1]);
+  const topRegion = sortedRegions[0]?.[0] ?? '기타';
+  const topCount = sortedRegions[0]?.[1] ?? 0;
+  const totalCount = selected.length;
+
+  // 상위 지역이 전체의 60% 이하면 다양하다고 판단
+  const isDiverse = totalCount > 0 && topCount / totalCount <= 0.6;
+
+  return { isDiverse, topRegion, regionCounts };
+}
+
+/**
+ * 5. 종합 상황 판단
+ */
+function determineScenario(
+  regionAnalysis: ReturnType<typeof analyzeRegionMatching>,
+  urgencyAnalysis: ReturnType<typeof analyzeUrgency>,
+  subjectAnalysis: ReturnType<typeof analyzeSubjectCompatibility>,
+  distributionAnalysis: ReturnType<typeof analyzeRegionDistribution>,
+  selectedCount: number
+): 'perfect_match' | 'region_expanded' | 'upward_compatible' | 'urgent' | 'fresh' | 'diverse' | 'default' {
+  // 우선순위 1: 긴급/마감 임박
+  if (urgencyAnalysis.deadlineNear >= 2 || urgencyAnalysis.urgent >= 2) {
+    return 'urgent';
+  }
+
+  // 우선순위 2: 최신 공고 (24시간 내)
+  if (urgencyAnalysis.within24h >= 3) {
+    return 'fresh';
+  }
+
+  // 우선순위 3: 상향식 호환 (중등→초등)
+  if (subjectAnalysis.upwardCompatible >= 2 && selectedCount >= 4) {
+    return 'upward_compatible';
+  }
+
+  // 우선순위 4: 완벽 매칭 (정확 일치 많음)
+  if (regionAnalysis.exactMatch >= 4 && subjectAnalysis.exactMatch >= 3) {
+    return 'perfect_match';
+  }
+
+  // 우선순위 5: 지역 다양성
+  if (distributionAnalysis.isDiverse && regionAnalysis.regions.length >= 3) {
+    return 'diverse';
+  }
+
+  // 우선순위 6: 지역 확대
+  if (regionAnalysis.adjacentMatch >= 2 || regionAnalysis.expandedMatch >= 2) {
+    return 'region_expanded';
+  }
+
+  // 기본
+  return 'default';
+}
+
+/**
+ * 6. 시나리오별 AI 코멘트 템플릿
+ */
+const AI_COMMENT_TEMPLATES = {
+  perfect_match: {
+    headlines: [
+      '{name}님 딱 맞춤! {region} {subject} 공고예요',
+      '선생님이 찾던 조건 그대로예요',
+      '정확히 일치하는 공고만 골랐어요'
+    ],
+    descriptions: [
+      '선생님이 찾던 조건 그대로예요. {region} 지역 {subject} 공고 {count}건, 모두 일주일 내 올라온 거라 경쟁률도 낮을 거예요.',
+      '어제오늘 올라온 따끈한 공고들이에요. {region} {subject}만 골라놨으니 하나씩 확인해보세요.',
+      '선생님 프로필 보니까 {subject} 찾으시는군요! 마침 {region}에 {count}건이나 있네요. 다 최근 공고라 아직 지원자도 많이 없을 거예요.'
+    ]
+  },
+
+  region_expanded: {
+    headlines: [
+      '{primaryRegion}은 좀 적어서... {adjacentRegions} 같이 봤어요',
+      '{primaryRegion} 외 인근 지역도 함께 살펴봤어요',
+      '출퇴근 가능한 범위로 넓혀봤어요'
+    ],
+    descriptions: [
+      '{primaryRegion}에 신규 공고가 적어서 걱정하실까봐 인근 {adjacentRegions}도 포함했어요. 다 차로 30분 거리예요.',
+      '이번 주 {primaryRegion} 공고가 별로 안 올라왔더라고요. 그래서 가까운 {adjacentRegions}까지 넓혀봤어요. 요즘 인근 지역에 교사 수요가 많아서 조건도 괜찮은 것 같아요.',
+      '{primaryRegion}만 보기엔 선택지가 좁을까봐, 출퇴근 가능한 인접 지역도 함께 정리했어요. {count}건 중에 마음에 드는 학교 있으시면 좋겠네요!'
+    ]
+  },
+
+  upward_compatible: {
+    headlines: [
+      '중등 {subject} 자격증? 초등 전담도 지원 가능해요!',
+      '중등 자격증으로 초등 공고도 지원할 수 있어요',
+      '초등 전담 공고도 함께 추천드려요'
+    ],
+    descriptions: [
+      '혹시 모르셨을 수도 있는데, 선생님 중등 {subject} 자격증으로 초등 {subject} 전담도 할 수 있어요. 초등이 근무 환경이 더 편하다는 분들도 많더라고요!',
+      '중등 {subject} 자격 갖고 계시니까 초등 {subject} 전담 공고도 함께 추천드려요. 실제로 중등 출신 선생님들이 초등에서 만족도 높게 근무하시는 경우 많아요.',
+      '선생님 프로필 보니 중등 {subject}이시네요. 그럼 초등 {subject} 전담도 가능한 거 아시죠? 요즘 초등에서 전문성 있는 선생님 많이 찾고 있어요.'
+    ]
+  },
+
+  urgent: {
+    headlines: [
+      '서둘러요! 내일까지 마감인 공고 {deadlineCount}건 있어요',
+      '시간이 없어요! 곧 마감되는 공고부터 봐요',
+      '마감 임박 공고 먼저 확인하세요'
+    ],
+    descriptions: [
+      '아이고, 이거 급해요! {urgentList} 빨리 확인하세요. 조건도 좋은데 시간이 촉박하네요. 서류는 미리 준비되셨죠?',
+      '마감 임박 공고부터 보여드릴게요. 48시간 내 마감이 {deadlineCount}건이에요. 특히 첫 번째 카드는 선생님 조건이랑 정확히 맞아서 놓치면 아까울 것 같아요.',
+      '시간이 없어요! 선생님 조건에 맞는 공고 중에 곧 마감되는 게 있어서 먼저 정리했어요. 오늘 중으로 지원서 넣으시는 게 좋겠어요.'
+    ]
+  },
+
+  fresh: {
+    headlines: [
+      '오늘 아침 올라온 따끈따끈한 공고부터!',
+      '신선한 공고만 골라봤어요',
+      '24시간 내 신규 공고 {freshCount}건이에요'
+    ],
+    descriptions: [
+      '방금 전 확인했는데 오늘 새벽에 올라온 공고가 {freshCount}건이나 있네요! 아직 지원자가 거의 없을 거예요. 먼저 보시는 분이 임자죠.',
+      '24시간 내 새로 올라온 공고만 정리했어요. 신규 공고는 경쟁률이 낮아서 합격 확률이 높거든요. {region} 지역 {count}건 모두 최신이에요.',
+      '이번 주 월·화에 올라온 최신 공고들이에요. 주말에 올라온 건 이미 지원자가 몰렸을 수 있어서 제외했어요. 신선한 공고만 골랐으니 서두르세요!'
+    ]
+  },
+
+  diverse: {
+    headlines: [
+      '{region1}만? 아니에요! {region2}·{region3}도 골고루 섞었어요',
+      '여러 지역 골고루 섞어봤어요',
+      '지역별로 균형있게 추천드려요'
+    ],
+    descriptions: [
+      '한 지역만 보면 선택의 폭이 좁잖아요. {regionList} 골고루 섞어서 추천드려요. 이 중에 마음에 드는 학교 있으시면 좋겠네요!',
+      '지역별로 다양하게 보실 수 있도록 균형있게 골랐어요. 각 지역마다 학교 분위기가 다르니까 비교해보시고 선택하세요. 개인적으론 {topRegion} 쪽이 처우가 좋더라고요.',
+      '{primaryRegion}에만 매달리지 마시고 옵션을 넓혀보세요. {otherRegions}도 괜찮은 공고 많아요. 특히 신설 학교가 많아서 시설이 정말 좋대요!'
+    ]
+  },
+
+  default: {
+    headlines: [
+      '{name}님 프로필에 맞춰 추천했어요',
+      '최신 공고 위주로 정리했어요',
+      '관심 조건에 맞는 공고들이에요'
+    ],
+    descriptions: [
+      '{region} 지역 기준으로 최근 올라온 공고 {count}건을 정리했어요. 하나씩 확인해보세요.',
+      '선생님 조건에 맞는 공고를 우선순위로 정렬했어요. 최신순이고 마감 임박한 것부터 배치했습니다.',
+      '프로필 정보를 더 채워주시면 더 정확한 맞춤 추천이 가능해요. 담당 가능 과목이랑 선호 지역만 알려주시면 딱 맞는 공고를 찾아드릴 수 있어요.'
+    ]
+  }
+};
+
+// ==================== 새로운 AI 코멘트 함수 (개선됨) ====================
+
+function generateAiComment(profile: UserProfileRow, selected: ScoredCard[], discardedCount: number) {
+  const displayName = profile.display_name ?? '선생님';
+  const interestRegions = profile.interest_regions ?? [];
+
+  // 빈 결과 처리
   if (selected.length === 0) {
     return {
-      headline,
-      description: '아직 조건에 꼭 맞는 추천 카드가 부족해요. 다른 지역이나 역할도 곧 준비할게요.',
+      headline: '추천을 준비 중이에요',
+      description: '아직 조건에 꼭 맞는 추천 카드가 부족해요. 프로필 정보를 더 채워주시면 맞춤 공고를 찾아드릴 수 있어요.',
       diagnostics: {
+        scenario: 'empty',
         selectedCount: 0,
         discardedCount
       }
     };
   }
 
-  const jobCount = selected.filter((item) => item.card.type === 'job').length;
-  const talentCount = selected.filter((item) => item.card.type === 'talent').length;
-  const locations = new Set<string>();
-  for (const item of selected) {
-    const location = typeof item.card.location === 'string' ? item.card.location : undefined;
-    if (location) {
-      locations.add(location);
-    }
-  }
+  // 1. 메타데이터 분석
+  const regionAnalysis = analyzeRegionMatching(selected, interestRegions);
+  const urgencyAnalysis = analyzeUrgency(selected);
+  const subjectAnalysis = analyzeSubjectCompatibility(
+    selected,
+    profile.capable_subjects,
+    profile.teacher_level
+  );
+  const distributionAnalysis = analyzeRegionDistribution(selected);
 
-  const locationText = topRegions.length > 0 ? topRegions.join(', ') : (locations.size > 0 ? Array.from(locations).slice(0, 3).join(', ') : regionFallback);
-  const countsText = [`역할: ${roleText}`, `지역: ${locationText}`];
-  if (jobCount > 0) countsText.push(`공고 ${jobCount}건`);
-  if (talentCount > 0) countsText.push(`인재 ${talentCount}명`);
+  // 2. 시나리오 판단
+  const scenario = determineScenario(
+    regionAnalysis,
+    urgencyAnalysis,
+    subjectAnalysis,
+    distributionAnalysis,
+    selected.length
+  );
 
-  // 프로필 소개 요약(있으면 짧게 붙임)
-  const intro = (profile.intro ?? '').trim();
-  const introSnippet = intro ? ` 소개 반영: ${intro.slice(0, 28)}${intro.length > 28 ? '…' : ''}` : '';
+  // 3. 템플릿 선택 (랜덤)
+  const template = AI_COMMENT_TEMPLATES[scenario];
+  const headlineIndex = Math.floor(Math.random() * template.headlines.length);
+  const descIndex = Math.floor(Math.random() * template.descriptions.length);
 
+  // 4. 플레이스홀더 치환을 위한 변수 준비
+  const primaryRegion = interestRegions[0] || '경기도';
+  const regions = regionAnalysis.regions.length > 0 ? regionAnalysis.regions : [primaryRegion];
+  const adjacentRegions = regions.slice(1, 3).join('·') || '인근 지역';
+  const subject = profile.capable_subjects?.[0] || '과목';
+  const subjectClean = subject.replace(/초등|중등|유치원|특수/g, '').trim() || '과목';
+
+  const urgentList = urgencyAnalysis.deadlineSoon
+    .slice(0, 2)
+    .map(item => item.organization)
+    .join(', ') || '마감 임박 공고';
+
+  const regionList = regions.slice(0, 3).join('·');
+  const otherRegions = regions.slice(1).join('·') || '인근 지역';
+
+  const variables: Record<string, string | number> = {
+    name: displayName,
+    region: regions[0] || primaryRegion,
+    region1: regions[0] || primaryRegion,
+    region2: regions[1] || '',
+    region3: regions[2] || '',
+    subject: subjectClean,
+    count: selected.length,
+    primaryRegion,
+    adjacentRegions,
+    urgentList,
+    deadlineCount: urgencyAnalysis.deadlineNear,
+    freshCount: urgencyAnalysis.within24h,
+    regionList,
+    otherRegions,
+    topRegion: distributionAnalysis.topRegion
+  };
+
+  // 5. 플레이스홀더 치환
+  let headline = template.headlines[headlineIndex];
+  let description = template.descriptions[descIndex];
+
+  Object.entries(variables).forEach(([key, value]) => {
+    const regex = new RegExp(`\\{${key}\\}`, 'g');
+    headline = headline.replace(regex, String(value));
+    description = description.replace(regex, String(value));
+  });
+
+  // 6. 결과 반환
   return {
     headline,
-    description: `${countsText.join(' · ')} 기준으로 최근 업데이트된 카드 중 맥락에 맞는 것만 골라 정리했어요.${introSnippet ? ' ' + introSnippet : ''} 불필요한 ${discardedCount}건은 제외했습니다.`,
+    description,
     diagnostics: {
+      scenario,
       selectedCount: selected.length,
       discardedCount,
-      jobCount,
-      talentCount
+      regionAnalysis,
+      urgencyAnalysis,
+      subjectAnalysis,
+      distributionAnalysis
     }
   };
 }
@@ -821,13 +1529,25 @@ Deno.serve(async (req) => {
   }
 
   try {
+    console.log('[Phase 1] 추천 생성 시작 - user_id:', user.id);
     const profile = await fetchProfile(client, user.id);
+    console.log('[Phase 1] 프로필 조회 완료:', {
+      display_name: profile.display_name,
+      roles: profile.roles,
+      interest_regions: profile.interest_regions,
+      capable_subjects: profile.capable_subjects,
+      teacher_level: profile.teacher_level
+    });
+
     const preferredRegions = buildRegionFilter(profile.interest_regions);
     const preferredRegionSet = new Set(preferredRegions.map((region) => region.toLowerCase()));
+    console.log('[Phase 1] 지역 필터 생성:', preferredRegions);
+
     const [jobCandidates, talentCandidates] = await Promise.all([
       fetchJobCandidates(client),
       fetchTalentCandidates(client)
     ]);
+    console.log('[Phase 1] 후보 조회 완료 - jobs:', jobCandidates.length, 'talents:', talentCandidates.length);
 
     const prioritizedJobCandidates = jobCandidates.filter((job) => job.location && matchesPreferredRegion(job.location, preferredRegionSet));
     const fallbackJobCandidates = jobCandidates.filter((job) => !prioritizedJobCandidates.includes(job));
@@ -842,15 +1562,64 @@ Deno.serve(async (req) => {
     const scoredJobs = orderedJobCandidates.map((job) => scoreJobCard(profile, job, preferredRegionSet));
     const scoredTalents = orderedTalentCandidates.map((talent) => scoreTalentCard(profile, talent, preferredRegionSet));
     const scoredAll = [...scoredJobs, ...scoredTalents];
+    console.log('[Phase 1] 점수 계산 완료:', {
+      총_후보: scoredAll.length,
+      job_후보: scoredJobs.length,
+      talent_후보: scoredTalents.length,
+      상위_5개_점수: scoredAll.slice(0, 5).map(s => ({ id: s.card.id, title: s.card.title, score: s.score }))
+    });
 
-    // Gemini AI 필터링(Optional)
+    // ==================== Phase 3: Hybrid Approach (Option 1) ====================
+    // Step 1: Rule-based card selection (accurate)
+    console.log('[Phase 3] Step 1: Rule-based card selection 시작...');
     const keepIds = await aiFilterWithGemini(profile, scoredAll);
     const refined = keepIds ? scoredAll.filter((s) => keepIds.has(s.card.id)) : scoredAll;
-    
     const { selected, discarded } = selectWithRegionMix(refined, preferredRegions);
-    const aiComment = generateAiComment(profile, selected, discarded.length);
+    console.log('[Phase 3] Step 1 완료 - 선택된 카드:', selected.length);
+
+    // Step 2: Try AI comment generation (natural language)
+    console.log('[Phase 3] Step 2: AI 코멘트 생성 시도...');
+    const aiCommentResult = await generateCommentWithGemini(profile, selected);
+
+    let aiComment: { headline: string; description: string; diagnostics?: any };
+
+    if (aiCommentResult) {
+      // AI comment 성공
+      console.log('[Phase 3] Step 2 완료 - AI 코멘트 생성 성공 ✅');
+      aiComment = {
+        headline: aiCommentResult.headline,
+        description: aiCommentResult.description,
+        diagnostics: {
+          scenario: 'hybrid_ai_comment',
+          selectedCount: selected.length,
+          comment_source: 'gemini_ai'
+        }
+      };
+    } else {
+      // Fallback to template-based comment
+      console.log('[Phase 3] Step 2 실패 - 템플릿 기반 코멘트로 fallback');
+      aiComment = generateAiComment(profile, selected, discarded.length);
+      console.log('[Phase 3] Fallback 완료 - 템플릿 시나리오:', (aiComment as any).diagnostics?.scenario);
+    }
+
+    console.log('[Phase 3] 최종 완료:', {
+      선택된_카드: selected.length,
+      코멘트_소스: aiCommentResult ? 'Gemini AI' : 'Template',
+      헤드라인: aiComment.headline,
+      선택된_카드_목록: selected.map(s => ({
+        id: s.card.id,
+        type: s.card.type,
+        title: (s.card as any).title || (s.card as any).name,
+        score: s.score
+      }))
+    });
 
     const cardsForCache = selected.map((item) => item.card);
+    console.log('[Phase 1] 캐시 저장 시작:', {
+      user_id: user.id,
+      저장할_카드_개수: cardsForCache.length,
+      AI_코멘트_포함됨: !!aiComment
+    });
 
     await upsertRecommendations(client, {
       user_id: user.id,
@@ -865,6 +1634,7 @@ Deno.serve(async (req) => {
         generated_from: profile.updated_at
       }
     });
+    console.log('[Phase 1] 캐시 저장 완료 - 응답 반환');
 
     return new Response(
       JSON.stringify({

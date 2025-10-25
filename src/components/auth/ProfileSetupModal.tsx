@@ -60,9 +60,11 @@ export default function ProfileSetupModal({
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   useEffect(() => {
+    console.log('[ProfileModal] useEffect 실행:', { isOpen, mode, userId, showInitialModal, currentStep });
     if (!isOpen) return;
-    
+
     if (mode === 'create') {
+      console.log('[ProfileModal] CREATE 모드 - 초기화');
       setCurrentStep(0);
       setShowInitialModal(true);
       setName('');
@@ -83,9 +85,11 @@ export default function ProfileSetupModal({
       setAgreePrivacy(false);
       setAgreeMarketing(false);
     } else if (mode === 'edit' && userId) {
+      console.log('[ProfileModal] EDIT 모드 - 프로필 로드 시작');
       // Load existing profile data
       void fetchUserProfile(userId).then(({ data }) => {
         if (data) {
+          console.log('[ProfileModal] EDIT 모드 - 프로필 로드 완료:', data.display_name);
           setCurrentStep(1);
           setShowInitialModal(false);
           setName(data.display_name || '');
@@ -219,27 +223,47 @@ export default function ProfileSetupModal({
     }
     setProfileImage(null);
 
+    // Edge Function 호출 (AI 추천 생성)
+    let recommendationsGenerated = false;
     try {
       const { data: sessionData } = await supabase.auth.getSession();
       const accessToken = sessionData?.session?.access_token;
 
       if (accessToken) {
-        await supabase.functions.invoke('profile-recommendations', {
+        console.log('[Profile] AI 추천 생성 호출 중...');
+        const { data, error: invokeError } = await supabase.functions.invoke('profile-recommendations', {
           headers: {
             Authorization: `Bearer ${accessToken}`
           }
         });
+
+        if (invokeError) {
+          console.error('[Profile] AI 추천 생성 실패:', invokeError);
+          showToast('프로필은 저장되었으나 AI 추천 생성에 실패했습니다', 'warning');
+        } else {
+          console.log('[Profile] AI 추천 생성 성공:', data);
+          recommendationsGenerated = true;
+        }
       }
     } catch (invokeError) {
-      console.error('추천 생성 호출 중 오류:', invokeError);
+      console.error('[Profile] AI 추천 생성 호출 중 예외 발생:', invokeError);
+      showToast('프로필은 저장되었으나 AI 추천 생성 중 오류가 발생했습니다', 'warning');
     }
 
     sessionStorage.removeItem('profileSetupPending');
     setSubmitStatus('success');
+
     // Only show toast for new profile (not edit mode)
     if (mode === 'create') {
-      showToast('가입완료 되었습니다', 'success');
+      if (recommendationsGenerated) {
+        showToast('가입완료 되었습니다! AI 추천이 준비되었어요', 'success');
+      } else {
+        showToast('가입완료 되었습니다', 'success');
+      }
+    } else if (recommendationsGenerated) {
+      showToast('프로필이 업데이트되었고 AI 추천이 갱신되었습니다', 'success');
     }
+
     onComplete?.();
     onClose();
     setCurrentStep(1);
@@ -263,11 +287,21 @@ export default function ProfileSetupModal({
 
   const canProceedToNext = getCanProceedToNext();
 
+  // 초기 모달 표시 조건 체크
+  const shouldShowInitialModal = mode === 'create' && showInitialModal && currentStep === 0;
+  console.log('[ProfileModal] 렌더링:', {
+    isOpen,
+    mode,
+    showInitialModal,
+    currentStep,
+    shouldShowInitialModal
+  });
+
   return (
     <AnimatePresence>
       {isOpen && (
         <>
-          {showInitialModal && currentStep === 0 && (
+          {shouldShowInitialModal && (
             <motion.div
               className="fixed inset-0 z-[999] flex items-center justify-center bg-black/45 backdrop-blur-sm"
               initial={{ opacity: 0 }}

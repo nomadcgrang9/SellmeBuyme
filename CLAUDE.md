@@ -46,13 +46,16 @@ Frontend (Vite + React) ← Edge Functions (AI recommendations)
 │   │   └── hooks/           # Custom React hooks
 │   ├── stores/              # Zustand state stores
 │   └── types/               # TypeScript type definitions
+├── scripts/                 # TypeScript admin/verification scripts
+│   ├── db/                  # Database management scripts (.ts)
+│   └── test/                # Test/verification scripts (.ts)
 ├── crawler/
-│   ├── sources/             # Site-specific crawlers (seongnam.js, gyeonggi.js, etc.)
-│   ├── lib/                 # Crawler utilities (gemini.js, supabase.js, playwright.js)
+│   ├── sources/             # Site-specific crawlers (.js - exception)
+│   ├── lib/                 # Crawler utilities (.js - exception)
 │   └── index.js             # Main crawler orchestrator
 ├── supabase/
-│   ├── migrations/          # Database schema migrations
-│   └── functions/           # Edge Functions (Deno)
+│   ├── migrations/          # Database schema migrations (.sql)
+│   └── functions/           # Edge Functions (Deno TypeScript)
 └── public/fonts/            # esamanru Korean fonts
 ```
 
@@ -186,6 +189,14 @@ The app uses a custom color palette defined in `tailwind.config.ts`:
 - Gemini API calls wrapped with token tracking
 - Screenshot analysis before detailed parsing
 
+### 6. Development Scripts (TypeScript Only)
+- **Language Policy**: All scripts must be TypeScript (.ts) files (PROJECT_RULES.md)
+- **Execution**: Use `tsx` or `ts-node`: `npx tsx scripts/your-script.ts`
+- **Location**: `scripts/` directory (not root)
+- **Crawler Exception**: Only `crawler/` directory can use Python (.py) and Node.js (.js)
+- **No .mjs/.js**: JavaScript files are NOT allowed outside `crawler/`
+- **Type Safety**: All scripts benefit from TypeScript type checking
+
 ## Common Workflows
 
 ### Adding a New Crawler Source
@@ -215,6 +226,22 @@ The app uses a custom color palette defined in `tailwind.config.ts`:
 - Check post-filtering logic in `filterJobsByTokenGroups()`
 - Review search logs in `search_logs` table
 
+### Writing Verification Scripts
+1. **TypeScript Only**: Create `.ts` files in `scripts/` directory
+2. Run with `tsx`: `npx tsx scripts/verify-db.ts`
+3. **Never use .mjs or .js files** - TypeScript only (see PROJECT_RULES.md)
+4. Example structure:
+   ```
+   scripts/
+   ├── db/
+   │   ├── verify-migration.ts
+   │   ├── grant-admin-role.ts
+   │   └── verify-keywords.ts
+   └── test/
+       └── verify-phase3.ts
+   ```
+5. **Crawler Exception**: Only `crawler/` directory can use Python (.py) and Node.js (.js)
+
 ## Testing Considerations
 
 - **Crawler**: Use individual test files (e.g., `test-gyeonggi-full.js`) to validate parsing without hitting DB
@@ -235,6 +262,8 @@ The app uses a custom color palette defined in `tailwind.config.ts`:
 - **Gemini API Costs**: Vision API calls can be expensive; token tracking helps monitor usage
 - **RLS Complexity**: Some queries require `service_role` key to bypass RLS (use sparingly)
 - **Attachment Downloads**: Original URLs may expire; Edge Function proxy provides stability
+- **Language Policy**: TypeScript-only project (except `crawler/` which uses Python/Node.js)
+- **.mjs files**: Any existing .mjs files should be migrated to TypeScript (.ts) or removed
 
 ## References
 

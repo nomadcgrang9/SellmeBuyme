@@ -314,9 +314,9 @@ export default function App() {
           const finalCards = (filteredCards.length > 0 ? filteredCards : selectRecommendationCards(sourceCards, profile?.roles)).slice(0, 6);
           setRecommendationCards(finalCards);
           setRecommendedIds(new Set(finalCards.map((c) => c.id)));
-          // AI 코멘트는 컴포넌트 내부(getAiComment)에서 프로필+카드로 생성
-          setRecommendationHeadline(undefined);
-          setRecommendationDescription(undefined);
+          // Edge Function에서 생성한 AI 코멘트 사용
+          setRecommendationHeadline(cache.aiComment?.headline);
+          setRecommendationDescription(cache.aiComment?.description);
         } else {
           // 캐시가 무효하거나 없음 → Edge Function을 호출하여 추천 생성
           const gen = await generateRecommendations();
@@ -344,9 +344,9 @@ export default function App() {
             const finalCards = (filteredCards.length > 0 ? filteredCards : selectRecommendationCards(sourceCards, profile?.roles)).slice(0, 6);
             setRecommendationCards(finalCards);
             setRecommendedIds(new Set(finalCards.map((c) => c.id)));
-            // AI 코멘트는 컴포넌트 내부(getAiComment)에서 프로필+카드로 생성
-            setRecommendationHeadline(undefined);
-            setRecommendationDescription(undefined);
+            // Edge Function에서 생성한 AI 코멘트 사용
+            setRecommendationHeadline(gen.aiComment?.headline);
+            setRecommendationDescription(gen.aiComment?.description);
           } else {
             // 생성 실패 시 최소한 기본 상태 유지
             setRecommendationCards([]);
@@ -551,6 +551,7 @@ export default function App() {
         userEmail={user?.email ?? null}
         userId={user?.id}
         mode={isEditMode ? 'edit' : 'create'}
+        key={`${isEditMode ? 'edit' : 'create'}-${isProfileModalOpen}`}
       />
       <ProfileViewModal
         isOpen={isProfileViewOpen}
@@ -562,21 +563,31 @@ export default function App() {
             return;
           }
 
+          console.log('[App] onRequestEdit 호출됨:', {
+            hasProfileData: !!profileData,
+            currentEditMode: isEditMode,
+            currentProfileModalOpen: isProfileModalOpen
+          });
+
           if (profileData) {
-            console.log('[DEBUG] onRequestEdit - profileData 있음');
+            console.log('[App] 프로필 데이터 있음 - 즉시 모달 열기');
             normalizeProfileForEdit(profileData);
             setEditMode(true);
+            console.log('[App] setEditMode(true) 완료');
             setProfileViewOpen(false);
             setProfileModalOpen(true);
+            console.log('[App] setProfileModalOpen(true) 완료');
             return;
           }
 
-          console.log('[DEBUG] onRequestEdit - profileData 없음, 다시 로드');
+          console.log('[App] 프로필 데이터 없음 - 프로필 재로드');
           void fetchUserProfile(user.id).then(({ data }) => {
             normalizeProfileForEdit(data ?? null);
             setEditMode(true);
+            console.log('[App] setEditMode(true) 완료 (비동기)');
             setProfileViewOpen(false);
             setProfileModalOpen(true);
+            console.log('[App] setProfileModalOpen(true) 완료 (비동기)');
           });
         }}
       />

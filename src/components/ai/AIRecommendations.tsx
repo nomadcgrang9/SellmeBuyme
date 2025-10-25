@@ -121,97 +121,13 @@ export default function AIRecommendations({
     }
   };
 
-  const getAiComment = () => {
-    if (!primaryCard) {
-      return {
-        headline: '추천을 준비 중이에요',
-        description: '관심 조건을 분석해 맞춤 카드를 정리해둘게요.'
-      };
-    }
-
-    // 프로필 정보 추출
-    const displayName = profile?.display_name || userName;
-    const regionText = profile?.interest_regions?.[0] || '관심 지역';
-    const capableSubject = profile?.capable_subjects?.[0];
-    const teacherLevel = profile?.teacher_level;
-
-    // 과목에서 학교급 제거 (예: "초등 과학" → "과학")
-    const subjectClean = capableSubject?.replace(/초등|중등|유치원|특수/g, '').trim() || '과목';
-
-    if (primaryCard.type === 'job') {
-      const trimmedLocation = primaryCard.location?.split(/[ ,]/).filter(Boolean).slice(0, 2).join(' ') || '지역';
-      const cardCount = cards.length;
-
-      // 프로필이 있으면 맞춤 코멘트
-      if (profile && capableSubject) {
-        // 긴급 공고 확인
-        const isUrgent = primaryCard.isUrgent ||
-          (primaryCard.deadline && new Date(primaryCard.deadline).getTime() - Date.now() < 2 * 24 * 60 * 60 * 1000);
-
-        if (isUrgent) {
-          return {
-            headline: '마감 임박 공고 있어요!',
-            description: `${displayName}님 조건에 맞는 공고 중 곧 마감되는 것부터 보여드려요. 서두르세요!`
-          };
-        }
-
-        // 완벽 매칭 (지역 + 과목 일치)
-        if (trimmedLocation.includes(regionText) || regionText.includes(trimmedLocation.split(' ')[0])) {
-          return {
-            headline: `${displayName}님 딱 맞춤! ${regionText} ${subjectClean} 공고예요`,
-            description: `선생님이 찾던 조건 그대로예요. ${regionText} 지역 ${subjectClean} 공고 ${cardCount}건, 모두 최근 올라온 거라 경쟁률도 낮을 거예요.`
-          };
-        }
-
-        // 지역 확대
-        return {
-          headline: `${regionText} 외 인근 지역도 함께 살펴봤어요`,
-          description: `${regionText}에 신규 공고가 적어서 걱정하실까봐 인근 지역도 포함했어요. ${cardCount}건 중에 마음에 드는 학교 있으시면 좋겠네요!`
-        };
-      }
-
-      // 프로필 없으면 기본 코멘트
-      const mainTag = primaryCard.tags?.[0];
-      return {
-        headline: `${trimmedLocation} 인근 공고를 먼저 모았어요`,
-        description: `${userName}님 관심 조건과 ${mainTag || '최근 키워드'}를 우선으로 최신 공고를 추렸어요.`
-      };
-    }
-
-    if (primaryCard.type === 'talent') {
-      const trimmedLocation = Array.isArray(primaryCard.location)
-        ? (primaryCard.location as string[]).slice(0, 2).join(', ')
-        : primaryCard.location?.split(/[ ,]/).filter(Boolean).slice(0, 2).join(', ');
-
-      // 프로필이 있으면 맞춤 코멘트
-      if (profile) {
-        return {
-          headline: `${regionText} 지역 인재를 골라봤어요`,
-          description: `${displayName}님이 찾는 조건의 전문가를 우선 추천드려요. 전문 강사 ${cards.length}명 정리했어요.`
-        };
-      }
-
-      // 프로필 없으면 기본 코멘트
-      const mainTag = primaryCard.tags?.[0];
-      return {
-        headline: `${primaryCard.specialty} 인재를 골라봤어요`,
-        description: `${trimmedLocation || primaryCard.location}에서 활동 중인 ${mainTag ?? '전문'} 강사를 우선 추천드려요.`
-      };
-    }
-
-    return {
-      headline: '추천을 준비 중이에요',
-      description: '필요한 조건을 분석해 맞춤 카드를 준비하고 있어요.'
-    };
-  };
-
-  const baseComment = getAiComment();
+  // Edge Function의 AI 코멘트 직접 사용
   const headline = loading
     ? '추천을 준비 중이에요'
-    : headlineOverride ?? baseComment.headline;
+    : headlineOverride ?? '맞춤 추천을 준비했어요';
   const description = loading
     ? 'AI가 프로필을 분석해 맞춤 카드를 정리하고 있어요.'
-    : descriptionOverride ?? baseComment.description;
+    : descriptionOverride ?? `${userName}님의 프로필을 분석해 추천 카드를 준비했습니다.`;
 
   return (
     <section className="bg-gradient-to-b from-[#f4f5f7] via-[#eef0f2] to-[#e2e4e7] pt-2 pb-6">
