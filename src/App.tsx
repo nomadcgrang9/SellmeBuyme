@@ -482,7 +482,7 @@ export default function App() {
       )}
 
       {/* 메인 콘텐츠 */}
-      <main className="bg-gradient-to-b from-[#edf0f5] via-[#e2e5ec] to-[#d9dce3]">
+      <main className="bg-white">
         <div className="max-w-container mx-auto px-6 pt-4 pb-10">
           {/* AI 검색 결과 메시지 */}
           <AIInsightBox 
