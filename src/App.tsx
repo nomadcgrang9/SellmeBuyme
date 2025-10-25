@@ -3,6 +3,7 @@ import Header from '@/components/layout/Header';
 import AIRecommendations from '@/components/ai/AIRecommendations';
 import AIInsightBox from '@/components/ai/AIInsightBox';
 import CardGrid from '@/components/cards/CardGrid';
+import JobDetailModal from '@/components/cards/JobDetailModal';
 import ProfileSetupModal, { ROLE_OPTIONS, type RoleOption } from '@/components/auth/ProfileSetupModal';
 import ProfileViewModal from '@/components/auth/ProfileViewModal';
 import ToastContainer from '@/components/common/ToastContainer';
@@ -10,7 +11,7 @@ import { searchCards, fetchRecommendationsCache, isCacheValid, hasProfileChanged
 import { fetchUserProfile, type UserProfileRow } from '@/lib/supabase/profiles';
 import { useSearchStore } from '@/stores/searchStore';
 import { useAuthStore } from '@/stores/authStore';
-import type { Card, PromoCardSettings } from '@/types';
+import type { Card, PromoCardSettings, JobPostingCard } from '@/types';
 
 export default function App() {
   const {
@@ -68,6 +69,46 @@ export default function App() {
   const [promoCard, setPromoCard] = useState<PromoCardSettings | null>(null);
   const [recommendedIds, setRecommendedIds] = useState<Set<string>>(new Set());
   const [userProfile, setUserProfile] = useState<UserProfileRow | null>(null);
+  const [selectedJob, setSelectedJob] = useState<JobPostingCard | null>(null);
+
+  // AI 추천 카드 클릭 시 전체 데이터 조회
+  const handleCardClick = async (card: Card) => {
+    console.log('카드 클릭:', card);
+    if (card.type !== 'job') return;
+
+    // 이미 완전한 데이터를 가지고 있는지 확인 (하단 카드는 모든 필드가 있음)
+    const hasFullData = 'attachment_url' in card || 'source_url' in card || 'structured_content' in card;
+
+    if (hasFullData) {
+      // 하단 카드 - 이미 전체 데이터를 가지고 있음
+      setSelectedJob(card as JobPostingCard);
+    } else {
+      // AI 추천 카드 - DB에서 전체 데이터 조회 필요
+      console.log('AI 추천 카드 - 전체 데이터 조회 중...');
+      try {
+        const response = await searchCards({
+          limit: 1000,
+          offset: 0,
+          viewType: 'job'
+        });
+
+        // ID가 일치하는 카드 찾기
+        const fullCard = response.cards.find(c => c.id === card.id);
+        if (fullCard && fullCard.type === 'job') {
+          console.log('전체 데이터 조회 완료:', fullCard);
+          setSelectedJob(fullCard as JobPostingCard);
+        } else {
+          // 검색으로 못 찾으면 원본 카드라도 표시
+          console.warn('전체 데이터 조회 실패, 원본 카드 사용');
+          setSelectedJob(card as JobPostingCard);
+        }
+      } catch (error) {
+        console.error('카드 데이터 조회 실패:', error);
+        // 에러 시에도 원본 카드라도 표시
+        setSelectedJob(card as JobPostingCard);
+      }
+    }
+  };
 
   useEffect(() => {
     void initialize();
@@ -436,6 +477,7 @@ export default function App() {
           descriptionOverride={recommendationDescription}
           promoCard={promoCard}
           profile={userProfile}
+          onCardClick={handleCardClick}
         />
       )}
 
@@ -471,7 +513,10 @@ export default function App() {
             </div>
           ) : (
             <>
-              <CardGrid cards={cards} />
+              <CardGrid
+                cards={cards}
+                onCardClick={handleCardClick}
+              />
 
               <div ref={sentinelRef} className="h-1" aria-hidden />
 
@@ -535,6 +580,15 @@ export default function App() {
           });
         }}
       />
+
+      {/* 통합 상세보기 모달 */}
+      {selectedJob && (
+        <JobDetailModal
+          job={selectedJob}
+          isOpen={!!selectedJob}
+          onClose={() => setSelectedJob(null)}
+        />
+      )}
     </div>
   );
 }
