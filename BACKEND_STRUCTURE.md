@@ -47,6 +47,12 @@
 - **ILIKE 조건 통합**: 동일 파일에서 토큰별 `or()` 호출을 단일 OR 문자열로 합쳐 Supabase 쿼리에서 이전 조건이 덮어써지는 문제를 해결.
 - **후처리 필터 강화를 통한 품질 보증**: `filterJobsByTokenGroups()`와 `filterTalentsByTokenGroups()`가 각 그룹에서 최소 한 토큰이 매칭되어야 결과를 남기도록 적용해 검색 정확도를 높임.
 
+### 추가 업데이트 (2025-10-25)
+- **띠지배너 DB 연동**: `src/lib/supabase/stripe-banner.ts`에서 `stripe_banner_config`, `stripe_banners`, `stripe_statistics`, `popular_keywords` 테이블 CRUD 함수 구현.
+- **UPSERT 패턴 적용**: `updateTodayStatistics()`가 `onConflict: 'stats_date'`로 INSERT 또는 UPDATE를 원자적으로 처리하여 수동 통계 입력 안정화.
+- **옵셔널 쿼리 처리**: `.single()` 대신 `.maybeSingle()`을 사용해 데이터가 없을 때 에러 대신 `null` 반환, `getTodayStripeStatistics()`에서 빈 데이터 처리 개선.
+- **통계 모드 분기**: `getAutoStatistics()`는 실시간 집계 쿼리(`gte('created_at', todayISO)`), `getTodayStripeStatistics()`는 DB 저장값 조회로 auto/manual 모드 지원.
+
 ## 📊 현재 상태
 
 ### 프론트엔드
