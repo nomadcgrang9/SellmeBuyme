@@ -21,7 +21,8 @@ export default function ToastContainer() {
         const tone = {
           success: 'border-emerald-200 bg-emerald-50/95 text-emerald-800',
           error: 'border-red-200 bg-red-50/95 text-red-800',
-          info: 'border-slate-200 bg-white/95 text-slate-800'
+          info: 'border-slate-200 bg-white/95 text-slate-800',
+          warning: 'border-amber-200 bg-amber-50/95 text-amber-800'
         }[toast.type];
 
         return (

@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import type {
   RoleOption,
   SpecialEducationType,
@@ -55,15 +56,23 @@ export const MIDDLE_SUBJECTS = [
   "중등 국어",
   "중등 수학",
   "중등 사회",
-  "중등 도덕",
-  "중등 과학",
+  "중등 윤리",
+  "중등 물리",
+  "중등 화학",
+  "중등 생물",
+  "중등 지구과학",
   "중등 영어",
   "중등 체육",
   "중등 음악",
   "중등 미술",
   "중등 기술·가정",
   "중등 정보",
-  "중등 생활지도",
+  "중등 상담",
+  "중등 진로",
+  "중등 역사"
+];
+
+export const MIDDLE_CROSSOVER_SUBJECTS = [
   "초등 과학",
   "초등 영어",
   "초등 체육",
@@ -101,12 +110,28 @@ export default function ProfileStep2Field({
   onInstructorCustomFieldChange,
   onSyncCapableSubjects
 }: ProfileStep2FieldProps) {
+  const [customSubject, setCustomSubject] = useState("");
   const isTeacher = roles.includes("교사");
   const isInstructor = roles.includes("강사");
 
   if (!isTeacher && !isInstructor) {
     return null;
   }
+
+  const handleCustomSubjectAdd = () => {
+    if (customSubject.trim()) {
+      const formatted = customSubject.startsWith("중등 ")
+        ? customSubject.trim()
+        : `중등 ${customSubject.trim()}`;
+
+      if (!teacherSubjects.includes(formatted)) {
+        const nextSubjects = [...teacherSubjects, formatted];
+        onTeacherSubjectsChange(nextSubjects);
+        onSyncCapableSubjects(nextSubjects);
+      }
+      setCustomSubject("");
+    }
+  };
 
   const handleTeacherLevelSelect = (level: TeacherLevel) => {
     if (teacherLevel === level) {
@@ -213,9 +238,11 @@ export default function ProfileStep2Field({
           )}
 
           {teacherLevel === "중등" && (
-            <div className="space-y-3">
+            <div className="space-y-4">
               <span className="text-sm font-semibold text-gray-900">담당 가능한 교과를 모두 선택해 주세요</span>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+
+              {/* 중등 과목 */}
+              <div className="grid grid-cols-3 md:grid-cols-5 gap-2">
                 {MIDDLE_SUBJECTS.map((subject) => {
                   const isSelected = teacherSubjects.includes(subject);
                   return (
@@ -223,7 +250,7 @@ export default function ProfileStep2Field({
                       key={subject}
                       type="button"
                       onClick={() => toggleTeacherSubject(subject)}
-                      className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                      className={`rounded-lg border px-2 py-2 text-xs font-medium transition-colors ${
                         isSelected
                           ? "border-[#4b83c6] bg-[#4b83c6] text-white"
                           : "border-gray-200 bg-white text-gray-700 hover:border-[#7aa3cc]"
@@ -233,6 +260,79 @@ export default function ProfileStep2Field({
                     </button>
                   );
                 })}
+              </div>
+
+              {/* 초등 전담 가능 과목 (크로스오버) */}
+              <div className="space-y-2">
+                <span className="text-xs text-gray-600">초등 전담 가능 과목</span>
+                <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
+                  {MIDDLE_CROSSOVER_SUBJECTS.map((subject) => {
+                    const isSelected = teacherSubjects.includes(subject);
+                    return (
+                      <button
+                        key={subject}
+                        type="button"
+                        onClick={() => toggleTeacherSubject(subject)}
+                        className={`rounded-lg border px-2 py-2 text-xs font-medium transition-colors ${
+                          isSelected
+                            ? "border-[#4b83c6] bg-[#4b83c6] text-white"
+                            : "border-gray-200 bg-white text-gray-700 hover:border-[#7aa3cc]"
+                        }`}
+                      >
+                        {subject}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 직접 입력한 과목 표시 */}
+              {(() => {
+                const customSubjects = teacherSubjects.filter(
+                  (subject) =>
+                    !MIDDLE_SUBJECTS.includes(subject) &&
+                    !MIDDLE_CROSSOVER_SUBJECTS.includes(subject)
+                );
+                return customSubjects.length > 0 ? (
+                  <div className="space-y-2">
+                    <span className="text-xs text-gray-600">직접 입력한 과목</span>
+                    <div className="flex flex-wrap gap-2">
+                      {customSubjects.map((subject) => (
+                        <button
+                          key={subject}
+                          type="button"
+                          onClick={() => toggleTeacherSubject(subject)}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border-2 border-[#4b83c6] bg-[#4b83c6] text-white text-xs font-medium hover:bg-[#3d73b4] transition-colors"
+                        >
+                          {subject}
+                          <span className="text-xs">✕</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : null;
+              })()}
+
+              {/* 기타 과목 직접 입력 */}
+              <div className="p-4 bg-gray-50 rounded-lg space-y-2">
+                <label className="block text-sm font-semibold text-gray-700">
+                  기타 과목 (직접 입력)
+                </label>
+                <input
+                  type="text"
+                  placeholder="예: 한문, 일본어, 중국어"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#7aa3cc] focus:ring-2 focus:ring-[#cfe0f3]"
+                  value={customSubject}
+                  onChange={(e) => setCustomSubject(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleCustomSubjectAdd();
+                    }
+                  }}
+                  onBlur={handleCustomSubjectAdd}
+                />
+                <p className="text-xs text-gray-500">Enter 키를 누르거나 다른 곳을 클릭하면 추가됩니다</p>
               </div>
             </div>
           )}
