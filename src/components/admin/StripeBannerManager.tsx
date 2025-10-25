@@ -254,14 +254,7 @@ export default function StripeBannerManager() {
       // autoStats 업데이트
       setState(prev => ({
         ...prev,
-        autoStats,
-        // Auto 모드일 때는 statistics도 함께 업데이트 (UI 반영용)
-        statistics: state.config?.statsMode === 'auto' ? {
-          statsDate: new Date().toISOString().split('T')[0],
-          newJobsCount: autoStats.newJobsCount,
-          urgentJobsCount: autoStats.urgentJobsCount,
-          newTalentsCount: autoStats.newTalentsCount
-        } : prev.statistics
+        autoStats
       }));
 
       showToast('통계가 새로고침되었습니다', 'success');
@@ -663,7 +656,7 @@ export default function StripeBannerManager() {
                                   newJobsCount: 0,
                                   urgentJobsCount: 0,
                                   newTalentsCount: 0
-                                }),
+                                } as StripeStatistics),
                                 newJobsCount: newValue
                               }
                             }));
@@ -695,7 +688,7 @@ export default function StripeBannerManager() {
                                   newJobsCount: 0,
                                   urgentJobsCount: 0,
                                   newTalentsCount: 0
-                                }),
+                                } as StripeStatistics),
                                 urgentJobsCount: newValue
                               }
                             }));
@@ -726,7 +719,7 @@ export default function StripeBannerManager() {
                                   newJobsCount: 0,
                                   urgentJobsCount: 0,
                                   newTalentsCount: 0
-                                }),
+                                } as StripeStatistics),
                                 newTalentsCount: newValue
                               }
                             }));
