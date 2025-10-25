@@ -1,12 +1,13 @@
 'use client';
 
-import type { Card, PromoCardSettings } from '@/types';
+import type { Card, PromoCardSettings, JobPostingCard } from '@/types';
 import type { UserProfileRow } from '@/lib/supabase/profiles';
 import { IconChevronLeft, IconChevronRight, IconSparkles, IconMessageCircle } from '@tabler/icons-react';
 import { useState, useRef, useEffect } from 'react';
 import { createBadgeGradient } from '@/lib/colorUtils';
 import CompactJobCard from '../cards/CompactJobCard';
 import CompactTalentCard from '../cards/CompactTalentCard';
+import JobDetailModal from '../cards/JobDetailModal';
 
 interface AIRecommendationsProps {
   cards: Card[];
@@ -29,6 +30,7 @@ export default function AIRecommendations({
 }: AIRecommendationsProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [visibleCount, setVisibleCount] = useState(3);
+  const [selectedJob, setSelectedJob] = useState<JobPostingCard | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // 반응형 카드 개수 설정
@@ -129,48 +131,71 @@ export default function AIRecommendations({
 
     // 프로필 정보 추출
     const displayName = profile?.display_name || userName;
-    const roleText = profile?.roles?.[0] === '교사' ? '선생님' : profile?.roles?.[0] === '강사' ? '강사님' : '회원님';
     const regionText = profile?.interest_regions?.[0] || '관심 지역';
-    const jobTypeText = profile?.preferred_job_types?.[0] || '공고';
-    const teacherLevelText = profile?.teacher_level || '교사';
+    const capableSubject = profile?.capable_subjects?.[0];
+    const teacherLevel = profile?.teacher_level;
+
+    // 과목에서 학교급 제거 (예: "초등 과학" → "과학")
+    const subjectClean = capableSubject?.replace(/초등|중등|유치원|특수/g, '').trim() || '과목';
 
     if (primaryCard.type === 'job') {
-      const mainTag = primaryCard.tags[0];
-      const subTag = primaryCard.tags[1];
-      const tagPhrase = [mainTag, subTag].filter(Boolean).slice(0, 2).join(', ');
-      const trimmedLocation = primaryCard.location?.split(/[ ,]/).filter(Boolean).slice(0, 2).join(', ');
+      const trimmedLocation = primaryCard.location?.split(/[ ,]/).filter(Boolean).slice(0, 2).join(' ') || '지역';
+      const cardCount = cards.length;
 
-      // 프로필이 있으면 맞춤 코멘트, 없으면 기본 코멘트
-      if (profile) {
+      // 프로필이 있으면 맞춤 코멘트
+      if (profile && capableSubject) {
+        // 긴급 공고 확인
+        const isUrgent = primaryCard.isUrgent ||
+          (primaryCard.deadline && new Date(primaryCard.deadline).getTime() - Date.now() < 2 * 24 * 60 * 60 * 1000);
+
+        if (isUrgent) {
+          return {
+            headline: '마감 임박 공고 있어요!',
+            description: `${displayName}님 조건에 맞는 공고 중 곧 마감되는 것부터 보여드려요. 서두르세요!`
+          };
+        }
+
+        // 완벽 매칭 (지역 + 과목 일치)
+        if (trimmedLocation.includes(regionText) || regionText.includes(trimmedLocation.split(' ')[0])) {
+          return {
+            headline: `${displayName}님 딱 맞춤! ${regionText} ${subjectClean} 공고예요`,
+            description: `선생님이 찾던 조건 그대로예요. ${regionText} 지역 ${subjectClean} 공고 ${cardCount}건, 모두 최근 올라온 거라 경쟁률도 낮을 거예요.`
+          };
+        }
+
+        // 지역 확대
         return {
-          headline: `${regionText} 지역 ${jobTypeText}를 먼저 모았어요`,
-          description: `${displayName}님(${teacherLevelText})의 관심 조건을 분석해 최신 공고를 정렬했습니다.`
+          headline: `${regionText} 외 인근 지역도 함께 살펴봤어요`,
+          description: `${regionText}에 신규 공고가 적어서 걱정하실까봐 인근 지역도 포함했어요. ${cardCount}건 중에 마음에 드는 학교 있으시면 좋겠네요!`
         };
       }
 
+      // 프로필 없으면 기본 코멘트
+      const mainTag = primaryCard.tags?.[0];
       return {
-        headline: `${trimmedLocation || primaryCard.location} 인근 공고를 먼저 모았어요`,
-        description: `${userName}님 관심 조건과 ${tagPhrase || '최근 저장한 키워드'}를 우선으로 최신 공고를 추렸어요.`
+        headline: `${trimmedLocation} 인근 공고를 먼저 모았어요`,
+        description: `${userName}님 관심 조건과 ${mainTag || '최근 키워드'}를 우선으로 최신 공고를 추렸어요.`
       };
     }
 
     if (primaryCard.type === 'talent') {
-      const mainTag = primaryCard.tags[0];
       const trimmedLocation = Array.isArray(primaryCard.location)
         ? (primaryCard.location as string[]).slice(0, 2).join(', ')
         : primaryCard.location?.split(/[ ,]/).filter(Boolean).slice(0, 2).join(', ');
 
-      // 프로필이 있으면 맞춤 코멘트, 없으면 기본 코멘트
+      // 프로필이 있으면 맞춤 코멘트
       if (profile) {
         return {
           headline: `${regionText} 지역 인재를 골라봤어요`,
-          description: `${displayName}님이 찾는 조건의 전문가를 우선 추천드려요.`
+          description: `${displayName}님이 찾는 조건의 전문가를 우선 추천드려요. 전문 강사 ${cards.length}명 정리했어요.`
         };
       }
 
+      // 프로필 없으면 기본 코멘트
+      const mainTag = primaryCard.tags?.[0];
       return {
         headline: `${primaryCard.specialty} 인재를 골라봤어요`,
-        description: `${trimmedLocation || primaryCard.location}에서 활동 중인 ${mainTag ?? '핵심 역량'} 강사를 우선 추천드려요.`
+        description: `${trimmedLocation || primaryCard.location}에서 활동 중인 ${mainTag ?? '전문'} 강사를 우선 추천드려요.`
       };
     }
 
@@ -201,15 +226,15 @@ export default function AIRecommendations({
           {/* 좌측 탭메뉴: AI 코멘트 */}
           <aside className="flex min-h-[200px] flex-col justify-between rounded-2xl border-2 border-indigo-200 bg-gradient-to-br from-indigo-100 via-blue-50 to-white p-4 shadow-md shrink-0 lg:h-full lg:w-[220px] lg:min-w-[220px] lg:max-w-[240px]">
             <div className="space-y-2.5 flex-1">
-              <div className="flex items-center gap-2 text-sm font-semibold text-gray-800">
+              <div className="flex items-center gap-2 text-base font-semibold text-gray-800">
                 <IconMessageCircle size={16} stroke={1.5} className="text-primary" />
                 <span>AI 코멘트</span>
               </div>
               <p className="text-xs text-gray-600 leading-relaxed">
-                <span className="block text-sm font-semibold text-gray-900 leading-snug mb-1">
+                <span className="block text-[17px] font-semibold text-gray-900 leading-snug mb-1">
                   {headline}
                 </span>
-                <span className="block line-clamp-3 break-words whitespace-pre-line text-[11px] leading-relaxed text-gray-600">
+                <span className="block line-clamp-3 break-words whitespace-pre-line text-[13px] leading-relaxed text-gray-600">
                   {description}
                 </span>
               </p>
@@ -273,7 +298,10 @@ export default function AIRecommendations({
                     }}
                   >
                     {card.type === 'job' ? (
-                      <CompactJobCard job={card} />
+                      <CompactJobCard
+                        job={card}
+                        onClick={() => setSelectedJob(card)}
+                      />
                     ) : card.type === 'talent' ? (
                       <CompactTalentCard talent={card} />
                     ) : card.type === 'placeholder' ? (
@@ -349,6 +377,15 @@ export default function AIRecommendations({
         </div>
 
       </div>
+
+      {/* 상세보기 모달 */}
+      {selectedJob && (
+        <JobDetailModal
+          job={selectedJob}
+          isOpen={!!selectedJob}
+          onClose={() => setSelectedJob(null)}
+        />
+      )}
     </section>
   );
 }

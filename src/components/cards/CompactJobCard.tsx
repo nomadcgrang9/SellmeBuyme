@@ -3,11 +3,15 @@ import { IconMapPin, IconCoin, IconClock } from '@tabler/icons-react';
 
 interface CompactJobCardProps {
   job: JobPostingCard;
+  onClick?: () => void;
 }
 
-export default function CompactJobCard({ job }: CompactJobCardProps) {
+export default function CompactJobCard({ job, onClick }: CompactJobCardProps) {
   return (
-    <article className="card-interactive bg-white border border-gray-200 rounded-lg animate-slide-up overflow-hidden h-full">
+    <article
+      className="card-interactive bg-white border border-gray-200 rounded-lg animate-slide-up overflow-hidden h-full cursor-pointer hover:shadow-lg transition-shadow"
+      onClick={onClick}
+    >
       {/* 상단 컬러 바 */}
       <div className="h-0.5 bg-gradient-to-r from-primary to-[#8fb4d6]" />
       

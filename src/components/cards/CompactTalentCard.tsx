@@ -3,11 +3,15 @@ import { IconMapPin, IconBriefcase, IconStar } from '@tabler/icons-react';
 
 interface CompactTalentCardProps {
   talent: TalentCardType;
+  onClick?: () => void;
 }
 
-export default function CompactTalentCard({ talent }: CompactTalentCardProps) {
+export default function CompactTalentCard({ talent, onClick }: CompactTalentCardProps) {
   return (
-    <article className="card-interactive bg-white border border-gray-200 rounded-lg animate-slide-up overflow-hidden h-full">
+    <article
+      className="card-interactive bg-white border border-gray-200 rounded-lg animate-slide-up overflow-hidden h-full cursor-pointer hover:shadow-lg transition-shadow"
+      onClick={onClick}
+    >
       {/* 상단 컬러 바 */}
       <div className="h-0.5 bg-gradient-to-r from-[#9fd5bf] to-[#6fb59b]" />
       
