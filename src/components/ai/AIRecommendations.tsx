@@ -2,7 +2,7 @@
 
 import type { Card, PromoCardSettings } from '@/types';
 import type { UserProfileRow } from '@/lib/supabase/profiles';
-import { IconChevronLeft, IconChevronRight, IconSparkles, IconMessageCircle } from '@tabler/icons-react';
+import { IconChevronLeft, IconChevronRight, IconSparkles, IconFileText, IconHeartHandshake, IconRocket } from '@tabler/icons-react';
 import { useState, useRef, useEffect } from 'react';
 import { createBadgeGradient } from '@/lib/colorUtils';
 import CompactJobCard from '../cards/CompactJobCard';
@@ -31,6 +31,7 @@ export default function AIRecommendations({
 }: AIRecommendationsProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [visibleCount, setVisibleCount] = useState(3);
+  const [activeSection, setActiveSection] = useState<'comment' | 'job' | 'talent' | 'experience' | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // 반응형 카드 개수 설정
@@ -130,51 +131,68 @@ export default function AIRecommendations({
     : descriptionOverride ?? `${userName}님의 프로필을 분석해 추천 카드를 준비했습니다.`;
 
   return (
-    <section className="bg-gradient-to-b from-[#f4f5f7] via-[#eef0f2] to-[#e2e4e7] pt-2 pb-6">
+    <section className="bg-white pt-6 pb-4">
       <div className="max-w-container mx-auto px-6">
-        {/* 섹션 헤더 */}
-        <div className="flex items-center gap-2 mb-2">
-          <IconSparkles size={18} stroke={1.5} className="text-primary" />
-          <h2 className="text-base font-bold text-gray-900">셀바 AI</h2>
-        </div>
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-stretch lg:h-[260px]">
+          {/* 좌측 사이드바: AI 코멘트 + 등록 버튼 (세로 4등분) */}
+          <aside className="flex min-h-[200px] flex-col gap-2 shrink-0 lg:h-full lg:w-[160px] lg:min-w-[160px] lg:max-w-[180px]">
 
-        <div className="flex flex-col gap-2.5 lg:flex-row lg:items-stretch lg:h-[260px]">
-          {/* 좌측 탭메뉴: AI 코멘트 */}
-          <aside className="flex min-h-[200px] flex-col justify-between rounded-2xl border-2 border-indigo-200 bg-gradient-to-br from-indigo-100 via-blue-50 to-white p-4 shadow-md shrink-0 lg:h-full lg:w-[220px] lg:min-w-[220px] lg:max-w-[240px]">
-            <div className="space-y-2.5 flex-1">
-              <div className="flex items-center gap-2 text-base font-semibold text-gray-800">
-                <IconMessageCircle size={16} stroke={1.5} className="text-primary" />
-                <span>AI 코멘트</span>
+            {/* 1. AI 코멘트 박스 (그래디언트 배경) */}
+            <button
+              onClick={() => setActiveSection(activeSection === 'comment' ? null : 'comment')}
+              className="flex-1 flex flex-col rounded-2xl p-4 transition-all duration-200 cursor-pointer border border-gray-200 bg-gradient-to-br from-amber-50 via-yellow-50 to-purple-50 shadow-md"
+            >
+              <div className="flex items-center justify-center mb-2">
+                <IconSparkles size={28} stroke={1.5} className="text-amber-500" />
               </div>
-              <p className="text-xs text-gray-600 leading-relaxed">
-                <span className="block text-[17px] font-semibold text-gray-900 leading-snug mb-1">
-                  {headline}
-                </span>
-                <span className="block line-clamp-3 break-words whitespace-pre-line text-[13px] leading-relaxed text-gray-600">
-                  {description}
-                </span>
-              </p>
-            </div>
-            <div className="mt-3.5 flex gap-1.5">
-              <button className="btn-interactive flex-1 rounded-md bg-[#7aa3cc] text-white shadow-sm transition-shadow hover:shadow-md">
-                <div className="flex h-[42px] flex-col items-center justify-center gap-0.5">
-                  <span className="text-[11px] font-semibold">공고</span>
-                  <span className="text-[10px] font-semibold tracking-tight">등록</span>
-                </div>
-              </button>
-              <button className="btn-interactive flex-1 rounded-md bg-[#7db8a3] text-white shadow-sm transition-shadow hover:shadow-md">
-                <div className="flex h-[42px] flex-col items-center justify-center gap-0.5">
-                  <span className="text-[11px] font-semibold">인력</span>
-                  <span className="text-[10px] font-semibold tracking-tight">등록</span>
-                </div>
-              </button>
-              <button className="btn-interactive flex-1 rounded-md bg-[#f4c96b] text-[#7a5520] shadow-sm transition-shadow hover:shadow-md">
-                <div className="flex h-[42px] flex-col items-center justify-center gap-0.5">
-                  <span className="text-[11px] font-semibold">체험</span>
-                  <span className="text-[10px] font-semibold tracking-tight">등록</span>
-                </div>
-              </button>
-            </div>
+              <div className="flex-1 flex flex-col justify-center">
+                <p className="text-center">
+                  <span className="block text-[12px] font-semibold leading-snug text-gray-900">
+                    선생님을 위해 셀바가 열심히 찾아봤어요
+                  </span>
+                </p>
+              </div>
+            </button>
+
+            {/* 2. 공고 등록 버튼 */}
+            <button
+              onClick={() => setActiveSection(activeSection === 'job' ? null : 'job')}
+              className={`h-[48px] rounded-xl px-3 transition-all duration-200 flex items-center justify-center gap-1.5 font-semibold text-xs ${
+                activeSection === 'job'
+                  ? 'bg-blue-50 text-blue-900 shadow-md'
+                  : 'bg-white text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              <IconFileText size={18} stroke={1.5} />
+              <span>공고 등록</span>
+            </button>
+
+            {/* 3. 인력 등록 버튼 */}
+            <button
+              onClick={() => setActiveSection(activeSection === 'talent' ? null : 'talent')}
+              className={`h-[48px] rounded-xl px-3 transition-all duration-200 flex items-center justify-center gap-1.5 font-semibold text-xs ${
+                activeSection === 'talent'
+                  ? 'bg-green-50 text-green-900 shadow-md'
+                  : 'bg-white text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              <IconHeartHandshake size={18} stroke={1.5} />
+              <span>인력 등록</span>
+            </button>
+
+            {/* 4. 체험 등록 버튼 */}
+            <button
+              onClick={() => setActiveSection(activeSection === 'experience' ? null : 'experience')}
+              className={`h-[48px] rounded-xl px-3 transition-all duration-200 flex items-center justify-center gap-1.5 font-semibold text-xs ${
+                activeSection === 'experience'
+                  ? 'bg-orange-50 text-orange-900 shadow-md'
+                  : 'bg-white text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              <IconRocket size={18} stroke={1.5} />
+              <span>체험 등록</span>
+            </button>
+
           </aside>
 
           {/* 우측 카드 슬라이더 */}
