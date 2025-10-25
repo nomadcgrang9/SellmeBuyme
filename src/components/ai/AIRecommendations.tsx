@@ -31,7 +31,7 @@ export default function AIRecommendations({
 }: AIRecommendationsProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [visibleCount, setVisibleCount] = useState(3);
-  const [activeSection, setActiveSection] = useState<'comment' | 'job' | 'talent' | 'experience' | null>(null);
+  const [activeSection, setActiveSection] = useState<'job' | 'talent' | 'experience' | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // 반응형 카드 개수 설정
@@ -51,38 +51,22 @@ export default function AIRecommendations({
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  type CarouselMetaItem = { id: string; type: 'promo' | 'placeholder' };
+  type CarouselMetaItem = { id: string; type: 'placeholder' };
 
   const visibleCards = cards.slice(0, 8);
-  const primaryCard = visibleCards[0];
-  const effectiveInsertPosition = promoCard?.insertPosition ?? 3;
-  const computeInsertIndex = (length: number) => {
-    const zeroBased = Math.max(effectiveInsertPosition - 1, 0);
-    return Math.min(zeroBased, length);
-  };
-  const shouldIncludePromo = Boolean(promoCard) && (!loading || visibleCards.length === 0);
-  const promoCardMeta: CarouselMetaItem | null = shouldIncludePromo ? { id: 'promo-card', type: 'promo' } : null;
   const placeholderCard: CarouselMetaItem = { id: 'placeholder-card', type: 'placeholder' };
   const shouldShowPlaceholder = !loading && visibleCards.length === 0;
+
+  // 프로모는 캐러셀에서 제외 - 순수하게 카드만
   const carouselItems: (Card | CarouselMetaItem)[] = shouldShowPlaceholder
-    ? (() => {
-        const working: (Card | CarouselMetaItem)[] = [placeholderCard];
-        if (promoCardMeta) {
-          const insertIndex = computeInsertIndex(working.length);
-          working.splice(insertIndex, 0, promoCardMeta);
-        }
-        return working;
-      })()
-    : (() => {
-        const working: (Card | CarouselMetaItem)[] = [...visibleCards];
-        if (promoCardMeta) {
-          const insertIndex = computeInsertIndex(working.length);
-          working.splice(insertIndex, 0, promoCardMeta);
-        }
-        return promoCardMeta ? working : visibleCards;
-      })();
+    ? [placeholderCard]
+    : visibleCards;
+
   const totalItems = carouselItems.length;
   const maxIndex = Math.max(totalItems - visibleCount, 0);
+
+  // 프로모카드 설정
+  const shouldIncludePromo = Boolean(promoCard) && (!loading || visibleCards.length === 0);
   const promoHeadline = promoCard?.headline ?? '셀바, 학교와 교육자원을 연결하겠습니다';
   const promoBackground = promoCard?.backgroundColor ?? '#f7c6d9';
   const promoFontColor = promoCard?.fontColor ?? '#1f2937';
@@ -105,7 +89,7 @@ export default function AIRecommendations({
 
   useEffect(() => {
     setCurrentIndex(0);
-  }, [cards.length, effectiveInsertPosition]);
+  }, [cards.length]);
 
   const canGoLeft = currentIndex > 0;
   const canGoRight = currentIndex < maxIndex;
@@ -126,193 +110,191 @@ export default function AIRecommendations({
   const headline = loading
     ? '추천을 준비 중이에요'
     : headlineOverride ?? '맞춤 추천을 준비했어요';
-  const description = loading
-    ? 'AI가 프로필을 분석해 맞춤 카드를 정리하고 있어요.'
-    : descriptionOverride ?? `${userName}님의 프로필을 분석해 추천 카드를 준비했습니다.`;
 
   return (
     <section className="bg-white pt-6 pb-4">
       <div className="max-w-container mx-auto px-6">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-stretch lg:h-[260px]">
-          {/* 좌측 사이드바: AI 코멘트 + 등록 버튼 (세로 4등분) */}
-          <aside className="flex min-h-[200px] flex-col gap-2 shrink-0 lg:h-full lg:w-[160px] lg:min-w-[160px] lg:max-w-[180px]">
+        {/* 3단 그리드: 등록버튼 | AI코멘트+카드 | 프로모 */}
+        <div className="flex flex-col gap-4 lg:flex-row lg:h-[280px]">
 
-            {/* 1. AI 코멘트 박스 (그래디언트 배경) */}
-            <button
-              onClick={() => setActiveSection(activeSection === 'comment' ? null : 'comment')}
-              className="flex-1 flex flex-col rounded-2xl p-4 transition-all duration-200 cursor-pointer border border-gray-200 bg-gradient-to-br from-amber-50 via-yellow-50 to-purple-50 shadow-md"
-            >
-              <div className="flex items-center justify-center mb-2">
-                <IconSparkles size={28} stroke={1.5} className="text-amber-500" />
-              </div>
-              <div className="flex-1 flex flex-col justify-center">
-                <p className="text-center">
-                  <span className="block text-[12px] font-semibold leading-snug text-gray-900">
-                    선생님을 위해 셀바가 열심히 찾아봤어요
-                  </span>
-                </p>
-              </div>
-            </button>
-
-            {/* 2. 공고 등록 버튼 */}
+          {/* 1. 좌측: 등록 버튼 3개 */}
+          <aside className="flex flex-col gap-2 shrink-0 lg:h-full lg:w-[140px]">
+            {/* 공고 등록 */}
             <button
               onClick={() => setActiveSection(activeSection === 'job' ? null : 'job')}
-              className={`h-[48px] rounded-xl px-3 transition-all duration-200 flex items-center justify-center gap-1.5 font-semibold text-xs ${
+              className={`flex-1 rounded-xl px-3 transition-all duration-200 flex items-center justify-center gap-1.5 font-semibold text-base border ${
                 activeSection === 'job'
-                  ? 'bg-blue-50 text-blue-900 shadow-md'
-                  : 'bg-white text-gray-700 hover:bg-gray-50'
+                  ? 'bg-gradient-to-r from-[#a8c5e0] to-[#8fb4d6] text-white border-transparent shadow-md'
+                  : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
               }`}
             >
-              <IconFileText size={18} stroke={1.5} />
+              <IconFileText size={21} stroke={1.5} />
               <span>공고 등록</span>
             </button>
 
-            {/* 3. 인력 등록 버튼 */}
+            {/* 인력 등록 */}
             <button
               onClick={() => setActiveSection(activeSection === 'talent' ? null : 'talent')}
-              className={`h-[48px] rounded-xl px-3 transition-all duration-200 flex items-center justify-center gap-1.5 font-semibold text-xs ${
+              className={`flex-1 rounded-xl px-3 transition-all duration-200 flex items-center justify-center gap-1.5 font-semibold text-base border ${
                 activeSection === 'talent'
-                  ? 'bg-green-50 text-green-900 shadow-md'
-                  : 'bg-white text-gray-700 hover:bg-gray-50'
+                  ? 'bg-gradient-to-r from-[#9fd5bf] to-[#6fb59b] text-white border-transparent shadow-md'
+                  : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
               }`}
             >
-              <IconHeartHandshake size={18} stroke={1.5} />
+              <IconHeartHandshake size={21} stroke={1.5} />
               <span>인력 등록</span>
             </button>
 
-            {/* 4. 체험 등록 버튼 */}
+            {/* 체험 등록 */}
             <button
               onClick={() => setActiveSection(activeSection === 'experience' ? null : 'experience')}
-              className={`h-[48px] rounded-xl px-3 transition-all duration-200 flex items-center justify-center gap-1.5 font-semibold text-xs ${
+              className={`flex-1 rounded-xl px-3 transition-all duration-200 flex items-center justify-center gap-1.5 font-semibold text-base border ${
                 activeSection === 'experience'
-                  ? 'bg-orange-50 text-orange-900 shadow-md'
-                  : 'bg-white text-gray-700 hover:bg-gray-50'
+                  ? 'bg-gradient-to-r from-[#ffd98e] to-[#f4c96b] text-white border-transparent shadow-md'
+                  : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
               }`}
             >
-              <IconRocket size={18} stroke={1.5} />
+              <IconRocket size={21} stroke={1.5} />
               <span>체험 등록</span>
             </button>
-
           </aside>
 
-          {/* 우측 카드 슬라이더 */}
-          <div className="relative flex-1 min-w-0 h-[210px] lg:h-full">
-            {/* 좌측 버튼 */}
-            <button
-              onClick={handlePrev}
-              disabled={!canGoLeft}
-              className={`absolute left-0 top-1/2 -translate-y-1/2 -translate-x-3 z-10 w-7 h-7 rounded-full bg-white border border-gray-200 shadow-md flex items-center justify-center transition-all ${
-                canGoLeft 
-                  ? 'hover:border-gray-400 hover:shadow-lg cursor-pointer' 
-                  : 'opacity-50 cursor-not-allowed'
-              }`}
-              aria-label="이전 추천 보기"
-            >
-              <IconChevronLeft size={14} stroke={1.5} />
-            </button>
+          {/* 2. 중앙: AI 코멘트 띠지 + 카드 캐러셀 */}
+          <div className="flex-1 flex flex-col gap-3 min-w-0 lg:h-full">
 
-            {/* 카드 그리드 */}
-            <div 
-              ref={scrollRef}
-              className="overflow-hidden h-full"
-            >
-              <div 
-                className="flex h-full gap-2.5 transition-transform duration-300 ease-in-out"
-                style={{
-                  transform: `translateX(-${currentIndex * (100 / visibleCount)}%)`
-                }}
-              >
-                {carouselItems.map((card) => (
-                  <div 
-                    key={card.id}
-                    className="flex-shrink-0"
-                    style={{ 
-                      width: `calc((100% - ${(visibleCount - 1) * 14}px) / ${visibleCount})`,
-                      height: '100%'
-                    }}
-                  >
-                    {card.type === 'job' ? (
-                      <CompactJobCard
-                        job={card}
-                        onClick={() => onCardClick?.(card)}
-                      />
-                    ) : card.type === 'talent' ? (
-                      <CompactTalentCard
-                        talent={card}
-                        onClick={() => onCardClick?.(card)}
-                      />
-                    ) : card.type === 'placeholder' ? (
-                      <article className="card-interactive bg-white border border-dashed border-gray-300 rounded-lg animate-slide-up overflow-hidden h-full flex items-center justify-center p-4 text-center">
-                        <p className="text-sm text-gray-500 leading-relaxed">
-                          프로필 정보를 저장하면 맞춤 추천이 여기에 표시됩니다.
-                        </p>
-                      </article>
-                    ) : (
-                      <article
-                        className="card-interactive border border-gray-200 rounded-lg animate-slide-up overflow-hidden h-full flex flex-col"
-                        style={{ backgroundColor: promoBackground }}
-                      >
-                        <div className="flex flex-col h-full">
-                          <div
-                            className="w-full flex-shrink-0"
-                            style={{
-                              height: '2px',
-                              backgroundImage: createBadgeGradient(promoCard?.badgeColor),
-                              backgroundSize: '100% 100%',
-                              backgroundRepeat: 'no-repeat',
-                              backgroundPosition: '0 0'
-                            }}
-                          />
-                          <div className="flex-1 flex flex-col items-center justify-center gap-4 px-5 py-6 text-center">
-                          <h3
-                            className="font-semibold leading-tight whitespace-pre-line"
-                            style={{ color: promoFontColor, fontSize: `${promoFontSize}px` }}
-                          >
-                            {promoHeadline}
-                          </h3>
-                          <div className="flex w-full flex-1 items-center justify-center" style={promoImageWrapperStyle}>
-                            {promoImageSrc ? (
-                              <img
-                                src={promoImageSrc}
-                                alt={promoHeadline}
-                                className="w-auto object-contain drop-shadow"
-                                style={promoImageStyle}
-                                draggable={false}
-                              />
-                            ) : (
-                              <div
-                                className="flex w-full flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 text-slate-400"
-                                style={promoImageStyle}
-                              >
-                                <span className="text-xs">이미지 없음</span>
-                              </div>
-                            )}
-                          </div>
-                          </div>
-                        </div>
-                      </article>
-                    )}
-                  </div>
-                ))}
+            {/* AI 코멘트 띠지 */}
+            <div className="h-[60px] rounded-xl p-3 flex items-center gap-3 bg-gradient-to-r from-amber-50 via-yellow-50 to-purple-50 border border-gray-200 shadow-sm">
+              <div className="flex items-center justify-center flex-shrink-0">
+                <IconSparkles size={24} stroke={1.5} className="text-amber-500" />
               </div>
+              <p className="text-sm font-semibold text-gray-900 leading-snug">
+                선생님을 위해 셀바가 열심히 찾아봤어요
+              </p>
             </div>
 
-            {/* 우측 버튼 */}
-            <button
-              onClick={handleNext}
-              disabled={!canGoRight}
-              className={`absolute right-0 top-1/2 -translate-y-1/2 translate-x-3 z-10 w-7 h-7 rounded-full bg-white border border-gray-200 shadow-md flex items-center justify-center transition-all ${
-                canGoRight 
-                  ? 'hover:border-gray-400 hover:shadow-lg cursor-pointer' 
-                  : 'opacity-50 cursor-not-allowed'
-              }`}
-              aria-label="다음 추천 보기"
-            >
-              <IconChevronRight size={14} stroke={1.5} />
-            </button>
-          </div>
-        </div>
+            {/* 카드 캐러셀 */}
+            <div className="relative flex-1 min-h-[180px]">
+              {/* 좌측 버튼 */}
+              <button
+                onClick={handlePrev}
+                disabled={!canGoLeft}
+                className={`absolute left-0 top-1/2 -translate-y-1/2 -translate-x-3 z-10 w-7 h-7 rounded-full bg-white border border-gray-200 shadow-md flex items-center justify-center transition-all ${
+                  canGoLeft
+                    ? 'hover:border-gray-400 hover:shadow-lg cursor-pointer'
+                    : 'opacity-50 cursor-not-allowed'
+                }`}
+                aria-label="이전 추천 보기"
+              >
+                <IconChevronLeft size={14} stroke={1.5} />
+              </button>
 
+              {/* 카드 그리드 */}
+              <div
+                ref={scrollRef}
+                className="overflow-hidden h-full"
+              >
+                <div
+                  className="flex h-full gap-2.5 transition-transform duration-300 ease-in-out"
+                  style={{
+                    transform: `translateX(-${currentIndex * (100 / visibleCount)}%)`
+                  }}
+                >
+                  {carouselItems.map((card) => (
+                    <div
+                      key={card.id}
+                      className="flex-shrink-0"
+                      style={{
+                        width: `calc((100% - ${(visibleCount - 1) * 10}px) / ${visibleCount})`,
+                        height: '100%'
+                      }}
+                    >
+                      {card.type === 'job' ? (
+                        <CompactJobCard
+                          job={card}
+                          onClick={() => onCardClick?.(card)}
+                        />
+                      ) : card.type === 'talent' ? (
+                        <CompactTalentCard
+                          talent={card}
+                          onClick={() => onCardClick?.(card)}
+                        />
+                      ) : (
+                        <article className="card-interactive bg-white border border-dashed border-gray-300 rounded-lg animate-slide-up overflow-hidden h-full flex items-center justify-center p-4 text-center">
+                          <p className="text-sm text-gray-500 leading-relaxed">
+                            프로필 정보를 저장하면 맞춤 추천이 여기에 표시됩니다.
+                          </p>
+                        </article>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* 우측 버튼 */}
+              <button
+                onClick={handleNext}
+                disabled={!canGoRight}
+                className={`absolute right-0 top-1/2 -translate-y-1/2 translate-x-3 z-10 w-7 h-7 rounded-full bg-white border border-gray-200 shadow-md flex items-center justify-center transition-all ${
+                  canGoRight
+                    ? 'hover:border-gray-400 hover:shadow-lg cursor-pointer'
+                    : 'opacity-50 cursor-not-allowed'
+                }`}
+                aria-label="다음 추천 보기"
+              >
+                <IconChevronRight size={14} stroke={1.5} />
+              </button>
+            </div>
+          </div>
+
+          {/* 3. 우측: 프로모카드 (독립 영역) */}
+          {shouldIncludePromo && (
+            <aside className="shrink-0 lg:w-[280px] lg:h-full">
+              <article
+                className="card-interactive border border-gray-200 rounded-lg overflow-hidden h-full flex flex-col shadow-sm hover:shadow-md transition-shadow"
+                style={{ backgroundColor: promoBackground }}
+              >
+                <div className="flex flex-col h-full">
+                  <div
+                    className="w-full flex-shrink-0"
+                    style={{
+                      height: '2px',
+                      backgroundImage: createBadgeGradient(promoCard?.badgeColor),
+                      backgroundSize: '100% 100%',
+                      backgroundRepeat: 'no-repeat',
+                      backgroundPosition: '0 0'
+                    }}
+                  />
+                  <div className="flex-1 flex flex-col items-center justify-center gap-4 px-5 py-6 text-center">
+                    <h3
+                      className="font-semibold leading-tight whitespace-pre-line"
+                      style={{ color: promoFontColor, fontSize: `${promoFontSize}px` }}
+                    >
+                      {promoHeadline}
+                    </h3>
+                    <div className="flex w-full flex-1 items-center justify-center" style={promoImageWrapperStyle}>
+                      {promoImageSrc ? (
+                        <img
+                          src={promoImageSrc}
+                          alt={promoHeadline}
+                          className="w-auto object-contain drop-shadow"
+                          style={promoImageStyle}
+                          draggable={false}
+                        />
+                      ) : (
+                        <div
+                          className="flex w-full flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 text-slate-400"
+                          style={promoImageStyle}
+                        >
+                          <span className="text-xs">이미지 없음</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </article>
+            </aside>
+          )}
+        </div>
       </div>
     </section>
   );
