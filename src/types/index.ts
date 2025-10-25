@@ -202,3 +202,92 @@ export interface CrawlLog {
   errorLog: string | null;
   createdAt: string;
 }
+
+// ========================================
+// Stripe Banner Types
+// ========================================
+
+export type StatsMode = 'auto' | 'manual';
+export type KeywordsMode = 'auto' | 'manual';
+export type BannerType = 'event' | 'notice' | 'review';
+
+export interface StripeBannerConfig {
+  id: string;
+  isActive: boolean;
+  rotationSpeed: number;
+  statsMode: StatsMode;
+  keywordsMode: KeywordsMode;
+  updatedBy: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface StripeBanner {
+  id: string;
+  type: BannerType;
+  title: string;
+  description: string | null;
+  link: string | null;
+  bgColor: string;
+  textColor: string;
+  displayOrder: number;
+  isActive: boolean;
+  updatedBy: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface StripeStatistics {
+  id: string;
+  newJobsCount: number;
+  urgentJobsCount: number;
+  newTalentsCount: number;
+  statsDate: string;
+  updatedBy: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PopularKeyword {
+  id: string;
+  keyword: string;
+  displayOrder: number;
+  isActive: boolean;
+  isManual: boolean;
+  searchCount: number;
+  updatedBy: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Update input types
+export interface UpdateStripeBannerConfigInput {
+  isActive?: boolean;
+  rotationSpeed?: number;
+  statsMode?: StatsMode;
+  keywordsMode?: KeywordsMode;
+}
+
+export interface UpdateStripeBannerInput {
+  type?: BannerType;
+  title?: string;
+  description?: string | null;
+  link?: string | null;
+  bgColor?: string;
+  textColor?: string;
+  displayOrder?: number;
+  isActive?: boolean;
+}
+
+export interface UpdateStripeStatisticsInput {
+  newJobsCount?: number;
+  urgentJobsCount?: number;
+  newTalentsCount?: number;
+}
+
+export interface UpdatePopularKeywordInput {
+  keyword?: string;
+  displayOrder?: number;
+  isActive?: boolean;
+  searchCount?: number;
+}

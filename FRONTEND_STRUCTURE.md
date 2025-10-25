@@ -47,6 +47,11 @@
 - **FTS + ILIKE 동작 안정화**: 동일 파일에서 FTS 표현식과 ILIKE 조건을 통합해 `성남 중학교`, `의정부 고등학교`처럼 접미사 `학교`가 포함된 검색도 일관되게 결과가 노출되도록 수정.
 - **결과 후처리 강화**: `filterJobsByTokenGroups()`와 `filterTalentsByTokenGroups()`가 모든 토큰 그룹에서 최소 1개 키워드가 매칭되도록 보장해, 확장된 동의어가 카드 정렬과 추천 점수에 반영되도록 조정.
 
+### 추가 업데이트 (2025-10-25)
+- **띠지배너 시스템 통합**: `AIInsightBox.tsx`가 `stripe_banner_config`에서 통계 모드(`auto`/`manual`)를 조회해, `auto` 모드는 실시간 집계(`getAutoStatistics()`), `manual` 모드는 DB 저장값(`getTodayStripeStatistics()`)을 표시.
+- **관리자 UI 개선**: `StripeBannerManager.tsx`에서 배너·통계·키워드를 로컬 상태로 수정 후 통합 저장 버튼으로 일괄 저장하여 한글 입력 깨짐 문제 해결. `loadAutoStats()` 호출 시 Toast 알림으로 새로고침 피드백 제공.
+- **UI 정리**: 메인 페이지에서 배너 타입 표시 제거(관리자 전용 정보), 통계 폰트 크기를 `text-xs` → `text-sm`(1.2배)으로 확대, 2줄 구조로 간소화.
+
 ## 📋 목차
 1. [페이지 레이아웃 구조](#페이지-레이아웃-구조)
 2. [1. 헤더 (Header)](#1-헤더-header)
