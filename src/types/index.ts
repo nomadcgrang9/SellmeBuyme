@@ -89,6 +89,7 @@ export interface SearchStoreState {
   limit: number;
   offset: number;
   lastUpdatedAt: number;
+  hasActiveSearch: () => boolean;
   setSearchQuery: (value: string) => void;
   setFilters: (filters: Partial<SearchFilters>) => void;
   setFilter: <K extends keyof SearchFilters>(key: K, value: SearchFilters[K]) => void;

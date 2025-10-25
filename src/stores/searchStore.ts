@@ -19,13 +19,17 @@ const defaultFilters: SearchFilters = {
 
 const DEFAULT_LIMIT = 20;
 
-export const useSearchStore = create<SearchStoreState>((set) => ({
+export const useSearchStore = create<SearchStoreState>((set, get) => ({
   searchQuery: '',
   filters: { ...defaultFilters },
   viewType: 'all',
   limit: DEFAULT_LIMIT,
   offset: 0,
   lastUpdatedAt: Date.now(),
+  hasActiveSearch: () => {
+    const state = get();
+    return state.searchQuery.trim().length > 0;
+  },
   setSearchQuery: (value) =>
     set({ searchQuery: value, offset: 0, lastUpdatedAt: Date.now() }),
   setFilters: (filters) =>

@@ -20,7 +20,8 @@ export default function App() {
     limit,
     offset,
     lastUpdatedAt,
-    loadMore
+    loadMore,
+    hasActiveSearch
   } = useSearchStore((state) => ({
     searchQuery: state.searchQuery,
     filters: state.filters,
@@ -28,7 +29,8 @@ export default function App() {
     limit: state.limit,
     offset: state.offset,
     lastUpdatedAt: state.lastUpdatedAt,
-    loadMore: state.loadMore
+    loadMore: state.loadMore,
+    hasActiveSearch: state.hasActiveSearch()
   }));
 
   const { initialize, status, user } = useAuthStore((state) => ({
@@ -424,16 +426,18 @@ export default function App() {
       {/* 헤더 */}
       <Header onProfileClick={handleOpenProfileView} />
 
-      {/* AI 추천 섹션 */}
-      <AIRecommendations
-        cards={recommendationCards}
-        userName={user?.user_metadata?.full_name ?? userEmail ?? undefined}
-        loading={recommendationLoading}
-        headlineOverride={recommendationHeadline}
-        descriptionOverride={recommendationDescription}
-        promoCard={promoCard}
-        profile={userProfile}
-      />
+      {/* AI 추천 섹션 - 검색 중이 아닐 때만 표시 */}
+      {!hasActiveSearch && (
+        <AIRecommendations
+          cards={recommendationCards}
+          userName={user?.user_metadata?.full_name ?? userEmail ?? undefined}
+          loading={recommendationLoading}
+          headlineOverride={recommendationHeadline}
+          descriptionOverride={recommendationDescription}
+          promoCard={promoCard}
+          profile={userProfile}
+        />
+      )}
 
       {/* 메인 콘텐츠 */}
       <main className="bg-gradient-to-b from-[#edf0f5] via-[#e2e5ec] to-[#d9dce3]">
