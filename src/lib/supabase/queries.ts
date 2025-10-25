@@ -1249,43 +1249,86 @@ async function executeJobSearch({
   offset,
   jobType,
 }: JobSearchArgs): Promise<SearchResponse> {
+  const trimmedQuery = searchQuery.trim();
+
+  // PGroonga 검색 사용 (텍스트 검색이 있을 때)
+  if (trimmedQuery.length > 0) {
+    try {
+      // PGroonga RPC 함수 호출
+      const { data: pgroongaData, error: pgroongaError } = await supabase
+        .rpc('search_jobs_pgroonga', { search_text: trimmedQuery });
+
+      if (!pgroongaError && pgroongaData) {
+        // PGroonga 검색 성공 - 필터 적용
+        let filteredData = pgroongaData;
+
+        // 지역 필터
+        if (hasFilterValue(filters.region, DEFAULT_REGION)) {
+          filteredData = filteredData.filter((job: any) =>
+            job.location?.includes(filters.region)
+          );
+        }
+
+        // 카테고리 필터
+        if (hasFilterValue(filters.category, DEFAULT_CATEGORY)) {
+          filteredData = filteredData.filter((job: any) =>
+            job.tags?.includes(filters.category)
+          );
+        }
+
+        // job_type 필터
+        if (jobType) {
+          filteredData = filteredData.filter((job: any) => job.job_type === jobType);
+        }
+
+        // 마감일 필터
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        filteredData = filteredData.filter((job: any) => {
+          if (!job.deadline) return true;
+          const deadline = new Date(job.deadline);
+          return deadline >= today;
+        });
+
+        // 정렬 적용
+        const sortedData = applySortToData(filteredData, filters.sort, tokens, trimmedQuery);
+
+        // 페이지네이션
+        const from = Math.max(offset ?? DEFAULT_OFFSET, 0);
+        const to = from + Math.max(limit ?? DEFAULT_LIMIT, 1);
+        const paginatedData = sortedData.slice(from, to);
+
+        return {
+          cards: paginatedData.map(mapJobPostingToCard),
+          totalCount: filteredData.length,
+          pagination: { limit, offset: from }
+        };
+      }
+
+      // PGroonga 실패 시 아래 fallback으로 계속
+      console.warn('PGroonga 검색 실패, fallback 사용:', pgroongaError);
+    } catch (err) {
+      console.warn('PGroonga 검색 오류, fallback 사용:', err);
+    }
+  }
+
+  // Fallback: 기존 방식 (PGroonga 실패 시 또는 검색어 없을 때)
   let query = supabase
     .from('job_postings')
     .select('*', { count: 'exact' });
 
-  const trimmedQuery = searchQuery.trim();
-
-  // Phase 2: 한국어 검색 시 FTS 우선 사용 (korean config로 형태소 분석)
-  const hasKorean = /[가-힣]/.test(trimmedQuery);
-  let ftsApplied = false;
-
-  if (hasKorean && trimmedQuery.length > 0) {
-    // 한국어가 있으면 FTS 사용 (korean config로 "일본" → "일본어" 자동 매칭)
-    const ftsTokenGroups = tokenGroups.filter((group) => group.length === 1);
-    const ftsExpression = buildWebsearchExpressionFromGroups(ftsTokenGroups, trimmedQuery);
-
-    if (ftsExpression) {
-      query = query.textSearch('search_vector', ftsExpression, {
-        type: 'websearch'
-        // config 제거: 트리거에서 설정한 'korean' 사용
-      });
-      ftsApplied = true;
-    }
-  }
-
-  // FTS가 적용되지 않았거나 영문 검색인 경우에만 ilike 사용
-  if (!ftsApplied) {
+  // 검색어가 있으면 ilike 사용
+  if (trimmedQuery.length > 0) {
     if (tokens.length > 0) {
       const orConditions = tokens.flatMap((token) => {
         const pattern = buildIlikePattern(token);
-        // subject 필드 추가! (tags는 배열이라 ilike 불가, 하지만 subject는 문자열)
         return ['title', 'organization', 'location', 'subject'].map((column) => `${column}.ilike.${pattern}`);
       });
 
       if (orConditions.length > 0) {
         query = query.or(orConditions.join(','));
       }
-    } else if (trimmedQuery.length > 0) {
+    } else {
       const pattern = buildIlikePattern(trimmedQuery);
       const orConditions = ['title', 'organization', 'location', 'subject'].map(
         (column) => `${column}.ilike.${pattern}`
@@ -1436,6 +1479,46 @@ async function executeTalentSearch({
       offset: from,
     }
   };
+}
+
+function applySortToData(data: any[], sort: SortOptionValue, tokens: string[], searchQuery: string): any[] {
+  const sorted = [...data];
+
+  switch (sort) {
+    case '추천순':
+      // 검색 관련성 기준 정렬
+      return sortJobsByRelevance(sorted, tokens, searchQuery);
+
+    case '마감임박순':
+      return sorted.sort((a, b) => {
+        const deadlineA = a.deadline ? new Date(a.deadline).getTime() : Infinity;
+        const deadlineB = b.deadline ? new Date(b.deadline).getTime() : Infinity;
+        if (deadlineA !== deadlineB) return deadlineA - deadlineB;
+        return new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime();
+      });
+
+    case '최신순':
+      return sorted.sort((a, b) =>
+        new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime()
+      );
+
+    case '급여높은순':
+      return sorted.sort((a, b) => {
+        const compA = typeof a.compensation === 'number' ? a.compensation : 0;
+        const compB = typeof b.compensation === 'number' ? b.compensation : 0;
+        if (compA !== compB) return compB - compA;
+        return new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime();
+      });
+
+    default:
+      // 조회수 기준
+      return sorted.sort((a, b) => {
+        const viewA = typeof a.view_count === 'number' ? a.view_count : 0;
+        const viewB = typeof b.view_count === 'number' ? b.view_count : 0;
+        if (viewA !== viewB) return viewB - viewA;
+        return new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime();
+      });
+  }
 }
 
 function applyJobSort(query: any, sort: SortOptionValue) {
