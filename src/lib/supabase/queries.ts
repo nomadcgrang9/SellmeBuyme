@@ -859,11 +859,39 @@ function buildTokenGroups(tokens: string[]): TokenGroup[] {
   }
 
   const synonymMap: Record<string, string[]> = {
+    // 학교급
     '중등': ['중학교', '고등학교'],
     '고등': ['고등학교'],
     '초등': ['초등학교'],
     '유치원': ['유아'],
-    '특수': ['특수학교']
+    '특수': ['특수학교'],
+
+    // 과목 (부분 매칭 지원)
+    '일본': ['일본어', '일본인'],
+    '중국': ['중국어', '중국인'],
+    '영어': ['영어교육', '영어회화', '영어과'],
+    '수학': ['수학교육', '수학과'],
+    '과학': ['과학교육', '과학과'],
+    '체육': ['체육교육', '체육과'],
+    '음악': ['음악교육', '음악과'],
+    '미술': ['미술교육', '미술과'],
+
+    // 지역 (부분 매칭 지원)
+    '화성': ['화성시', '화성교육지원청'],
+    '수원': ['수원시', '수원교육지원청'],
+    '성남': ['성남시', '성남교육지원청'],
+    '고양': ['고양시', '고양교육지원청'],
+    '용인': ['용인시', '용인교육지원청'],
+    '부천': ['부천시', '부천교육지원청'],
+    '안산': ['안산시', '안산교육지원청'],
+    '남양주': ['남양주시', '남양주교육지원청'],
+    '평택': ['평택시', '평택교육지원청'],
+    '의정부': ['의정부시', '의정부교육지원청'],
+
+    // 역할/직무
+    '자원봉사': ['자원봉사자', '자원봉사활동'],
+    '교사': ['교원', '교육자'],
+    '강사': ['교강사', '외부강사']
   };
 
   return tokens.map((token) => {
@@ -935,7 +963,9 @@ function filterJobsByTokenGroups(jobs: any[], tokenGroups: TokenGroup[]): any[] 
 
     const fields = [title, organization, location, ...tags];
 
-    return tokenGroups.every((group) => {
+    // Phase 1: AND → OR 검색으로 변경
+    // "수원 성남" → 수원 공고 OR 성남 공고 (모두 표시)
+    return tokenGroups.some((group) => {
       return group.some((token) => {
         const normalized = token.toLowerCase();
         if (!normalized) return false;
@@ -962,7 +992,9 @@ function filterTalentsByTokenGroups(talents: any[], tokenGroups: TokenGroup[]): 
 
     const fields = [name, specialty, ...locations, ...tags];
 
-    return tokenGroups.every((group) => {
+    // Phase 1: AND → OR 검색으로 변경
+    // "수원 성남" → 수원 인력 OR 성남 인력 (모두 표시)
+    return tokenGroups.some((group) => {
       return group.some((token) => {
         const normalized = token.toLowerCase();
         if (!normalized) return false;
@@ -1222,32 +1254,44 @@ async function executeJobSearch({
     .select('*', { count: 'exact' });
 
   const trimmedQuery = searchQuery.trim();
-  const ftsTokenGroups = tokenGroups.filter((group) => group.length === 1);
-  const ftsExpression = buildWebsearchExpressionFromGroups(ftsTokenGroups, trimmedQuery);
+
+  // Phase 2: 한국어 검색 시 FTS 우선 사용 (korean config로 형태소 분석)
+  const hasKorean = /[가-힣]/.test(trimmedQuery);
   let ftsApplied = false;
-  if (ftsExpression) {
-    query = query.textSearch('search_vector', ftsExpression, {
-      type: 'websearch',
-      config: 'simple'
-    });
-    ftsApplied = true;
+
+  if (hasKorean && trimmedQuery.length > 0) {
+    // 한국어가 있으면 FTS 사용 (korean config로 "일본" → "일본어" 자동 매칭)
+    const ftsTokenGroups = tokenGroups.filter((group) => group.length === 1);
+    const ftsExpression = buildWebsearchExpressionFromGroups(ftsTokenGroups, trimmedQuery);
+
+    if (ftsExpression) {
+      query = query.textSearch('search_vector', ftsExpression, {
+        type: 'websearch'
+        // config 제거: 트리거에서 설정한 'korean' 사용
+      });
+      ftsApplied = true;
+    }
   }
 
-  if (tokens.length > 0) {
-    const orConditions = tokens.flatMap((token) => {
-      const pattern = buildIlikePattern(token);
-      return ['title', 'organization', 'location'].map((column) => `${column}.ilike.${pattern}`);
-    });
+  // FTS가 적용되지 않았거나 영문 검색인 경우에만 ilike 사용
+  if (!ftsApplied) {
+    if (tokens.length > 0) {
+      const orConditions = tokens.flatMap((token) => {
+        const pattern = buildIlikePattern(token);
+        // subject 필드 추가! (tags는 배열이라 ilike 불가, 하지만 subject는 문자열)
+        return ['title', 'organization', 'location', 'subject'].map((column) => `${column}.ilike.${pattern}`);
+      });
 
-    if (orConditions.length > 0) {
+      if (orConditions.length > 0) {
+        query = query.or(orConditions.join(','));
+      }
+    } else if (trimmedQuery.length > 0) {
+      const pattern = buildIlikePattern(trimmedQuery);
+      const orConditions = ['title', 'organization', 'location', 'subject'].map(
+        (column) => `${column}.ilike.${pattern}`
+      );
       query = query.or(orConditions.join(','));
     }
-  } else if (!ftsApplied && trimmedQuery.length > 0) {
-    const pattern = buildIlikePattern(trimmedQuery);
-    const orConditions = ['title', 'organization', 'location'].map(
-      (column) => `${column}.ilike.${pattern}`
-    );
-    query = query.or(orConditions.join(','));
   }
 
   if (hasFilterValue(filters.region, DEFAULT_REGION)) {
@@ -1320,30 +1364,41 @@ async function executeTalentSearch({
     .select('*', { count: 'exact' });
 
   const trimmedQuery = searchQuery.trim();
-  const ftsTokenGroups = tokenGroups.filter((group) => group.length === 1);
-  const ftsExpression = buildWebsearchExpressionFromGroups(ftsTokenGroups, trimmedQuery);
+
+  // Phase 2: 한국어 검색 시 FTS 우선 사용 (korean config로 형태소 분석)
+  const hasKorean = /[가-힣]/.test(trimmedQuery);
   let ftsApplied = false;
-  if (ftsExpression) {
-    query = query.textSearch('search_vector', ftsExpression, {
-      type: 'websearch',
-      config: 'simple'
-    });
-    ftsApplied = true;
+
+  if (hasKorean && trimmedQuery.length > 0) {
+    // 한국어가 있으면 FTS 사용 (korean config로 형태소 분석)
+    const ftsTokenGroups = tokenGroups.filter((group) => group.length === 1);
+    const ftsExpression = buildWebsearchExpressionFromGroups(ftsTokenGroups, trimmedQuery);
+
+    if (ftsExpression) {
+      query = query.textSearch('search_vector', ftsExpression, {
+        type: 'websearch'
+        // config 제거: 트리거에서 설정한 'korean' 사용
+      });
+      ftsApplied = true;
+    }
   }
 
-  if (tokens.length > 0) {
-    const orConditions = tokens.flatMap((token) => {
-      const pattern = buildIlikePattern(token);
-      return ['name', 'specialty'].map((column) => `${column}.ilike.${pattern}`);
-    });
+  // FTS가 적용되지 않았거나 영문 검색인 경우에만 ilike 사용
+  if (!ftsApplied) {
+    if (tokens.length > 0) {
+      const orConditions = tokens.flatMap((token) => {
+        const pattern = buildIlikePattern(token);
+        return ['name', 'specialty'].map((column) => `${column}.ilike.${pattern}`);
+      });
 
-    if (orConditions.length > 0) {
+      if (orConditions.length > 0) {
+        query = query.or(orConditions.join(','));
+      }
+    } else if (trimmedQuery.length > 0) {
+      const pattern = buildIlikePattern(trimmedQuery);
+      const orConditions = ['name', 'specialty'].map((column) => `${column}.ilike.${pattern}`);
       query = query.or(orConditions.join(','));
     }
-  } else if (!ftsApplied && trimmedQuery.length > 0) {
-    const pattern = buildIlikePattern(trimmedQuery);
-    const orConditions = ['name', 'specialty'].map((column) => `${column}.ilike.${pattern}`);
-    query = query.or(orConditions.join(','));
   }
 
   if (hasFilterValue(filters.region, DEFAULT_REGION)) {
