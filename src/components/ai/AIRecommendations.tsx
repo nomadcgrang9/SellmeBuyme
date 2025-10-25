@@ -1,13 +1,12 @@
 'use client';
 
-import type { Card, PromoCardSettings, JobPostingCard } from '@/types';
+import type { Card, PromoCardSettings } from '@/types';
 import type { UserProfileRow } from '@/lib/supabase/profiles';
 import { IconChevronLeft, IconChevronRight, IconSparkles, IconMessageCircle } from '@tabler/icons-react';
 import { useState, useRef, useEffect } from 'react';
 import { createBadgeGradient } from '@/lib/colorUtils';
 import CompactJobCard from '../cards/CompactJobCard';
 import CompactTalentCard from '../cards/CompactTalentCard';
-import JobDetailModal from '../cards/JobDetailModal';
 
 interface AIRecommendationsProps {
   cards: Card[];
@@ -17,6 +16,7 @@ interface AIRecommendationsProps {
   descriptionOverride?: string;
   promoCard?: PromoCardSettings | null;
   profile?: UserProfileRow | null;
+  onCardClick?: (card: Card) => void;
 }
 
 export default function AIRecommendations({
@@ -26,11 +26,11 @@ export default function AIRecommendations({
   headlineOverride,
   descriptionOverride,
   promoCard,
-  profile
+  profile,
+  onCardClick
 }: AIRecommendationsProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [visibleCount, setVisibleCount] = useState(3);
-  const [selectedJob, setSelectedJob] = useState<JobPostingCard | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // 반응형 카드 개수 설정
@@ -300,10 +300,13 @@ export default function AIRecommendations({
                     {card.type === 'job' ? (
                       <CompactJobCard
                         job={card}
-                        onClick={() => setSelectedJob(card)}
+                        onClick={() => onCardClick?.(card)}
                       />
                     ) : card.type === 'talent' ? (
-                      <CompactTalentCard talent={card} />
+                      <CompactTalentCard
+                        talent={card}
+                        onClick={() => onCardClick?.(card)}
+                      />
                     ) : card.type === 'placeholder' ? (
                       <article className="card-interactive bg-white border border-dashed border-gray-300 rounded-lg animate-slide-up overflow-hidden h-full flex items-center justify-center p-4 text-center">
                         <p className="text-sm text-gray-500 leading-relaxed">
@@ -377,15 +380,6 @@ export default function AIRecommendations({
         </div>
 
       </div>
-
-      {/* 상세보기 모달 */}
-      {selectedJob && (
-        <JobDetailModal
-          job={selectedJob}
-          isOpen={!!selectedJob}
-          onClose={() => setSelectedJob(null)}
-        />
-      )}
     </section>
   );
 }
