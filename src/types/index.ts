@@ -126,6 +126,7 @@ export interface SearchResponse {
 export type ColorMode = 'single' | 'gradient';
 
 export interface PromoCardSettings {
+  cardId?: string;
   id: string;
   isActive: boolean;
   headline: string;
@@ -151,6 +152,7 @@ export interface PromoCardSettings {
 
 export interface PromoCardUpdateInput {
   id?: string;
+  cardId?: string;
   isActive: boolean;
   headline: string;
   imageUrl?: string | null;

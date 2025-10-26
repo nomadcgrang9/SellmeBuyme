@@ -36,53 +36,58 @@ type RecommendationCacheRow = {
   updated_at: string;
 };
 
-type PromoCardSettingsRow = {
+// 프로모 카드 DB 행 타입
+type PromoCardRow = {
   id: string;
+  collection_id: string;
+  order_index: number;
+  insert_position: number;
   is_active: boolean;
   headline: string;
   image_url: string | null;
-  insert_position: number;
+  background_color: string | null;
+  background_color_mode: string | null;
+  background_gradient_start: string | null;
+  background_gradient_end: string | null;
+  font_color: string | null;
+  font_size: number | null;
+  badge_color: string | null;
+  badge_color_mode: string | null;
+  badge_gradient_start: string | null;
+  badge_gradient_end: string | null;
+  image_scale: number | null;
   last_draft_at: string | null;
   last_applied_at: string | null;
   updated_by: string | null;
   created_at: string;
   updated_at: string;
-  background_color: string;
-  background_color_mode: string | null;
-  background_gradient_start: string | null;
-  background_gradient_end: string | null;
-  font_color: string;
-  font_size: number;
-  badge_color: string;
-  badge_color_mode: string | null;
-  badge_gradient_start: string | null;
-  badge_gradient_end: string | null;
-  image_scale: number | null;
 };
 
-function mapPromoCardFromDbRow(row: PromoCardSettingsRow): PromoCardSettings {
+// DB 행을 PromoCardSettings로 변환
+function mapPromoCardRow(row: PromoCardRow, collectionId: string): PromoCardSettings {
   return {
-    id: row.id,
+    id: collectionId,
+    cardId: row.id,
     isActive: row.is_active,
     headline: row.headline,
+    imageUrl: row.image_url,
+    insertPosition: row.insert_position,
     backgroundColor: row.background_color ?? '#ffffff',
-    backgroundColorMode: (row.background_color_mode as ColorMode | null) ?? 'single',
+    backgroundColorMode: (row.background_color_mode as ColorMode) ?? 'single',
     backgroundGradientStart: row.background_gradient_start,
     backgroundGradientEnd: row.background_gradient_end,
     fontColor: row.font_color ?? '#1f2937',
     fontSize: row.font_size ?? 28,
     badgeColor: row.badge_color ?? '#dbeafe',
-    badgeColorMode: (row.badge_color_mode as ColorMode | null) ?? 'single',
+    badgeColorMode: (row.badge_color_mode as ColorMode) ?? 'single',
     badgeGradientStart: row.badge_gradient_start,
     badgeGradientEnd: row.badge_gradient_end,
     imageScale: typeof row.image_scale === 'number' ? row.image_scale : 1,
-    imageUrl: row.image_url ?? null,
-    insertPosition: row.insert_position,
     lastDraftAt: row.last_draft_at,
     lastAppliedAt: row.last_applied_at,
     updatedBy: row.updated_by,
     createdAt: row.created_at,
-    updatedAt: row.updated_at,
+    updatedAt: row.updated_at
   };
 }
 
@@ -422,108 +427,175 @@ export async function generateRecommendations(): Promise<{
   }
 }
 
+// 단일 프로모 카드 조회 (활성 컬렉션의 첫 번째 카드)
 export async function fetchPromoCardSettings(options?: { onlyActive?: boolean }): Promise<PromoCardSettings | null> {
-  try {
-    let query = supabase
-      .from('promo_card_settings')
-      .select('*')
-      .order('updated_at', { ascending: false });
+  const { data: collections, error: collError } = await supabase
+    .from('promo_card_collections')
+    .select('id, is_active')
+    .eq('is_active', true)
+    .limit(1);
 
-    if (options?.onlyActive) {
-      query = query.eq('is_active', true);
-    }
-
-    const { data, error } = await query.limit(1).maybeSingle<PromoCardSettingsRow>();
-
-    if (error) {
-      console.error('프로모 카드 설정 조회 실패:', error);
-      throw error;
-    }
-
-    if (!data) {
-      return null;
-    }
-
-    return mapPromoCardFromDbRow(data);
-  } catch (error) {
-    // RLS 정책으로 인한 접근 불가 또는 테이블 없음 - 조용히 실패
+  if (collError || !collections || collections.length === 0) {
     return null;
   }
-}
 
-type PromoCardMutationMode = 'draft' | 'apply';
+  const collectionId = collections[0].id;
 
-async function mutatePromoCardSettings(
-  payload: PromoCardUpdateInput,
-  mode: PromoCardMutationMode,
-  options?: { userId?: string | null }
-): Promise<PromoCardSettings> {
-  const timestamp = new Date().toISOString();
-  const mapped: Record<string, unknown> = {
-    is_active: payload.isActive,
-    headline: payload.headline,
-    image_url: payload.imageUrl ?? null,
-    insert_position: payload.insertPosition,
-    background_color: payload.backgroundColor,
-    background_color_mode: payload.backgroundColorMode,
-    background_gradient_start: payload.backgroundGradientStart ?? null,
-    background_gradient_end: payload.backgroundGradientEnd ?? null,
-    font_color: payload.fontColor,
-    font_size: payload.fontSize,
-    badge_color: payload.badgeColor,
-    badge_color_mode: payload.badgeColorMode,
-    badge_gradient_start: payload.badgeGradientStart ?? null,
-    badge_gradient_end: payload.badgeGradientEnd ?? null,
-    image_scale: payload.imageScale,
-  };
-
-  if (payload.id) mapped.id = payload.id;
-  if (mode === 'draft') mapped.last_draft_at = timestamp;
-  if (mode === 'apply') mapped.last_applied_at = timestamp;
-  if (options?.userId !== undefined) mapped.updated_by = options.userId ?? null;
-
-  console.debug('[PromoCard] mutate request', {
-    mode,
-    mapped,
-    options,
-  });
-
-  const { data, error } = await supabase
-    .from('promo_card_settings')
-    .upsert(mapped, { onConflict: 'id' })
+  const { data: cards, error: cardError } = await supabase
+    .from('promo_cards')
     .select('*')
-    .single<PromoCardSettingsRow>();
+    .eq('collection_id', collectionId)
+    .order('order_index', { ascending: true })
+    .limit(1)
+    .returns<PromoCardRow[]>();
 
-  if (error) {
-    console.error('프로모 카드 설정 저장 실패:', {
-      error,
-      mode,
-      mapped,
-      options,
-    });
-    throw error;
+  if (cardError || !cards || cards.length === 0) {
+    return null;
   }
 
-  console.debug('[PromoCard] mutate success', {
-    mode,
-    response: data,
-  });
-
-  return mapPromoCardFromDbRow(data);
+  return mapPromoCardRow(cards[0], collectionId);
 }
 
+// 프로모 카드 임시저장
 export async function savePromoCardDraft(
   payload: PromoCardUpdateInput,
   options?: { userId?: string | null }
 ): Promise<PromoCardSettings> {
-  return mutatePromoCardSettings(payload, 'draft', options);
+  const timestamp = new Date().toISOString();
+  const userId = options?.userId ?? null;
+
+  // 컬렉션 생성 또는 업데이트
+  const { data: collectionRow, error: collectionError } = await supabase
+    .from('promo_card_collections')
+    .upsert(
+      {
+        id: payload.id,
+        name: payload.headline || '프로모 카드',
+        is_active: payload.isActive,
+        updated_at: timestamp
+      },
+      { onConflict: 'id' }
+    )
+    .select('id')
+    .single();
+
+  if (collectionError) {
+    throw collectionError;
+  }
+
+  const collectionId = collectionRow.id;
+
+  // 카드 upsert
+  const { data: cardRow, error: cardError } = await supabase
+    .from('promo_cards')
+    .upsert(
+      {
+        id: payload.cardId,
+        collection_id: collectionId,
+        order_index: 1,
+        insert_position: payload.insertPosition,
+        is_active: payload.isActive,
+        headline: payload.headline,
+        image_url: payload.imageUrl,
+        background_color: payload.backgroundColor,
+        background_color_mode: payload.backgroundColorMode,
+        background_gradient_start: payload.backgroundGradientStart,
+        background_gradient_end: payload.backgroundGradientEnd,
+        font_color: payload.fontColor,
+        font_size: payload.fontSize,
+        badge_color: payload.badgeColor,
+        badge_color_mode: payload.badgeColorMode,
+        badge_gradient_start: payload.badgeGradientStart,
+        badge_gradient_end: payload.badgeGradientEnd,
+        image_scale: payload.imageScale,
+        last_draft_at: timestamp,
+        updated_by: userId,
+        updated_at: timestamp
+      },
+      { onConflict: 'id' }
+    )
+    .select('*')
+    .single<PromoCardRow>();
+
+  if (cardError || !cardRow) {
+    throw cardError || new Error('카드 저장 실패');
+  }
+
+  return mapPromoCardRow(cardRow, collectionId);
 }
 
+// 프로모 카드 적용
 export async function applyPromoCardSettings(
   payload: PromoCardUpdateInput,
   options?: { userId?: string | null }
 ): Promise<PromoCardSettings> {
-  return mutatePromoCardSettings(payload, 'apply', options);
+  const timestamp = new Date().toISOString();
+  const userId = options?.userId ?? null;
+
+  // 컬렉션 생성 또는 업데이트
+  const { data: collectionRow, error: collectionError } = await supabase
+    .from('promo_card_collections')
+    .upsert(
+      {
+        id: payload.id,
+        name: payload.headline || '프로모 카드',
+        is_active: true,
+        updated_at: timestamp
+      },
+      { onConflict: 'id' }
+    )
+    .select('id')
+    .single();
+
+  if (collectionError) {
+    throw collectionError;
+  }
+
+  const collectionId = collectionRow.id;
+
+  // 다른 컬렉션 비활성화
+  await supabase
+    .from('promo_card_collections')
+    .update({ is_active: false, updated_at: timestamp })
+    .neq('id', collectionId);
+
+  // 카드 upsert
+  const { data: cardRow, error: cardError } = await supabase
+    .from('promo_cards')
+    .upsert(
+      {
+        id: payload.cardId,
+        collection_id: collectionId,
+        order_index: 1,
+        insert_position: payload.insertPosition,
+        is_active: payload.isActive,
+        headline: payload.headline,
+        image_url: payload.imageUrl,
+        background_color: payload.backgroundColor,
+        background_color_mode: payload.backgroundColorMode,
+        background_gradient_start: payload.backgroundGradientStart,
+        background_gradient_end: payload.backgroundGradientEnd,
+        font_color: payload.fontColor,
+        font_size: payload.fontSize,
+        badge_color: payload.badgeColor,
+        badge_color_mode: payload.badgeColorMode,
+        badge_gradient_start: payload.badgeGradientStart,
+        badge_gradient_end: payload.badgeGradientEnd,
+        image_scale: payload.imageScale,
+        last_applied_at: timestamp,
+        updated_by: userId,
+        updated_at: timestamp
+      },
+      { onConflict: 'id' }
+    )
+    .select('*')
+    .single<PromoCardRow>();
+
+  if (cardError || !cardRow) {
+    throw cardError || new Error('카드 적용 실패');
+  }
+
+  return mapPromoCardRow(cardRow, collectionId);
 }
 
 const DEFAULT_LIMIT = 20;
