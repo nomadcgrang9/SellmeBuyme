@@ -9,9 +9,22 @@ const pathname = window.location.pathname
 
 let rootComponent = <App />
 
-if (pathname.startsWith('/admin')) {
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 주의: 관리자 경로는 더 이상 클라이언트에서 체크하지 않음!
+// Cloudflare Functions에서 모든 체크 처리
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+// 로컬 개발 환경에서만 /admin 접근 허용
+if (import.meta.env.DEV && pathname.startsWith('/admin')) {
   rootComponent = <AdminPage />
-} else if (pathname.startsWith('/auth/callback')) {
+}
+// 프로덕션: Cloudflare Functions가 처리하므로 별도 체크 불필요
+// 단, AdminPage 컴포넌트는 번들에 포함되어야 함
+// 랜덤 경로 패턴 매칭 (예: /diekw-mx8k2pq9-console-secure-2025)
+else if (pathname.match(/^\/[a-z0-9\-]{20,}/i)) {
+  rootComponent = <AdminPage />
+}
+else if (pathname.startsWith('/auth/callback')) {
   rootComponent = <AuthCallback />
 }
 
