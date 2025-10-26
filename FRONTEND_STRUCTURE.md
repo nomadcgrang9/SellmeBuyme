@@ -703,11 +703,871 @@ const observer = new IntersectionObserver(
 
 ---
 
+## 5. 등록 폼 시스템 (Registration Forms)
+
+### 개요
+- **배경**: Phase 3 백엔드 계획에 따라 사용자가 공고/인력/체험을 직접 등록할 수 있는 폼 시스템 구축
+- **UX 컨셉**: 독립 모달이 아닌 **우측 확장 패널** 방식
+  - AI 추천 영역(코멘트 + 카드 + 프로모)을 우측으로 슬라이드 아웃하며 폼이 자연스럽게 확장
+  - 좌측 등록 버튼(3개)은 그대로 유지하여 폼 간 즉시 전환 가능
+  - 280px 고정 높이 내에서 모든 필드가 한눈에 보이도록 2-3단 컬럼 그리드 레이아웃
+
+### 명칭
+- **컴포넌트**: `<JobPostingForm />`, `<TalentRegistrationForm />`, `<ExperienceForm />`
+- **파일 위치**: `src/components/forms/`
+- **공통 레이아웃**: `<FormLayout />` (헤더, 푸터, 닫기 버튼 공통화)
+- **지역 선택**: `<RegionSelector />` (서울 25개 구 + 경기 31개 시/군)
+
+### 레이아웃 구조
+
+```
+┌────────────┬───────────────────────────────────────────────────────────────┐
+│  등록버튼  │  등록 폼 (280px 고정 높이, 우측 확장)                          │
+│  (140px)   │  ┌─────────────────┬─────────────────┬─────────────────┐    │
+│            │  │  좌측 컬럼       │  중앙 컬럼       │  우측 컬럼       │    │
+│  ┌────┐   │  │  (1/3)          │  (1/3)          │  (1/3)          │    │
+│  │공고│   │  │                 │                 │                 │    │
+│  │등록│◀──┼──│  기본 정보       │  모집 조건       │  연락처          │    │
+│  └────┘   │  │                 │                 │                 │    │
+│  [활성]   │  └─────────────────┴─────────────────┴─────────────────┘    │
+│            │                                                             │
+│  ┌────┐   │  슬라이드 인 애니메이션 (300ms, Framer Motion)              │
+│  │인력│   │  AI 코멘트 + 추천카드 + 프로모카드 영역을 덮음               │
+│  │등록│   │                                                             │
+│  └────┘   │                                                             │
+│            │                                                             │
+│  ┌────┐   │                                                             │
+│  │체험│   │                                                             │
+│  │등록│   │                                                             │
+│  └────┘   │                                                             │
+└────────────┴───────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### 5.1 공고 등록 폼 (JobPostingForm)
+
+#### 필드 구성 (3단 컬럼)
+
+**좌측 컬럼 - 기본 정보**
+```typescript
+- 학교/기관명 * (text input)
+- 공고 제목 * (text input)
+- 학교급 * (체크박스, 다중 선택)
+  □ 유치원  □ 초등  □ 중등  □ 고등  □ 특수
+  □ 교직원 및 학부모 등 성인대상 강의연수
+  □ 기타 (체크 시 직접 입력창 표시)
+- 과목 (중등 또는 성인대상 체크 시에만 표시)
+  예: "국어, 수학" 또는 "교권보호, 생활지도"
+```
+
+**중앙 컬럼 - 모집 조건**
+```typescript
+- 근무 지역 * (서울/경기 라디오 + 체크박스)
+  ○ 서울 [▼] → 25개 구 체크박스 확장
+  ○ 경기 [▼] → 31개 시/군 체크박스 확장
+- 급여/처우 (text input)
+  예: "월 250만원, 4대보험"
+- 모집기간 * (date range)
+  [시작일] ~ [종료일]
+  □ 상시 모집 체크박스
+- 근무기간 * (date range)
+  [시작일] ~ [종료일]
+  □ 협의 가능 체크박스
+```
+
+**우측 컬럼 - 추가 정보**
+```typescript
+- 상세 설명 (textarea, 최대 3줄)
+- 첨부파일 (file input)
+  PDF, DOC, HWP, 이미지 (최대 10MB)
+- 전화번호 * (text input)
+  예시: "031-XXXX-XXXX" (유선 우선, 010 입력 가능)
+- 이메일 * (email input)
+  예시: "example@school.kr"
+```
+
+#### 데이터 구조
+
+```typescript
+interface JobPostingFormData {
+  // 기본 정보
+  organization: string;
+  title: string;
+  schoolLevel: {
+    kindergarten: boolean;
+    elementary: boolean;
+    secondary: boolean;      // → 과목 입력 트리거
+    high: boolean;
+    special: boolean;
+    adultTraining: boolean;  // → 과목 입력 트리거
+    other?: string;          // 직접 입력
+  };
+  subject?: string;          // 조건부 표시
+
+  // 모집 조건
+  location: {
+    seoul?: string[];        // 구 배열
+    gyeonggi?: string[];     // 시/군 배열
+  };
+  compensation?: string;
+  recruitmentStart: string;
+  recruitmentEnd: string;
+  isOngoing: boolean;
+  workStart: string;
+  workEnd: string;
+  isNegotiable: boolean;
+
+  // 추가 정보
+  description?: string;
+  attachments?: File[];
+  phone: string;
+  email: string;
+}
+```
+
+---
+
+### 5.2 인력 등록 폼 (TalentRegistrationForm)
+
+#### 필드 구성 (3단 컬럼)
+
+**좌측 컬럼 - 프로필 정보**
+```typescript
+- 이름 * (text input)
+- 전문 분야 * (체크박스, 중복 선택)
+  □ 기간제교사 [▼]
+    └ □ 유치원  □ 초등  □ 중등 [▼]  □ 특수
+       └ 중등 과목 직접 입력: _____________
+          [국어] [수학] [영어] (입력된 과목 태그로 표시)
+  □ 진로교육
+  □ 상담교육
+  □ 방과후 강사
+  □ 늘봄 강사
+  □ 협력강사
+  □ 교원, 직원 및 학부모 대상 연수강의 [ⓘ]
+    (툴팁: "교권보호, 생활지도, 에듀테크 등 성인대상 연수를 뜻합니다")
+  □ 기타 (체크 시 직접 입력창 표시)
+- 경력 * (라디오 버튼)
+  ○ 신규  ○ 1~3년  ○ 3~5년  ○ 5년 이상
+```
+
+**중앙 컬럼 - 활동 선호 조건**
+```typescript
+- 희망 지역 * (서울/경기 라디오 + 체크박스)
+  ○ 서울 [▼] → 25개 구
+  ○ 경기 [▼] → 31개 시/군
+- 자격/면허 (text input)
+  예: "중등교사 2급 정교사 (영어)"
+```
+
+**우측 컬럼 - 자기소개 & 연락처**
+```typescript
+- 자기소개 (textarea, 최대 3줄)
+  "전문성, 경력, 교육 철학 등"
+- 포트폴리오/이력서 (file input)
+- 전화번호 * (text input)
+  예시: "010-XXXX-XXXX"
+  하단 안내: "휴대전화 번호는 일반에 공개되지 않으며 로그인 및
+            인증과정을 거친 학교 사용자들을 대상으로만 공개됩니다."
+- 이메일 * (email input)
+```
+
+---
+
+### 5.3 체험 등록 폼 (ExperienceForm)
+
+#### 필드 구성 (3단 컬럼)
+
+**좌측 컬럼 - 기본 정보**
+```typescript
+- 프로그램명 * (text input)
+- 제공 기관/단체 * (text input)
+- 프로그램 유형 * (라디오 + 직접입력)
+  ○ 정규교육과정 연계 협력수업
+  ○ 방과후
+  ○ 늘봄
+  ○ 기타 → 입력창 표시, 태그로 표현
+- 대상 학교급 * (체크박스)
+  □ 유치원  □ 초등  □ 중등  □ 고등
+  □ 교직원 및 학부모 등 성인대상
+- 주제/분야 * (드롭다운, 20개 옵션)
+  코딩/프로그래밍, AI, 로봇공학, 3D프린팅/메이커, 드론,
+  VR/AR/메타버스, 악기연주, 미술/공예, 연극/뮤지컬,
+  영상제작/방송, 독서/글쓰기, 토론/발표, 과학실험,
+  환경/생태, 경제/금융, 창업/기업가정신, 진로탐색,
+  인성/리더십, 안전교육, 다문화/세계시민
+```
+
+**중앙 컬럼 - 운영 정보**
+```typescript
+- 운영 방식 * (라디오)
+  ○ 찾아가는 수업 (학교 방문)
+  ○ 센터/시설 방문
+  ○ 온라인
+- 가능 지역 * (서울/경기 라디오 + 체크박스)
+- 프로그램 기간 (date range)
+  [시작일] ~ [종료일]
+  □ 연중 상시 운영
+- 참가 비용 * (라디오 + 숫자)
+  ○ 무료
+  ○ 유료 [_______] 원
+```
+
+**우측 컬럼 - 상세 & 연락처**
+```typescript
+- 프로그램 소개 * (textarea, 2줄)
+- 프로그램 자료 (file input)
+- 전화번호 * (text input)
+  예시: "010-XXXX-XXXX"
+  하단 안내: "휴대전화 번호는 일반에 공개되지 않으며..."
+- 이메일 * (email input)
+- 신청 URL (url input)
+  하단 안내: "구글설문 등을 넣어주시면 기관과 업체
+            자체적으로 상시 모집하실 수 있습니다"
+```
+
+---
+
+### 5.4 공통 컴포넌트
+
+#### RegionSelector.tsx
+
+```typescript
+// 서울 25개 구
+const SEOUL_DISTRICTS = [
+  '강남구', '강동구', '강북구', '강서구', '관악구',
+  '광진구', '구로구', '금천구', '노원구', '도봉구',
+  '동대문구', '동작구', '마포구', '서대문구', '서초구',
+  '성동구', '성북구', '송파구', '양천구', '영등포구',
+  '용산구', '은평구', '종로구', '중구', '중랑구'
+];
+
+// 경기 31개 시/군
+const GYEONGGI_CITIES = [
+  '가평군', '고양시', '과천시', '광명시', '광주시',
+  '구리시', '군포시', '김포시', '남양주시', '동두천시',
+  '부천시', '성남시', '수원시', '시흥시', '안산시',
+  '안성시', '안양시', '양주시', '양평군', '여주시',
+  '연천군', '오산시', '용인시', '의왕시', '의정부시',
+  '이천시', '파주시', '평택시', '포천시', '하남시',
+  '화성시'
+];
+```
+
+---
+
+### 5.5 AIRecommendations.tsx 수정사항
+
+```typescript
+// 조건부 렌더링으로 AI 추천 ↔ 등록 폼 전환
+<AnimatePresence mode="wait">
+  {activeSection === null ? (
+    // 기본 상태: AI 추천
+    <motion.div key="recommendations" ...>
+      <div>AI 코멘트 + 카드</div>
+      <aside>프로모카드</aside>
+    </motion.div>
+  ) : (
+    // 폼 상태: 슬라이드 인
+    <motion.div key={`form-${activeSection}`} ...>
+      {activeSection === 'job' && <JobPostingForm onClose={...} />}
+      {activeSection === 'talent' && <TalentRegistrationForm onClose={...} />}
+      {activeSection === 'experience' && <ExperienceForm onClose={...} />}
+    </motion.div>
+  )}
+</AnimatePresence>
+```
+
+---
+
+### 5.6 파일 구조
+
+```
+src/
+├── components/
+│   ├── forms/
+│   │   ├── JobPostingForm.tsx
+│   │   ├── TalentRegistrationForm.tsx
+│   │   ├── ExperienceForm.tsx
+│   │   ├── FormLayout.tsx
+│   │   └── RegionSelector.tsx
+│   └── ai/
+│       └── AIRecommendations.tsx    # 수정 필요
+├── lib/
+│   └── validation/
+│       └── formSchemas.ts           # Zod 스키마
+└── types/
+    └── forms.ts                     # 폼 타입 정의
+```
+
+---
+
+### 5.7 구현 우선순위
+
+**Phase 1: 공통 컴포넌트 (1일)**
+- RegionSelector.tsx 구현
+- FormLayout.tsx 구현
+- Zod 스키마 작성
+
+**Phase 2: 공고 등록 폼 (2일)**
+- JobPostingForm.tsx UI 구현
+- AIRecommendations.tsx 조건부 렌더링
+- React Hook Form 통합
+
+**Phase 3: 인력 등록 폼 (2일)**
+- TalentRegistrationForm.tsx 구현
+- 중첩 체크박스 로직
+
+**Phase 4: 체험 등록 폼 (1.5일)**
+- ExperienceForm.tsx 구현
+- 드롭다운 주제 선택기
+
+**Phase 5: 통합 (0.5일)**
+- 인증 체크 및 통합 테스트
+
+**총 예상 기간: 7일**
+
+---
+
+### 5.8 공고 등록 폼 구현 가이드 (실제 구현 기준)
+
+> **중요**: 이 섹션은 실제 대화를 통해 확립된 디자인 패턴과 사용자 선호도를 반영합니다.
+> 인력 등록, 체험 등록 폼 구현 시 동일한 패턴을 따라야 합니다.
+
+#### 핵심 UX/UI 원칙
+
+**1. X버튼 없음**
+- 폼 우측 상단에 X 버튼을 두지 않음
+- 닫기 방법:
+  - 좌측 등록 버튼 재클릭 (토글)
+  - 폼 내부 "취소" 버튼 클릭
+- 이유: 공간 절약 + 심플한 디자인
+
+**2. 드롭다운 패턴 (Dropdown Pattern)**
+- 여러 옵션 중 선택하는 필드는 드롭다운으로 구현
+- 적용 대상: 학교급, 근무지역
+- 특징:
+  - 단일 버튼으로 토글 (위/아래 화살표 아이콘)
+  - 선택된 항목 개수 표시 (예: "서울(3)", "유치원 외 2개")
+  - 드롭다운 패널 내부에 "선택 완료" 버튼
+  - 드롭다운 닫기: 선택 완료 버튼 클릭 또는 바깥 영역 클릭
+
+**3. 280px 고정 높이 + 스크롤 없음**
+- FormLayout: `h-[280px]` 고정
+- 모든 필드가 한눈에 보여야 함
+- 스크롤이 생기면 레이아웃 재조정 필요
+- 해결 방법: 3단 컬럼 그리드 + 폰트 크기 최적화
+
+**4. 3단 컬럼 그리드 레이아웃**
+```typescript
+<div className="grid grid-cols-3 gap-x-2 gap-y-1">
+  <div className="space-y-1">{/* 좌측 컬럼 */}</div>
+  <div className="space-y-1">{/* 중앙 컬럼 */}</div>
+  <div className="space-y-1">{/* 우측 컬럼 */}</div>
+</div>
+```
+- `gap-x-2`: 컬럼 간 수평 간격
+- `gap-y-1`: 필드 간 수직 간격
+- `space-y-1`: 컬럼 내부 필드 간격
+
+**5. 심플한 디자인**
+- 불필요한 테두리, 그림자 최소화
+- 헤더 제거 (폼 제목 없음)
+- 푸터 제거 (버튼을 폼 내부로 통합)
+
+---
+
+#### 폰트 크기 통일 기준
+
+**모든 등록 폼에서 동일하게 적용**:
+
+```css
+/* 라벨 (필드명) */
+.label {
+  font-size: 12px;        /* text-[12px] */
+  font-weight: 600;       /* font-semibold */
+  color: #374151;         /* text-gray-700 */
+}
+
+/* 입력 필드 (input, textarea, select) */
+.input {
+  font-size: 12px;        /* text-[12px] */
+  height: 28px;           /* h-7 */
+  padding: 0 8px;         /* px-2 */
+}
+
+/* 보조 텍스트 (체크박스 라벨, date 구분자 ~) */
+.helper-text {
+  font-size: 11px;        /* text-[11px] */
+  color: #6b7280;         /* text-gray-500 */
+}
+
+/* 에러 메시지 */
+.error {
+  font-size: 11px;        /* text-[11px] */
+  color: #dc2626;         /* text-red-600 */
+}
+
+/* 플레이스홀더 및 설명 */
+.description {
+  font-size: 10px;        /* text-[10px] */
+  color: #9ca3af;         /* text-gray-400 */
+}
+
+/* 체크박스 크기 */
+.checkbox {
+  width: 12px;            /* w-3 */
+  height: 12px;           /* h-3 */
+}
+
+/* 드롭다운 내부 체크박스 */
+.dropdown-checkbox {
+  width: 14px;            /* w-3.5 */
+  height: 14px;           /* h-3.5 */
+}
+```
+
+---
+
+#### 드롭다운 컴포넌트 패턴
+
+**SchoolLevelSelector (학교급 선택기)**:
+
+```typescript
+// 구조
+<div className="space-y-0.5 relative">
+  <label className="text-[12px] font-semibold text-gray-700">학교급 *</label>
+
+  {/* 드롭다운 버튼 */}
+  <button className="w-full h-7 px-2 text-[12px] border rounded">
+    <span>{getDisplayText()}</span>  {/* "학교급 선택" 또는 "유치원 외 2개" */}
+    <IconChevronDown size={14} />
+  </button>
+
+  {/* 드롭다운 패널 */}
+  {isOpen && (
+    <div className="absolute top-full left-0 right-0 mt-0.5 bg-white border rounded-lg shadow-lg z-20 p-2">
+      {/* 체크박스 리스트 */}
+      {SCHOOL_LEVELS.map(level => (
+        <label className="flex items-center gap-1.5 hover:bg-gray-50 p-1 rounded cursor-pointer">
+          <input type="checkbox" className="w-3.5 h-3.5" />
+          <span className="text-[12px]">{level.label}</span>
+        </label>
+      ))}
+
+      {/* 기타 직접 입력 */}
+      <div className="pt-1 border-t">
+        <label>
+          <input type="checkbox" className="w-3.5 h-3.5" />
+          <span className="text-[12px]">기타</span>
+          {showOtherInput && (
+            <input type="text" placeholder="직접 입력" className="w-full h-6 px-1.5 text-[11px]" />
+          )}
+        </label>
+      </div>
+
+      {/* 선택 완료 버튼 */}
+      <button className="w-full mt-2 h-7 bg-gradient-to-r from-[#7aa3cc] to-[#68B2FF] text-white text-[12px] rounded">
+        선택 완료
+      </button>
+    </div>
+  )}
+</div>
+```
+
+**RegionSelector (근무지역 선택기)**:
+
+```typescript
+// 구조
+<div className="space-y-0.5 relative">
+  <label className="text-[12px] font-semibold text-gray-700">근무 지역 *</label>
+
+  {/* 드롭다운 버튼 */}
+  <button className="w-full h-7 px-2 text-[12px] border rounded">
+    <span>{getDisplayText()}</span>  {/* "지역 선택" 또는 "서울(3), 경기(5)" */}
+    <IconChevronDown size={14} />
+  </button>
+
+  {/* 드롭다운 패널 */}
+  {isOpen && (
+    <div className="absolute top-full left-0 right-0 mt-0.5 bg-white border rounded-lg shadow-lg z-20 p-2">
+      {/* 서울/경기 라디오 선택 */}
+      <div className="flex gap-2 mb-2 pb-2 border-b">
+        <label>
+          <input type="radio" name="region" value="seoul" className="w-3.5 h-3.5" />
+          <span className="text-[12px]">서울 {seoulCount > 0 && `(${seoulCount})`}</span>
+        </label>
+        <label>
+          <input type="radio" name="region" value="gyeonggi" className="w-3.5 h-3.5" />
+          <span className="text-[12px]">경기 {gyeonggiCount > 0 && `(${gyeonggiCount})`}</span>
+        </label>
+      </div>
+
+      {/* 선택된 지역의 구/시 체크박스 (3열 그리드) */}
+      {selectedRegion === 'seoul' && (
+        <div className="grid grid-cols-3 gap-1 max-h-36 overflow-y-auto">
+          {SEOUL_DISTRICTS.map(district => (
+            <label className="flex items-center gap-1 cursor-pointer hover:bg-gray-50 px-1 py-0.5 rounded">
+              <input type="checkbox" className="w-3 h-3" />
+              <span className="text-[11px]">{district}</span>
+            </label>
+          ))}
+        </div>
+      )}
+
+      {/* 선택 완료 버튼 */}
+      <button className="w-full mt-2 pt-2 border-t text-[11px] text-blue-600">
+        선택 완료
+      </button>
+    </div>
+  )}
+</div>
+```
+
+---
+
+#### 파일 업로드 UI 패턴
+
+**FileUploadField (공고문 첨부)**:
+
+```typescript
+<div className="space-y-0.5">
+  <label className="text-[12px] font-semibold text-gray-700">
+    공고문 첨부 <span className="text-gray-400 font-normal">(선택)</span>
+  </label>
+
+  {/* 파일 선택 전 */}
+  {!file ? (
+    <div className="relative border-2 border-dashed border-gray-300 rounded-lg hover:border-gray-400">
+      <input type="file" accept=".pdf,.doc,.docx,.hwp" className="absolute inset-0 opacity-0 cursor-pointer" />
+      <div className="flex flex-col items-center justify-center py-2.5 px-2">
+        <IconUpload size={18} className="text-gray-400 mb-1" />
+        <p className="text-[11px] text-gray-600 text-center">
+          파일을 드래그하거나 클릭하여 업로드
+        </p>
+        <p className="text-[10px] text-gray-400 mt-0.5">
+          .pdf, .doc, .docx, .hwp (최대 10MB)
+        </p>
+      </div>
+    </div>
+  ) : (
+    /* 파일 선택 후 */
+    <div className="flex items-center gap-2 p-2 bg-gray-50 border border-gray-300 rounded-lg">
+      <IconFile size={16} className="text-blue-500 shrink-0" />
+      <div className="flex-1 min-w-0">
+        <p className="text-[11px] text-gray-900 truncate">{file.name}</p>
+        <p className="text-[10px] text-gray-500">{formatFileSize(file.size)}</p>
+      </div>
+      <button type="button" onClick={removeFile} className="shrink-0 p-0.5 hover:bg-gray-200 rounded">
+        <IconX size={14} className="text-gray-500" />
+      </button>
+    </div>
+  )}
+</div>
+```
+
+---
+
+#### 버튼 위치 및 스타일
+
+**취소/등록 버튼을 폼 내부에 배치**:
+
+```typescript
+{/* 우측 컬럼 하단에 버튼 배치 */}
+<div className="space-y-1">
+  {/* 과목 (조건부) */}
+  {shouldShowSubject && <div>...</div>}
+
+  {/* 전화번호 */}
+  <div>...</div>
+
+  {/* 이메일 */}
+  <div>...</div>
+
+  {/* 공고문 첨부 */}
+  <FileUploadField />
+
+  {/* 취소/등록 버튼 */}
+  <div className="flex items-center justify-end gap-1.5 pt-1">
+    <button
+      type="button"
+      onClick={onClose}
+      className="px-3 py-1.5 text-[12px] font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50"
+    >
+      취소
+    </button>
+    <button
+      type="submit"
+      disabled={isSubmitting}
+      className="px-3 py-1.5 text-[12px] font-medium text-white bg-gradient-to-r from-[#7aa3cc] to-[#68B2FF] rounded hover:from-[#6a93bc] hover:to-[#58A2EF] disabled:opacity-50"
+    >
+      {isSubmitting ? '등록 중...' : '등록하기'}
+    </button>
+  </div>
+</div>
+```
+
+**버튼 스타일 가이드**:
+- 취소 버튼: 흰색 배경 + 회색 테두리
+- 등록 버튼: 블루 그라데이션 (공고 테마색)
+- 등록 중 상태: `disabled:opacity-50` + 텍스트 변경
+- 버튼 크기: `px-3 py-1.5 text-[12px]`
+
+---
+
+#### 공고 등록 폼 최종 레이아웃
+
+**3단 컬럼 구조 (실제 구현 기준)**:
+
+```typescript
+<div className="grid grid-cols-3 gap-x-2 gap-y-1">
+  {/* 좌측 컬럼: 기본 정보 */}
+  <div className="space-y-1">
+    - 학교/기관명 * (text input)
+    - 공고 제목 * (text input)
+    - 학교급 * (SchoolLevelSelector 드롭다운)
+    - 근무 지역 * (RegionSelector 드롭다운)
+  </div>
+
+  {/* 중앙 컬럼: 모집/근무 조건 */}
+  <div className="space-y-1">
+    - 모집기간 * (date range, 상시 모집 체크박스)
+    - 근무기간 * (date range, 협의 가능 체크박스)
+    - 급여/처우 (text input)
+    - 상세 설명 (textarea, 2줄)
+  </div>
+
+  {/* 우측 컬럼: 과목, 연락처, 첨부, 버튼 */}
+  <div className="space-y-1">
+    - 과목 (조건부, 중등/성인대상 선택 시만 표시)
+    - 전화번호 * (text input, "예: 031-XXXX-XXXX")
+    - 이메일 * (email input)
+    - 공고문 첨부 (FileUploadField, 선택)
+    - 취소/등록하기 버튼 (flex justify-end)
+  </div>
+</div>
+```
+
+**필드별 높이 조정**:
+- Text input: `h-7`
+- Date input: `h-7`
+- Textarea (상세 설명): `rows={2}` 고정
+- 드롭다운 버튼: `h-7`
+
+**간격 조정**:
+- 컬럼 간 수평 간격: `gap-x-2`
+- 필드 간 수직 간격: `gap-y-1`
+- 컬럼 내부 필드 간격: `space-y-1`
+
+---
+
+#### 조건부 렌더링 로직
+
+**과목 필드 표시 조건**:
+
+```typescript
+const schoolLevel = watch('schoolLevel');
+
+// 중등 또는 성인대상 강의연수 체크 시 과목 필드 표시
+const shouldShowSubject = schoolLevel.secondary || schoolLevel.adultTraining;
+
+{shouldShowSubject && (
+  <div>
+    <label className="text-[12px] font-semibold text-gray-700">
+      과목 <span className="text-red-500">*</span>
+    </label>
+    <input
+      {...register('subject')}
+      placeholder="예: 국어, 수학, 영어"
+      className="w-full h-7 px-2 text-[12px] border rounded"
+    />
+    {errors.subject && (
+      <p className="text-[11px] text-red-600 mt-0.5">{errors.subject.message}</p>
+    )}
+  </div>
+)}
+```
+
+**Zod 스키마에서 조건부 필수 검증**:
+
+```typescript
+export const jobPostingSchema = z.object({
+  // ... other fields
+  subject: z.string().optional(),
+}).refine(
+  (data) => {
+    // 중등 또는 성인대상 체크 시 과목 필수
+    if (data.schoolLevel.secondary || data.schoolLevel.adultTraining) {
+      return data.subject && data.subject.length > 0;
+    }
+    return true;
+  },
+  {
+    message: '중등 또는 성인대상 강의연수 선택 시 과목을 입력해주세요',
+    path: ['subject']
+  }
+);
+```
+
+---
+
+#### 인력 등록, 체험 등록 폼 구현 시 주의사항
+
+**동일하게 적용해야 할 패턴**:
+
+1. ✅ 280px 고정 높이, 스크롤 없음
+2. ✅ 3단 컬럼 그리드 레이아웃
+3. ✅ 폰트 크기 통일 (라벨 12px, 입력 12px, 보조 11px)
+4. ✅ X버튼 없음 (취소 버튼으로 닫기)
+5. ✅ 드롭다운 패턴 사용 (여러 옵션 선택)
+6. ✅ 파일 업로드 UI (드래그 앤 드롭)
+7. ✅ 버튼을 폼 내부에 배치 (우측 컬럼 하단)
+8. ✅ 심플한 디자인 (불필요한 장식 최소화)
+
+**인력 등록 폼 특이사항**:
+- 전문 분야: 중첩 체크박스 (기간제교사 → 학교급 → 과목)
+- 드롭다운 또는 아코디언 패턴 권장
+
+**체험 등록 폼 특이사항**:
+- 주제/분야: 20개 옵션 드롭다운 (단일 선택)
+- 운영 방식: 라디오 버튼
+
+---
+
+#### FormLayout 컴포넌트 (공통 래퍼)
+
+**최종 구조 (헤더/푸터 제거)**:
+
+```typescript
+interface FormLayoutProps {
+  title: string;            // 사용하지 않음 (호환성 유지)
+  onClose: () => void;      // 사용하지 않음 (버튼 내부에서 직접 처리)
+  onSubmit: (e: React.FormEvent) => void;
+  children: React.ReactNode;
+  submitText?: string;      // 사용하지 않음
+  isSubmitting?: boolean;   // 사용하지 않음
+}
+
+export default function FormLayout({ onSubmit, children }: FormLayoutProps) {
+  return (
+    <div className="h-[280px] bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
+      <form onSubmit={onSubmit} className="h-full overflow-y-auto p-2">
+        {children}
+      </form>
+    </div>
+  );
+}
+```
+
+**사용 예시**:
+
+```typescript
+<FormLayout onSubmit={handleSubmit(handleFormSubmit)}>
+  <div className="grid grid-cols-3 gap-x-2 gap-y-1">
+    {/* 좌측/중앙/우측 컬럼 */}
+  </div>
+</FormLayout>
+```
+
+---
+
+#### React Hook Form + Zod 통합 패턴
+
+```typescript
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { jobPostingSchema, type JobPostingFormData } from '@/lib/validation/formSchemas';
+
+export default function JobPostingForm({ onClose }: { onClose: () => void }) {
+  const {
+    register,
+    handleSubmit,
+    watch,
+    setValue,
+    formState: { errors }
+  } = useForm<JobPostingFormData>({
+    resolver: zodResolver(jobPostingSchema),
+    defaultValues: {
+      organization: '',
+      title: '',
+      schoolLevel: {
+        kindergarten: false,
+        elementary: false,
+        secondary: false,
+        high: false,
+        special: false,
+        adultTraining: false,
+        other: ''
+      },
+      location: {
+        seoul: [],
+        gyeonggi: []
+      },
+      // ... other defaults
+    }
+  });
+
+  const handleFormSubmit = async (data: JobPostingFormData) => {
+    console.log('폼 데이터:', data);
+    // TODO: API 호출
+    onClose();
+  };
+
+  return (
+    <FormLayout onSubmit={handleSubmit(handleFormSubmit)}>
+      {/* 폼 필드 */}
+    </FormLayout>
+  );
+}
+```
+
+---
+
+#### 파일 구조 (최종)
+
+```
+src/
+├── components/
+│   └── forms/
+│       ├── JobPostingForm.tsx              # 공고 등록 폼 (완성)
+│       ├── TalentRegistrationForm.tsx      # 인력 등록 폼 (예정)
+│       ├── ExperienceForm.tsx              # 체험 등록 폼 (예정)
+│       ├── FormLayout.tsx                  # 공통 래퍼
+│       ├── SchoolLevelSelector.tsx         # 학교급 드롭다운
+│       ├── RegionSelector.tsx              # 근무지역 드롭다운
+│       └── FileUploadField.tsx             # 파일 업로드
+├── lib/
+│   └── validation/
+│       └── formSchemas.ts                  # Zod 스키마
+└── types/
+    └── forms.ts                            # TypeScript 타입
+```
+
+---
+
+### 5.9 다음 구현 단계 (인력 등록 폼)
+
+**인력 등록 폼에서 동일하게 적용**:
+- 280px 고정 높이 + 3단 컬럼
+- 폰트 크기 통일 (라벨 12px, 입력 12px)
+- 드롭다운 패턴 (전문 분야, 희망 지역)
+- X버튼 없음, 버튼 내부 배치
+- 파일 업로드 UI (포트폴리오/이력서)
+
+**추가 고려사항**:
+- 전문 분야: 중첩 체크박스 UI 패턴 필요
+  - 기간제교사 체크 → 학교급 체크박스 확장 → 중등 체크 → 과목 입력
+  - 아코디언 또는 2단계 드롭다운 권장
+
+---
+
 ## 다음 단계
 
 1. ✅ UI 구조 설계 완료
-2. ⏳ 컴포넌트 상세 설계
-3. ⏳ API 스펙 정의
-4. ⏳ 프로젝트 스캐폴딩
-5. ⏳ 크롤러 개발
-6. ⏳ AI 검색 엔진 구축
+2. ✅ 등록 폼 시스템 설계 완료 (Phase 3 대응)
+3. ✅ 공고 등록 폼 구현 완료 (실제 디자인 패턴 확립)
+4. ⏳ 인력 등록 폼 구현 (공고 폼 패턴 적용)
+5. ⏳ 체험 등록 폼 구현
+6. ⏳ 백엔드 API 연동
+7. ⏳ Supabase Storage 파일 업로드 구현

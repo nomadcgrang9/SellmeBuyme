@@ -16,6 +16,7 @@ import type {
   SortOptionValue,
   StructuredJobContent,
   TalentCard,
+  ColorMode,
   PromoCardSettings,
   PromoCardUpdateInput,
   UpdateCrawlBoardInput,
@@ -47,9 +48,15 @@ type PromoCardSettingsRow = {
   created_at: string;
   updated_at: string;
   background_color: string;
+  background_color_mode: string | null;
+  background_gradient_start: string | null;
+  background_gradient_end: string | null;
   font_color: string;
   font_size: number;
   badge_color: string;
+  badge_color_mode: string | null;
+  badge_gradient_start: string | null;
+  badge_gradient_end: string | null;
   image_scale: number | null;
 };
 
@@ -59,9 +66,15 @@ function mapPromoCardFromDbRow(row: PromoCardSettingsRow): PromoCardSettings {
     isActive: row.is_active,
     headline: row.headline,
     backgroundColor: row.background_color ?? '#ffffff',
+    backgroundColorMode: (row.background_color_mode as ColorMode | null) ?? 'single',
+    backgroundGradientStart: row.background_gradient_start,
+    backgroundGradientEnd: row.background_gradient_end,
     fontColor: row.font_color ?? '#1f2937',
     fontSize: row.font_size ?? 28,
     badgeColor: row.badge_color ?? '#dbeafe',
+    badgeColorMode: (row.badge_color_mode as ColorMode | null) ?? 'single',
+    badgeGradientStart: row.badge_gradient_start,
+    badgeGradientEnd: row.badge_gradient_end,
     imageScale: typeof row.image_scale === 'number' ? row.image_scale : 1,
     imageUrl: row.image_url ?? null,
     insertPosition: row.insert_position,
@@ -452,9 +465,15 @@ async function mutatePromoCardSettings(
     image_url: payload.imageUrl ?? null,
     insert_position: payload.insertPosition,
     background_color: payload.backgroundColor,
+    background_color_mode: payload.backgroundColorMode,
+    background_gradient_start: payload.backgroundGradientStart ?? null,
+    background_gradient_end: payload.backgroundGradientEnd ?? null,
     font_color: payload.fontColor,
     font_size: payload.fontSize,
     badge_color: payload.badgeColor,
+    badge_color_mode: payload.badgeColorMode,
+    badge_gradient_start: payload.badgeGradientStart ?? null,
+    badge_gradient_end: payload.badgeGradientEnd ?? null,
     image_scale: payload.imageScale,
   };
 
@@ -924,6 +943,75 @@ function flattenTokenGroups(groups: TokenGroup[]): string[] {
   return flattened;
 }
 
+// 토큰 타입 정의
+const TOKEN_TYPES = {
+  location: [
+    '수원', '성남', '고양', '화성', '용인', '부천', '안산', '남양주', '평택', '의정부',
+    '안양', '군포', '의왕', '오산', '광주', '이천', '여주', '양평', '김포', '시흥',
+    '하남', '구리', '과천', '광명', '양주', '포천', '인천', '서울', '경기',
+    '춘천', '원주', '홍천', '청주', '세종', '대전', '논산', '천안', '아산'
+  ],
+  schoolLevel: ['초등', '중등', '고등', '유치원', '특수', '초등학교', '중학교', '고등학교', '특수학교', '유아'],
+  subject: [
+    '수학', '영어', '과학', '체육', '음악', '미술', '국어', '사회', '역사',
+    '일본', '일본어', '중국', '중국어', '영어교육', '수학교육', '과학교육',
+    '체육교육', '음악교육', '미술교육', '영어과', '수학과', '과학과', '체육과',
+    '음악과', '미술과', '영어회화', '일본인', '중국인'
+  ],
+  role: ['교사', '강사', '자원봉사', '교원', '교육자', '교강사', '외부강사', '자원봉사자', '자원봉사활동'],
+};
+
+type ClassifiedTokens = {
+  location: TokenGroup[];
+  schoolLevel: TokenGroup[];
+  subject: TokenGroup[];
+  role: TokenGroup[];
+  other: TokenGroup[];
+};
+
+// 토큰 그룹을 타입별로 분류
+function classifyTokenGroups(tokenGroups: TokenGroup[]): ClassifiedTokens {
+  const classified: ClassifiedTokens = {
+    location: [],
+    schoolLevel: [],
+    subject: [],
+    role: [],
+    other: []
+  };
+
+  for (const group of tokenGroups) {
+    const firstToken = group[0].toLowerCase();
+    let matched = false;
+
+    // 지역 체크
+    if (TOKEN_TYPES.location.some(k => firstToken.includes(k.toLowerCase()) || k.toLowerCase().includes(firstToken))) {
+      classified.location.push(group);
+      matched = true;
+    }
+    // 학교급 체크
+    else if (TOKEN_TYPES.schoolLevel.some(k => firstToken.includes(k.toLowerCase()) || k.toLowerCase().includes(firstToken))) {
+      classified.schoolLevel.push(group);
+      matched = true;
+    }
+    // 과목 체크
+    else if (TOKEN_TYPES.subject.some(k => firstToken.includes(k.toLowerCase()) || k.toLowerCase().includes(firstToken))) {
+      classified.subject.push(group);
+      matched = true;
+    }
+    // 역할 체크
+    else if (TOKEN_TYPES.role.some(k => firstToken.includes(k.toLowerCase()) || k.toLowerCase().includes(firstToken))) {
+      classified.role.push(group);
+      matched = true;
+    }
+
+    if (!matched) {
+      classified.other.push(group);
+    }
+  }
+
+  return classified;
+}
+
 function normalizeToken(token: string): string {
   return token.replace(/[&|!:*<>()"\[\]]+/g, '').trim();
 }
@@ -953,6 +1041,9 @@ function filterJobsByTokenGroups(jobs: any[], tokenGroups: TokenGroup[]): any[] 
     return jobs;
   }
 
+  // 토큰을 타입별로 분류
+  const classified = classifyTokenGroups(tokenGroups);
+
   return jobs.filter((job) => {
     const title = (job?.title ?? '').toLowerCase();
     const organization = (job?.organization ?? '').toLowerCase();
@@ -963,15 +1054,52 @@ function filterJobsByTokenGroups(jobs: any[], tokenGroups: TokenGroup[]): any[] 
 
     const fields = [title, organization, location, ...tags];
 
-    // Phase 1: AND → OR 검색으로 변경
-    // "수원 성남" → 수원 공고 OR 성남 공고 (모두 표시)
-    return tokenGroups.some((group) => {
-      return group.some((token) => {
-        const normalized = token.toLowerCase();
-        if (!normalized) return false;
-        return fields.some((field) => field.includes(normalized));
-      });
-    });
+    // 각 타입별로 매칭 검사 (같은 타입끼리는 OR, 다른 타입끼리는 AND)
+
+    // 지역: 여러 지역 중 하나라도 매칭 (OR)
+    const locationMatch = classified.location.length === 0 ||
+      classified.location.some(group =>
+        group.some(token =>
+          fields.some(field => field.includes(token.toLowerCase()))
+        )
+      );
+
+    // 학교급: 여러 학교급 중 하나라도 매칭 (OR)
+    const schoolLevelMatch = classified.schoolLevel.length === 0 ||
+      classified.schoolLevel.some(group =>
+        group.some(token =>
+          fields.some(field => field.includes(token.toLowerCase()))
+        )
+      );
+
+    // 과목: 여러 과목 중 하나라도 매칭 (OR)
+    const subjectMatch = classified.subject.length === 0 ||
+      classified.subject.some(group =>
+        group.some(token =>
+          fields.some(field => field.includes(token.toLowerCase()))
+        )
+      );
+
+    // 역할: 여러 역할 중 하나라도 매칭 (OR)
+    const roleMatch = classified.role.length === 0 ||
+      classified.role.some(group =>
+        group.some(token =>
+          fields.some(field => field.includes(token.toLowerCase()))
+        )
+      );
+
+    // 기타: 기타 토큰 중 하나라도 매칭 (OR)
+    const otherMatch = classified.other.length === 0 ||
+      classified.other.some(group =>
+        group.some(token =>
+          fields.some(field => field.includes(token.toLowerCase()))
+        )
+      );
+
+    // 모든 타입이 AND로 결합
+    // "수원 중등" = 지역(수원) AND 학교급(중등) → 수원의 중등만
+    // "수원 성남" = 지역(수원 OR 성남) → 수원 또는 성남
+    return locationMatch && schoolLevelMatch && subjectMatch && roleMatch && otherMatch;
   });
 }
 
@@ -979,6 +1107,9 @@ function filterTalentsByTokenGroups(talents: any[], tokenGroups: TokenGroup[]): 
   if (tokenGroups.length === 0) {
     return talents;
   }
+
+  // 토큰을 타입별로 분류
+  const classified = classifyTokenGroups(tokenGroups);
 
   return talents.filter((talent) => {
     const name = (talent?.name ?? '').toLowerCase();
@@ -992,15 +1123,52 @@ function filterTalentsByTokenGroups(talents: any[], tokenGroups: TokenGroup[]): 
 
     const fields = [name, specialty, ...locations, ...tags];
 
-    // Phase 1: AND → OR 검색으로 변경
-    // "수원 성남" → 수원 인력 OR 성남 인력 (모두 표시)
-    return tokenGroups.some((group) => {
-      return group.some((token) => {
-        const normalized = token.toLowerCase();
-        if (!normalized) return false;
-        return fields.some((field) => field.includes(normalized));
-      });
-    });
+    // 각 타입별로 매칭 검사 (같은 타입끼리는 OR, 다른 타입끼리는 AND)
+
+    // 지역: 여러 지역 중 하나라도 매칭 (OR)
+    const locationMatch = classified.location.length === 0 ||
+      classified.location.some(group =>
+        group.some(token =>
+          fields.some(field => field.includes(token.toLowerCase()))
+        )
+      );
+
+    // 학교급: 여러 학교급 중 하나라도 매칭 (OR)
+    const schoolLevelMatch = classified.schoolLevel.length === 0 ||
+      classified.schoolLevel.some(group =>
+        group.some(token =>
+          fields.some(field => field.includes(token.toLowerCase()))
+        )
+      );
+
+    // 과목: 여러 과목 중 하나라도 매칭 (OR)
+    const subjectMatch = classified.subject.length === 0 ||
+      classified.subject.some(group =>
+        group.some(token =>
+          fields.some(field => field.includes(token.toLowerCase()))
+        )
+      );
+
+    // 역할: 여러 역할 중 하나라도 매칭 (OR)
+    const roleMatch = classified.role.length === 0 ||
+      classified.role.some(group =>
+        group.some(token =>
+          fields.some(field => field.includes(token.toLowerCase()))
+        )
+      );
+
+    // 기타: 기타 토큰 중 하나라도 매칭 (OR)
+    const otherMatch = classified.other.length === 0 ||
+      classified.other.some(group =>
+        group.some(token =>
+          fields.some(field => field.includes(token.toLowerCase()))
+        )
+      );
+
+    // 모든 타입이 AND로 결합
+    // "수원 중등" = 지역(수원) AND 학교급(중등) → 수원의 중등만
+    // "수원 성남" = 지역(수원 OR 성남) → 수원 또는 성남
+    return locationMatch && schoolLevelMatch && subjectMatch && roleMatch && otherMatch;
   });
 }
 

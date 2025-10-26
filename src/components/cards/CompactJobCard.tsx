@@ -9,16 +9,14 @@ interface CompactJobCardProps {
 export default function CompactJobCard({ job, onClick }: CompactJobCardProps) {
   return (
     <article
-      className="card-interactive bg-white border border-gray-200 rounded-lg animate-slide-up overflow-hidden h-full cursor-pointer hover:shadow-lg transition-shadow"
+      className="card-interactive bg-white border border-gray-200 rounded-lg animate-slide-up overflow-hidden h-full cursor-pointer shadow-sm hover:shadow-lg transition-shadow"
       onClick={onClick}
     >
-      {/* 상단 컬러 바 */}
-      <div className="h-0.5 bg-gradient-to-r from-primary to-[#8fb4d6]" />
 
       <div className="flex h-full flex-col p-3">
         {/* 헤더 */}
         <div className="flex items-center justify-between mb-2">
-          <span className="text-xs font-semibold text-[#7aa3cc]">공고</span>
+          <span className="text-xs font-semibold text-[#68B2FF]">공고</span>
           {job.isUrgent && (
             <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-red-500 text-white text-xs font-bold">
               🔥 긴급
@@ -61,7 +59,7 @@ export default function CompactJobCard({ job, onClick }: CompactJobCardProps) {
             <span className="font-medium truncate">{job.location}</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <IconCoin size={14} stroke={1.5} className="text-[#7db8a3] flex-shrink-0" />
+            <IconCoin size={14} stroke={1.5} className="text-[#7aa3cc] flex-shrink-0" />
             <span className="font-medium text-gray-900 truncate">{job.compensation}</span>
           </div>
           <div className="flex items-center gap-1.5">

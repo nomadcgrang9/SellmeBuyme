@@ -605,12 +605,583 @@ SUPABASE_SERVICE_ROLE_KEY=eyJhbGc...
 
 ---
 
+---
+
+## 📝 Phase 3: 등록 폼 시스템 백엔드 구현
+
+### 개요
+- **목표**: 사용자가 공고/인력/체험을 직접 등록할 수 있는 백엔드 인프라 구축
+- **기간**: 1-2주 (Phase 3 로드맵 기준)
+- **우선순위**: Phase 1(검색·필터) 완료 후 Phase 2(크롤링 확장)와 병행 가능
+
+---
+
+### 1. 데이터베이스 스키마 확장
+
+#### 1.1 job_postings 테이블 수정
+
+```sql
+-- 기존 스키마에 사용자 등록 관련 필드 추가
+ALTER TABLE job_postings ADD COLUMN IF NOT EXISTS
+  user_id uuid REFERENCES auth.users(id),  -- 등록한 사용자
+  source text DEFAULT 'user_posted',       -- 'user_posted' | 'crawled'
+
+  -- 공고 등록 폼 전용 필드
+  school_level jsonb,                      -- {kindergarten, elementary, secondary, high, special, adultTraining, other}
+  subject text,                            -- 과목 (중등/성인대상 시)
+  location_detail jsonb,                   -- {seoul: [], gyeonggi: []}
+
+  recruitment_start date,                  -- 모집 시작일
+  recruitment_end date,                    -- 모집 마감일
+  is_ongoing boolean DEFAULT false,        -- 상시 모집
+
+  work_start date,                         -- 근무 시작일
+  work_end date,                           -- 근무 종료일
+  is_negotiable boolean DEFAULT false,     -- 근무기간 협의 가능
+
+  contact_phone text,                      -- 연락처 전화번호
+  contact_email text,                      -- 연락처 이메일
+
+  status text DEFAULT 'active',            -- 'active' | 'closed' | 'deleted'
+  updated_at timestamptz DEFAULT now();
+
+-- 인덱스 추가
+CREATE INDEX IF NOT EXISTS idx_job_postings_user_id ON job_postings(user_id);
+CREATE INDEX IF NOT EXISTS idx_job_postings_status ON job_postings(status);
+CREATE INDEX IF NOT EXISTS idx_job_postings_location_detail
+  ON job_postings USING gin(location_detail);
+```
+
+#### 1.2 talents 테이블 수정
+
+```sql
+-- 기존 talents 테이블에 인력 등록 폼 필드 추가
+ALTER TABLE talents ADD COLUMN IF NOT EXISTS
+  user_id uuid REFERENCES auth.users(id),
+
+  -- 전문 분야 상세
+  specialty_detail jsonb,                  -- {fixedTermTeacher: {...}, careerEducation, ...}
+  experience text,                         -- '신규' | '1~3년' | '3~5년' | '5년 이상'
+  license text,                            -- 자격/면허
+
+  -- 활동 선호 조건
+  preferred_regions jsonb,                 -- {seoul: [], gyeonggi: []}
+
+  -- 자기소개
+  introduction text,                       -- 자기소개
+  portfolio_url text,                      -- 포트폴리오 파일 URL (Supabase Storage)
+
+  -- 연락처
+  contact_phone text,
+  contact_email text,
+
+  -- 공개 설정 (삭제됨: 기본적으로 로그인 사용자에게만 공개)
+
+  status text DEFAULT 'active',            -- 'active' | 'inactive' | 'deleted'
+  updated_at timestamptz DEFAULT now();
+
+-- 인덱스 추가
+CREATE INDEX IF NOT EXISTS idx_talents_user_id ON talents(user_id);
+CREATE INDEX IF NOT EXISTS idx_talents_status ON talents(status);
+CREATE INDEX IF NOT EXISTS idx_talents_preferred_regions
+  ON talents USING gin(preferred_regions);
+```
+
+#### 1.3 experiences 테이블 생성 (신규)
+
+```sql
+-- 체험 프로그램 테이블 (신규)
+CREATE TABLE IF NOT EXISTS experiences (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid REFERENCES auth.users(id) NOT NULL,
+
+  -- 기본 정보
+  program_name text NOT NULL,
+  organization text NOT NULL,
+  program_type jsonb NOT NULL,            -- {standard, afterSchool, neulbom, other: []}
+  target_audience text[] NOT NULL,        -- ['kindergarten', 'elementary', 'secondary', 'high', 'adult']
+  subject text NOT NULL,                  -- 드롭다운 선택 값
+
+  -- 운영 정보
+  delivery_method text NOT NULL,          -- 'onsite' | 'center' | 'online'
+  available_regions jsonb NOT NULL,       -- {seoul: [], gyeonggi: []}
+  program_start date,
+  program_end date,
+  is_year_round boolean DEFAULT false,
+  is_free boolean NOT NULL,
+  price integer,                          -- 유료인 경우 가격
+
+  -- 상세 정보
+  description text NOT NULL,
+  materials_url text,                     -- 프로그램 자료 URL (Supabase Storage)
+
+  -- 연락처
+  contact_phone text NOT NULL,
+  contact_email text NOT NULL,
+  application_url text,                   -- 신청 URL
+
+  status text DEFAULT 'active',
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
+
+-- 인덱스
+CREATE INDEX idx_experiences_user_id ON experiences(user_id);
+CREATE INDEX idx_experiences_status ON experiences(status);
+CREATE INDEX idx_experiences_target_audience ON experiences USING gin(target_audience);
+CREATE INDEX idx_experiences_available_regions ON experiences USING gin(available_regions);
+CREATE INDEX idx_experiences_subject ON experiences(subject);
+
+-- RLS 정책
+ALTER TABLE experiences ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Experiences are viewable by everyone"
+  ON experiences FOR SELECT
+  USING (status = 'active');
+
+CREATE POLICY "Users can insert own experiences"
+  ON experiences FOR INSERT
+  TO authenticated
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update own experiences"
+  ON experiences FOR UPDATE
+  TO authenticated
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete own experiences"
+  ON experiences FOR DELETE
+  TO authenticated
+  USING (auth.uid() = user_id);
+```
+
+---
+
+### 2. Supabase Storage 설정
+
+#### 2.1 버킷 생성
+
+```sql
+-- job-postings 버킷 (공고 첨부파일)
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('job-postings', 'job-postings', true);
+
+-- talents 버킷 (포트폴리오/이력서)
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('talents', 'talents', false);  -- 비공개: RLS로 접근 제어
+
+-- experiences 버킷 (프로그램 자료)
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('experiences', 'experiences', true);
+```
+
+#### 2.2 Storage RLS 정책
+
+```sql
+-- job-postings 버킷 정책
+CREATE POLICY "Authenticated users can upload job attachments"
+  ON storage.objects FOR INSERT
+  TO authenticated
+  WITH CHECK (
+    bucket_id = 'job-postings' AND
+    auth.uid()::text = (storage.foldername(name))[1]
+  );
+
+CREATE POLICY "Authenticated users can update own job attachments"
+  ON storage.objects FOR UPDATE
+  TO authenticated
+  USING (
+    bucket_id = 'job-postings' AND
+    auth.uid()::text = (storage.foldername(name))[1]
+  );
+
+CREATE POLICY "Authenticated users can delete own job attachments"
+  ON storage.objects FOR DELETE
+  TO authenticated
+  USING (
+    bucket_id = 'job-postings' AND
+    auth.uid()::text = (storage.foldername(name))[1]
+  );
+
+-- talents 버킷 정책 (비공개: 본인만 접근)
+CREATE POLICY "Users can upload own portfolio"
+  ON storage.objects FOR INSERT
+  TO authenticated
+  WITH CHECK (
+    bucket_id = 'talents' AND
+    auth.uid()::text = (storage.foldername(name))[1]
+  );
+
+CREATE POLICY "Users can view own portfolio"
+  ON storage.objects FOR SELECT
+  TO authenticated
+  USING (
+    bucket_id = 'talents' AND
+    auth.uid()::text = (storage.foldername(name))[1]
+  );
+
+-- experiences 버킷 정책
+CREATE POLICY "Authenticated users can upload experience materials"
+  ON storage.objects FOR INSERT
+  TO authenticated
+  WITH CHECK (
+    bucket_id = 'experiences' AND
+    auth.uid()::text = (storage.foldername(name))[1]
+  );
+```
+
+---
+
+### 3. API 엔드포인트 (Supabase Client Functions)
+
+#### 3.1 공고 등록 API
+
+```typescript
+// src/lib/supabase/mutations.ts
+
+export async function createJobPosting(data: JobPostingFormData) {
+  const { data: session } = await supabase.auth.getSession();
+  if (!session?.session?.user) throw new Error('로그인이 필요합니다');
+
+  // 1. 첨부파일 업로드 (있을 경우)
+  let attachmentUrl: string | null = null;
+  if (data.attachments && data.attachments.length > 0) {
+    const file = data.attachments[0];
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${session.session.user.id}/${Date.now()}.${fileExt}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('job-postings')
+      .upload(fileName, file, { upsert: false });
+
+    if (uploadError) throw uploadError;
+
+    const { data: urlData } = supabase.storage
+      .from('job-postings')
+      .getPublicUrl(fileName);
+
+    attachmentUrl = urlData.publicUrl;
+  }
+
+  // 2. DB 삽입
+  const { data: jobData, error } = await supabase
+    .from('job_postings')
+    .insert([{
+      user_id: session.session.user.id,
+      source: 'user_posted',
+      organization: data.organization,
+      title: data.title,
+      school_level: data.schoolLevel,
+      subject: data.subject,
+      location_detail: data.location,
+      compensation: data.compensation,
+      recruitment_start: data.recruitmentStart,
+      recruitment_end: data.recruitmentEnd,
+      is_ongoing: data.isOngoing,
+      work_start: data.workStart,
+      work_end: data.workEnd,
+      is_negotiable: data.isNegotiable,
+      description: data.description,
+      attachment_url: attachmentUrl,
+      contact_phone: data.phone,
+      contact_email: data.email,
+      status: 'active'
+    }])
+    .select()
+    .single();
+
+  if (error) throw error;
+  return jobData;
+}
+```
+
+#### 3.2 인력 등록 API
+
+```typescript
+export async function createTalent(data: TalentRegistrationFormData) {
+  const { data: session } = await supabase.auth.getSession();
+  if (!session?.session?.user) throw new Error('로그인이 필요합니다');
+
+  // 1. 포트폴리오 업로드
+  let portfolioUrl: string | null = null;
+  if (data.portfolio) {
+    const fileExt = data.portfolio.name.split('.').pop();
+    const fileName = `${session.session.user.id}/portfolio_${Date.now()}.${fileExt}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('talents')
+      .upload(fileName, data.portfolio, { upsert: false });
+
+    if (uploadError) throw uploadError;
+    portfolioUrl = fileName;  // 비공개 버킷이므로 경로만 저장
+  }
+
+  // 2. DB 삽입
+  const { data: talentData, error } = await supabase
+    .from('talents')
+    .insert([{
+      user_id: session.session.user.id,
+      name: data.name,
+      specialty_detail: data.specialty,
+      experience: data.experience,
+      license: data.license,
+      preferred_regions: data.preferredRegions,
+      introduction: data.introduction,
+      portfolio_url: portfolioUrl,
+      contact_phone: data.phone,
+      contact_email: data.email,
+      status: 'active'
+    }])
+    .select()
+    .single();
+
+  if (error) throw error;
+  return talentData;
+}
+```
+
+#### 3.3 체험 등록 API
+
+```typescript
+export async function createExperience(data: ExperienceFormData) {
+  const { data: session } = await supabase.auth.getSession();
+  if (!session?.session?.user) throw new Error('로그인이 필요합니다');
+
+  // 1. 프로그램 자료 업로드
+  let materialsUrl: string | null = null;
+  if (data.materials && data.materials.length > 0) {
+    const file = data.materials[0];
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${session.session.user.id}/${Date.now()}.${fileExt}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('experiences')
+      .upload(fileName, file, { upsert: false });
+
+    if (uploadError) throw uploadError;
+
+    const { data: urlData } = supabase.storage
+      .from('experiences')
+      .getPublicUrl(fileName);
+
+    materialsUrl = urlData.publicUrl;
+  }
+
+  // 2. DB 삽입
+  const { data: expData, error } = await supabase
+    .from('experiences')
+    .insert([{
+      user_id: session.session.user.id,
+      program_name: data.programName,
+      organization: data.organization,
+      program_type: data.programType,
+      target_audience: data.targetAudience,
+      subject: data.subject,
+      delivery_method: data.deliveryMethod,
+      available_regions: data.availableRegions,
+      program_start: data.startDate,
+      program_end: data.endDate,
+      is_year_round: data.isYearRound,
+      is_free: data.isFree,
+      price: data.price,
+      description: data.description,
+      materials_url: materialsUrl,
+      contact_phone: data.phone,
+      contact_email: data.email,
+      application_url: data.applicationUrl,
+      status: 'active'
+    }])
+    .select()
+    .single();
+
+  if (error) throw error;
+  return expData;
+}
+```
+
+---
+
+### 4. Row Level Security (RLS) 정책
+
+#### 4.1 job_postings RLS
+
+```sql
+-- 기존 정책 수정 (user_posted 소스 추가)
+ALTER TABLE job_postings ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Job postings are viewable by everyone"
+  ON job_postings FOR SELECT
+  USING (status = 'active');
+
+CREATE POLICY "Users can insert own job postings"
+  ON job_postings FOR INSERT
+  TO authenticated
+  WITH CHECK (
+    auth.uid() = user_id AND
+    source = 'user_posted'
+  );
+
+CREATE POLICY "Users can update own job postings"
+  ON job_postings FOR UPDATE
+  TO authenticated
+  USING (
+    auth.uid() = user_id AND
+    source = 'user_posted'
+  );
+
+CREATE POLICY "Users can delete own job postings"
+  ON job_postings FOR DELETE
+  TO authenticated
+  USING (
+    auth.uid() = user_id AND
+    source = 'user_posted'
+  );
+
+-- 크롤러는 service_role 키로 접근하므로 별도 정책 불필요
+```
+
+#### 4.2 talents RLS
+
+```sql
+ALTER TABLE talents ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Talents are viewable by authenticated users"
+  ON talents FOR SELECT
+  TO authenticated
+  USING (status = 'active');
+
+CREATE POLICY "Users can insert own talent profile"
+  ON talents FOR INSERT
+  TO authenticated
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update own talent profile"
+  ON talents FOR UPDATE
+  TO authenticated
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete own talent profile"
+  ON talents FOR DELETE
+  TO authenticated
+  USING (auth.uid() = user_id);
+```
+
+---
+
+### 5. 파일 구조
+
+```
+src/
+├── lib/
+│   └── supabase/
+│       ├── mutations.ts        # 등록 API 함수
+│       ├── queries.ts          # 조회 API 함수 (기존)
+│       └── client.ts           # Supabase 클라이언트 (기존)
+supabase/
+├── migrations/
+│   ├── 20250126_registration_forms_schema.sql    # 스키마 확장
+│   └── 20250126_registration_forms_rls.sql       # RLS 정책
+└── functions/
+    └── (Edge Functions는 필요 시 추가)
+```
+
+---
+
+### 6. 구현 체크리스트
+
+#### Phase 3-1: 데이터베이스 준비 (1-2일)
+- [ ] `job_postings` 테이블 스키마 확장
+- [ ] `talents` 테이블 스키마 확장
+- [ ] `experiences` 테이블 생성
+- [ ] Supabase Storage 버킷 생성 (3개)
+- [ ] Storage RLS 정책 적용
+- [ ] DB RLS 정책 적용
+
+#### Phase 3-2: API 구현 (2-3일)
+- [ ] `createJobPosting()` 함수 구현 및 테스트
+- [ ] `createTalent()` 함수 구현 및 테스트
+- [ ] `createExperience()` 함수 구현 및 테스트
+- [ ] 파일 업로드 헬퍼 함수 작성
+- [ ] 에러 핸들링 및 검증 로직 추가
+
+#### Phase 3-3: 프론트엔드 연동 (3-4일)
+- [ ] React Hook Form + Zod 검증
+- [ ] 폼 제출 → API 호출 연결
+- [ ] 성공/실패 Toast 알림
+- [ ] 등록 후 리다이렉트 (내 등록 목록 페이지)
+
+#### Phase 3-4: 추가 기능 (1-2일)
+- [ ] 내가 등록한 공고/인력/체험 목록 페이지
+- [ ] 수정/삭제 기능
+- [ ] 상태 변경 (active ↔ closed)
+
+---
+
+### 7. 보안 고려사항
+
+#### 7.1 인증 체크
+```typescript
+// 모든 등록 함수 최상단에 필수
+const { data: session } = await supabase.auth.getSession();
+if (!session?.session?.user) {
+  throw new Error('로그인이 필요합니다');
+}
+```
+
+#### 7.2 파일 업로드 제한
+```typescript
+// 파일 크기 제한 (10MB)
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
+if (file.size > MAX_FILE_SIZE) {
+  throw new Error('파일 크기는 10MB를 초과할 수 없습니다');
+}
+
+// 허용 확장자
+const ALLOWED_EXTENSIONS = ['pdf', 'doc', 'docx', 'hwp', 'jpg', 'png'];
+const fileExt = file.name.split('.').pop()?.toLowerCase();
+if (!fileExt || !ALLOWED_EXTENSIONS.includes(fileExt)) {
+  throw new Error('허용되지 않는 파일 형식입니다');
+}
+```
+
+#### 7.3 Rate Limiting
+```typescript
+// Edge Function에서 Rate Limiting 적용 (향후)
+// 사용자당 1일 N개 등록 제한 등
+```
+
+---
+
+### 8. 테스트 시나리오
+
+#### 8.1 공고 등록 테스트
+1. 로그인하지 않은 상태 → "로그인이 필요합니다" 에러
+2. 필수 필드 누락 → Zod 검증 에러
+3. 첨부파일 없이 제출 → 정상 등록
+4. 첨부파일 포함 제출 → Storage 업로드 + DB 저장 확인
+5. 등록 완료 후 목록에서 확인
+
+#### 8.2 인력 등록 테스트
+1. 전문 분야 중복 선택 → 정상 저장
+2. 중등 과목 직접 입력 → JSON 배열로 저장 확인
+3. 포트폴리오 업로드 → 비공개 버킷 저장 확인
+4. 휴대전화 번호 → 로그인 사용자만 조회 가능 확인
+
+#### 8.3 체험 등록 테스트
+1. 프로그램 유형 "기타" 선택 → 직접 입력 태그 저장
+2. 주제/분야 드롭다운 → 선택 값 저장
+3. 신청 URL → 유효성 검증 (https:// 등)
+
+---
+
 ## 📝 다음 단계
 
 1. **Supabase 프로젝트 생성** → 환경 변수 설정
 2. **데이터베이스 마이그레이션** → 스키마 적용
-3. **Server Actions 구현** → 더미데이터 대체
-4. **프론트엔드 연동** → 실제 데이터 표시
+3. ✅ **등록 폼 시스템 백엔드 설계 완료** (Phase 3)
+4. ⏳ **등록 폼 시스템 프론트엔드 구현** (Phase 3)
+5. ⏳ **Server Actions 구현** → 더미데이터 대체
+6. ⏳ **프론트엔드 연동** → 실제 데이터 표시
 
 ---
 

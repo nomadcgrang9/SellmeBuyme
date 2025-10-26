@@ -9,11 +9,9 @@ interface CompactTalentCardProps {
 export default function CompactTalentCard({ talent, onClick }: CompactTalentCardProps) {
   return (
     <article
-      className="card-interactive bg-white border border-gray-200 rounded-lg animate-slide-up overflow-hidden h-full cursor-pointer hover:shadow-lg transition-shadow"
+      className="card-interactive bg-white border border-gray-200 rounded-lg animate-slide-up overflow-hidden h-full cursor-pointer shadow-sm hover:shadow-lg transition-shadow"
       onClick={onClick}
     >
-      {/* 상단 컬러 바 */}
-      <div className="h-0.5 bg-gradient-to-r from-[#9fd5bf] to-[#6fb59b]" />
       
       <div className="flex h-full flex-col p-4">
         {/* 헤더 */}

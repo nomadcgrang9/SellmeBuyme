@@ -55,12 +55,12 @@ export default function JobCard({ job, onClick }: JobCardProps) {
         style={{ overflow: 'visible' }}
       >
         {/* 상단 컬러 바 */}
-        <div className="h-0.5 bg-gradient-to-r from-primary to-[#8fb4d6]" />
+        <div className="h-0.5 bg-gradient-to-r from-[#9DD2FF] to-[#68B2FF]" />
 
         <div className="flex h-full flex-col p-4">
           {/* 헤더 */}
           <div className="flex items-center justify-between mb-3">
-            <span className="text-sm font-semibold text-[#7aa3cc]">공고</span>
+            <span className="text-sm font-semibold text-[#68B2FF]">공고</span>
             {job.isUrgent && (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-500 text-white text-xs font-bold">
                 🔥 긴급
@@ -97,7 +97,7 @@ export default function JobCard({ job, onClick }: JobCardProps) {
               <span className="font-medium truncate">{job.location}</span>
             </div>
             <div className="flex items-center gap-2 truncate">
-              <IconCoin size={16} stroke={1.5} className="text-[#7db8a3] flex-shrink-0" />
+              <IconCoin size={16} stroke={1.5} className="text-[#7aa3cc] flex-shrink-0" />
               <span className="font-medium text-gray-900 truncate">{job.compensation}</span>
             </div>
             <div className="flex items-center gap-2 truncate">
@@ -129,7 +129,7 @@ export default function JobCard({ job, onClick }: JobCardProps) {
           <div className="rounded-b-lg rounded-t-none border border-gray-200 bg-white shadow-2xl p-4 space-y-3">
             {job.application_period && (
               <div className="flex items-start gap-2 text-sm text-gray-700">
-                <IconCalendar size={18} stroke={1.5} className="text-blue-500 flex-shrink-0 mt-0.5" />
+                <IconCalendar size={18} stroke={1.5} className="text-[#2563EB] flex-shrink-0 mt-0.5" />
                 <div>
                   <p className="text-xs uppercase tracking-wide text-gray-500 mb-0.5">접수기간</p>
                   <p className="font-semibold">{job.application_period}</p>
@@ -139,7 +139,7 @@ export default function JobCard({ job, onClick }: JobCardProps) {
 
             {job.work_period && (
               <div className="flex items-start gap-2 text-sm text-gray-700">
-                <IconCalendar size={18} stroke={1.5} className="text-indigo-500 flex-shrink-0 mt-0.5" />
+                <IconCalendar size={18} stroke={1.5} className="text-[#1D4ED8] flex-shrink-0 mt-0.5" />
                 <div>
                   <p className="text-xs uppercase tracking-wide text-gray-500 mb-0.5">근무기간</p>
                   <p className="font-semibold">{job.work_period}</p>
@@ -169,7 +169,7 @@ export default function JobCard({ job, onClick }: JobCardProps) {
 
             {job.contact && (
               <div className="flex items-start gap-2 text-sm text-gray-700">
-                <IconPhone size={18} stroke={1.5} className="text-green-500 flex-shrink-0 mt-0.5" />
+                <IconPhone size={18} stroke={1.5} className="text-[#2563EB] flex-shrink-0 mt-0.5" />
                 <div>
                   <p className="text-xs uppercase tracking-wide text-gray-500 mb-0.5">문의</p>
                   <p className="font-semibold">{job.contact}</p>
