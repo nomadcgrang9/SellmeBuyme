@@ -103,6 +103,15 @@ export default function ProfileViewModal({ isOpen, onClose, userId, userEmail, o
     }
   };
 
+  // ⭐ 관리자 페이지 이동 핸들러
+  const handleAdminLogin = () => {
+    // 방식 B: 고정 진입점 사용 (/admin-portal)
+    // Cloudflare Function이 인증 후 실제 관리자 경로로 리다이렉트
+    window.location.href = '/admin-portal';
+  };
+
+  const isAdmin = profile?.roles?.includes('admin');
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -275,6 +284,17 @@ export default function ProfileViewModal({ isOpen, onClose, userId, userEmail, o
             </div>
 
             <footer className="flex items-center justify-end gap-2 px-7 py-5 border-t border-gray-100 bg-[#f9fbfe]">
+                {/* ⭐ 관리자만 표시되는 버튼 */}
+                {isAdmin && (
+                  <button
+                    type="button"
+                    onClick={handleAdminLogin}
+                    className="inline-flex items-center gap-2 rounded-xl border border-purple-600 bg-purple-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-purple-700"
+                    aria-label="관리자 페이지로 이동"
+                  >
+                    관리자 로그인
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => onRequestEdit?.(profile)}

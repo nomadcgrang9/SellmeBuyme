@@ -6,6 +6,8 @@ import CrawlLogViewer from '@/components/admin/CrawlLogViewer';
 import PromoTabManager from '@/components/admin/PromoTabManager';
 import type { CrawlBoard, CreateCrawlBoardInput } from '@/types';
 import { createCrawlBoard, updateCrawlBoard } from '@/lib/supabase/queries';
+import { useAdminAuth } from '@/lib/hooks/useAdminAuth';
+import { useAuthStore } from '@/stores/authStore';
 
 interface Notice {
   type: 'success' | 'error';
@@ -28,6 +30,8 @@ const ADMIN_TABS: AdminTab[] = [
 ];
 
 export default function AdminPageWithHamburger() {
+  const { isAdmin, isLoading, user } = useAdminAuth();
+  const { initialize } = useAuthStore();
   const [activeTab, setActiveTab] = useState<string>('overview');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [showBoardForm, setShowBoardForm] = useState(false);
@@ -36,6 +40,10 @@ export default function AdminPageWithHamburger() {
   const [notice, setNotice] = useState<Notice | null>(null);
   const [refreshToken, setRefreshToken] = useState(0);
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    void initialize();
+  }, [initialize]);
 
   useEffect(() => {
     if (!notice) return;
@@ -90,6 +98,60 @@ export default function AdminPageWithHamburger() {
     setActiveTab(tabKey);
     setIsSidebarOpen(false);
   };
+
+  // 로딩 중
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="text-center">
+          <div className="animate-spin text-4xl mb-4">⏳</div>
+          <p className="text-slate-600 font-esamanru">권한 확인 중...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // 로그인 안 됨
+  if (!user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="text-center">
+          <div className="text-6xl mb-4">🔒</div>
+          <h1 className="text-2xl font-bold mb-2 font-esamanru">로그인이 필요합니다</h1>
+          <p className="text-slate-600 mb-4 font-esamanru">관리자 페이지는 로그인 후 이용 가능합니다.</p>
+          <button
+            onClick={() => window.location.href = '/'}
+            className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition font-esamanru"
+          >
+            홈으로 돌아가기
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // 관리자 권한 없음
+  if (!isAdmin) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="text-center">
+          <div className="text-6xl mb-4">🚫</div>
+          <h1 className="text-2xl font-bold mb-2 font-esamanru">접근 권한이 없습니다</h1>
+          <p className="text-slate-600 mb-4 font-esamanru">
+            관리자 권한이 필요합니다.
+            <br />
+            현재 계정: {user.email}
+          </p>
+          <button
+            onClick={() => window.location.href = '/'}
+            className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition font-esamanru"
+          >
+            홈으로 돌아가기
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const renderTabContent = () => {
     switch (activeTab) {
