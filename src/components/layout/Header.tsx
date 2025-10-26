@@ -257,7 +257,7 @@ export default function Header({ onProfileClick }: HeaderProps) {
                 <button
                   type="button"
                   onClick={handleSignupClick}
-                  className="h-9 px-4 text-sm font-semibold text-[#68B2FF] rounded-md bg-gradient-to-r from-[#9DD2FF] to-[#68B2FF] shadow-sm hover:from-[#8BC8FF] hover:to-[#58A8FF] transition-colors"
+                  className="h-9 px-4 text-sm font-semibold text-white rounded-md bg-gradient-to-r from-[#9DD2FF] to-[#68B2FF] shadow-sm hover:from-[#8BC8FF] hover:to-[#58A8FF] transition-colors"
                 >
                   회원가입
                 </button>
