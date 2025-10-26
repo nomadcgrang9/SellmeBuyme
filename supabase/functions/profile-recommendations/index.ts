@@ -20,9 +20,10 @@ async function aiFilterWithGemini(profile: UserProfileRow, scored: ScoredCard[])
   const apiKey = Deno.env.get('GEMINI_API_KEY');
   if (!apiKey) return null;
 
+  // 상위 20개 → 40개로 확대 (커버리지 2배)
   const top = scored
     .sort((a, b) => b.score - a.score)
-    .slice(0, 20)
+    .slice(0, 40)
     .map((s) => ({
       id: s.card.id,
       type: s.card.type,
@@ -812,17 +813,19 @@ function scoreJobCard(profile: UserProfileRow, job: JobPostingRow, preferredRegi
     score += isDeadlineNear ? 25 : 15;
   }
 
-  // 최신성 가중치: 최근 3일 +3, 최근 7일 +1, 3일 초과는 강한 패널티
+  // 최신성 가중치: 점진적 감점으로 변경 (1~2주 공고도 추천 가능하도록)
   try {
     const created = new Date(job.created_at);
     const days = Math.floor((now.getTime() - created.getTime()) / (1000 * 60 * 60 * 24));
     if (!isNaN(days)) {
       if (days <= 3) {
-        score += 3;
+        score += 3;  // 3일 이내: 보너스
       } else if (days <= 7) {
-        score += 1;
+        score += 1;  // 1주 이내: 약간 보너스
+      } else if (days <= 14) {
+        score -= 5;  // 2주 이내: 약한 패널티 (교사는 -5, 기타는 여전히 가능)
       } else {
-        score += isAdminRole ? -18 : -100;
+        score -= isAdminRole ? -18 : -30;  // 2주 초과: 강한 패널티 (-100 → -30으로 완화)
       }
     }
   } catch(_) {}
@@ -1434,7 +1437,7 @@ async function fetchJobCandidates(client: ReturnType<typeof createClient>) {
     .order('is_urgent', { ascending: false })
     .order('deadline', { ascending: true, nullsFirst: false })
     .order('created_at', { ascending: false })
-    .limit(60);
+    .limit(100);  // 60개 → 100개로 확대 (더 다양한 후보 풀)
 
   if (error) {
     console.error('[profile-recommendations] 공고 후보 조회 실패', error);
@@ -1569,42 +1572,30 @@ Deno.serve(async (req) => {
       상위_5개_점수: scoredAll.slice(0, 5).map(s => ({ id: s.card.id, title: s.card.title, score: s.score }))
     });
 
-    // ==================== Phase 3: Hybrid Approach (Option 1) ====================
-    // Step 1: Rule-based card selection (accurate)
-    console.log('[Phase 3] Step 1: Rule-based card selection 시작...');
+    // ==================== Phase 3: AI 카드 선정 + 하드코딩 코멘트 ====================
+    // Step 1: AI-powered card selection
+    console.log('[Phase 3] AI 카드 선정 시작...');
     const keepIds = await aiFilterWithGemini(profile, scoredAll);
     const refined = keepIds ? scoredAll.filter((s) => keepIds.has(s.card.id)) : scoredAll;
     const { selected, discarded } = selectWithRegionMix(refined, preferredRegions);
-    console.log('[Phase 3] Step 1 완료 - 선택된 카드:', selected.length);
+    console.log('[Phase 3] AI 선정 완료 - 선택된 카드:', selected.length);
 
-    // Step 2: Try AI comment generation (natural language)
-    console.log('[Phase 3] Step 2: AI 코멘트 생성 시도...');
-    const aiCommentResult = await generateCommentWithGemini(profile, selected);
-
-    let aiComment: { headline: string; description: string; diagnostics?: any };
-
-    if (aiCommentResult) {
-      // AI comment 성공
-      console.log('[Phase 3] Step 2 완료 - AI 코멘트 생성 성공 ✅');
-      aiComment = {
-        headline: aiCommentResult.headline,
-        description: aiCommentResult.description,
-        diagnostics: {
-          scenario: 'hybrid_ai_comment',
-          selectedCount: selected.length,
-          comment_source: 'gemini_ai'
-        }
-      };
-    } else {
-      // Fallback to template-based comment
-      console.log('[Phase 3] Step 2 실패 - 템플릿 기반 코멘트로 fallback');
-      aiComment = generateAiComment(profile, selected, discarded.length);
-      console.log('[Phase 3] Fallback 완료 - 템플릿 시나리오:', (aiComment as any).diagnostics?.scenario);
-    }
+    // Step 2: 하드코딩 코멘트 (안정성 100%)
+    const aiComment = {
+      headline: '셀바 AI 추천',
+      description: '선생님 프로필에 맞춘 맞춤 공고를 준비했어요.',
+      diagnostics: {
+        scenario: 'hardcoded',
+        selectedCount: selected.length,
+        discardedCount: discarded.length,
+        comment_source: 'static'
+      }
+    };
+    console.log('[Phase 3] 하드코딩 코멘트 적용 완료');
 
     console.log('[Phase 3] 최종 완료:', {
       선택된_카드: selected.length,
-      코멘트_소스: aiCommentResult ? 'Gemini AI' : 'Template',
+      코멘트_소스: 'Hardcoded',
       헤드라인: aiComment.headline,
       선택된_카드_목록: selected.map(s => ({
         id: s.card.id,

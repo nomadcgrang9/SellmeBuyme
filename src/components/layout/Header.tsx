@@ -160,7 +160,12 @@ export default function Header({ onProfileClick }: HeaderProps) {
         <div className="flex items-center gap-4 w-full">
           {/* 로고 + 토글 (좌측) */}
           <div className="flex items-center gap-3 shrink-0">
-            <h1 className="text-xl font-extrabold text-gray-900" style={{ letterSpacing: '-0.5px' }}>셀미바이미</h1>
+            <h1
+              className="text-xl font-extrabold bg-gradient-to-r from-[#9DD2FF] to-[#68B2FF] bg-clip-text text-transparent"
+              style={{ letterSpacing: '-0.5px' }}
+            >
+              셀미바이미
+            </h1>
             
             {/* 스위치 토글 */}
             <button
@@ -231,9 +236,9 @@ export default function Header({ onProfileClick }: HeaderProps) {
               <button
                 type="button"
                 onClick={() => onProfileClick?.()}
-                className="flex items-center gap-2 h-9 px-4 text-sm font-semibold text-white rounded-md bg-gradient-to-r from-[#7aa3cc] to-[#5f89b4] shadow-sm hover:from-[#6b95be] hover:to-[#517aa5] transition-colors"
+                className="flex items-center gap-2 h-9 px-4 text-sm font-semibold text-white rounded-md bg-gradient-to-r from-[#9DD2FF] to-[#68B2FF] shadow-md hover:from-[#8BC8FF] hover:to-[#58A8FF] transition-colors"
               >
-                <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/20 text-white text-xs font-bold">
+                <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/40 text-[#68B2FF] text-xs font-bold">
                   {user.email?.[0]?.toUpperCase() ?? 'P'}
                 </span>
                 <span>프로필</span>
@@ -243,14 +248,16 @@ export default function Header({ onProfileClick }: HeaderProps) {
                 <button
                   type="button"
                   onClick={handleLoginClick}
-                  className="h-9 px-4 text-sm font-semibold text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                  className="group relative h-9 rounded-md bg-gradient-to-r from-[#9DD2FF] to-[#68B2FF] p-[1px] shadow-sm transition-colors hover:from-[#8BC8FF] hover:to-[#58A8FF]"
                 >
-                  로그인
+                  <span className="flex h-full w-full items-center justify-center rounded-md bg-white px-4 text-sm font-semibold text-[#68B2FF] transition-colors group-hover:bg-slate-50">
+                    로그인
+                  </span>
                 </button>
                 <button
                   type="button"
                   onClick={handleSignupClick}
-                  className="h-9 px-4 text-sm font-semibold text-white rounded-md bg-gradient-to-r from-[#7aa3cc] to-[#5f89b4] shadow-sm hover:from-[#6b95be] hover:to-[#517aa5] transition-colors"
+                  className="h-9 px-4 text-sm font-semibold text-[#68B2FF] rounded-md bg-gradient-to-r from-[#9DD2FF] to-[#68B2FF] shadow-sm hover:from-[#8BC8FF] hover:to-[#58A8FF] transition-colors"
                 >
                   회원가입
                 </button>

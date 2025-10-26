@@ -174,20 +174,9 @@ export default function AdminPageWithHamburger() {
           isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        <div className="flex h-full flex-col">
-          {/* 사이드바 헤더 */}
-          <div className="flex items-center justify-between border-b border-slate-200 px-4 py-4">
-            <h2 className="text-lg font-semibold text-slate-900">메뉴</h2>
-            <button
-              onClick={() => setIsSidebarOpen(false)}
-              className="rounded-lg p-2 text-slate-600 transition hover:bg-slate-100"
-            >
-              <IconX size={20} stroke={1.5} />
-            </button>
-          </div>
-
+        <div className="relative flex h-full flex-col">
           {/* 네비게이션 */}
-          <nav className="flex-1 space-y-1 overflow-y-auto p-4">
+          <nav className="flex-1 space-y-1 overflow-y-auto px-4 pb-4 pt-6">
             {ADMIN_TABS.map((tab) => {
               const isActive = tab.key === activeTab;
               return (

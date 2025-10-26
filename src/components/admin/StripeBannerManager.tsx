@@ -43,6 +43,7 @@ import type {
   KeywordsMode
 } from '@/types';
 import { useToastStore } from '@/stores/toastStore';
+import ColorInputField from './ColorInputField';
 
 interface StripeBannerFormState {
   config: StripeBannerConfig | null;
@@ -985,43 +986,31 @@ export default function StripeBannerManager() {
                       </label>
 
                       <div className="grid grid-cols-2 gap-4">
-                        <label className="flex flex-col text-sm">
-                          <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                            배경색
-                          </span>
-                          <input
-                            type="color"
-                            value={selectedBanner.bgColor}
-                            onChange={(e) => {
-                              setState(prev => ({
-                                ...prev,
-                                banners: prev.banners.map(b =>
-                                  b.id === selectedBanner.id ? { ...b, bgColor: e.target.value } : b
-                                )
-                              }));
-                            }}
-                            className="mt-1 h-12 w-full cursor-pointer rounded-lg border border-slate-200"
-                          />
-                        </label>
+                        <ColorInputField
+                          label="배경색"
+                          value={selectedBanner.bgColor}
+                          onChange={(next) => {
+                            setState((prev) => ({
+                              ...prev,
+                              banners: prev.banners.map((b) =>
+                                b.id === selectedBanner.id ? { ...b, bgColor: next } : b
+                              )
+                            }));
+                          }}
+                        />
 
-                        <label className="flex flex-col text-sm">
-                          <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                            텍스트색
-                          </span>
-                          <input
-                            type="color"
-                            value={selectedBanner.textColor}
-                            onChange={(e) => {
-                              setState(prev => ({
-                                ...prev,
-                                banners: prev.banners.map(b =>
-                                  b.id === selectedBanner.id ? { ...b, textColor: e.target.value } : b
-                                )
-                              }));
-                            }}
-                            className="mt-1 h-12 w-full cursor-pointer rounded-lg border border-slate-200"
-                          />
-                        </label>
+                        <ColorInputField
+                          label="텍스트색"
+                          value={selectedBanner.textColor}
+                          onChange={(next) => {
+                            setState((prev) => ({
+                              ...prev,
+                              banners: prev.banners.map((b) =>
+                                b.id === selectedBanner.id ? { ...b, textColor: next } : b
+                              )
+                            }));
+                          }}
+                        />
                       </div>
 
                       <label className="flex flex-col text-sm">

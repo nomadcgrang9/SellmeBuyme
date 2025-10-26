@@ -5,7 +5,7 @@ const componentToHex = (value: number) => {
   return clamped.toString(16).padStart(2, '0');
 };
 
-const normalizeHex = (input?: string | null): string | null => {
+export const normalizeHex = (input?: string | null): string | null => {
   if (!input) {
     return null;
   }

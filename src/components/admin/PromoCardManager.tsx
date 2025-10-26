@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { IconDeviceFloppy, IconCheck, IconRotate, IconSparkles, IconPhoto } from '@tabler/icons-react';
-import { createBadgeGradient } from '@/lib/colorUtils';
-import type { PromoCardSettings, PromoCardUpdateInput } from '@/types';
+import { createBadgeGradient, normalizeHex } from '@/lib/colorUtils';
+import ColorInputField from './ColorInputField';
+import type { ColorMode, PromoCardSettings, PromoCardUpdateInput } from '@/types';
 import {
   fetchPromoCardSettings,
   savePromoCardDraft,
@@ -15,9 +16,15 @@ type PromoFormState = {
   imageUrl: string | null;
   insertPosition: number;
   backgroundColor: string;
+  backgroundColorMode: ColorMode;
+  backgroundGradientStart: string | null;
+  backgroundGradientEnd: string | null;
   fontColor: string;
   fontSize: number;
   badgeColor: string;
+  badgeColorMode: ColorMode;
+  badgeGradientStart: string | null;
+  badgeGradientEnd: string | null;
   imageScale: number;
 };
 
@@ -28,15 +35,46 @@ type Feedback = {
   message: string;
 };
 
+const DEFAULT_BACKGROUND_GRADIENT: readonly [string, string] = ['#6366f1', '#22d3ee'];
+const DEFAULT_BADGE_GRADIENT: readonly [string, string] = ['#f97316', '#facc15'];
+
+const pickGradientValue = (candidate: string | null | undefined, fallback: string): string =>
+  normalizeHex(candidate) ?? fallback;
+
+function ColorModeToggle({ value, onChange }: { value: ColorMode; onChange: (mode: ColorMode) => void }) {
+  return (
+    <div className="flex overflow-hidden rounded-lg border border-slate-200 text-xs font-semibold text-slate-500">
+      {(['single', 'gradient'] as ColorMode[]).map((mode) => (
+        <button
+          key={mode}
+          type="button"
+          onClick={() => onChange(mode)}
+          className={`px-3 py-1 transition-colors ${
+            value === mode ? 'bg-primary text-white' : 'bg-white hover:bg-slate-50'
+          }`}
+        >
+          {mode === 'single' ? '단일색' : '그라데이션'}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 const DEFAULT_FORM_STATE: PromoFormState = {
   isActive: true,
   headline: '셀바, 학교와 교육자원을 연결합니다',
   imageUrl: '/picture/section%20right%20ad2.png',
   insertPosition: 2,
   backgroundColor: '#ffffff',
+  backgroundColorMode: 'single',
+  backgroundGradientStart: null,
+  backgroundGradientEnd: null,
   fontColor: '#1f2937',
   fontSize: 28,
   badgeColor: '#dbeafe',
+  badgeColorMode: 'single',
+  badgeGradientStart: null,
+  badgeGradientEnd: null,
   imageScale: 1
 };
 
@@ -46,9 +84,15 @@ const mapSettingsToForm = (settings: PromoCardSettings): PromoFormState => ({
   imageUrl: settings.imageUrl ?? null,
   insertPosition: settings.insertPosition,
   backgroundColor: settings.backgroundColor ?? '#ffffff',
+  backgroundColorMode: settings.backgroundColorMode ?? 'single',
+  backgroundGradientStart: settings.backgroundGradientStart ?? null,
+  backgroundGradientEnd: settings.backgroundGradientEnd ?? null,
   fontColor: settings.fontColor ?? '#1f2937',
   fontSize: settings.fontSize ?? 28,
   badgeColor: settings.badgeColor ?? '#dbeafe',
+  badgeColorMode: settings.badgeColorMode ?? 'single',
+  badgeGradientStart: settings.badgeGradientStart ?? null,
+  badgeGradientEnd: settings.badgeGradientEnd ?? null,
   imageScale: typeof settings.imageScale === 'number' ? settings.imageScale : 1
 });
 
@@ -87,11 +131,26 @@ function PromoCardPreview({ data }: { data: PromoFormState }) {
     [data.fontColor, data.fontSize]
   );
 
+  const backgroundStyle = useMemo(() => {
+    if (data.backgroundColorMode === 'gradient') {
+      const start = pickGradientValue(data.backgroundGradientStart, DEFAULT_BACKGROUND_GRADIENT[0]);
+      const end = pickGradientValue(data.backgroundGradientEnd, DEFAULT_BACKGROUND_GRADIENT[1]);
+      return { backgroundImage: `linear-gradient(135deg, ${start} 0%, ${end} 100%)` };
+    }
+    return { backgroundColor: data.backgroundColor };
+  }, [data.backgroundColorMode, data.backgroundColor, data.backgroundGradientStart, data.backgroundGradientEnd]);
+
   const badgeBarStyle = useMemo(
     () => ({
-      backgroundImage: createBadgeGradient(data.badgeColor)
+      backgroundImage:
+        data.badgeColorMode === 'gradient'
+          ? `linear-gradient(90deg, ${pickGradientValue(
+              data.badgeGradientStart,
+              DEFAULT_BADGE_GRADIENT[0]
+            )} 0%, ${pickGradientValue(data.badgeGradientEnd, DEFAULT_BADGE_GRADIENT[1])} 100%)`
+          : createBadgeGradient(data.badgeColor)
     }),
-    [data.badgeColor]
+    [data.badgeColor, data.badgeColorMode, data.badgeGradientStart, data.badgeGradientEnd]
   );
 
   const clampedImageScale = useMemo(
@@ -139,7 +198,7 @@ function PromoCardPreview({ data }: { data: PromoFormState }) {
         </div>
         <div
           className="flex flex-col items-center gap-4 px-5 py-6 text-center transition-colors"
-          style={{ backgroundColor: data.backgroundColor }}
+          style={backgroundStyle}
         >
           <h3 className="font-bold leading-tight whitespace-pre-line" style={headlineStyle}>
             {data.headline || '헤드라인을 입력해 주세요'}
@@ -202,6 +261,38 @@ export default function PromoCardManager() {
 
   const updateField = <K extends keyof PromoFormState>(key: K, value: PromoFormState[K]) => {
     setForm((prev) => ({ ...prev, [key]: value }));
+    setFeedback(null);
+  };
+
+  const handleBackgroundModeChange = (mode: ColorMode) => {
+    setForm((prev) => ({
+      ...prev,
+      backgroundColorMode: mode,
+      backgroundGradientStart:
+        mode === 'gradient'
+          ? pickGradientValue(prev.backgroundGradientStart, DEFAULT_BACKGROUND_GRADIENT[0])
+          : prev.backgroundGradientStart,
+      backgroundGradientEnd:
+        mode === 'gradient'
+          ? pickGradientValue(prev.backgroundGradientEnd, DEFAULT_BACKGROUND_GRADIENT[1])
+          : prev.backgroundGradientEnd
+    }));
+    setFeedback(null);
+  };
+
+  const handleBadgeModeChange = (mode: ColorMode) => {
+    setForm((prev) => ({
+      ...prev,
+      badgeColorMode: mode,
+      badgeGradientStart:
+        mode === 'gradient'
+          ? pickGradientValue(prev.badgeGradientStart, DEFAULT_BADGE_GRADIENT[0])
+          : prev.badgeGradientStart,
+      badgeGradientEnd:
+        mode === 'gradient'
+          ? pickGradientValue(prev.badgeGradientEnd, DEFAULT_BADGE_GRADIENT[1])
+          : prev.badgeGradientEnd
+    }));
     setFeedback(null);
   };
 
@@ -278,9 +369,27 @@ export default function PromoCardManager() {
       imageUrl: imageValue ? imageValue : null,
       insertPosition: form.insertPosition,
       backgroundColor: form.backgroundColor,
+      backgroundColorMode: form.backgroundColorMode,
+      backgroundGradientStart:
+        form.backgroundColorMode === 'gradient'
+          ? pickGradientValue(form.backgroundGradientStart, DEFAULT_BACKGROUND_GRADIENT[0])
+          : null,
+      backgroundGradientEnd:
+        form.backgroundColorMode === 'gradient'
+          ? pickGradientValue(form.backgroundGradientEnd, DEFAULT_BACKGROUND_GRADIENT[1])
+          : null,
       fontColor: form.fontColor,
       fontSize: form.fontSize,
       badgeColor: form.badgeColor,
+      badgeColorMode: form.badgeColorMode,
+      badgeGradientStart:
+        form.badgeColorMode === 'gradient'
+          ? pickGradientValue(form.badgeGradientStart, DEFAULT_BADGE_GRADIENT[0])
+          : null,
+      badgeGradientEnd:
+        form.badgeColorMode === 'gradient'
+          ? pickGradientValue(form.badgeGradientEnd, DEFAULT_BADGE_GRADIENT[1])
+          : null,
       imageScale: form.imageScale
     };
   };
@@ -456,35 +565,77 @@ export default function PromoCardManager() {
 
             <section className="rounded-xl border border-slate-200 bg-slate-50/60 px-5 py-4">
               <h4 className="text-sm font-semibold text-slate-800">시각 요소</h4>
-              <div className="mt-3 grid gap-4 sm:grid-cols-2">
-                <label className="flex flex-col text-sm text-slate-600">
-                  <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">배경 색상</span>
-                  <input
-                    type="color"
-                    value={form.backgroundColor}
-                    onChange={(event) => updateField('backgroundColor', event.target.value)}
-                    className="mt-1 h-12 w-full cursor-pointer rounded-lg border border-slate-200 bg-white"
-                  />
-                </label>
-                <label className="flex flex-col text-sm text-slate-600">
-                  <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">폰트 색상</span>
-                  <input
-                    type="color"
+              <div className="mt-3 space-y-4">
+                <div className="rounded-lg border border-slate-200 bg-white px-4 py-3">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">배경 색상</span>
+                    <ColorModeToggle value={form.backgroundColorMode} onChange={handleBackgroundModeChange} />
+                  </div>
+                  <div className={`mt-3 grid gap-3 ${form.backgroundColorMode === 'gradient' ? 'sm:grid-cols-2' : ''}`}>
+                    {form.backgroundColorMode === 'gradient' ? (
+                      <>
+                        <ColorInputField
+                          label="시작 색상"
+                          value={form.backgroundGradientStart ?? DEFAULT_BACKGROUND_GRADIENT[0]}
+                          onChange={(next) => updateField('backgroundGradientStart', next)}
+                        />
+                        <ColorInputField
+                          label="끝 색상"
+                          value={form.backgroundGradientEnd ?? DEFAULT_BACKGROUND_GRADIENT[1]}
+                          onChange={(next) => updateField('backgroundGradientEnd', next)}
+                        />
+                      </>
+                    ) : (
+                      <ColorInputField
+                        label="배경 색상"
+                        value={form.backgroundColor}
+                        onChange={(next) => updateField('backgroundColor', next)}
+                      />
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <ColorInputField
+                    label="폰트 색상"
                     value={form.fontColor}
-                    onChange={(event) => updateField('fontColor', event.target.value)}
-                    className="mt-1 h-12 w-full cursor-pointer rounded-lg border border-slate-200 bg-white"
+                    onChange={(next) => updateField('fontColor', next)}
                   />
-                </label>
+                </div>
+
+                <div className="rounded-lg border border-slate-200 bg-white px-4 py-3">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">띠지 색상</span>
+                    <ColorModeToggle value={form.badgeColorMode} onChange={handleBadgeModeChange} />
+                  </div>
+                  <div className={`mt-3 grid gap-3 ${form.badgeColorMode === 'gradient' ? 'sm:grid-cols-2' : ''}`}>
+                    {form.badgeColorMode === 'gradient' ? (
+                      <>
+                        <ColorInputField
+                          label="시작 색상"
+                          value={form.badgeGradientStart ?? DEFAULT_BADGE_GRADIENT[0]}
+                          onChange={(next) => updateField('badgeGradientStart', next)}
+                          helperText="HEX 형식(#RRGGBB)으로 입력해 주세요."
+                        />
+                        <ColorInputField
+                          label="끝 색상"
+                          value={form.badgeGradientEnd ?? DEFAULT_BADGE_GRADIENT[1]}
+                          onChange={(next) => updateField('badgeGradientEnd', next)}
+                          helperText="HEX 형식(#RRGGBB)으로 입력해 주세요."
+                        />
+                      </>
+                    ) : (
+                      <ColorInputField
+                        label="띠지 색상"
+                        value={form.badgeColor}
+                        onChange={(next) => updateField('badgeColor', next)}
+                        helperText="HEX로 입력하면 그라데이션이 더 정교해집니다."
+                      />
+                    )}
+                  </div>
+                </div>
+
                 <label className="flex flex-col text-sm text-slate-600">
-                  <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">띠지 색상</span>
-                  <input
-                    type="color"
-                    value={form.badgeColor}
-                    onChange={(event) => updateField('badgeColor', event.target.value)}
-                    className="mt-1 h-12 w-full cursor-pointer rounded-lg border border-slate-200 bg-white"
-                  />
-                </label>
-                <label className="flex flex-col text-sm text-slate-600 sm:col-span-2">
                   <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">이미지 크기 (%)</span>
                   <div className="mt-2 flex flex-col gap-2 rounded-lg border border-slate-200 bg-white px-3 py-3">
                     <input
@@ -517,7 +668,7 @@ export default function PromoCardManager() {
                     <span className="text-[11px] text-slate-400">50%~150% 범위에서 이미지 표시 크기를 조절합니다.</span>
                   </div>
                 </label>
-                <label className="sm:col-span-2 flex flex-col text-sm text-slate-600">
+                <label className="flex flex-col text-sm text-slate-600">
                   <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">이미지 URL</span>
                   <input
                     type="url"

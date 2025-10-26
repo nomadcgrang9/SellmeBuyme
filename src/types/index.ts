@@ -123,6 +123,8 @@ export interface SearchResponse {
   pagination: SearchPagination;
 }
 
+export type ColorMode = 'single' | 'gradient';
+
 export interface PromoCardSettings {
   id: string;
   isActive: boolean;
@@ -130,9 +132,15 @@ export interface PromoCardSettings {
   imageUrl: string | null;
   insertPosition: number;
   backgroundColor: string;
+  backgroundColorMode: ColorMode;
+  backgroundGradientStart: string | null;
+  backgroundGradientEnd: string | null;
   fontColor: string;
   fontSize: number;
   badgeColor: string;
+  badgeColorMode: ColorMode;
+  badgeGradientStart: string | null;
+  badgeGradientEnd: string | null;
   imageScale: number;
   lastDraftAt: string | null;
   lastAppliedAt: string | null;
@@ -148,9 +156,15 @@ export interface PromoCardUpdateInput {
   imageUrl?: string | null;
   insertPosition: number;
   backgroundColor: string;
+  backgroundColorMode: ColorMode;
+  backgroundGradientStart?: string | null;
+  backgroundGradientEnd?: string | null;
   fontColor: string;
   fontSize: number;
   badgeColor: string;
+  badgeColorMode: ColorMode;
+  badgeGradientStart?: string | null;
+  badgeGradientEnd?: string | null;
   imageScale: number;
   updatedBy?: string | null;
 }
@@ -230,6 +244,9 @@ export interface StripeBanner {
   description: string | null;
   link: string | null;
   bgColor: string;
+  bgColorMode: ColorMode;
+  bgGradientStart: string | null;
+  bgGradientEnd: string | null;
   textColor: string;
   displayOrder: number;
   isActive: boolean;
@@ -275,6 +292,9 @@ export interface UpdateStripeBannerInput {
   description?: string | null;
   link?: string | null;
   bgColor?: string;
+  bgColorMode?: ColorMode;
+  bgGradientStart?: string | null;
+  bgGradientEnd?: string | null;
   textColor?: string;
   displayOrder?: number;
   isActive?: boolean;

@@ -3,8 +3,8 @@
 import type { Card, PromoCardSettings } from '@/types';
 import type { UserProfileRow } from '@/lib/supabase/profiles';
 import { IconChevronLeft, IconChevronRight, IconSparkles } from '@tabler/icons-react';
-import { useState, useRef, useEffect } from 'react';
-import { createBadgeGradient } from '@/lib/colorUtils';
+import { useState, useRef, useEffect, useMemo } from 'react';
+import { createBadgeGradient, normalizeHex } from '@/lib/colorUtils';
 import CompactJobCard from '../cards/CompactJobCard';
 import CompactTalentCard from '../cards/CompactTalentCard';
 import TextType from '../common/TextType';
@@ -39,6 +39,21 @@ export default function AIRecommendations({
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // 반응형 카드 개수 설정
+  const DEFAULT_BADGE_GRADIENT: readonly [string, string] = ['#f97316', '#facc15'];
+
+  const pickGradientValue = (candidate: string | null | undefined, fallback: string) =>
+    normalizeHex(candidate) ?? fallback;
+
+  const badgeBarBackground = useMemo(() => {
+    if (promoCard?.badgeColorMode === 'gradient') {
+      const start = pickGradientValue(promoCard?.badgeGradientStart, DEFAULT_BADGE_GRADIENT[0]);
+      const end = pickGradientValue(promoCard?.badgeGradientEnd, DEFAULT_BADGE_GRADIENT[1]);
+      return `linear-gradient(90deg, ${start} 0%, ${end} 100%)`;
+    }
+
+    return createBadgeGradient(promoCard?.badgeColor);
+  }, [promoCard?.badgeColorMode, promoCard?.badgeGradientStart, promoCard?.badgeGradientEnd, promoCard?.badgeColor]);
+
   useEffect(() => {
     const handleResize = () => {
       if (window.innerWidth < 768) {
@@ -280,7 +295,7 @@ export default function AIRecommendations({
                     className="w-full flex-shrink-0"
                     style={{
                       height: '2px',
-                      backgroundImage: createBadgeGradient(promoCard?.badgeColor),
+                      backgroundImage: badgeBarBackground,
                       backgroundSize: '100% 100%',
                       backgroundRepeat: 'no-repeat',
                       backgroundPosition: '0 0'
