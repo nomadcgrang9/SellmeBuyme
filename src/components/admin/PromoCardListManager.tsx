@@ -139,6 +139,7 @@ export default function PromoCardListManager({ userId }: PromoCardListManagerPro
         onClose={handleModalClose}
         onSave={handleModalSave}
         userId={userId}
+        collectionId={collectionId}
       />
     </div>
   );
