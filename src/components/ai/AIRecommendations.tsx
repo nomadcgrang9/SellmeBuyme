@@ -2,11 +2,15 @@
 
 import type { Card, PromoCardSettings } from '@/types';
 import type { UserProfileRow } from '@/lib/supabase/profiles';
-import { IconChevronLeft, IconChevronRight, IconSparkles, IconFileText, IconHeartHandshake, IconRocket } from '@tabler/icons-react';
+import { IconChevronLeft, IconChevronRight, IconSparkles } from '@tabler/icons-react';
 import { useState, useRef, useEffect } from 'react';
 import { createBadgeGradient } from '@/lib/colorUtils';
 import CompactJobCard from '../cards/CompactJobCard';
 import CompactTalentCard from '../cards/CompactTalentCard';
+import TextType from '../common/TextType';
+import JobPostingForm from '../forms/JobPostingForm';
+import TalentRegistrationForm from '../forms/TalentRegistrationForm';
+import ExperienceRegistrationForm from '../forms/ExperienceRegistrationForm';
 
 interface AIRecommendationsProps {
   cards: Card[];
@@ -118,136 +122,154 @@ export default function AIRecommendations({
         <div className="flex flex-col gap-4 lg:flex-row lg:h-[280px]">
 
           {/* 1. 좌측: 등록 버튼 3개 */}
-          <aside className="flex flex-col gap-2 shrink-0 lg:h-full lg:w-[140px]">
+          <aside className="flex flex-col gap-1 shrink-0 lg:w-[140px] lg:pt-[72px]">
             {/* 공고 등록 */}
             <button
               onClick={() => setActiveSection(activeSection === 'job' ? null : 'job')}
-              className={`flex-1 rounded-xl px-3 transition-all duration-200 flex items-center justify-center gap-1.5 font-semibold text-base border ${
+              className={`h-[50px] rounded-xl px-3 transition-all duration-200 flex items-center justify-center gap-1.5 font-semibold text-base ${
                 activeSection === 'job'
-                  ? 'bg-gradient-to-r from-[#a8c5e0] to-[#8fb4d6] text-white border-transparent shadow-md'
-                  : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+                  ? 'bg-gradient-to-r from-[#9DD2FF] to-[#68B2FF] text-white shadow-md'
+                  : 'text-gray-900 hover:opacity-80'
               }`}
             >
-              <IconFileText size={21} stroke={1.5} />
+              <img src="/icon/noti.ico" alt="공고" className="w-[29px] h-[29px]" />
               <span>공고 등록</span>
             </button>
 
             {/* 인력 등록 */}
             <button
               onClick={() => setActiveSection(activeSection === 'talent' ? null : 'talent')}
-              className={`flex-1 rounded-xl px-3 transition-all duration-200 flex items-center justify-center gap-1.5 font-semibold text-base border ${
+              className={`h-[50px] rounded-xl px-3 transition-all duration-200 flex items-center justify-center gap-1.5 font-semibold text-base ${
                 activeSection === 'talent'
-                  ? 'bg-gradient-to-r from-[#9fd5bf] to-[#6fb59b] text-white border-transparent shadow-md'
-                  : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+                  ? 'bg-gradient-to-r from-[#9DD2FF] to-[#68B2FF] text-white shadow-md'
+                  : 'text-gray-900 hover:opacity-80'
               }`}
             >
-              <IconHeartHandshake size={21} stroke={1.5} />
+              <img src="/icon/people.ico" alt="인력" className="w-[29px] h-[29px]" />
               <span>인력 등록</span>
             </button>
 
             {/* 체험 등록 */}
             <button
               onClick={() => setActiveSection(activeSection === 'experience' ? null : 'experience')}
-              className={`flex-1 rounded-xl px-3 transition-all duration-200 flex items-center justify-center gap-1.5 font-semibold text-base border ${
+              className={`h-[50px] rounded-xl px-3 transition-all duration-200 flex items-center justify-center gap-1.5 font-semibold text-base ${
                 activeSection === 'experience'
-                  ? 'bg-gradient-to-r from-[#ffd98e] to-[#f4c96b] text-white border-transparent shadow-md'
-                  : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+                  ? 'bg-gradient-to-r from-[#9DD2FF] to-[#68B2FF] text-white shadow-md'
+                  : 'text-gray-900 hover:opacity-80'
               }`}
             >
-              <IconRocket size={21} stroke={1.5} />
+              <img src="/icon/play.ico" alt="체험" className="w-[29px] h-[29px]" />
               <span>체험 등록</span>
             </button>
           </aside>
 
-          {/* 2. 중앙: AI 코멘트 띠지 + 카드 캐러셀 */}
+          {/* 2. 중앙: AI 코멘트 띠지 + 카드 캐러셀 OR 등록 폼 */}
           <div className="flex-1 flex flex-col gap-3 min-w-0 lg:h-full">
+            {activeSection === 'job' ? (
+              // 공고 등록 폼
+              <JobPostingForm onClose={() => setActiveSection(null)} />
+            ) : activeSection === 'talent' ? (
+              // 인력 등록 폼
+              <TalentRegistrationForm onClose={() => setActiveSection(null)} />
+            ) : activeSection === 'experience' ? (
+              // 체험 등록 폼
+              <ExperienceRegistrationForm onClose={() => setActiveSection(null)} />
+            ) : (
+              <>
+                {/* AI 코멘트 띠지 */}
+                <div className="h-[60px] rounded-xl p-3 flex items-center gap-3 bg-gradient-to-r from-amber-50 via-yellow-50 to-purple-50 shadow-sm">
+                  <div className="flex items-center justify-center flex-shrink-0">
+                    <IconSparkles size={24} stroke={1.5} className="text-amber-500" />
+                  </div>
+                  <TextType
+                    text="선생님을 위해 셀바가 열심히 찾아봤어요"
+                    as="p"
+                    className="text-base font-semibold text-gray-900 leading-snug"
+                    typingSpeed={60}
+                    loop={false}
+                    showCursor={false}
+                    initialDelay={300}
+                  />
+                </div>
 
-            {/* AI 코멘트 띠지 */}
-            <div className="h-[60px] rounded-xl p-3 flex items-center gap-3 bg-gradient-to-r from-amber-50 via-yellow-50 to-purple-50 border border-gray-200 shadow-sm">
-              <div className="flex items-center justify-center flex-shrink-0">
-                <IconSparkles size={24} stroke={1.5} className="text-amber-500" />
-              </div>
-              <p className="text-sm font-semibold text-gray-900 leading-snug">
-                선생님을 위해 셀바가 열심히 찾아봤어요
-              </p>
-            </div>
+                {/* 카드 캐러셀 */}
+                <div className="relative flex-1 min-h-[180px]">
+                  {/* 좌측 버튼 */}
+                  <button
+                    onClick={handlePrev}
+                    disabled={!canGoLeft}
+                    className={`absolute left-0 top-1/2 -translate-y-1/2 -translate-x-3 z-10 w-7 h-7 rounded-full bg-white border border-gray-200 shadow-md flex items-center justify-center transition-all ${
+                      canGoLeft
+                        ? 'hover:border-gray-400 hover:shadow-lg cursor-pointer'
+                        : 'opacity-50 cursor-not-allowed'
+                    }`}
+                    aria-label="이전 추천 보기"
+                  >
+                    <IconChevronLeft size={14} stroke={1.5} />
+                  </button>
 
-            {/* 카드 캐러셀 */}
-            <div className="relative flex-1 min-h-[180px]">
-              {/* 좌측 버튼 */}
-              <button
-                onClick={handlePrev}
-                disabled={!canGoLeft}
-                className={`absolute left-0 top-1/2 -translate-y-1/2 -translate-x-3 z-10 w-7 h-7 rounded-full bg-white border border-gray-200 shadow-md flex items-center justify-center transition-all ${
-                  canGoLeft
-                    ? 'hover:border-gray-400 hover:shadow-lg cursor-pointer'
-                    : 'opacity-50 cursor-not-allowed'
-                }`}
-                aria-label="이전 추천 보기"
-              >
-                <IconChevronLeft size={14} stroke={1.5} />
-              </button>
-
-              {/* 카드 그리드 */}
-              <div
-                ref={scrollRef}
-                className="overflow-hidden h-full"
-              >
-                <div
-                  className="flex h-full gap-2.5 transition-transform duration-300 ease-in-out"
-                  style={{
-                    transform: `translateX(-${currentIndex * (100 / visibleCount)}%)`
-                  }}
-                >
-                  {carouselItems.map((card) => (
+                  {/* 카드 그리드 */}
+                  <div
+                    ref={scrollRef}
+                    className="overflow-hidden h-full"
+                  >
                     <div
-                      key={card.id}
-                      className="flex-shrink-0"
+                      className="flex h-full gap-2.5 transition-transform duration-300 ease-in-out"
                       style={{
-                        width: `calc((100% - ${(visibleCount - 1) * 10}px) / ${visibleCount})`,
-                        height: '100%'
+                        transform: `translateX(-${currentIndex * (100 / visibleCount)}%)`
                       }}
                     >
-                      {card.type === 'job' ? (
-                        <CompactJobCard
-                          job={card}
-                          onClick={() => onCardClick?.(card)}
-                        />
-                      ) : card.type === 'talent' ? (
-                        <CompactTalentCard
-                          talent={card}
-                          onClick={() => onCardClick?.(card)}
-                        />
-                      ) : (
-                        <article className="card-interactive bg-white border border-dashed border-gray-300 rounded-lg animate-slide-up overflow-hidden h-full flex items-center justify-center p-4 text-center">
-                          <p className="text-sm text-gray-500 leading-relaxed">
-                            프로필 정보를 저장하면 맞춤 추천이 여기에 표시됩니다.
-                          </p>
-                        </article>
-                      )}
+                      {carouselItems.map((card) => (
+                        <div
+                          key={card.id}
+                          className="flex-shrink-0"
+                          style={{
+                            width: `calc((100% - ${(visibleCount - 1) * 10}px) / ${visibleCount})`,
+                            height: '100%'
+                          }}
+                        >
+                          {card.type === 'job' ? (
+                            <CompactJobCard
+                              job={card}
+                              onClick={() => onCardClick?.(card)}
+                            />
+                          ) : card.type === 'talent' ? (
+                            <CompactTalentCard
+                              talent={card}
+                              onClick={() => onCardClick?.(card)}
+                            />
+                          ) : (
+                            <article className="card-interactive bg-white border border-gray-200 rounded-lg animate-slide-up overflow-hidden h-full flex items-center justify-center p-4 text-center shadow-sm">
+                              <p className="text-sm text-gray-500 leading-relaxed">
+                                프로필 정보를 저장하면 맞춤 추천이 여기에 표시됩니다.
+                              </p>
+                            </article>
+                          )}
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              </div>
+                  </div>
 
-              {/* 우측 버튼 */}
-              <button
-                onClick={handleNext}
-                disabled={!canGoRight}
-                className={`absolute right-0 top-1/2 -translate-y-1/2 translate-x-3 z-10 w-7 h-7 rounded-full bg-white border border-gray-200 shadow-md flex items-center justify-center transition-all ${
-                  canGoRight
-                    ? 'hover:border-gray-400 hover:shadow-lg cursor-pointer'
-                    : 'opacity-50 cursor-not-allowed'
-                }`}
-                aria-label="다음 추천 보기"
-              >
-                <IconChevronRight size={14} stroke={1.5} />
-              </button>
-            </div>
+                  {/* 우측 버튼 */}
+                  <button
+                    onClick={handleNext}
+                    disabled={!canGoRight}
+                    className={`absolute right-0 top-1/2 -translate-y-1/2 translate-x-3 z-10 w-7 h-7 rounded-full bg-white border border-gray-200 shadow-md flex items-center justify-center transition-all ${
+                      canGoRight
+                        ? 'hover:border-gray-400 hover:shadow-lg cursor-pointer'
+                        : 'opacity-50 cursor-not-allowed'
+                    }`}
+                    aria-label="다음 추천 보기"
+                  >
+                    <IconChevronRight size={14} stroke={1.5} />
+                  </button>
+                </div>
+              </>
+            )}
           </div>
 
-          {/* 3. 우측: 프로모카드 (독립 영역) */}
-          {shouldIncludePromo && (
+          {/* 3. 우측: 프로모카드 (독립 영역) - 등록 폼 활성화 시 숨김 */}
+          {shouldIncludePromo && !activeSection && (
             <aside className="shrink-0 lg:w-[280px] lg:h-full">
               <article
                 className="card-interactive border border-gray-200 rounded-lg overflow-hidden h-full flex flex-col shadow-sm hover:shadow-md transition-shadow"
