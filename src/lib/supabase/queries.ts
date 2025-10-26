@@ -474,14 +474,26 @@ export async function fetchPromoCards(options?: { onlyActive?: boolean }): Promi
 
   const collectionId = collections[0].id;
 
-  const { data: cards, error: cardError } = await supabase
+  let query = supabase
     .from('promo_cards')
     .select('*')
-    .eq('collection_id', collectionId)
+    .eq('collection_id', collectionId);
+
+  // onlyActive 옵션이 true면 활성 카드만 조회
+  if (options?.onlyActive === true) {
+    query = query.eq('is_active', true);
+  }
+
+  const { data: cards, error: cardError } = await query
     .order('order_index', { ascending: true })
     .returns<PromoCardRow[]>();
 
-  if (cardError || !cards || cards.length === 0) {
+  if (cardError) {
+    console.error('프로모 카드 조회 실패:', cardError);
+    throw new Error(`프로모 카드 조회 실패: ${cardError.message}`);
+  }
+
+  if (!cards || cards.length === 0) {
     return [];
   }
 
@@ -718,6 +730,61 @@ export async function createPromoCard(
   }
 
   return mapPromoCardRow(cardRow, collectionId);
+}
+
+// 기존 프로모 카드 업데이트
+export async function updatePromoCard(
+  cardId: string,
+  data: Partial<PromoCardUpdateInput>,
+  options?: { userId?: string | null }
+): Promise<PromoCardSettings> {
+  const timestamp = new Date().toISOString();
+  const userId = options?.userId ?? null;
+
+  // 기존 카드 조회 (collection_id 가져오기)
+  const { data: existingCard, error: fetchError } = await supabase
+    .from('promo_cards')
+    .select('collection_id, order_index')
+    .eq('id', cardId)
+    .single();
+
+  if (fetchError || !existingCard) {
+    throw new Error('카드를 찾을 수 없습니다.');
+  }
+
+  // 카드 업데이트
+  const { data: cardRow, error: cardError } = await supabase
+    .from('promo_cards')
+    .update({
+      is_active: data.isActive,
+      headline: data.headline,
+      image_url: data.imageUrl,
+      insert_position: data.insertPosition,
+      background_color: data.backgroundColor,
+      background_color_mode: data.backgroundColorMode,
+      background_gradient_start: data.backgroundGradientStart,
+      background_gradient_end: data.backgroundGradientEnd,
+      font_color: data.fontColor,
+      font_size: data.fontSize,
+      badge_color: data.badgeColor,
+      badge_color_mode: data.badgeColorMode,
+      badge_gradient_start: data.badgeGradientStart,
+      badge_gradient_end: data.badgeGradientEnd,
+      image_scale: data.imageScale,
+      auto_play: data.autoPlay,
+      duration: data.duration,
+      updated_by: userId,
+      updated_at: timestamp
+    })
+    .eq('id', cardId)
+    .select('*')
+    .single<PromoCardRow>();
+
+  if (cardError || !cardRow) {
+    throw cardError || new Error('카드 업데이트 실패');
+  }
+
+  return mapPromoCardRow(cardRow, existingCard.collection_id);
 }
 
 // 프로모 카드 삭제

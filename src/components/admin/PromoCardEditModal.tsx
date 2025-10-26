@@ -2,7 +2,7 @@ import { useState, useCallback, useMemo, useEffect } from 'react';
 import { IconX } from '@tabler/icons-react';
 import PromoCardForm, { type PromoFormState } from './PromoCardForm';
 import PromoCardPreview from './PromoCardPreview';
-import { savePromoCardDraft, applyPromoCardSettings, uploadPromoImage } from '@/lib/supabase/queries';
+import { updatePromoCard, createPromoCard, uploadPromoImage } from '@/lib/supabase/queries';
 import type { PromoCardSettings, PromoCardUpdateInput } from '@/types';
 
 interface PromoCardEditModalProps {
@@ -11,6 +11,7 @@ interface PromoCardEditModalProps {
   onClose: () => void;
   onSave: () => void;
   userId: string | null;
+  collectionId: string | null;
 }
 
 const DEFAULT_BACKGROUND_GRADIENT: readonly [string, string] = ['#6366f1', '#22d3ee'];
@@ -41,7 +42,8 @@ export default function PromoCardEditModal({
   isOpen,
   onClose,
   onSave,
-  userId
+  userId,
+  collectionId
 }: PromoCardEditModalProps) {
   const [form, setForm] = useState<PromoFormState>(() =>
     card ? mapSettingsToForm(card) : {
@@ -167,22 +169,44 @@ export default function PromoCardEditModal({
     setSaving(true);
     setError(null);
     try {
-      await savePromoCardDraft(buildPayload(), { userId });
+      const payload = buildPayload();
+
+      if (card?.cardId) {
+        // 기존 카드 업데이트
+        await updatePromoCard(card.cardId, payload, { userId });
+      } else {
+        // 새 카드 생성
+        if (!collectionId) {
+          throw new Error('컬렉션 ID가 없습니다.');
+        }
+        await createPromoCard(collectionId, payload, { userId });
+      }
       onSave();
     } catch (err) {
-      const message = err instanceof Error ? err.message : '임시저장에 실패했습니다.';
+      const message = err instanceof Error ? err.message : '저장에 실패했습니다.';
       setError(message);
-      console.error('임시저장 실패:', err);
+      console.error('저장 실패:', err);
     } finally {
       setSaving(false);
     }
-  }, [buildPayload, userId, onSave]);
+  }, [buildPayload, card?.cardId, collectionId, userId, onSave]);
 
   const handleApply = useCallback(async () => {
     setApplying(true);
     setError(null);
     try {
-      await applyPromoCardSettings(buildPayload(), { userId });
+      const payload = buildPayload();
+
+      if (card?.cardId) {
+        // 기존 카드 업데이트
+        await updatePromoCard(card.cardId, payload, { userId });
+      } else {
+        // 새 카드 생성
+        if (!collectionId) {
+          throw new Error('컬렉션 ID가 없습니다.');
+        }
+        await createPromoCard(collectionId, payload, { userId });
+      }
       onSave();
       onClose();
     } catch (err) {
@@ -192,7 +216,7 @@ export default function PromoCardEditModal({
     } finally {
       setApplying(false);
     }
-  }, [buildPayload, userId, onSave, onClose]);
+  }, [buildPayload, card?.cardId, collectionId, userId, onSave, onClose]);
 
   const handleReset = useCallback(() => {
     if (card) {
