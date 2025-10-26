@@ -30,7 +30,7 @@ export default function SchoolLevelSelector({ value, onChange, error }: SchoolLe
   const [isOpen, setIsOpen] = useState(false);
 
   const getDisplayText = () => {
-    const selected = SCHOOL_LEVELS.filter(level => value[level.key]).map(level => level.label);
+    const selected: string[] = SCHOOL_LEVELS.filter(level => value[level.key]).map(level => level.label);
     if (value.other) selected.push('기타');
 
     if (selected.length === 0) return '학교급 선택';
