@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   IconChevronDown,
   IconDeviceFloppy,
@@ -40,10 +40,36 @@ import type {
   PopularKeyword,
   BannerType,
   StatsMode,
-  KeywordsMode
+  KeywordsMode,
+  ColorMode
 } from '@/types';
 import { useToastStore } from '@/stores/toastStore';
 import ColorInputField from './ColorInputField';
+import { normalizeHex } from '@/lib/colorUtils';
+
+const DEFAULT_BANNER_GRADIENT: readonly [string, string] = ['#f97316', '#facc15'];
+
+const pickGradientValue = (candidate: string | null | undefined, fallback: string): string =>
+  normalizeHex(candidate) ?? fallback;
+
+function ColorModeToggle({ value, onChange }: { value: ColorMode; onChange: (mode: ColorMode) => void }) {
+  return (
+    <div className="flex overflow-hidden rounded-lg border border-slate-200 text-xs font-semibold text-slate-500">
+      {(['single', 'gradient'] as ColorMode[]).map((mode) => (
+        <button
+          key={mode}
+          type="button"
+          onClick={() => onChange(mode)}
+          className={`flex-1 px-3 py-1.5 transition-colors ${
+            value === mode ? 'bg-primary text-white' : 'bg-white hover:bg-slate-100'
+          }`}
+        >
+          {mode === 'single' ? '단일 색상' : '그라데이션'}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 interface StripeBannerFormState {
   config: StripeBannerConfig | null;
@@ -145,42 +171,41 @@ function BannerPreview({
         {/* 우측: 배너 (50%) */}
         <div className="basis-1/2 h-full">
           {currentBanner && (
-            <div
-              className="h-full rounded-lg px-4 py-3 shadow-sm relative overflow-hidden"
-              style={{ backgroundColor: currentBanner.bgColor }}
-            >
-              <div className="flex items-center gap-3">
-                <div style={{ color: currentBanner.textColor }}>
-                  {getIcon(currentBanner.type)}
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold" style={{ color: currentBanner.textColor }}>
-                    {currentBanner.title}
-                  </h3>
-                  {currentBanner.description && (
-                    <p className="text-xs opacity-90" style={{ color: currentBanner.textColor }}>
-                      {currentBanner.description}
-                    </p>
-                  )}
-                </div>
-              </div>
+            <BannerPreviewItem banner={currentBanner} getIcon={getIcon} />
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
-              {/* 인디케이터 */}
-              {activeBanners.length > 1 && (
-                <div className="absolute bottom-2 right-2 flex gap-1">
-                  {activeBanners.map((_, idx) => (
-                    <div
-                      key={idx}
-                      className={`h-1.5 rounded-full transition-all ${
-                        idx === currentIndex
-                          ? 'w-4 bg-white/80'
-                          : 'w-1.5 bg-white/40'
-                      }`}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
+function BannerPreviewItem({ banner, getIcon }: { banner: StripeBanner; getIcon: (type: BannerType) => React.ReactNode }) {
+  const backgroundStyle = useMemo(() => {
+    if (banner.bgColorMode === 'gradient') {
+      const start = pickGradientValue(banner.bgGradientStart, DEFAULT_BANNER_GRADIENT[0]);
+      const end = pickGradientValue(banner.bgGradientEnd, DEFAULT_BANNER_GRADIENT[1]);
+      return { backgroundImage: `linear-gradient(135deg, ${start} 0%, ${end} 100%)` };
+    }
+    return { backgroundColor: banner.bgColor };
+  }, [banner.bgColor, banner.bgColorMode, banner.bgGradientStart, banner.bgGradientEnd]);
+
+  return (
+    <div
+      className="h-full rounded-lg px-4 py-3 shadow-sm relative overflow-hidden flex items-center"
+      style={backgroundStyle}
+    >
+      <div className="flex items-center gap-3">
+        <div style={{ color: banner.textColor }}>
+          {getIcon(banner.type)}
+        </div>
+        <div>
+          <h3 className="text-sm font-bold" style={{ color: banner.textColor }}>
+            {banner.title}
+          </h3>
+          {banner.description && (
+            <p className="text-xs opacity-90" style={{ color: banner.textColor }}>
+              {banner.description}
+            </p>
           )}
         </div>
       </div>
@@ -985,33 +1010,91 @@ export default function StripeBannerManager() {
                         />
                       </label>
 
-                      <div className="grid grid-cols-2 gap-4">
-                        <ColorInputField
-                          label="배경색"
-                          value={selectedBanner.bgColor}
-                          onChange={(next) => {
-                            setState((prev) => ({
-                              ...prev,
-                              banners: prev.banners.map((b) =>
-                                b.id === selectedBanner.id ? { ...b, bgColor: next } : b
-                              )
-                            }));
-                          }}
-                        />
-
-                        <ColorInputField
-                          label="텍스트색"
-                          value={selectedBanner.textColor}
-                          onChange={(next) => {
-                            setState((prev) => ({
-                              ...prev,
-                              banners: prev.banners.map((b) =>
-                                b.id === selectedBanner.id ? { ...b, textColor: next } : b
-                              )
-                            }));
-                          }}
-                        />
+                      {/* 배경 색상 모드 */}
+                      <div className="rounded-lg border border-slate-200 bg-white px-4 py-3">
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                          <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">배경 색상</span>
+                          <ColorModeToggle 
+                            value={selectedBanner.bgColorMode} 
+                            onChange={(mode) => {
+                              setState(prev => ({
+                                ...prev,
+                                banners: prev.banners.map(b =>
+                                  b.id === selectedBanner.id 
+                                    ? {
+                                        ...b,
+                                        bgColorMode: mode,
+                                        bgGradientStart: mode === 'gradient' 
+                                          ? pickGradientValue(b.bgGradientStart, DEFAULT_BANNER_GRADIENT[0])
+                                          : b.bgGradientStart,
+                                        bgGradientEnd: mode === 'gradient'
+                                          ? pickGradientValue(b.bgGradientEnd, DEFAULT_BANNER_GRADIENT[1])
+                                          : b.bgGradientEnd
+                                      }
+                                    : b
+                                )
+                              }));
+                            }}
+                          />
+                        </div>
+                        <div className={`mt-3 grid gap-3 ${selectedBanner.bgColorMode === 'gradient' ? 'sm:grid-cols-2' : ''}`}>
+                          {selectedBanner.bgColorMode === 'gradient' ? (
+                            <>
+                              <ColorInputField
+                                label="시작 색상"
+                                value={selectedBanner.bgGradientStart ?? DEFAULT_BANNER_GRADIENT[0]}
+                                onChange={(next) => {
+                                  setState(prev => ({
+                                    ...prev,
+                                    banners: prev.banners.map(b =>
+                                      b.id === selectedBanner.id ? { ...b, bgGradientStart: next } : b
+                                    )
+                                  }));
+                                }}
+                              />
+                              <ColorInputField
+                                label="끝 색상"
+                                value={selectedBanner.bgGradientEnd ?? DEFAULT_BANNER_GRADIENT[1]}
+                                onChange={(next) => {
+                                  setState(prev => ({
+                                    ...prev,
+                                    banners: prev.banners.map(b =>
+                                      b.id === selectedBanner.id ? { ...b, bgGradientEnd: next } : b
+                                    )
+                                  }));
+                                }}
+                              />
+                            </>
+                          ) : (
+                            <ColorInputField
+                              label="단일 색상"
+                              value={selectedBanner.bgColor}
+                              onChange={(next) => {
+                                setState((prev) => ({
+                                  ...prev,
+                                  banners: prev.banners.map((b) =>
+                                    b.id === selectedBanner.id ? { ...b, bgColor: next } : b
+                                  )
+                                }));
+                              }}
+                            />
+                          )}
+                        </div>
                       </div>
+
+                      {/* 텍스트 색상 */}
+                      <ColorInputField
+                        label="텍스트색"
+                        value={selectedBanner.textColor}
+                        onChange={(next) => {
+                          setState((prev) => ({
+                            ...prev,
+                            banners: prev.banners.map((b) =>
+                              b.id === selectedBanner.id ? { ...b, textColor: next } : b
+                            )
+                          }));
+                        }}
+                      />
 
                       <label className="flex flex-col text-sm">
                         <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
