@@ -7,7 +7,8 @@ import type {
   UpdateStripeBannerConfigInput,
   UpdateStripeBannerInput,
   UpdateStripeStatisticsInput,
-  UpdatePopularKeywordInput
+  UpdatePopularKeywordInput,
+  ColorMode
 } from '@/types';
 
 // ========================================
@@ -327,6 +328,9 @@ export async function updateStripeBanner(
   if (updates.description !== undefined) dbUpdates.description = updates.description;
   if (updates.link !== undefined) dbUpdates.link = updates.link;
   if (updates.bgColor !== undefined) dbUpdates.bg_color = updates.bgColor;
+  if (updates.bgColorMode !== undefined) dbUpdates.bg_color_mode = updates.bgColorMode;
+  if (updates.bgGradientStart !== undefined) dbUpdates.bg_gradient_start = updates.bgGradientStart;
+  if (updates.bgGradientEnd !== undefined) dbUpdates.bg_gradient_end = updates.bgGradientEnd;
   if (updates.textColor !== undefined) dbUpdates.text_color = updates.textColor;
   if (updates.displayOrder !== undefined) dbUpdates.display_order = updates.displayOrder;
   if (updates.isActive !== undefined) dbUpdates.is_active = updates.isActive;
@@ -423,6 +427,9 @@ export async function createStripeBanner(
       description: banner.description || null,
       link: banner.link || null,
       bg_color: banner.bgColor || '#3b82f6',
+      bg_color_mode: banner.bgColorMode || 'single',
+      bg_gradient_start: banner.bgGradientStart || null,
+      bg_gradient_end: banner.bgGradientEnd || null,
       text_color: banner.textColor || '#ffffff',
       display_order: banner.displayOrder || 0,
       is_active: true
@@ -525,6 +532,9 @@ function mapBannerFromDb(row: Record<string, unknown>): StripeBanner {
     description: row.description as string | null,
     link: row.link as string | null,
     bgColor: row.bg_color as string,
+    bgColorMode: (row.bg_color_mode as ColorMode | null) ?? 'single',
+    bgGradientStart: row.bg_gradient_start as string | null,
+    bgGradientEnd: row.bg_gradient_end as string | null,
     textColor: row.text_color as string,
     displayOrder: row.display_order as number,
     isActive: row.is_active as boolean,

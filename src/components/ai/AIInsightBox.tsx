@@ -1,7 +1,7 @@
 'use client';
 
 import { IconTrendingUp, IconClock, IconUserPlus, IconChevronRight } from '@tabler/icons-react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   getStripeBannerConfig,
   getActiveBanners,
@@ -10,6 +10,12 @@ import {
   getActivePopularKeywords
 } from '@/lib/supabase/stripe-banner';
 import type { StripeBanner, PopularKeyword } from '@/types/index';
+import { normalizeHex } from '@/lib/colorUtils';
+
+const DEFAULT_BANNER_GRADIENT: readonly [string, string] = ['#f97316', '#facc15'];
+
+const pickGradientValue = (candidate: string | null | undefined, fallback: string): string =>
+  normalizeHex(candidate) ?? fallback;
 
 interface BannerData {
   type: 'event' | 'notice' | 'review';
@@ -156,36 +162,46 @@ export default function AIInsightBox({
       
       {/* 우측: 배너 (50%) */}
       <div className="basis-1/2 h-full">
-        <div
-          className="h-full rounded-lg px-4 py-3 shadow-sm hover:shadow-md transition-all hover:scale-[1.02] flex flex-col justify-center"
-          style={{
-            background: `linear-gradient(to right, ${currentBannerData.bgColor}, ${currentBannerData.bgColor})`,
-            color: currentBannerData.textColor,
-            cursor: currentBannerData.link ? 'pointer' : 'default'
-          }}
-          onClick={() => {
-            if (currentBannerData.link) {
-              window.location.href = currentBannerData.link;
-            }
-          }}
-        >
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="text-base font-bold">{currentBannerData.title}</h3>
-            <div className="flex gap-1">
-              {banners.map((_, idx) => (
-                <div
-                  key={idx}
-                  className={`w-1.5 h-1.5 rounded-full transition-all ${
-                    idx === currentBanner ? 'bg-white w-3' : 'bg-white/50'
-                  }`}
-                />
-              ))}
-            </div>
-          </div>
-          <div className="flex items-center justify-between">
-            <p className="text-sm opacity-90">{currentBannerData.description || ''}</p>
-            {currentBannerData.link && <IconChevronRight size={16} stroke={2} className="ml-2 flex-shrink-0" />}
-          </div>
+        <BannerContent banner={currentBannerData} />
+      </div>
+    </div>
+  );
+}
+
+function BannerContent({ banner }: { banner: StripeBanner }) {
+  const backgroundStyle = useMemo(() => {
+    if (banner.bgColorMode === 'gradient') {
+      const start = pickGradientValue(banner.bgGradientStart, DEFAULT_BANNER_GRADIENT[0]);
+      const end = pickGradientValue(banner.bgGradientEnd, DEFAULT_BANNER_GRADIENT[1]);
+      return { backgroundImage: `linear-gradient(135deg, ${start} 0%, ${end} 100%)` };
+    }
+    return { backgroundColor: banner.bgColor };
+  }, [banner.bgColor, banner.bgColorMode, banner.bgGradientStart, banner.bgGradientEnd]);
+
+  return (
+    <div
+      className="h-full rounded-lg px-4 py-3 shadow-sm hover:shadow-md transition-all hover:scale-[1.02] flex flex-col justify-center"
+      style={{
+        ...backgroundStyle,
+        color: banner.textColor,
+        cursor: banner.link ? 'pointer' : 'default'
+      }}
+      onClick={() => {
+        if (banner.link) {
+          window.location.href = banner.link;
+        }
+      }}
+    >
+      <div className="flex items-center gap-3">
+        <div>
+          <h3 className="text-sm font-bold" style={{ color: banner.textColor }}>
+            {banner.title}
+          </h3>
+          {banner.description && (
+            <p className="text-xs opacity-90" style={{ color: banner.textColor }}>
+              {banner.description}
+            </p>
+          )}
         </div>
       </div>
     </div>
