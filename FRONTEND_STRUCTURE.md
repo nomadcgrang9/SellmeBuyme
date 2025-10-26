@@ -52,6 +52,10 @@
 - **관리자 UI 개선**: `StripeBannerManager.tsx`에서 배너·통계·키워드를 로컬 상태로 수정 후 통합 저장 버튼으로 일괄 저장하여 한글 입력 깨짐 문제 해결. `loadAutoStats()` 호출 시 Toast 알림으로 새로고침 피드백 제공.
 - **UI 정리**: 메인 페이지에서 배너 타입 표시 제거(관리자 전용 정보), 통계 폰트 크기를 `text-xs` → `text-sm`(1.2배)으로 확대, 2줄 구조로 간소화.
 
+### 추가 업데이트 (2025-10-26)
+- **띠지배너 그라데이션 지원**: `StripeBannerManager.tsx`에 배경 색상 모드 전환(`single`/`gradient`) 및 그라데이션 시작/종료 색상 선택 UI 추가.
+- **띠지배너 렌더링 개선**: `AIInsightBox.tsx`에서 `bgColorMode`에 따라 단색(`backgroundColor`) 또는 그라데이션(`linear-gradient`) 배경 동적 적용.
+
 ## 📋 목차
 1. [페이지 레이아웃 구조](#페이지-레이아웃-구조)
 2. [1. 헤더 (Header)](#1-헤더-header)
