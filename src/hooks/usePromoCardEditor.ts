@@ -32,7 +32,9 @@ const DEFAULT_FORM_STATE: PromoFormState = {
   badgeColorMode: 'single',
   badgeGradientStart: null,
   badgeGradientEnd: null,
-  imageScale: 1
+  imageScale: 1,
+  autoPlay: true,
+  duration: 5000
 };
 
 const cloneForm = (form: PromoFormState): PromoFormState => ({ ...form });
@@ -52,7 +54,9 @@ const mapSettingsToForm = (settings: PromoCardSettings): PromoFormState => ({
   badgeColorMode: settings.badgeColorMode ?? 'single',
   badgeGradientStart: settings.badgeGradientStart ?? null,
   badgeGradientEnd: settings.badgeGradientEnd ?? null,
-  imageScale: typeof settings.imageScale === 'number' ? settings.imageScale : 1
+  imageScale: typeof settings.imageScale === 'number' ? settings.imageScale : 1,
+  autoPlay: settings.autoPlay,
+  duration: settings.duration
 });
 
 const formatDate = (date: Date | null) => {
@@ -214,7 +218,9 @@ export function usePromoCardEditor(options: UsePromoCardEditorOptions) {
         form.badgeColorMode === 'gradient'
           ? pickGradientValue(form.badgeGradientEnd, DEFAULT_BADGE_GRADIENT[1])
           : null,
-      imageScale: form.imageScale
+      imageScale: form.imageScale,
+      autoPlay: form.autoPlay,
+      duration: form.duration
     };
   }, [form, collectionId, cardId]);
 

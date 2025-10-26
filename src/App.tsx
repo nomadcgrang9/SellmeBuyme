@@ -7,7 +7,7 @@ import JobDetailModal from '@/components/cards/JobDetailModal';
 import ProfileSetupModal, { ROLE_OPTIONS, type RoleOption } from '@/components/auth/ProfileSetupModal';
 import ProfileViewModal from '@/components/auth/ProfileViewModal';
 import ToastContainer from '@/components/common/ToastContainer';
-import { searchCards, fetchRecommendationsCache, isCacheValid, hasProfileChanged, fetchPromoCardSettings, selectRecommendationCards, filterByTeacherLevel, filterByJobType, calculateSubjectScore, filterByExperience, generateRecommendations } from '@/lib/supabase/queries';
+import { searchCards, fetchRecommendationsCache, isCacheValid, hasProfileChanged, fetchPromoCards, selectRecommendationCards, filterByTeacherLevel, filterByJobType, calculateSubjectScore, filterByExperience, generateRecommendations } from '@/lib/supabase/queries';
 import { fetchUserProfile, type UserProfileRow } from '@/lib/supabase/profiles';
 import { useSearchStore } from '@/stores/searchStore';
 import { useAuthStore } from '@/stores/authStore';
@@ -66,7 +66,7 @@ export default function App() {
   const [recommendationDescription, setRecommendationDescription] = useState<string | undefined>(undefined);
   const [recommendationLoading, setRecommendationLoading] = useState(true);
   const [recommendationReloadKey, setRecommendationReloadKey] = useState(0);
-  const [promoCard, setPromoCard] = useState<PromoCardSettings | null>(null);
+  const [promoCards, setPromoCards] = useState<PromoCardSettings[]>([]);
   const [recommendedIds, setRecommendedIds] = useState<Set<string>>(new Set());
   const [userProfile, setUserProfile] = useState<UserProfileRow | null>(null);
   const [selectedJob, setSelectedJob] = useState<JobPostingCard | null>(null);
@@ -223,21 +223,21 @@ export default function App() {
   useEffect(() => {
     let cancelled = false;
 
-    async function loadPromoCard() {
+    async function loadPromoCards() {
       try {
-        const data = await fetchPromoCardSettings({ onlyActive: true });
+        const data = await fetchPromoCards({ onlyActive: true });
         if (!cancelled) {
-          setPromoCard(data);
+          setPromoCards(data);
         }
       } catch (promoError) {
         if (!cancelled) {
           console.error('프로모 카드 불러오기 실패:', promoError);
-          setPromoCard(null);
+          setPromoCards([]);
         }
       }
     }
 
-    void loadPromoCard();
+    void loadPromoCards();
 
     return () => {
       cancelled = true;
@@ -475,7 +475,7 @@ export default function App() {
           loading={recommendationLoading}
           headlineOverride={recommendationHeadline}
           descriptionOverride={recommendationDescription}
-          promoCard={promoCard}
+          promoCards={promoCards}
           profile={userProfile}
           onCardClick={handleCardClick}
         />

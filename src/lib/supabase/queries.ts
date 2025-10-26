@@ -56,6 +56,8 @@ type PromoCardRow = {
   badge_gradient_start: string | null;
   badge_gradient_end: string | null;
   image_scale: number | null;
+  auto_play: boolean;
+  duration: number;
   last_draft_at: string | null;
   last_applied_at: string | null;
   updated_by: string | null;
@@ -83,6 +85,8 @@ function mapPromoCardRow(row: PromoCardRow, collectionId: string): PromoCardSett
     badgeGradientStart: row.badge_gradient_start,
     badgeGradientEnd: row.badge_gradient_end,
     imageScale: typeof row.image_scale === 'number' ? row.image_scale : 1,
+    autoPlay: row.auto_play,
+    duration: row.duration,
     lastDraftAt: row.last_draft_at,
     lastAppliedAt: row.last_applied_at,
     updatedBy: row.updated_by,
@@ -456,6 +460,34 @@ export async function fetchPromoCardSettings(options?: { onlyActive?: boolean })
   return mapPromoCardRow(cards[0], collectionId);
 }
 
+// 여러 프로모 카드 조회 (활성 컬렉션의 모든 카드)
+export async function fetchPromoCards(options?: { onlyActive?: boolean }): Promise<PromoCardSettings[]> {
+  const { data: collections, error: collError } = await supabase
+    .from('promo_card_collections')
+    .select('id, is_active')
+    .eq('is_active', true)
+    .limit(1);
+
+  if (collError || !collections || collections.length === 0) {
+    return [];
+  }
+
+  const collectionId = collections[0].id;
+
+  const { data: cards, error: cardError } = await supabase
+    .from('promo_cards')
+    .select('*')
+    .eq('collection_id', collectionId)
+    .order('order_index', { ascending: true })
+    .returns<PromoCardRow[]>();
+
+  if (cardError || !cards || cards.length === 0) {
+    return [];
+  }
+
+  return cards.map((card) => mapPromoCardRow(card, collectionId));
+}
+
 // 프로모 카드 임시저장
 export async function savePromoCardDraft(
   payload: PromoCardUpdateInput,
@@ -485,6 +517,20 @@ export async function savePromoCardDraft(
 
   const collectionId = collectionRow.id;
 
+  // 기존 카드가 있으면 order_index 유지, 없으면 새로 할당
+  let orderIndex = 1;
+  if (payload.cardId) {
+    const { data: existingCard } = await supabase
+      .from('promo_cards')
+      .select('order_index')
+      .eq('id', payload.cardId)
+      .single();
+
+    if (existingCard) {
+      orderIndex = existingCard.order_index;
+    }
+  }
+
   // 카드 upsert
   const { data: cardRow, error: cardError } = await supabase
     .from('promo_cards')
@@ -492,7 +538,7 @@ export async function savePromoCardDraft(
       {
         id: payload.cardId,
         collection_id: collectionId,
-        order_index: 1,
+        order_index: orderIndex,
         insert_position: payload.insertPosition,
         is_active: payload.isActive,
         headline: payload.headline,
@@ -508,6 +554,8 @@ export async function savePromoCardDraft(
         badge_gradient_start: payload.badgeGradientStart,
         badge_gradient_end: payload.badgeGradientEnd,
         image_scale: payload.imageScale,
+        auto_play: payload.autoPlay,
+        duration: payload.duration,
         last_draft_at: timestamp,
         updated_by: userId,
         updated_at: timestamp
@@ -559,14 +607,28 @@ export async function applyPromoCardSettings(
     .update({ is_active: false, updated_at: timestamp })
     .neq('id', collectionId);
 
+  // 기존 카드가 있으면 order_index 유지, 없으면 새로 할당
+  let orderIndex = 1;
+  if (payload.cardId) {
+    const { data: existingCard } = await supabase
+      .from('promo_cards')
+      .select('order_index')
+      .eq('id', payload.cardId)
+      .single();
+
+    if (existingCard) {
+      orderIndex = existingCard.order_index;
+    }
+  }
+
   // 카드 upsert
-  const { data: cardRow, error: cardError } = await supabase
+  const { data: cardRow, error: cardError} = await supabase
     .from('promo_cards')
     .upsert(
       {
         id: payload.cardId,
         collection_id: collectionId,
-        order_index: 1,
+        order_index: orderIndex,
         insert_position: payload.insertPosition,
         is_active: payload.isActive,
         headline: payload.headline,
@@ -582,6 +644,8 @@ export async function applyPromoCardSettings(
         badge_gradient_start: payload.badgeGradientStart,
         badge_gradient_end: payload.badgeGradientEnd,
         image_scale: payload.imageScale,
+        auto_play: payload.autoPlay,
+        duration: payload.duration,
         last_applied_at: timestamp,
         updated_by: userId,
         updated_at: timestamp
@@ -596,6 +660,141 @@ export async function applyPromoCardSettings(
   }
 
   return mapPromoCardRow(cardRow, collectionId);
+}
+
+// 새 프로모 카드 생성
+export async function createPromoCard(
+  collectionId: string,
+  data: Partial<PromoCardUpdateInput>,
+  options?: { userId?: string | null }
+): Promise<PromoCardSettings> {
+  const timestamp = new Date().toISOString();
+  const userId = options?.userId ?? null;
+
+  // 현재 최대 order_index 조회
+  const { data: maxOrderData } = await supabase
+    .from('promo_cards')
+    .select('order_index')
+    .eq('collection_id', collectionId)
+    .order('order_index', { ascending: false })
+    .limit(1);
+
+  const maxOrder = maxOrderData && maxOrderData.length > 0 ? maxOrderData[0].order_index : 0;
+  const newOrderIndex = maxOrder + 1;
+
+  // 새 카드 생성
+  const { data: cardRow, error: cardError } = await supabase
+    .from('promo_cards')
+    .insert({
+      collection_id: collectionId,
+      order_index: newOrderIndex,
+      insert_position: data.insertPosition ?? 2,
+      is_active: data.isActive ?? true,
+      headline: data.headline ?? '새 프로모 카드',
+      image_url: data.imageUrl ?? null,
+      background_color: data.backgroundColor ?? '#ffffff',
+      background_color_mode: data.backgroundColorMode ?? 'single',
+      background_gradient_start: data.backgroundGradientStart ?? null,
+      background_gradient_end: data.backgroundGradientEnd ?? null,
+      font_color: data.fontColor ?? '#1f2937',
+      font_size: data.fontSize ?? 24,
+      badge_color: data.badgeColor ?? '#dbeafe',
+      badge_color_mode: data.badgeColorMode ?? 'single',
+      badge_gradient_start: data.badgeGradientStart ?? null,
+      badge_gradient_end: data.badgeGradientEnd ?? null,
+      image_scale: data.imageScale ?? 1,
+      auto_play: data.autoPlay ?? true,
+      duration: data.duration ?? 5000,
+      last_draft_at: timestamp,
+      updated_by: userId,
+      created_at: timestamp,
+      updated_at: timestamp
+    })
+    .select('*')
+    .single<PromoCardRow>();
+
+  if (cardError || !cardRow) {
+    throw cardError || new Error('카드 생성 실패');
+  }
+
+  return mapPromoCardRow(cardRow, collectionId);
+}
+
+// 프로모 카드 삭제
+export async function deletePromoCard(cardId: string): Promise<void> {
+  const { error } = await supabase
+    .from('promo_cards')
+    .delete()
+    .eq('id', cardId);
+
+  if (error) {
+    throw error;
+  }
+}
+
+// 프로모 이미지 업로드
+export async function uploadPromoImage(file: File): Promise<string> {
+  const fileExt = file.name.split('.').pop();
+  const fileName = `${Math.random().toString(36).substring(2)}-${Date.now()}.${fileExt}`;
+  const filePath = `promo/${fileName}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from('promo-images')
+    .upload(filePath, file, {
+      cacheControl: '3600',
+      upsert: false
+    });
+
+  if (uploadError) {
+    throw uploadError;
+  }
+
+  const { data } = supabase.storage
+    .from('promo-images')
+    .getPublicUrl(filePath);
+
+  return data.publicUrl;
+}
+
+// 두 카드의 순서 교환
+export async function swapCardOrder(cardId1: string, cardId2: string): Promise<void> {
+  // 두 카드 정보 조회
+  const { data: cards, error: fetchError } = await supabase
+    .from('promo_cards')
+    .select('id, order_index')
+    .in('id', [cardId1, cardId2]);
+
+  if (fetchError || !cards || cards.length !== 2) {
+    throw fetchError || new Error('카드 조회 실패');
+  }
+
+  const card1 = cards.find(c => c.id === cardId1);
+  const card2 = cards.find(c => c.id === cardId2);
+
+  if (!card1 || !card2) {
+    throw new Error('카드를 찾을 수 없습니다');
+  }
+
+  // order_index 교환
+  const timestamp = new Date().toISOString();
+
+  const { error: update1Error } = await supabase
+    .from('promo_cards')
+    .update({ order_index: card2.order_index, updated_at: timestamp })
+    .eq('id', cardId1);
+
+  if (update1Error) {
+    throw update1Error;
+  }
+
+  const { error: update2Error } = await supabase
+    .from('promo_cards')
+    .update({ order_index: card1.order_index, updated_at: timestamp })
+    .eq('id', cardId2);
+
+  if (update2Error) {
+    throw update2Error;
+  }
 }
 
 const DEFAULT_LIMIT = 20;
