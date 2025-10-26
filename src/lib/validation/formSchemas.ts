@@ -19,7 +19,7 @@ export const jobPostingSchema = z.object({
     adultTraining: z.boolean(),
     other: z.string().optional(),
   }).refine(
-    (data) =>
+    (data: { kindergarten: boolean; elementary: boolean; secondary: boolean; high: boolean; special: boolean; adultTraining: boolean; other?: string }) =>
       data.kindergarten ||
       data.elementary ||
       data.secondary ||
@@ -38,7 +38,7 @@ export const jobPostingSchema = z.object({
     seoul: z.array(z.string()).optional(),
     gyeonggi: z.array(z.string()).optional(),
   }).refine(
-    (data) =>
+    (data: { seoul?: string[]; gyeonggi?: string[] }) =>
       (data.seoul && data.seoul.length > 0) ||
       (data.gyeonggi && data.gyeonggi.length > 0),
     { message: '최소 하나의 지역을 선택해주세요' }
@@ -67,7 +67,7 @@ export const jobPostingSchema = z.object({
   // 공고문 첨부파일 (선택)
   attachment: z.instanceof(File).optional(),
 }).refine(
-  (data) => {
+  (data: { schoolLevel: { secondary: boolean; adultTraining: boolean }; subject?: string }) => {
     // 중등 또는 성인대상 체크 시 과목 필수
     if (data.schoolLevel.secondary || data.schoolLevel.adultTraining) {
       return data.subject && data.subject.length > 0;
@@ -108,7 +108,7 @@ export const talentRegistrationSchema = z.object({
     adultTraining: z.boolean(),
     other: z.string().optional(),
   }).refine(
-    (data) =>
+    (data: { contractTeacher: { enabled: boolean }; careerEducation: boolean; counseling: boolean; afterSchool: boolean; neulbom: boolean; cooperativeInstructor: boolean; adultTraining: boolean; other?: string }) =>
       data.contractTeacher.enabled ||
       data.careerEducation ||
       data.counseling ||
@@ -121,16 +121,14 @@ export const talentRegistrationSchema = z.object({
   ),
 
   // 경력
-  experience: z.enum(['신규', '1~3년', '3~5년', '5년 이상'], {
-    required_error: '경력을 선택해주세요',
-  }),
+  experience: z.enum(['신규', '1~3년', '3~5년', '5년 이상']),
 
   // 희망 지역
   location: z.object({
     seoul: z.array(z.string()).optional(),
     gyeonggi: z.array(z.string()).optional(),
   }).refine(
-    (data) =>
+    (data: { seoul?: string[]; gyeonggi?: string[] }) =>
       (data.seoul && data.seoul.length > 0) ||
       (data.gyeonggi && data.gyeonggi.length > 0),
     { message: '최소 하나의 희망 지역을 선택해주세요' }
@@ -146,7 +144,7 @@ export const talentRegistrationSchema = z.object({
   phone: z.string().min(1, '전화번호를 입력해주세요'),
   email: z.string().email('올바른 이메일 형식을 입력해주세요'),
 }).refine(
-  (data) => {
+  (data: { specialty: { contractTeacher: { enabled: boolean; kindergarten: boolean; elementary: boolean; secondary: boolean; special: boolean } } }) => {
     // 기간제교사 선택 시 최소 하나의 학교급 선택 필요
     if (data.specialty.contractTeacher.enabled) {
       const { kindergarten, elementary, secondary, special } = data.specialty.contractTeacher;
@@ -159,7 +157,7 @@ export const talentRegistrationSchema = z.object({
     path: ['specialty', 'contractTeacher']
   }
 ).refine(
-  (data) => {
+  (data: { specialty: { contractTeacher: { enabled: boolean; secondary: boolean; secondarySubjects?: string } } }) => {
     // 중등 선택 시 과목 필수
     if (data.specialty.contractTeacher.enabled && data.specialty.contractTeacher.secondary) {
       return data.specialty.contractTeacher.secondarySubjects &&
@@ -194,7 +192,7 @@ export const experienceRegistrationSchema = z.object({
     seoul: z.array(z.string()).optional(),
     gyeonggi: z.array(z.string()).optional(),
   }).refine(
-    (data) =>
+    (data: { seoul?: string[]; gyeonggi?: string[] }) =>
       (data.seoul && data.seoul.length > 0) ||
       (data.gyeonggi && data.gyeonggi.length > 0),
     { message: '최소 하나의 희망 지역을 선택해주세요' }
