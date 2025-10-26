@@ -3,14 +3,14 @@
 import type { Card, PromoCardSettings } from '@/types';
 import type { UserProfileRow } from '@/lib/supabase/profiles';
 import { IconChevronLeft, IconChevronRight, IconSparkles } from '@tabler/icons-react';
-import { useState, useRef, useEffect, useMemo } from 'react';
-import { createBadgeGradient, normalizeHex } from '@/lib/colorUtils';
+import { useState, useRef, useEffect } from 'react';
 import CompactJobCard from '../cards/CompactJobCard';
 import CompactTalentCard from '../cards/CompactTalentCard';
 import TextType from '../common/TextType';
 import JobPostingForm from '../forms/JobPostingForm';
 import TalentRegistrationForm from '../forms/TalentRegistrationForm';
 import ExperienceRegistrationForm from '../forms/ExperienceRegistrationForm';
+import PromoCardStack from '../promo/PromoCardStack';
 
 interface AIRecommendationsProps {
   cards: Card[];
@@ -18,7 +18,7 @@ interface AIRecommendationsProps {
   loading?: boolean;
   headlineOverride?: string;
   descriptionOverride?: string;
-  promoCard?: PromoCardSettings | null;
+  promoCards?: PromoCardSettings[];
   profile?: UserProfileRow | null;
   onCardClick?: (card: Card) => void;
 }
@@ -29,7 +29,7 @@ export default function AIRecommendations({
   loading = false,
   headlineOverride,
   descriptionOverride,
-  promoCard,
+  promoCards = [],
   profile,
   onCardClick
 }: AIRecommendationsProps) {
@@ -37,22 +37,6 @@ export default function AIRecommendations({
   const [visibleCount, setVisibleCount] = useState(3);
   const [activeSection, setActiveSection] = useState<'job' | 'talent' | 'experience' | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-
-  // 반응형 카드 개수 설정
-  const DEFAULT_BADGE_GRADIENT: readonly [string, string] = ['#f97316', '#facc15'];
-
-  const pickGradientValue = (candidate: string | null | undefined, fallback: string) =>
-    normalizeHex(candidate) ?? fallback;
-
-  const badgeBarBackground = useMemo(() => {
-    if (promoCard?.badgeColorMode === 'gradient') {
-      const start = pickGradientValue(promoCard?.badgeGradientStart, DEFAULT_BADGE_GRADIENT[0]);
-      const end = pickGradientValue(promoCard?.badgeGradientEnd, DEFAULT_BADGE_GRADIENT[1]);
-      return `linear-gradient(90deg, ${start} 0%, ${end} 100%)`;
-    }
-
-    return createBadgeGradient(promoCard?.badgeColor);
-  }, [promoCard?.badgeColorMode, promoCard?.badgeGradientStart, promoCard?.badgeGradientEnd, promoCard?.badgeColor]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -84,21 +68,8 @@ export default function AIRecommendations({
   const totalItems = carouselItems.length;
   const maxIndex = Math.max(totalItems - visibleCount, 0);
 
-  // 프로모카드 설정
-  const shouldIncludePromo = Boolean(promoCard) && (!loading || visibleCards.length === 0);
-  const promoHeadline = promoCard?.headline ?? '셀바, 학교와 교육자원을 연결하겠습니다';
-  const promoBackground = promoCard?.backgroundColor ?? '#f7c6d9';
-  const promoFontColor = promoCard?.fontColor ?? '#1f2937';
-  const promoFontSize = promoCard?.fontSize ?? 24;
-  const promoImageSrc = promoCard?.imageUrl ?? '/picture/section%20right%20ad2.png';
-  const promoImageScale = Math.min(Math.max(promoCard?.imageScale ?? 1, 0.5), 1.5);
-  const promoImageWrapperStyle = {
-    height: `${180 * promoImageScale}px`
-  } as const;
-  const promoImageStyle = {
-    maxHeight: `${170 * promoImageScale}px`,
-    maxWidth: `${240 * promoImageScale}px`
-  } as const;
+  // 프로모카드 스택 표시 여부
+  const shouldIncludePromo = promoCards.length > 0;
 
   useEffect(() => {
     if (currentIndex > maxIndex) {
@@ -283,52 +254,10 @@ export default function AIRecommendations({
             )}
           </div>
 
-          {/* 3. 우측: 프로모카드 (독립 영역) - 등록 폼 활성화 시 숨김 */}
+          {/* 3. 우측: 프로모카드 스택 (독립 영역) - 등록 폼 활성화 시 숨김 */}
           {shouldIncludePromo && !activeSection && (
-            <aside className="shrink-0 lg:w-[280px] lg:h-full">
-              <article
-                className="card-interactive border border-gray-200 rounded-lg overflow-hidden h-full flex flex-col shadow-sm hover:shadow-md transition-shadow"
-                style={{ backgroundColor: promoBackground }}
-              >
-                <div className="flex flex-col h-full">
-                  <div
-                    className="w-full flex-shrink-0"
-                    style={{
-                      height: '2px',
-                      backgroundImage: badgeBarBackground,
-                      backgroundSize: '100% 100%',
-                      backgroundRepeat: 'no-repeat',
-                      backgroundPosition: '0 0'
-                    }}
-                  />
-                  <div className="flex-1 flex flex-col items-center justify-center gap-4 px-5 py-6 text-center">
-                    <h3
-                      className="font-semibold leading-tight whitespace-pre-line"
-                      style={{ color: promoFontColor, fontSize: `${promoFontSize}px` }}
-                    >
-                      {promoHeadline}
-                    </h3>
-                    <div className="flex w-full flex-1 items-center justify-center" style={promoImageWrapperStyle}>
-                      {promoImageSrc ? (
-                        <img
-                          src={promoImageSrc}
-                          alt={promoHeadline}
-                          className="w-auto object-contain drop-shadow"
-                          style={promoImageStyle}
-                          draggable={false}
-                        />
-                      ) : (
-                        <div
-                          className="flex w-full flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 text-slate-400"
-                          style={promoImageStyle}
-                        >
-                          <span className="text-xs">이미지 없음</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </article>
+            <aside className="shrink-0 lg:w-[280px] lg:h-[280px] flex items-center justify-center">
+              <PromoCardStack cards={promoCards} />
             </aside>
           )}
         </div>

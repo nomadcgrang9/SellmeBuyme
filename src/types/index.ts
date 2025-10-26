@@ -143,6 +143,8 @@ export interface PromoCardSettings {
   badgeGradientStart: string | null;
   badgeGradientEnd: string | null;
   imageScale: number;
+  autoPlay: boolean;
+  duration: number;
   lastDraftAt: string | null;
   lastAppliedAt: string | null;
   updatedBy: string | null;
@@ -168,6 +170,8 @@ export interface PromoCardUpdateInput {
   badgeGradientStart?: string | null;
   badgeGradientEnd?: string | null;
   imageScale: number;
+  autoPlay: boolean;
+  duration: number;
   updatedBy?: string | null;
 }
 

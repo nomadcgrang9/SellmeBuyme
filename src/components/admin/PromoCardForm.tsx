@@ -20,6 +20,8 @@ export type PromoFormState = {
   badgeGradientStart: string | null;
   badgeGradientEnd: string | null;
   imageScale: number;
+  autoPlay: boolean;
+  duration: number;
 };
 
 const DEFAULT_BACKGROUND_GRADIENT: readonly [string, string] = ['#6366f1', '#22d3ee'];
@@ -59,6 +61,8 @@ interface PromoCardFormProps {
   isApplying: boolean;
   lastSavedLabel: string;
   lastAppliedLabel: string;
+  onImageUpload?: (file: File) => Promise<void>;
+  isUploading?: boolean;
 }
 
 export default function PromoCardForm({
@@ -72,7 +76,9 @@ export default function PromoCardForm({
   isSaving,
   isApplying,
   lastSavedLabel,
-  lastAppliedLabel
+  lastAppliedLabel,
+  onImageUpload,
+  isUploading = false
 }: PromoCardFormProps) {
   const handleBackgroundModeChange = (mode: ColorMode) => {
     onFieldChange('backgroundColorMode', mode);
@@ -179,7 +185,19 @@ export default function PromoCardForm({
             활성화
           </label>
         </div>
-        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+        <div className="mt-3 flex items-center justify-between rounded-lg bg-white px-3 py-2 text-sm text-slate-600">
+          <span>자동 재생</span>
+          <label className="flex items-center gap-2 font-medium">
+            <input
+              type="checkbox"
+              checked={form.autoPlay}
+              onChange={(event) => onFieldChange('autoPlay', event.target.checked)}
+              className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary"
+            />
+            {form.autoPlay ? '켜짐' : '끄짐'}
+          </label>
+        </div>
+        <div className="mt-4 grid gap-4 sm:grid-cols-3">
           <label className="flex flex-col text-sm text-slate-600">
             <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">삽입 순서</span>
             <input
@@ -201,6 +219,22 @@ export default function PromoCardForm({
               onChange={(event) => onFieldChange('fontSize', Number(event.target.value))}
               className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/40"
             />
+          </label>
+          <label className="flex flex-col text-sm text-slate-600">
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">머무르는 시간 (초)</span>
+            <input
+              type="number"
+              min={1}
+              max={30}
+              step={0.5}
+              value={form.duration / 1000}
+              onChange={(event) => onFieldChange('duration', Number(event.target.value) * 1000)}
+              disabled={!form.autoPlay}
+              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-50 disabled:cursor-not-allowed"
+            />
+            <span className="mt-1 text-xs text-slate-400">
+              {form.autoPlay ? `${(form.duration / 1000).toFixed(1)}초마다 자동 전환` : '자동 재생 꺼짐'}
+            </span>
           </label>
         </div>
       </section>
@@ -328,15 +362,35 @@ export default function PromoCardForm({
             </div>
           </label>
           <label className="flex flex-col text-sm text-slate-600">
-            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">이미지 URL</span>
-            <input
-              type="url"
-              value={form.imageUrl ?? ''}
-              onChange={(event) => onFieldChange('imageUrl', event.target.value)}
-              placeholder="https://"
-              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/40"
-            />
-            <span className="mt-1 text-xs text-slate-400">정사각형 또는 가로형 이미지를 추천합니다.</span>
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">이미지</span>
+            <div className="flex gap-2 mt-1">
+              <input
+                type="url"
+                value={form.imageUrl ?? ''}
+                onChange={(event) => onFieldChange('imageUrl', event.target.value)}
+                placeholder="이미지 URL 입력 또는 파일 업로드"
+                className="flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/40"
+              />
+              {onImageUpload && (
+                <label className="cursor-pointer inline-flex items-center gap-2 rounded-lg border border-primary/60 bg-primary/10 px-4 py-2 text-sm font-semibold text-primary transition hover:bg-primary/20 disabled:cursor-not-allowed disabled:opacity-60">
+                  {isUploading ? '업로드 중...' : '파일 선택'}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (file && onImageUpload) {
+                        await onImageUpload(file);
+                        e.target.value = ''; // 같은 파일 다시 선택 가능하도록
+                      }
+                    }}
+                    className="hidden"
+                    disabled={isUploading}
+                  />
+                </label>
+              )}
+            </div>
+            <span className="mt-1 text-xs text-slate-400">정사각형 또는 가로형 이미지를 추천합니다. (PNG, JPG, WebP)</span>
           </label>
         </div>
       </section>
