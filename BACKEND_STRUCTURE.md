@@ -53,6 +53,10 @@
 - **옵셔널 쿼리 처리**: `.single()` 대신 `.maybeSingle()`을 사용해 데이터가 없을 때 에러 대신 `null` 반환, `getTodayStripeStatistics()`에서 빈 데이터 처리 개선.
 - **통계 모드 분기**: `getAutoStatistics()`는 실시간 집계 쿼리(`gte('created_at', todayISO)`), `getTodayStripeStatistics()`는 DB 저장값 조회로 auto/manual 모드 지원.
 
+### 추가 업데이트 (2025-10-26)
+- **띠지배너 그라데이션 필드 지원**: `stripe-banner.ts`의 `mapBannerFromDb()`와 `updateStripeBanner()`에서 `bgColorMode`, `bgGradientStart`, `bgGradientEnd` 필드 처리 추가.
+- **Cloudflare Pages 배포 설정**: `.node-version` 파일 생성으로 Node 20 버전 명시, `/dist` 폴더를 `.gitignore`에 추가하여 빌드 산출물 Git 추적 제외.
+
 ## 📊 현재 상태
 
 ### 프론트엔드
