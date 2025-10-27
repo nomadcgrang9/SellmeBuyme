@@ -107,8 +107,8 @@ export default function AIRecommendations({
         {/* 3단 그리드: 등록버튼 | AI코멘트+카드 | 프로모 */}
         <div className="flex flex-col gap-4 lg:flex-row lg:h-[280px]">
 
-          {/* 1. 좌측: 등록 버튼 3개 */}
-          <aside className="flex flex-col gap-1 shrink-0 lg:w-[140px] lg:pt-[72px]">
+          {/* 1. 좌측: 등록 버튼 3개 - 데스크톱만 표시 */}
+          <aside className="hidden lg:flex flex-col gap-1 shrink-0 lg:w-[140px] lg:pt-[72px]">
             {/* 공고 등록 */}
             <button
               onClick={() => setActiveSection(activeSection === 'job' ? null : 'job')}
@@ -167,15 +167,18 @@ export default function AIRecommendations({
                   <div className="flex items-center justify-center flex-shrink-0">
                     <IconSparkles size={24} stroke={1.5} className="text-amber-500" />
                   </div>
-                  <TextType
-                    text="선생님을 위해 셀바가 열심히 찾아봤어요"
-                    as="p"
-                    className="text-base font-semibold text-gray-900 leading-snug"
-                    typingSpeed={60}
-                    loop={false}
-                    showCursor={false}
-                    initialDelay={300}
-                  />
+                  {/* 모든 화면에서 동일한 텍스트 */}
+                  <div>
+                    <TextType
+                      text="선생님을 위해 셀바가 열심히 찾아봤어요"
+                      as="p"
+                      className="text-[0.9rem] font-semibold text-gray-900 leading-snug"
+                      typingSpeed={60}
+                      loop={false}
+                      showCursor={false}
+                      initialDelay={300}
+                    />
+                  </div>
                 </div>
 
                 {/* 카드 캐러셀 */}
@@ -254,9 +257,9 @@ export default function AIRecommendations({
             )}
           </div>
 
-          {/* 3. 우측: 프로모카드 스택 (독립 영역) - 등록 폼 활성화 시 숨김 */}
+          {/* 3. 우측: 프로모카드 스택 (독립 영역) - 등록 폼 활성화 시 숨김, 모바일에서는 숨김 */}
           {shouldIncludePromo && !activeSection && (
-            <aside className="shrink-0 lg:w-[280px] lg:h-[280px] flex items-center justify-center">
+            <aside className="hidden lg:flex shrink-0 lg:w-[280px] lg:h-[280px] items-center justify-center">
               <PromoCardStack cards={promoCards} />
             </aside>
           )}

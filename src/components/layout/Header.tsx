@@ -155,23 +155,23 @@ export default function Header({ onProfileClick }: HeaderProps) {
 
   return (
     <header className="sticky top-0 z-50 bg-white border-b border-gray-200 font-esamanru">
-      <div className="max-w-container mx-auto px-6 py-2.5">
-        {/* 단일 행: 로고 + 토글 + 검색 + 필터 + 버튼 */}
-        <div className="flex items-center gap-4 w-full">
-          {/* 로고 + 토글 (좌측) */}
-          <div className="flex items-center gap-3 shrink-0">
+      {/* PC: 1줄 레이아웃 (로고 + 토글 + 검색 + 버튼) */}
+      <div className="hidden sm:block">
+        <div className="max-w-container mx-auto px-6 py-2.5">
+          <div className="flex items-center gap-3">
+            {/* 로고 */}
             <h1
-              className="text-xl font-extrabold bg-gradient-to-r from-[#9DD2FF] to-[#68B2FF] bg-clip-text text-transparent"
+              className="text-xl font-extrabold bg-gradient-to-r from-[#9DD2FF] to-[#68B2FF] bg-clip-text text-transparent shrink-0"
               style={{ letterSpacing: '-0.5px' }}
             >
               셀미바이미
             </h1>
-            
+
             {/* 스위치 토글 */}
             <button
               onClick={handleToggle}
               title={`${toggleLabelMap[toggleOrder[(toggleOrder.indexOf(viewType) + 1) % toggleOrder.length]]} 보기`}
-              className={`relative w-[76px] h-6 rounded-full overflow-hidden transition-colors duration-300 flex items-center justify-center ${
+              className={`relative w-[76px] h-6 rounded-full overflow-hidden transition-colors duration-300 flex items-center justify-center shrink-0 ${
                 viewType === 'all' ? 'bg-gray-500 hover:bg-gray-600' : 'bg-gray-300 hover:bg-gray-400'
               }`}
             >
@@ -209,59 +209,121 @@ export default function Header({ onProfileClick }: HeaderProps) {
                 </span>
               </motion.div>
             </button>
-          </div>
 
-          {/* 검색찼 + 필터 통합 */}
-          <div className="flex-1 max-w-[680px]">
-            <div className="relative flex items-center h-9 border border-gray-300 rounded-md focus-within:border-primary transition-colors">
-              <IconSearch 
-                className="absolute left-3 text-gray-400" 
-                size={16} 
-                stroke={1.5}
-              />
-              <input
-                type="text"
-                value={localSearchQuery}
-                onChange={(e) => setLocalSearchQuery(e.target.value)}
-                onKeyDown={handleSearchKeyDown}
-                placeholder="수원 중등 기간제 또는 성남 자원봉사자 등 원하는 키워드로 입력해보세요"
-                className="flex-1 h-full pl-10 pr-3 text-sm bg-transparent focus:outline-none"
-              />
+            {/* 검색창 - 중앙 */}
+            <div className="flex-1 max-w-[680px]">
+              <div className="relative flex items-center h-9 border border-gray-300 rounded-md focus-within:border-primary transition-colors">
+                <IconSearch
+                  className="absolute left-3 text-gray-400"
+                  size={16}
+                  stroke={1.5}
+                />
+                <input
+                  type="text"
+                  value={localSearchQuery}
+                  onChange={(e) => setLocalSearchQuery(e.target.value)}
+                  onKeyDown={handleSearchKeyDown}
+                  placeholder="수원 중등 기간제 또는 성남 자원봉사자 등 원하는 키워드로 입력해보세요"
+                  className="flex-1 h-full pl-10 pr-3 text-sm bg-transparent focus:outline-none"
+                />
+              </div>
+            </div>
+
+            {/* 로그인/회원가입 버튼 */}
+            <div className="flex items-center gap-2 shrink-0 ml-auto">
+              {status === 'authenticated' && user ? (
+                <button
+                  type="button"
+                  onClick={() => onProfileClick?.()}
+                  className="flex items-center gap-2 h-9 px-4 text-sm font-semibold text-white rounded-md bg-gradient-to-r from-[#9DD2FF] to-[#68B2FF] shadow-md hover:from-[#8BC8FF] hover:to-[#58A8FF] transition-colors"
+                >
+                  <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/40 text-[#68B2FF] text-xs font-bold">
+                    {user.email?.[0]?.toUpperCase() ?? 'P'}
+                  </span>
+                  <span>프로필</span>
+                </button>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={handleLoginClick}
+                    className="group relative h-9 rounded-md bg-gradient-to-r from-[#9DD2FF] to-[#68B2FF] p-[1px] shadow-sm transition-colors hover:from-[#8BC8FF] hover:to-[#58A8FF]"
+                  >
+                    <span className="flex h-full w-full items-center justify-center rounded-md bg-white px-4 text-sm font-semibold text-[#68B2FF] transition-colors group-hover:bg-slate-50">
+                      로그인
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSignupClick}
+                    className="h-9 px-4 text-sm font-semibold text-white rounded-md bg-gradient-to-r from-[#9DD2FF] to-[#68B2FF] shadow-sm hover:from-[#8BC8FF] hover:to-[#58A8FF] transition-colors"
+                  >
+                    회원가입
+                  </button>
+                </>
+              )}
             </div>
           </div>
+        </div>
+      </div>
 
-          {/* 우측 인증 버튼 */}
-          <div className="flex items-center gap-2 shrink-0 ml-auto">
+      {/* 모바일: 1줄 레이아웃 (로고 + 검색창 + 로그인) */}
+      <div className="sm:hidden">
+        <div className="max-w-container mx-auto px-4 py-2">
+          <div className="flex items-center gap-2">
+            {/* 로고 */}
+            <h1
+              className="text-sm font-extrabold bg-gradient-to-r from-[#9DD2FF] to-[#68B2FF] bg-clip-text text-transparent shrink-0"
+              style={{ letterSpacing: '-0.5px' }}
+            >
+              셀바
+            </h1>
+
+            {/* 검색창 - 로그아웃시만 60% 제한, 로그인시 넓게 */}
+            <div className={`flex-1 min-w-0 ${status !== 'authenticated' ? 'max-w-[60%]' : ''}`}>
+              <div className="relative flex items-center h-7 border border-gray-300 rounded-md focus-within:border-primary transition-colors">
+                <IconSearch
+                  className="absolute left-2 text-gray-400 pointer-events-none"
+                  size={12}
+                  stroke={1.5}
+                />
+                <input
+                  type="text"
+                  value={localSearchQuery}
+                  onChange={(e) => setLocalSearchQuery(e.target.value)}
+                  onKeyDown={handleSearchKeyDown}
+                  placeholder="검색"
+                  className="w-full h-full pl-7 pr-2 text-xs bg-transparent focus:outline-none"
+                />
+              </div>
+            </div>
+
+            {/* 로그인/회원가입/프로필 버튼 */}
             {status === 'authenticated' && user ? (
               <button
                 type="button"
                 onClick={() => onProfileClick?.()}
-                className="flex items-center gap-2 h-9 px-4 text-sm font-semibold text-white rounded-md bg-gradient-to-r from-[#9DD2FF] to-[#68B2FF] shadow-md hover:from-[#8BC8FF] hover:to-[#58A8FF] transition-colors"
+                className="shrink-0 h-7 px-2 text-[10px] font-semibold text-white rounded-md bg-gradient-to-r from-[#9DD2FF] to-[#68B2FF] relative z-10 ml-auto"
               >
-                <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/40 text-[#68B2FF] text-xs font-bold">
-                  {user.email?.[0]?.toUpperCase() ?? 'P'}
-                </span>
-                <span>프로필</span>
+                프로필
               </button>
             ) : (
-              <>
+              <div className="flex items-center gap-1 shrink-0 relative z-10">
                 <button
                   type="button"
                   onClick={handleLoginClick}
-                  className="group relative h-9 rounded-md bg-gradient-to-r from-[#9DD2FF] to-[#68B2FF] p-[1px] shadow-sm transition-colors hover:from-[#8BC8FF] hover:to-[#58A8FF]"
+                  className="h-7 px-2 text-[10px] font-semibold text-[#68B2FF] rounded-md border border-[#68B2FF] whitespace-nowrap"
                 >
-                  <span className="flex h-full w-full items-center justify-center rounded-md bg-white px-4 text-sm font-semibold text-[#68B2FF] transition-colors group-hover:bg-slate-50">
-                    로그인
-                  </span>
+                  로그인
                 </button>
                 <button
                   type="button"
                   onClick={handleSignupClick}
-                  className="h-9 px-4 text-sm font-semibold text-white rounded-md bg-gradient-to-r from-[#9DD2FF] to-[#68B2FF] shadow-sm hover:from-[#8BC8FF] hover:to-[#58A8FF] transition-colors"
+                  className="h-7 px-2 text-[10px] font-semibold text-white rounded-md bg-gradient-to-r from-[#9DD2FF] to-[#68B2FF] whitespace-nowrap"
                 >
-                  회원가입
+                  가입
                 </button>
-              </>
+              </div>
             )}
           </div>
         </div>
@@ -289,11 +351,3 @@ export default function Header({ onProfileClick }: HeaderProps) {
     </header>
   );
 }
-
-// Remove the following code
-// <ProfileViewModal
-//   isOpen={isProfileViewOpen}
-//   onClose={() => setProfileViewOpen(false)}
-//   userId={user?.id ?? null}
-//   userEmail={user?.email ?? null}
-// />

@@ -6,11 +6,17 @@ import CardGrid from '@/components/cards/CardGrid';
 import JobDetailModal from '@/components/cards/JobDetailModal';
 import ProfileSetupModal, { ROLE_OPTIONS, type RoleOption } from '@/components/auth/ProfileSetupModal';
 import ProfileViewModal from '@/components/auth/ProfileViewModal';
+import SocialSignupModal, { type AuthProvider } from '@/components/auth/SocialSignupModal';
 import ToastContainer from '@/components/common/ToastContainer';
+import RegisterButtonsSection from '@/components/mobile/RegisterButtonsSection';
+import StatisticsBanner from '@/components/mobile/StatisticsBanner';
+import BottomNav from '@/components/mobile/BottomNav';
+import PromoCardStack from '@/components/promo/PromoCardStack';
 import { searchCards, fetchRecommendationsCache, isCacheValid, hasProfileChanged, fetchPromoCards, selectRecommendationCards, filterByTeacherLevel, filterByJobType, calculateSubjectScore, filterByExperience, generateRecommendations } from '@/lib/supabase/queries';
 import { fetchUserProfile, type UserProfileRow } from '@/lib/supabase/profiles';
 import { useSearchStore } from '@/stores/searchStore';
 import { useAuthStore } from '@/stores/authStore';
+import { supabase } from '@/lib/supabase/client';
 import type { Card, PromoCardSettings, JobPostingCard } from '@/types';
 
 export default function App() {
@@ -70,6 +76,9 @@ export default function App() {
   const [recommendedIds, setRecommendedIds] = useState<Set<string>>(new Set());
   const [userProfile, setUserProfile] = useState<UserProfileRow | null>(null);
   const [selectedJob, setSelectedJob] = useState<JobPostingCard | null>(null);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authModalMode, setAuthModalMode] = useState<'signup' | 'login'>('signup');
+  const [loadingProvider, setLoadingProvider] = useState<AuthProvider | null>(null);
 
   // AI 추천 카드 클릭 시 전체 데이터 조회
   const handleCardClick = async (card: Card) => {
@@ -191,6 +200,39 @@ export default function App() {
       return;
     }
     setProfileViewOpen(true);
+  };
+
+  const handleLoginClick = () => {
+    setAuthModalMode('login');
+    setIsAuthModalOpen(true);
+  };
+
+  const handleSignupClick = () => {
+    setAuthModalMode('signup');
+    setIsAuthModalOpen(true);
+  };
+
+  const handleSelectProvider = async (provider: AuthProvider) => {
+    try {
+      setLoadingProvider(provider);
+      const redirectTo = `${window.location.origin}/auth/callback`;
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: {
+          redirectTo,
+          queryParams: provider === 'kakao' ? { prompt: 'login' } : undefined
+        } as Record<string, unknown>
+      });
+
+      if (error) {
+        console.error('소셜 로그인 오류:', error.message);
+      }
+    } catch (error) {
+      console.error('소셜 로그인 처리 중 오류:', error);
+    } finally {
+      setLoadingProvider(null);
+      setIsAuthModalOpen(false);
+    }
   };
 
   const normalizeProfileForEdit = (data: UserProfileRow | null | undefined) => {
@@ -462,10 +504,13 @@ export default function App() {
   }, [canLoadMore, loading, loadingMore, loadMore]);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 pb-20 md:pb-0">
       <ToastContainer />
-      {/* 헤더 */}
+      {/* 헤더 (sticky 검색창 포함) */}
       <Header onProfileClick={handleOpenProfileView} />
+
+      {/* 등록 버튼 섹션 (모바일) */}
+      <RegisterButtonsSection />
 
       {/* AI 추천 섹션 - 검색 중이 아닐 때만 표시 */}
       {!hasActiveSearch && (
@@ -481,11 +526,31 @@ export default function App() {
         />
       )}
 
+      {/* 통계 배너 - 모바일에서는 표시 안 함 */}
+      {/* <StatisticsBanner
+        newJobsCount={15}
+        urgentJobsCount={8}
+        newTalentsCount={23}
+        popularKeywords={['수원', '중등', '기간제', '방과후']}
+      /> */}
+
+      {/* 프로모 배너 (모바일 전용, DB 연동) */}
+      {promoCards.length > 0 && (
+        <section className="md:hidden bg-white py-3 border-b border-gray-200">
+          <div className="max-w-container mx-auto px-6">
+            <PromoCardStack
+              cards={promoCards}
+              className="w-full h-[227px]"
+            />
+          </div>
+        </section>
+      )}
+
       {/* 메인 콘텐츠 */}
-      <main className="bg-white">
-        <div className="max-w-container mx-auto px-6 pt-4 pb-10">
+      <main className="bg-white pb-20 md:pb-10">
+        <div className="max-w-container mx-auto px-6 pt-4">
           {/* AI 검색 결과 메시지 */}
-          <AIInsightBox 
+          <AIInsightBox
             resultCount={totalCount}
             searchQuery={searchSummary}
             topResultIndex={1}
@@ -527,7 +592,7 @@ export default function App() {
               )}
 
               {!canLoadMore && cards.length > 0 && (
-                <div className="flex justify-center mt-10">
+                <div className="flex justify-center mt-10 pb-10">
                   <div className="text-sm text-gray-400">모든 결과를 확인했습니다.</div>
                 </div>
               )}
@@ -537,12 +602,18 @@ export default function App() {
       </main>
 
       {/* 푸터 */}
-      <footer className="bg-white border-t border-gray-200 mt-16 py-6">
+      <footer className="bg-white border-t border-gray-200 py-6">
         <div className="max-w-container mx-auto px-6 text-center text-gray-500 text-xs">
           <p>© 2025 셀미바이미. All rights reserved.</p>
           <p className="mt-1">교육 인력 매칭 플랫폼</p>
         </div>
       </footer>
+
+      {/* 모바일 하단 네비게이션 */}
+      <BottomNav
+        onProfileClick={handleOpenProfileView}
+        onLoginClick={handleLoginClick}
+      />
 
       <ProfileSetupModal
         isOpen={isProfileModalOpen}
@@ -600,6 +671,19 @@ export default function App() {
           onClose={() => setSelectedJob(null)}
         />
       )}
+
+      {/* 소셜 로그인/회원가입 모달 */}
+      <SocialSignupModal
+        isOpen={isAuthModalOpen}
+        onClose={() => {
+          if (!loadingProvider) {
+            setIsAuthModalOpen(false);
+          }
+        }}
+        onSelectProvider={handleSelectProvider}
+        loadingProvider={loadingProvider}
+        mode={authModalMode}
+      />
     </div>
   );
 }
