@@ -125,9 +125,9 @@ export default function AIInsightBox({
   };
 
   return (
-    <div className="bg-white border border-gray-200 rounded-lg px-4 py-3 mb-4 flex gap-4 h-[96px] items-center">
-      {/* 좌측: 띠지 (50%) */}
-      <div className="basis-1/2 space-y-2">
+    <div className="bg-white md:border md:border-gray-200 md:rounded-lg md:px-4 md:py-3 mb-4 flex gap-4 h-[96px] items-center">
+      {/* 좌측: 띠지 (50%) - 모바일에서는 숨김 */}
+      <div className="hidden md:block basis-1/2 space-y-2">
         {/* 실시간 통계 */}
         <div className="flex items-center gap-3 text-sm">
           <div className="flex items-center gap-1.5">
@@ -159,9 +159,9 @@ export default function AIInsightBox({
           ))}
         </div>
       </div>
-      
-      {/* 우측: 배너 (50%) */}
-      <div className="basis-1/2 h-full">
+
+      {/* 우측: 배너 (PC 50%, 모바일 100%) */}
+      <div className="basis-full md:basis-1/2 h-full">
         <BannerContent banner={currentBannerData} />
       </div>
     </div>

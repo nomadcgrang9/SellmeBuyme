@@ -107,7 +107,7 @@ export default function PromoCardStack({ cards, className = '' }: PromoCardStack
   };
 
   return (
-    <div className={`relative w-[227px] h-[227px] ${className}`}>
+    <div className={`relative ${className || 'w-[227px] h-[227px]'}`}>
       {/* 카드 */}
       <article
         onClick={handleNext}
