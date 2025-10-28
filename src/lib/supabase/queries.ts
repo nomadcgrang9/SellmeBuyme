@@ -1821,7 +1821,7 @@ async function executeJobSearch({
   // Fallback: 기존 방식 (PGroonga 실패 시 또는 검색어 없을 때)
   let query = supabase
     .from('job_postings')
-    .select('*', { count: 'exact' });
+    .select('*, application_period', { count: 'exact' });
 
   // 검색어가 있으면 ilike 사용
   if (trimmedQuery.length > 0) {

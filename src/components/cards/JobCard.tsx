@@ -234,6 +234,7 @@ export default function JobCard({ job, cardIndex = 0, onClick }: JobCardProps) {
         location={job.location}
         workPeriod={job.work_period}
         workTime={job.work_time}
+        applicationPeriod={job.application_period}
         contact={job.contact}
       />
     </>

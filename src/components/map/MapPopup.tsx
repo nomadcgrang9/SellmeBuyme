@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { IconX, IconExternalLink, IconMapPin, IconPhone, IconClock, IconBuilding } from '@tabler/icons-react';
+import { IconX, IconExternalLink, IconMapPin, IconPhone, IconClock } from '@tabler/icons-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useKakaoMaps } from '@/hooks/useKakaoMaps';
 
@@ -9,8 +9,9 @@ interface MapPopupProps {
   organization: string;  // 학교명 (예: "상원여자중학교")
   location: string;      // 지역 (예: "성남")
   // 추가 정보 (선택사항)
-  workPeriod?: string;
-  workTime?: string;
+  workPeriod?: string;   // 근무기간
+  workTime?: string;     // 기존 근무시간 (호환용)
+  applicationPeriod?: string; // 접수기간
   contact?: string;
 }
 
@@ -26,6 +27,7 @@ export default function MapPopup({
   location,
   workPeriod,
   workTime,
+  applicationPeriod: applicationPeriodProp,
   contact
 }: MapPopupProps) {
   const { isLoaded, loadKakaoMaps } = useKakaoMaps();
@@ -36,6 +38,9 @@ export default function MapPopup({
   const [isSearching, setIsSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [address, setAddress] = useState<string | null>(null);
+
+  const combinedTitle = location ? `${location} ${organization}` : organization;
+  const applicationPeriod = applicationPeriodProp ?? workTime ?? null;
 
   // 좌표 캐싱 키 생성
   const getCacheKey = () => `map_coords_${organization}_${location}`;
@@ -291,145 +296,82 @@ export default function MapPopup({
             className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none"
           >
             <div
-              className="bg-white rounded-2xl shadow-2xl overflow-hidden pointer-events-auto w-full max-w-3xl max-h-[85vh] flex flex-col"
+              className="bg-white rounded-2xl shadow-2xl overflow-hidden pointer-events-auto w-full max-w-3xl max-h-[90vh] flex flex-col"
               onClick={(e) => e.stopPropagation()}
             >
               {/* 헤더 */}
-              <div className="relative bg-gradient-to-r from-blue-500 to-blue-600 text-white px-6 py-5">
+              <div className="relative bg-gradient-to-r from-[#9DD2FF] to-[#68B2FF] text-white px-6 py-2.5">
                 <div className="pr-10">
-                  <h2 className="text-2xl font-bold mb-1">{organization}</h2>
-                  <p className="text-blue-100 flex items-center gap-2">
-                    <IconMapPin size={18} />
-                    {location}
-                  </p>
+                  <h2 className="text-2xl font-bold mb-0 flex items-center gap-2">
+                    <IconMapPin size={22} />
+                    <span>{combinedTitle}</span>
+                  </h2>
                 </div>
                 <button
                   onClick={onClose}
-                  className="absolute top-4 right-4 p-2 hover:bg-white/20 rounded-full transition-colors"
-                  aria-label="닫기"
+                  className="absolute top-1/2 right-4 -translate-y-1/2 p-2 rounded-full transition-colors hover:bg-white/20"
                 >
-                  <IconX size={24} />
+                  <IconX size={20} />
                 </button>
               </div>
 
               {/* 본문 - 지도와 정보를 나란히 배치 (데스크톱) / 세로 배치 (모바일) */}
               <div className="flex flex-col md:flex-row flex-1 overflow-hidden">
                 {/* 지도 영역 */}
-                <div className="flex-1 relative bg-gray-100 min-h-[300px] md:min-h-[400px]">
-                  {isSearching && (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-white z-10">
-                      <div className="relative w-20 h-20">
-                        <div className="absolute inset-0 border-4 border-blue-200 rounded-full"></div>
-                        <div className="absolute inset-0 border-4 border-blue-500 rounded-full border-t-transparent animate-spin"></div>
-                      </div>
-                      <p className="text-gray-600 mt-4 font-medium">지도를 불러오는 중...</p>
-                    </div>
-                  )}
-
-                  {error && (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-white z-10 p-6">
-                      <IconMapPin size={64} className="text-gray-300 mb-4" />
-                      <h3 className="text-xl font-semibold text-gray-900 mb-2">위치를 찾을 수 없습니다</h3>
-                      <p className="text-gray-600 text-center mb-6">{error}</p>
-                      <button
-                        onClick={() => {
-                          window.open(`https://map.kakao.com/link/search/${encodeURIComponent(organization)}`, '_blank');
-                        }}
-                        className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-medium"
-                      >
-                        <IconExternalLink size={18} />
-                        Kakao Maps에서 직접 검색
-                      </button>
-                    </div>
-                  )}
-
-                  {/* 지도 컨테이너 */}
-                  <div
-                    ref={mapContainerRef}
-                    className="w-full h-full"
-                    style={{ display: isSearching || error ? 'none' : 'block' }}
-                  />
+                <div className="md:w-2/3 min-h-[360px] bg-gray-100">
+                  <div ref={mapContainerRef} className="w-full h-full" />
                 </div>
 
                 {/* 정보 영역 */}
-                <div className="w-full md:w-72 bg-gray-50 p-5 flex flex-col">
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-gray-900 mb-4 text-lg">상세 정보</h3>
-
-                    <div className="space-y-3">
-                      {/* 주소 */}
-                      {address && (
-                        <div className="bg-white rounded-lg p-3">
-                          <div className="flex items-start gap-2.5">
-                            <IconBuilding size={20} className="text-gray-500 mt-0.5 flex-shrink-0" />
-                            <div className="flex-1">
-                              <p className="text-xs text-gray-500 mb-1">주소</p>
-                              <p className="text-sm font-medium text-gray-900">{address}</p>
-                            </div>
-                          </div>
+                <div className="md:w-1/3 bg-white border-l border-gray-100 p-6 flex flex-col gap-4">
+                  <div className="space-y-4">
+                    {applicationPeriod && (
+                      <div className="p-4 rounded-xl border border-gray-100 bg-gray-50">
+                        <div className="flex items-center gap-2 text-sm font-semibold text-gray-600 mb-1">
+                          <IconClock size={16} className="text-[#68B2FF]" />
+                          접수기간
                         </div>
-                      )}
+                        <p className="text-gray-900 text-sm">{applicationPeriod}</p>
+                      </div>
+                    )}
 
-                      {/* 근무기간 */}
-                      {workPeriod && (
-                        <div className="bg-white rounded-lg p-3">
-                          <div className="flex items-start gap-2.5">
-                            <IconClock size={20} className="text-gray-500 mt-0.5 flex-shrink-0" />
-                            <div className="flex-1">
-                              <p className="text-xs text-gray-500 mb-1">근무기간</p>
-                              <p className="text-sm font-medium text-gray-900">{workPeriod}</p>
-                            </div>
-                          </div>
+                    {workPeriod && (
+                      <div className="p-4 rounded-xl border border-gray-100 bg-gray-50">
+                        <div className="flex items-center gap-2 text-sm font-semibold text-gray-600 mb-1">
+                          <IconClock size={16} className="text-emerald-500" />
+                          근무기간
                         </div>
-                      )}
+                        <p className="text-gray-900 text-sm">{workPeriod}</p>
+                      </div>
+                    )}
 
-                      {/* 근무시간 */}
-                      {workTime && (
-                        <div className="bg-white rounded-lg p-3">
-                          <div className="flex items-start gap-2.5">
-                            <IconClock size={20} className="text-gray-500 mt-0.5 flex-shrink-0" />
-                            <div className="flex-1">
-                              <p className="text-xs text-gray-500 mb-1">근무시간</p>
-                              <p className="text-sm font-medium text-gray-900">{workTime}</p>
-                            </div>
-                          </div>
+                    {contact && (
+                      <div className="p-4 rounded-xl border border-gray-100 bg-gray-50">
+                        <div className="flex items-center gap-2 text-sm font-semibold text-gray-600 mb-1">
+                          <IconPhone size={16} className="text-[#68B2FF]" />
+                          문의
                         </div>
-                      )}
-
-                      {/* 연락처 */}
-                      {contact && (
-                        <div className="bg-white rounded-lg p-3">
-                          <div className="flex items-start gap-2.5">
-                            <IconPhone size={20} className="text-gray-500 mt-0.5 flex-shrink-0" />
-                            <div className="flex-1">
-                              <p className="text-xs text-gray-500 mb-1">문의</p>
-                              <p className="text-sm font-medium text-gray-900">{contact}</p>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
+                        <p className="text-gray-900 text-sm break-all">{contact}</p>
+                      </div>
+                    )}
                   </div>
 
-                  {/* 액션 버튼 */}
-                  {coords && !error && (
-                    <div className="flex flex-col gap-2 mt-5">
-                      <button
-                        onClick={handleOpenInKakaoMaps}
-                        className="flex items-center justify-center gap-2 px-4 py-2.5 bg-yellow-400 text-gray-900 font-semibold rounded-lg hover:bg-yellow-500 transition-colors"
-                      >
-                        <IconExternalLink size={18} />
-                        큰 지도로 보기
-                      </button>
-                      <button
-                        onClick={handleDirections}
-                        className="flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-500 text-white font-semibold rounded-lg hover:bg-blue-600 transition-colors"
-                      >
-                        <IconMapPin size={18} />
-                        길찾기
-                      </button>
-                    </div>
-                  )}
+                  <div className="mt-auto flex flex-col gap-3">
+                    <button
+                      onClick={handleOpenInKakaoMaps}
+                      className="flex items-center justify-center gap-2 px-4 py-2.5 bg-yellow-400 text-gray-900 font-semibold rounded-lg hover:bg-yellow-500 transition-colors"
+                    >
+                      <IconExternalLink size={18} />
+                      큰 지도로 보기
+                    </button>
+                    <button
+                      onClick={handleDirections}
+                      className="flex items-center justify-center gap-2 px-4 py-2.5 bg-[#68B2FF] text-white font-semibold rounded-lg hover:bg-[#5A9FE8] transition-colors"
+                    >
+                      <IconMapPin size={18} />
+                      길찾기
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
