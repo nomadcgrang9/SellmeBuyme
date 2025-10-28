@@ -9,5 +9,13 @@
     "editor.suggestFontSize": 14,
     "editor.minimap.sectionHeaderFontSize": 9,
     "editor.inlayHints.fontSize": 12,
-    "editor.codeLensFontSize": 12
+    "editor.codeLensFontSize": 12,
+    "files.exclude": {
+        "**/.git": true,
+        "**/.svn": true,
+        "**/.hg": true,
+        "**/.DS_Store": true,
+        "**/Thumbs.db": true,
+        ".yoyo": true
+    }
 }

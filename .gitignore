@@ -37,3 +37,6 @@ next-env.d.ts
 
 # Windows special files
 nul
+
+# YoYo AI version control directory
+.yoyo/

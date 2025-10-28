@@ -56,6 +56,70 @@
 - **띠지배너 그라데이션 지원**: `StripeBannerManager.tsx`에 배경 색상 모드 전환(`single`/`gradient`) 및 그라데이션 시작/종료 색상 선택 UI 추가.
 - **띠지배너 렌더링 개선**: `AIInsightBox.tsx`에서 `bgColorMode`에 따라 단색(`backgroundColor`) 또는 그라데이션(`linear-gradient`) 배경 동적 적용.
 
+### 추가 업데이트 (2025-01-26)
+- **프로모 카드 관리 시스템**: 관리자가 메인 페이지 프로모 카드를 직접 편집·생성·삭제할 수 있는 시스템 구현
+  - `PromoCardEditModal.tsx`: 카드 편집/생성 모달 (이미지 업로드, 텍스트 편집, 그라데이션 배경 설정)
+  - `PromoCardListManager.tsx`: 카드 목록 관리 및 순서 변경 UI
+  - `PromoCardStack.tsx`: 메인 페이지 프로모 카드 스택 컴포넌트 (자동 재생 지원)
+  - `usePromoCardManager.ts`: 프로모 카드 CRUD 로직 훅
+  - `usePromoCardEditor.ts`: 프로모 카드 편집 상태 관리 훅
+- **관리자 페이지 추가**: `/admin` 경로에 관리자 전용 페이지 구현
+  - `AdminPage.tsx`: 프로모 카드, 띠지 배너 관리 탭 통합
+  - Cloudflare Functions 기반 관리자 인증 (`functions/[[path]].ts`)
+- **프로모 카드 UI 개선**:
+  - 그라데이션 배경 지원 (`bgGradientStart`, `bgGradientEnd`)
+  - 자동 재생 기능 (autoplay 설정 시 5초 간격 자동 전환)
+  - 카드 이미지 업로드 (`promo_images` 스토리지 버킷 연동)
+- **등록 폼 시스템 컴포넌트**:
+  - `JobPostingForm.tsx`: 공고 등록 폼
+  - `TalentRegistrationForm.tsx`: 인력 등록 폼
+  - `ExperienceRegistrationForm.tsx`: 체험 프로그램 등록 폼
+  - `RegionSelector.tsx`: 지역 선택 컴포넌트 (서울/경기 2단계 선택)
+  - `SchoolLevelSelector.tsx`: 학교급 선택 컴포넌트
+  - `SpecialtySelector.tsx`: 전문 분야 선택 컴포넌트
+
+### 모바일 반응형 개선 (2025-10-28)
+- **모바일 헤더 1줄 레이아웃**: `Header.tsx`에 모바일 전용 1줄 헤더 구현
+  - PC: "셀미바이미" 로고 + 검색창 + 로그인/프로필 버튼 (우측 정렬)
+  - 모바일: "셀바" 로고 + 검색창 + 로그인/가입 또는 프로필 버튼
+  - 로그아웃 상태: 검색창 최대 60% 너비로 제한하여 버튼 공간 확보
+  - 로그인 상태: 검색창 확대 + 프로필 버튼 우측 끝 정렬 (`ml-auto`)
+- **검색창 오버플로우 해결**:
+  - 검색 컨테이너에 `max-w-[60%]` 적용 (로그아웃 시만)
+  - 검색 아이콘에 `pointer-events-none` 추가하여 클릭 간섭 방지
+  - 버튼 컨테이너에 `relative z-10` 적용으로 클릭 가능성 보장
+  - `whitespace-nowrap`으로 버튼 텍스트 줄바꿈 방지
+- **AIInsightBox 모바일 최적화**:
+  - 모바일에서 실시간 통계 숨김 (`hidden md:block`)
+  - 배너만 전체 너비로 표시 (`basis-full md:basis-1/2`)
+  - 컨테이너 테두리/패딩을 데스크톱만 적용 (`md:border md:px-4`)
+- **하단 네비게이션 시스템**: 모바일 전용 고정 하단 네비게이션 바 추가
+  - `BottomNav.tsx`: 프로필/로그인, 공고보기, 인력보기, 체험보기 탭
+  - 아이콘 항상 컬러 표시 (grayscale 필터 제거)
+  - 라벨에 "보기" 접미사 추가 ("공고" → "공고보기")
+  - 프로필 아이콘을 `/icon/mobile_profile.ico` 파일로 변경
+- **모바일 컴포넌트 추가**:
+  - `RegisterButtonsSection.tsx`: 공고등록/인력등록/체험등록 버튼 그룹
+  - `StatisticsBanner.tsx`: 실시간 통계 배너 (모바일 전용)
+- **UI 미세 조정**:
+  - AI 추천 코멘트 텍스트 크기 90% 축소 (`text-[0.9rem]`)
+  - `PromoCardStack` 모바일에서 full-width 표시 지원
+  - 모바일 헤더 요소 크기 최적화 (로고 `text-sm`, 검색 `h-7`, 버튼 `text-[10px]`)
+  - `CategorySelector.tsx`: 카테고리 선택 컴포넌트
+  - `OperationTypeSelector.tsx`: 운영 형태 선택 컴포넌트
+  - `FormLayout.tsx`: 폼 공통 레이아웃 래퍼
+  - `FileUploadField.tsx`: 파일 업로드 필드 컴포넌트
+  - `TextType.tsx`: 텍스트 타이핑 애니메이션 컴포넌트
+- **AI 추천 UI 개선**:
+  - Tabler Icons 적용으로 일관된 아이콘 사용
+  - 추천 카드 레이아웃 재설계 (등록 버튼 아이콘 개선)
+  - 추천 카드 클릭 시 상세보기 모달 통합
+- **카드 그라데이션 배너**:
+  - `JobCard.tsx`, `TalentCard.tsx`: 상단 0.5px 그라데이션 배너 추가
+  - `CompactJobCard.tsx`, `CompactTalentCard.tsx`: 컴팩트 버전에도 그라데이션 배너 적용
+- **관리자 UI 컴포넌트**:
+  - `ColorInputField.tsx`: 색상 입력 필드 (그라데이션 선택 지원)
+
 ## 📋 목차
 1. [페이지 레이아웃 구조](#페이지-레이아웃-구조)
 2. [1. 헤더 (Header)](#1-헤더-header)
@@ -1574,4 +1638,1071 @@ src/
 4. ⏳ 인력 등록 폼 구현 (공고 폼 패턴 적용)
 5. ⏳ 체험 등록 폼 구현
 6. ⏳ 백엔드 API 연동
-7. ⏳ Supabase Storage 파일 업로드 구현
+
+---
+
+# 6. 반응형 디자인 계획 (Responsive Design Plan)
+
+## 6.1 개요
+
+**목표**: 모바일(375-430px), 13" 노트북(1366x768), 24"+ 모니터(1920px+) 환경에서 최적의 사용자 경험 제공
+
+**우선순위**: 모바일 웹 → 노트북(현행 유지) → 대형 모니터
+
+**핵심 전략**: Mobile-first Tailwind CSS 접근법
+
+**설계 범위**: 태블릿 환경은 13" 노트북과 유사하다고 가정하여 별도 고려하지 않음
+
+---
+
+## 6.2 현재 문제점 (Mobile 375-430px)
+
+### 🚨 Critical Issues (P0)
+1. **검색창 잘림**: 우측 영역이 화면 밖으로 벗어남
+2. **로그인/회원가입 버튼 누락**: 헤더에서 완전히 보이지 않음
+3. **필터 버튼 접근 불가**: 드롭다운이 모바일에 부적합
+
+### ⚠️ Major Issues (P1)
+4. **카드 레이아웃**: 2열 그리드가 모바일에서 너무 좁음
+5. **AI 추천 섹션**: 가로 스크롤이 터치 제스처와 충돌
+6. **배너 가독성**: 텍스트가 작아 읽기 어려움
+
+### 🔧 Minor Issues (P2)
+7. **모달 폼**: 3단 레이아웃이 모바일에 부적합
+8. **프로모 카드**: 자동 재생 인터페이스가 터치에 최적화되지 않음
+
+---
+
+## 6.3 Mobile Layout Specification (< 640px)
+
+### 6.3.1 헤더 (2-Row Design)
+
+```
+┌─────────────────────────────────────────┐
+│ [≡] 셀미바이미 Logo            [👤] │ ← Row 1 (56px)
+├─────────────────────────────────────────┤
+│ [🔍 교사, 강사, 학교 검색...    ] [⚙]│ ← Row 2 (48px)
+└─────────────────────────────────────────┘
+```
+
+**Row 1 구성**:
+- `[≡]`: Hamburger menu (44x44px touch target)
+- Logo: 중앙 배치
+- `[👤]`: 로그인 버튼 (44x44px)
+
+**Row 2 구성**:
+- Search bar: full width (minus padding)
+- `[⚙]`: 필터 버튼 (44x44px) → Bottom sheet 트리거
+
+---
+
+### 6.3.2 Hamburger Menu (Side Drawer)
+
+```
+┌─────────────────┐
+│ [X]             │
+│                 │
+│ ○ 공고만 보기   │
+│ ● 인력풀만 보기 │
+│ ○ 체험만 보기   │
+│                 │
+│ ───────────────│
+│                 │
+│ 내 프로필       │
+│ 설정            │
+│ 로그아웃        │
+└─────────────────┘
+```
+
+**기능**:
+- 현재 뷰 토글 (공고/인력풀/체험)
+- 사용자 메뉴
+
+---
+
+### 6.3.3 Filter Bottom Sheet
+
+```
+┌─────────────────────────────────────────┐
+│            [━━━] (Handle)              │
+│                                         │
+│ 근무 지역                               │
+│ [서울  ▾] [경기  ▾]                    │
+│                                         │
+│ 과목                                    │
+│ [국어  ▾] [수학  ▾] [영어  ▾]         │
+│                                         │
+│ 정렬                                    │
+│ ○ 최신순                                │
+│ ● 마감순                                │
+│ ○ 급여순                                │
+│                                         │
+│ [초기화]              [적용하기]        │
+└─────────────────────────────────────────┘
+```
+
+**특징**:
+- 하단에서 슬라이드 업
+- Touch-friendly 드롭다운
+- 44x44px 최소 터치 타겟
+
+---
+
+### 6.3.4 카드 레이아웃 (1 Column)
+
+```
+┌─────────────────────────────────────────┐
+│ ─── (Gradient Banner 0.5px)            │
+│                                         │
+│ 서울시교육청                 [♡] [⋮]   │
+│ 중학교 영어 기간제 교사                │
+│                                         │
+│ 🏫 중등  |  📚 영어                    │
+│ 📍 서울 강남  |  💰 월 300만원         │
+│ ⏰ D-5                                  │
+└─────────────────────────────────────────┘
+```
+
+**변경사항**:
+- Desktop: 2열 → Mobile: 1열
+- 카드 높이: auto (유연하게)
+- Padding: 16px (Desktop: 20px)
+
+---
+
+### 6.3.5 AI 추천 섹션 (Vertical Stack)
+
+```
+┌─────────────────────────────────────────┐
+│ 🤖 AI 추천 공고                         │
+│                                         │
+│ "경력 5년차 중등 영어 교사님께           │
+│  강남/서초 지역 공고를 추천드려요"      │
+│                                         │
+│ ┌─────────────────────────────────┐   │
+│ │ 추천 카드 1 (Compact)            │   │
+│ └─────────────────────────────────┘   │
+│                                         │
+│ ┌─────────────────────────────────┐   │
+│ │ 추천 카드 2 (Compact)            │   │
+│ └─────────────────────────────────┘   │
+│                                         │
+│ ┌─────────────────────────────────┐   │
+│ │ 추천 카드 3 (Compact)            │   │
+│ └─────────────────────────────────┘   │
+│                                         │
+│        [더보기 ▼]                       │
+└─────────────────────────────────────────┘
+```
+
+**변경사항**:
+- Desktop: 가로 스크롤 → Mobile: 세로 스택
+- 카드 크기: 축소 버전 유지
+
+---
+
+### 6.3.6 Bottom Navigation Bar
+
+```
+┌─────────────────────────────────────────┐
+│  [🏠]    [➕]    [🔍]    [👤]          │
+│  홈      등록    검색    내정보          │
+└─────────────────────────────────────────┘
+```
+
+**Fixed Position**: 하단 고정 (60px)
+
+**메뉴 구성**:
+- 🏠 홈: 메인 페이지
+- ➕ 등록: 공고/인력/체험 등록 폼
+- 🔍 검색: 검색 페이지 (필터 포함)
+- 👤 내정보: 프로필/설정
+
+---
+
+## 6.4 Component-by-Component Responsive Breakdown
+
+### 6.4.1 Header.tsx → MobileHeader.tsx + DesktopHeader.tsx
+
+**기존 구조** (Header.tsx):
+```tsx
+<header className="fixed top-0 z-50 w-full bg-white shadow-md">
+  <div className="container mx-auto px-4 py-3 flex items-center gap-4">
+    <Logo />
+    <SearchBar className="flex-1" />
+    <ViewToggle />
+    <FilterDropdown />
+    <AuthButtons />
+  </div>
+</header>
+```
+
+**개선 구조**:
+```tsx
+// Header.tsx
+export default function Header() {
+  const breakpoint = useBreakpoint();
+  return breakpoint === 'mobile' ? <MobileHeader /> : <DesktopHeader />;
+}
+
+// MobileHeader.tsx (NEW)
+export default function MobileHeader() {
+  return (
+    <header className="fixed top-0 z-50 w-full bg-white shadow-md">
+      {/* Row 1 */}
+      <div className="flex items-center justify-between px-4 h-14">
+        <HamburgerMenuButton />
+        <Logo />
+        <LoginButton />
+      </div>
+      {/* Row 2 */}
+      <div className="flex items-center gap-2 px-4 h-12 border-t border-gray-200">
+        <SearchBar className="flex-1" />
+        <FilterButton />
+      </div>
+    </header>
+  );
+}
+
+// DesktopHeader.tsx (기존 Header.tsx 코드)
+```
+
+**Responsive Classes**:
+- Container: `max-w-[1600px] mx-auto` (24"+ 제약)
+- Mobile padding: `px-4` (16px)
+- Desktop padding: `px-6` (24px)
+
+---
+
+### 6.4.2 App.tsx 카드 그리드
+
+**기존**:
+```tsx
+<div className="grid grid-cols-2 gap-4">
+  {cards.map(card => <JobCard key={card.id} {...card} />)}
+</div>
+```
+
+**개선**:
+```tsx
+<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-3 gap-4 lg:gap-6">
+  {cards.map(card => <JobCard key={card.id} {...card} />)}
+</div>
+```
+
+**Breakpoint 전략**:
+- `< 640px`: 1열 (모바일)
+- `640-1024px`: 2열 (노트북)
+- `1024-1536px`: 2열 (13" 노트북)
+- `1536-1920px`: 3열 (대형 모니터)
+- `>= 1920px`: 3열 + max-w-[1600px]
+
+---
+
+### 6.4.3 JobCard.tsx / TalentCard.tsx
+
+**Responsive Padding**:
+```tsx
+<div className="p-4 lg:p-5 xl:p-6 ...">
+```
+
+**Responsive Typography**:
+```tsx
+<h3 className="text-sm lg:text-base xl:text-lg font-bold">
+```
+
+**Touch Target Size** (Mobile only):
+```tsx
+<button className="w-11 h-11 lg:w-10 lg:h-10 ...">
+```
+
+---
+
+### 6.4.4 AI Recommendation Section (AIRecommendations.tsx)
+
+**기존** (가로 스크롤):
+```tsx
+<div className="flex overflow-x-auto gap-4 scrollbar-hide">
+  {cards.map(card => <CompactJobCard key={card.id} {...card} />)}
+</div>
+```
+
+**개선** (Mobile: 세로 스택):
+```tsx
+<div className="flex flex-col sm:flex-row sm:overflow-x-auto gap-4 sm:scrollbar-hide">
+  {cards.map(card => <CompactJobCard key={card.id} {...card} />)}
+</div>
+```
+
+---
+
+### 6.4.5 Modal Forms (ProfileSetupModal, JobPostingForm 등)
+
+**기존** (3단 레이아웃):
+```tsx
+<div className="grid grid-cols-3 gap-x-2 gap-y-1">
+```
+
+**개선**:
+```tsx
+<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-2 gap-y-1">
+```
+
+**Modal Container**:
+```tsx
+<div className="fixed inset-0 z-50 overflow-y-auto">
+  <div className="w-full h-full sm:w-11/12 sm:h-auto sm:max-w-4xl sm:mx-auto sm:my-8">
+```
+
+---
+
+### 6.4.6 PromoCardStack.tsx (메인 배너)
+
+**Responsive Height**:
+```tsx
+<div className="h-48 sm:h-64 lg:h-80 xl:h-96 ...">
+```
+
+**Typography**:
+```tsx
+<h2 className="text-xl sm:text-2xl lg:text-3xl xl:text-4xl font-bold">
+<p className="text-sm sm:text-base lg:text-lg">
+```
+
+---
+
+## 6.5 새로 생성할 파일
+
+### 6.5.1 `src/hooks/useBreakpoint.ts`
+
+```typescript
+import { useState, useEffect } from 'react';
+
+export type Breakpoint = 'mobile' | 'tablet' | 'laptop' | 'desktop';
+
+export function useBreakpoint(): Breakpoint {
+  const [breakpoint, setBreakpoint] = useState<Breakpoint>('laptop');
+
+  useEffect(() => {
+    const updateBreakpoint = () => {
+      const width = window.innerWidth;
+      if (width < 640) setBreakpoint('mobile');
+      else if (width < 1024) setBreakpoint('tablet');
+      else if (width < 1536) setBreakpoint('laptop');
+      else setBreakpoint('desktop');
+    };
+
+    updateBreakpoint();
+    window.addEventListener('resize', updateBreakpoint);
+    return () => window.removeEventListener('resize', updateBreakpoint);
+  }, []);
+
+  return breakpoint;
+}
+```
+
+---
+
+### 6.5.2 `src/components/mobile/MobileHeader.tsx`
+
+```typescript
+import { useState } from 'react';
+import HamburgerMenuButton from './HamburgerMenuButton';
+import FilterButton from './FilterButton';
+import SearchBar from '../layout/SearchBar';
+
+export default function MobileHeader() {
+  return (
+    <header className="fixed top-0 z-50 w-full bg-white shadow-md">
+      {/* Row 1: Hamburger + Logo + Login */}
+      <div className="flex items-center justify-between px-4 h-14">
+        <HamburgerMenuButton />
+        <h1 className="text-lg font-bold">셀미바이미</h1>
+        <button className="w-11 h-11 flex items-center justify-center">
+          <span className="text-2xl">👤</span>
+        </button>
+      </div>
+
+      {/* Row 2: Search + Filter */}
+      <div className="flex items-center gap-2 px-4 h-12 border-t border-gray-200">
+        <SearchBar className="flex-1" />
+        <FilterButton />
+      </div>
+    </header>
+  );
+}
+```
+
+---
+
+### 6.5.3 `src/components/mobile/HamburgerMenu.tsx`
+
+```typescript
+import { useEffect } from 'react';
+import { useSearchStore } from '@/stores/searchStore';
+
+interface HamburgerMenuProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+export default function HamburgerMenu({ isOpen, onClose }: HamburgerMenuProps) {
+  const { currentView, setView } = useSearchStore();
+
+  // Prevent body scroll when menu open
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isOpen]);
+
+  return (
+    <>
+      {/* Backdrop */}
+      {isOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-40"
+          onClick={onClose}
+        />
+      )}
+
+      {/* Side Drawer */}
+      <div
+        className={`fixed top-0 left-0 h-full w-72 bg-white shadow-xl z-50 transform transition-transform duration-300 ${
+          isOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
+        <div className="p-6">
+          {/* Close Button */}
+          <button
+            onClick={onClose}
+            className="w-11 h-11 flex items-center justify-center -ml-2"
+          >
+            <span className="text-2xl">✕</span>
+          </button>
+
+          {/* View Toggle */}
+          <div className="mt-8 space-y-2">
+            <button
+              onClick={() => { setView('jobs'); onClose(); }}
+              className="w-full text-left px-4 py-3 rounded-lg hover:bg-gray-100"
+            >
+              {currentView === 'jobs' ? '● ' : '○ '}공고만 보기
+            </button>
+            <button
+              onClick={() => { setView('talents'); onClose(); }}
+              className="w-full text-left px-4 py-3 rounded-lg hover:bg-gray-100"
+            >
+              {currentView === 'talents' ? '● ' : '○ '}인력풀만 보기
+            </button>
+            <button
+              onClick={() => { setView('experiences'); onClose(); }}
+              className="w-full text-left px-4 py-3 rounded-lg hover:bg-gray-100"
+            >
+              {currentView === 'experiences' ? '● ' : '○ '}체험만 보기
+            </button>
+          </div>
+
+          {/* Divider */}
+          <hr className="my-6" />
+
+          {/* User Menu */}
+          <div className="space-y-2">
+            <button className="w-full text-left px-4 py-3 rounded-lg hover:bg-gray-100">
+              내 프로필
+            </button>
+            <button className="w-full text-left px-4 py-3 rounded-lg hover:bg-gray-100">
+              설정
+            </button>
+            <button className="w-full text-left px-4 py-3 rounded-lg hover:bg-gray-100 text-red-600">
+              로그아웃
+            </button>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+```
+
+---
+
+### 6.5.4 `src/components/mobile/FilterBottomSheet.tsx`
+
+```typescript
+import { useState, useEffect } from 'react';
+import { useSearchStore } from '@/stores/searchStore';
+
+interface FilterBottomSheetProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+export default function FilterBottomSheet({ isOpen, onClose }: FilterBottomSheetProps) {
+  const { filters, updateFilters, resetFilters } = useSearchStore();
+  const [localFilters, setLocalFilters] = useState(filters);
+
+  // Prevent body scroll when sheet open
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isOpen]);
+
+  const handleApply = () => {
+    updateFilters(localFilters);
+    onClose();
+  };
+
+  return (
+    <>
+      {/* Backdrop */}
+      {isOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-40"
+          onClick={onClose}
+        />
+      )}
+
+      {/* Bottom Sheet */}
+      <div
+        className={`fixed bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-2xl z-50 transform transition-transform duration-300 ${
+          isOpen ? 'translate-y-0' : 'translate-y-full'
+        }`}
+      >
+        {/* Handle */}
+        <div className="flex justify-center py-3">
+          <div className="w-12 h-1.5 bg-gray-300 rounded-full" />
+        </div>
+
+        {/* Content */}
+        <div className="px-6 pb-8 max-h-[80vh] overflow-y-auto">
+          <h3 className="text-lg font-bold mb-4">필터</h3>
+
+          {/* Region Filters */}
+          <div className="mb-6">
+            <label className="block text-sm font-semibold mb-2">근무 지역</label>
+            <div className="grid grid-cols-2 gap-2">
+              <select className="w-full h-11 px-3 border rounded-lg">
+                <option>서울</option>
+              </select>
+              <select className="w-full h-11 px-3 border rounded-lg">
+                <option>경기</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Subject Filters */}
+          <div className="mb-6">
+            <label className="block text-sm font-semibold mb-2">과목</label>
+            <div className="grid grid-cols-3 gap-2">
+              <select className="w-full h-11 px-3 border rounded-lg">
+                <option>국어</option>
+              </select>
+              <select className="w-full h-11 px-3 border rounded-lg">
+                <option>수학</option>
+              </select>
+              <select className="w-full h-11 px-3 border rounded-lg">
+                <option>영어</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Sort Options */}
+          <div className="mb-6">
+            <label className="block text-sm font-semibold mb-2">정렬</label>
+            <div className="space-y-2">
+              <button className="w-full text-left px-4 py-3 border rounded-lg hover:bg-gray-50">
+                ○ 최신순
+              </button>
+              <button className="w-full text-left px-4 py-3 border rounded-lg hover:bg-gray-50 bg-primary-50">
+                ● 마감순
+              </button>
+              <button className="w-full text-left px-4 py-3 border rounded-lg hover:bg-gray-50">
+                ○ 급여순
+              </button>
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex gap-2">
+            <button
+              onClick={() => resetFilters()}
+              className="flex-1 h-12 border border-gray-300 rounded-lg font-semibold"
+            >
+              초기화
+            </button>
+            <button
+              onClick={handleApply}
+              className="flex-1 h-12 bg-primary-500 text-white rounded-lg font-semibold"
+            >
+              적용하기
+            </button>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+```
+
+---
+
+### 6.5.5 `src/components/mobile/BottomNav.tsx`
+
+```typescript
+import { useNavigate, useLocation } from 'react-router-dom';
+
+export default function BottomNav() {
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const navItems = [
+    { path: '/', icon: '🏠', label: '홈' },
+    { path: '/register', icon: '➕', label: '등록' },
+    { path: '/search', icon: '🔍', label: '검색' },
+    { path: '/profile', icon: '👤', label: '내정보' },
+  ];
+
+  return (
+    <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50 safe-area-inset-bottom">
+      <div className="flex justify-around items-center h-16">
+        {navItems.map(item => (
+          <button
+            key={item.path}
+            onClick={() => navigate(item.path)}
+            className={`flex flex-col items-center justify-center flex-1 h-full ${
+              location.pathname === item.path
+                ? 'text-primary-600'
+                : 'text-gray-500'
+            }`}
+          >
+            <span className="text-2xl">{item.icon}</span>
+            <span className="text-xs mt-1">{item.label}</span>
+          </button>
+        ))}
+      </div>
+    </nav>
+  );
+}
+```
+
+---
+
+## 6.6 수정할 파일
+
+### 6.6.1 `tailwind.config.ts`
+
+**추가할 Breakpoint**:
+```typescript
+export default {
+  theme: {
+    extend: {
+      screens: {
+        '3xl': '1920px', // 24"+ monitors
+      },
+    },
+  },
+};
+```
+
+---
+
+### 6.6.2 `src/App.tsx`
+
+**Container 제약 추가**:
+```tsx
+<main className="container mx-auto px-4 lg:px-6 max-w-[1600px]">
+  {/* Existing content */}
+</main>
+```
+
+**Bottom Padding (모바일 네비게이션 공간 확보)**:
+```tsx
+<main className="... pb-20 lg:pb-8">
+```
+
+**Conditional BottomNav Rendering**:
+```tsx
+import { useBreakpoint } from '@/hooks/useBreakpoint';
+import BottomNav from '@/components/mobile/BottomNav';
+
+function App() {
+  const breakpoint = useBreakpoint();
+
+  return (
+    <>
+      <Header />
+      <main className="...">
+        {/* Content */}
+      </main>
+      {breakpoint === 'mobile' && <BottomNav />}
+    </>
+  );
+}
+```
+
+---
+
+### 6.6.3 `src/components/layout/Header.tsx`
+
+**Breakpoint-Based Rendering**:
+```tsx
+import { useBreakpoint } from '@/hooks/useBreakpoint';
+import MobileHeader from '../mobile/MobileHeader';
+import DesktopHeader from './DesktopHeader'; // Rename current Header to DesktopHeader
+
+export default function Header() {
+  const breakpoint = useBreakpoint();
+
+  return breakpoint === 'mobile'
+    ? <MobileHeader />
+    : <DesktopHeader />;
+}
+```
+
+---
+
+### 6.6.4 `src/components/cards/JobCard.tsx`, `TalentCard.tsx`
+
+**Responsive Classes 추가**:
+```tsx
+<div className="p-4 lg:p-5 xl:p-6 bg-white rounded-lg shadow-md hover:shadow-lg transition-all">
+  <h3 className="text-sm lg:text-base xl:text-lg font-bold line-clamp-2">
+    {title}
+  </h3>
+  <p className="text-xs lg:text-sm text-gray-600">
+    {organization}
+  </p>
+  {/* ... */}
+</div>
+```
+
+---
+
+### 6.6.5 `src/components/ai/AIRecommendations.tsx`
+
+**Vertical Stack on Mobile**:
+```tsx
+<div className="flex flex-col sm:flex-row sm:overflow-x-auto gap-4 sm:gap-6 sm:scrollbar-hide">
+  {recommendations.map(card => (
+    <CompactJobCard key={card.id} {...card} />
+  ))}
+</div>
+```
+
+---
+
+### 6.6.6 `src/components/forms/JobPostingForm.tsx`, etc.
+
+**Responsive Grid**:
+```tsx
+<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-2 gap-y-1">
+  {/* Form fields */}
+</div>
+```
+
+**Modal Container**:
+```tsx
+<div className="fixed inset-0 z-50 overflow-y-auto">
+  <div className="flex items-center justify-center min-h-screen px-4">
+    <div className="w-full max-w-full sm:max-w-4xl bg-white rounded-lg sm:my-8">
+      {/* Form content */}
+    </div>
+  </div>
+</div>
+```
+
+---
+
+## 6.7 구현 우선순위
+
+### P0 - Emergency (Day 1-2) 🚨
+- [ ] **Header 수정**: 검색창 잘림 + 로그인 버튼 누락 해결
+- [ ] `useBreakpoint.ts` 훅 생성
+- [ ] `MobileHeader.tsx` 구현 (2-row design)
+- [ ] `HamburgerMenu.tsx` 구현 (뷰 토글)
+- [ ] `FilterBottomSheet.tsx` 구현
+
+### P1 - Core Mobile Experience (Week 1) ⚡
+- [ ] `BottomNav.tsx` 구현
+- [ ] 카드 그리드 반응형 (1열 → 2열 → 3열)
+- [ ] AI 추천 섹션 반응형 (세로 스택)
+- [ ] 배너 반응형 (높이 + 텍스트 크기)
+
+### P2 - Polish & Optimization (Week 2) 🔧
+- [ ] 모달 폼 반응형 (1열 → 2열 → 3열)
+- [ ] 프로모 카드 터치 최적화
+- [ ] 관리자 페이지 반응형
+- [ ] 성능 최적화 (lazy loading, conditional rendering)
+
+---
+
+## 6.8 Day-by-Day Implementation Schedule
+
+### Day 1: Emergency Header Fix
+**Goal**: 모바일에서 검색창 + 로그인 버튼 정상 작동
+
+**Tasks**:
+1. `useBreakpoint.ts` 생성 및 테스트
+2. `MobileHeader.tsx` 기본 구조 (2-row)
+3. `Header.tsx` 조건부 렌더링 연결
+4. Mobile viewport에서 검증
+
+**Success Criteria**:
+- 모바일에서 검색창 전체가 보임
+- 로그인 버튼 44x44px 터치 가능
+- 데스크톱 레이아웃은 그대로 유지
+
+---
+
+### Day 2: Filter & Navigation
+**Goal**: 모바일 필터 접근 + 기본 네비게이션
+
+**Tasks**:
+1. `FilterBottomSheet.tsx` 구현
+2. `HamburgerMenu.tsx` 구현 (뷰 토글)
+3. 터치 제스처 테스트 (드래그, 스와이프)
+
+**Success Criteria**:
+- 필터 버튼 클릭 시 Bottom Sheet 슬라이드 업
+- Hamburger 메뉴로 공고/인력풀/체험 토글
+- Backdrop 클릭 시 닫힘
+
+---
+
+### Day 3: Layout Adjustments
+**Goal**: 카드 그리드 + AI 섹션 반응형
+
+**Tasks**:
+1. `App.tsx` 카드 그리드 반응형 클래스 추가
+2. `JobCard.tsx`, `TalentCard.tsx` 반응형 패딩/텍스트
+3. `AIRecommendations.tsx` 세로 스택 변환
+
+**Success Criteria**:
+- 모바일: 1열 카드 레이아웃
+- 노트북: 2열 유지
+- 24"+: 3열 + max-width 제약
+
+---
+
+### Day 4: Bottom Navigation
+**Goal**: 모바일 하단 네비게이션 바
+
+**Tasks**:
+1. `BottomNav.tsx` 구현
+2. `App.tsx`에 조건부 렌더링 추가
+3. Safe area inset 대응 (iOS)
+
+**Success Criteria**:
+- 하단 고정 네비게이션 (홈/등록/검색/프로필)
+- 현재 페이지 하이라이트
+- iOS Notch/홈 바 영역 회피
+
+---
+
+### Day 5-7: Modal & Form Responsive
+**Goal**: 모달 폼 모바일 최적화
+
+**Tasks**:
+1. `JobPostingForm.tsx` 등 모든 폼 반응형 그리드
+2. 모달 컨테이너 반응형 크기
+3. 터치 입력 최적화 (드롭다운, 파일 업로드)
+
+**Success Criteria**:
+- 모바일: 1열 폼 레이아웃
+- 터치 타겟 최소 44x44px
+- 가로 스크롤 없음
+
+---
+
+### Week 2: Testing & Optimization
+**Goal**: 전체 모바일 경험 검증 및 최적화
+
+**Tasks**:
+1. 실제 디바이스 테스트 (iPhone, Android)
+2. 성능 측정 (Lighthouse Mobile)
+3. Touch interaction 개선
+4. Accessibility 검증 (색상 대비, 키보드 네비게이션)
+
+**Success Criteria**:
+- Lighthouse Mobile Score > 90
+- 모든 핵심 기능 모바일에서 정상 작동
+- No horizontal scroll
+- Touch target 규칙 100% 준수
+
+---
+
+## 6.9 Testing Strategy
+
+### Manual Testing Checklist
+- [ ] **iPhone SE (375px)**: 가장 작은 모바일 환경
+- [ ] **iPhone 14 Pro (390px)**: 표준 모바일
+- [ ] **Samsung Galaxy S21 (360px)**: 안드로이드 환경
+- [ ] **13" MacBook Pro (1366x768)**: 현재 개발 환경
+- [ ] **24" Monitor (1920x1080)**: 대형 모니터
+
+### Playwright 자동 테스트
+```typescript
+// tests/mobile-responsive.spec.ts
+import { test, expect } from '@playwright/test';
+
+test.describe('Mobile Responsive Design', () => {
+  test.use({ viewport: { width: 375, height: 667 } });
+
+  test('should display 2-row header on mobile', async ({ page }) => {
+    await page.goto('/');
+    const header = page.locator('header');
+    await expect(header).toBeVisible();
+
+    // Row 1: Hamburger + Logo + Login
+    await expect(page.locator('[aria-label="Open menu"]')).toBeVisible();
+    await expect(page.locator('[aria-label="Login"]')).toBeVisible();
+
+    // Row 2: Search + Filter
+    await expect(page.locator('input[type="search"]')).toBeVisible();
+    await expect(page.locator('[aria-label="Filter"]')).toBeVisible();
+  });
+
+  test('should show 1-column card layout on mobile', async ({ page }) => {
+    await page.goto('/');
+    const cardGrid = page.locator('[data-testid="card-grid"]');
+
+    // Check if grid has 1 column
+    const gridComputedStyle = await cardGrid.evaluate(
+      el => window.getComputedStyle(el).gridTemplateColumns
+    );
+    expect(gridComputedStyle).toBe('1fr'); // Single column
+  });
+
+  test('should open filter bottom sheet', async ({ page }) => {
+    await page.goto('/');
+    await page.click('[aria-label="Filter"]');
+
+    const bottomSheet = page.locator('[data-testid="filter-bottom-sheet"]');
+    await expect(bottomSheet).toBeVisible();
+
+    // Should have backdrop
+    await expect(page.locator('[data-testid="backdrop"]')).toBeVisible();
+  });
+
+  test('should have touch-friendly targets (min 44x44px)', async ({ page }) => {
+    await page.goto('/');
+
+    const buttons = page.locator('button');
+    const count = await buttons.count();
+
+    for (let i = 0; i < count; i++) {
+      const box = await buttons.nth(i).boundingBox();
+      if (box) {
+        expect(box.width).toBeGreaterThanOrEqual(44);
+        expect(box.height).toBeGreaterThanOrEqual(44);
+      }
+    }
+  });
+});
+```
+
+---
+
+## 6.10 Success Criteria
+
+### Mobile (< 640px)
+- ✅ 검색창 전체가 화면에 보임
+- ✅ 로그인 버튼 접근 가능
+- ✅ 필터를 Bottom Sheet로 조작 가능
+- ✅ 카드 1열 레이아웃 (가독성)
+- ✅ AI 추천 세로 스택 (스크롤 충돌 없음)
+- ✅ 하단 네비게이션 바 고정
+- ✅ 모든 터치 타겟 ≥ 44x44px
+- ✅ 가로 스크롤 없음
+
+### Desktop (13" Laptop, 1366x768)
+- ✅ 현재 레이아웃 유지
+- ✅ 2열 카드 그리드
+- ✅ 헤더 단일 행 유지
+
+### Large Desktop (24"+, 1920px+)
+- ✅ 컨테이너 max-width: 1600px
+- ✅ 3열 카드 그리드
+- ✅ 콘텐츠가 중앙에 집중
+- ✅ 좌우 여백으로 가독성 확보
+
+---
+
+## 6.11 Performance Considerations
+
+### Lazy Loading
+```tsx
+// Conditionally import mobile components
+const MobileHeader = lazy(() => import('@/components/mobile/MobileHeader'));
+const DesktopHeader = lazy(() => import('@/components/layout/DesktopHeader'));
+```
+
+### Conditional Rendering
+```tsx
+// Only render mobile components when needed
+{breakpoint === 'mobile' && <BottomNav />}
+{breakpoint !== 'mobile' && <DesktopViewToggle />}
+```
+
+### Image Optimization
+```tsx
+<img
+  src={imageUrl}
+  loading="lazy"
+  srcSet={`${imageUrl}?w=400 400w, ${imageUrl}?w=800 800w`}
+  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+/>
+```
+
+---
+
+## 6.12 Future Enhancements (Post-MVP)
+
+### Week 3: PWA Conversion
+- Service Worker 등록
+- Offline 지원
+- Install prompt
+- Push notifications (선택)
+
+### Week 4: Advanced Features
+- Touch gestures (카드 스와이프)
+- Pull-to-refresh
+- Skeleton loading screens
+- Haptic feedback (iOS)
+
+---
+
+## 6.13 Known Limitations
+
+1. **No Tablet-Specific Design**: 태블릿은 13" 노트북과 동일하게 처리
+2. **No Landscape Mobile Layout**: 모바일 가로 모드는 추후 고려
+3. **Basic Touch Gestures Only**: 복잡한 제스처 (pinch-to-zoom 등) 미지원
+4. **Limited Offline Support**: PWA 전환 전까지는 온라인 전용
+
+---
+
+## 6.14 References
+
+- [Tailwind CSS Responsive Design](https://tailwindcss.com/docs/responsive-design)
+- [MDN - Touch Events](https://developer.mozilla.org/en-US/docs/Web/API/Touch_events)
+- [iOS Human Interface Guidelines - Touch Targets](https://developer.apple.com/design/human-interface-guidelines/ios/visual-design/adaptivity-and-layout/)
+- [Material Design - Bottom Sheets](https://m3.material.io/components/bottom-sheets/overview)
+- [Web.dev - Mobile Web Best Practices](https://web.dev/mobile-web/)
+
+---
+
+**Last Updated**: 2025-10-28
+**Status**: Mobile Responsive Implementation Completed
+**Next Action**: Continue monitoring mobile UX and gather user feedback

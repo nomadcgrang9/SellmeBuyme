@@ -9,7 +9,16 @@
       "Bash(git commit:*)",
       "Bash(git push:*)",
       "Bash(git merge:*)",
-      "Bash(supabase db push:*)"
+      "Bash(supabase db push:*)",
+      "Bash(claude mcp:*)",
+      "Read(//c/Users/cgran/.claude/agents/**)",
+      "Bash(for file in ~/.claude/commands/sc/*.md)",
+      "Bash(head:*)",
+      "Bash(done)",
+      "Bash(for file in ~/.claude/MODE_*.md)",
+      "Read(//c/Users/cgran/.claude/**)",
+      "Bash(awk:*)",
+      "Bash(for file in C:/Users/cgran/.claude/commands/sc/{analyze,implement,task}.md)"
     ],
     "deny": [],
     "ask": []
