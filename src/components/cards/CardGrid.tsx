@@ -10,11 +10,12 @@ interface CardGridProps {
 export default function CardGrid({ cards, onCardClick }: CardGridProps) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      {cards.map((card) => (
+      {cards.map((card, index) => (
         <div key={card.id}>
           {card.type === 'job' ? (
             <JobCard
               job={card}
+              cardIndex={index}
               onClick={() => onCardClick?.(card)}
             />
           ) : (

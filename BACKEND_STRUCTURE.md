@@ -57,6 +57,61 @@
 - **띠지배너 그라데이션 필드 지원**: `stripe-banner.ts`의 `mapBannerFromDb()`와 `updateStripeBanner()`에서 `bgColorMode`, `bgGradientStart`, `bgGradientEnd` 필드 처리 추가.
 - **Cloudflare Pages 배포 설정**: `.node-version` 파일 생성으로 Node 20 버전 명시, `/dist` 폴더를 `.gitignore`에 추가하여 빌드 산출물 Git 추적 제외.
 
+### 추가 업데이트 (2025-01-26)
+- **프로모 카드 데이터베이스**: 메인 페이지 프로모 카드 관리 시스템 구축
+  - `promo_card_collection` 테이블 생성: 프로모 카드 정보 저장 (제목, 내용, 이미지 URL, 배경 그라데이션, 링크, 순서)
+  - `promo_images` 스토리지 버킷 생성: 프로모 카드 이미지 파일 저장 (공개 접근)
+  - `autoplay` 필드 추가: 자동 재생 설정 지원 (boolean)
+  - `display_order` 필드: 카드 표시 순서 관리
+  - RLS 정책: 공개 읽기, 관리자만 수정 가능
+  - 마이그레이션: `20250131_create_promo_images_bucket.sql`, `20250131_add_autoplay_to_promo_cards.sql`
+- **프로모 카드 쿼리 함수** (`src/lib/supabase/queries.ts`):
+  - `fetchPromoCards()`: 활성화된 프로모 카드 조회 (display_order 순)
+  - `createPromoCard()`: 신규 프로모 카드 생성
+  - `updatePromoCard()`: 기존 프로모 카드 수정
+  - `deletePromoCard()`: 프로모 카드 삭제
+  - `updatePromoCardOrder()`: 프로모 카드 순서 변경
+- **관리자 페이지 보안**: Cloudflare Functions 기반 관리자 인증
+  - `functions/[[path]].ts`: `/admin` 경로 접근 제어 (환경 변수 기반 비밀번호 인증)
+  - `ADMIN_PASSWORD` 환경 변수 설정 필요
+  - 인증 쿠키 기반 세션 관리 (7일 유효)
+  - TypeScript 타입 정의 (`functions/types.d.ts`)
+- **PGroonga 전문 검색 엔진**: 한글 형태소 분석 기반 고급 검색
+  - `pgroonga_setup.sql` 마이그레이션: PGroonga 확장 활성화
+  - FTS 인덱스 생성: `job_postings`, `talents` 테이블 주요 필드에 GIN 인덱스 적용
+  - `queries.ts` 검색 로직 개선: PGroonga 연산자 활용 (`&@~`, `&@*`)
+  - 검색 성능 향상: 형태소 분석으로 `중학교` 검색 시 `중등` 결과 포함
+  - 스크립트: `scripts/db/check-pgroonga-availability.ts` (PGroonga 설치 확인)
+- **검색 시스템 개선**:
+  - 동의어 사전 구현: 토큰 그룹화로 `중등 → [중등, 중학교, 고등학교]` 확장
+  - FTS + ILIKE 통합 검색: 전문 검색과 패턴 매칭 동시 지원
+  - 검색 후처리 필터: `filterJobsByTokenGroups()`, `filterTalentsByTokenGroups()`
+  - 검색 로그 향상: `search_logs` 테이블에 토큰 정보 추가
+  - pg_trgm 인덱스 성능 개선: `20250129_fix_search_vectors_korean.sql`
+- **추천 시스템 고도화**:
+  - `profile-recommendations` Edge Function 개선: Gemini AI 기반 추천 필터링 (선택적 적용)
+  - 다중 점수 기반 추천: 위치 근접도, 역할 매칭, 과목 호환성, 경력, 긴급도, 최신성
+  - 인접 지역 지원: 선호 지역 + 인근 지역 포함 검색
+  - `recommendations_cache` 테이블: 추천 결과 24시간 캐싱 (프로필 변경 시 무효화)
+- **사용자 프로필 확장**:
+  - `user_profiles` 테이블 필드 추가:
+    - `teacher_level`: 교사 자격 수준 (정교사 1급, 2급, 준교사 등)
+    - `special_education_type`: 특수교육 전문 분야
+    - `instructor_fields`: 강사 활동 분야 (배열)
+    - `instructor_custom_field`: 강사 기타 분야 (직접 입력)
+    - `capable_subjects`: 가능한 과목 목록 (배열)
+    - `profile_image_url`: 프로필 이미지 URL
+  - `profiles` 스토리지 버킷: 프로필 이미지 저장 (비공개, RLS 적용)
+  - 마이그레이션: `20250123_extend_user_profiles_schema.sql`
+- **검증 스크립트** (TypeScript 전환):
+  - `scripts/db/backfill-search-vectors.ts`: 검색 벡터 일괄 업데이트
+  - `scripts/db/check-extensions.ts`: PostgreSQL 확장 설치 확인
+  - `scripts/db/check-search-data.ts`: 검색 데이터 품질 검증
+  - `scripts/test/test-search-query.ts`: 검색 쿼리 테스트
+  - `scripts/test/verify-synonym-search.ts`: 동의어 검색 검증
+  - `scripts/create-dummy-promo-cards.ts`: 프로모 카드 더미 데이터 생성
+  - `scripts/check-promo-cards.ts`: 프로모 카드 데이터 확인
+
 ## 📊 현재 상태
 
 ### 프론트엔드
