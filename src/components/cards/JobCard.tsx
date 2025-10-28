@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { JobPostingCard } from '@/types';
 import {
   IconMapPin,
@@ -9,6 +10,7 @@ import {
   IconBook,
   IconAlertCircle
 } from '@tabler/icons-react';
+import MapModal from '@/components/map/MapModal';
 
 interface JobCardProps {
   job: JobPostingCard;
@@ -16,6 +18,7 @@ interface JobCardProps {
 }
 
 export default function JobCard({ job, onClick }: JobCardProps) {
+  const [showMapModal, setShowMapModal] = useState(false);
   // 태그 중복 제거 및 정규화
   const normalizedTags = job.tags.map(tag => 
     tag
@@ -189,6 +192,19 @@ export default function JobCard({ job, onClick }: JobCardProps) {
                   원문링크
                 </a>
               )}
+
+              {/* 지도보기 버튼 */}
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setShowMapModal(true);
+                }}
+                className="flex-1 inline-flex items-center justify-center rounded-lg bg-blue-50 text-blue-600 px-3 py-2 hover:bg-blue-100 transition-colors"
+              >
+                지도보기
+              </button>
+
               {onClick && (
                 <button
                   type="button"
@@ -202,6 +218,14 @@ export default function JobCard({ job, onClick }: JobCardProps) {
           </div>
         </div>
       )}
+
+      {/* 지도 모달 */}
+      <MapModal
+        isOpen={showMapModal}
+        onClose={() => setShowMapModal(false)}
+        organization={job.organization}
+        location={job.location}
+      />
     </article>
   );
 }
