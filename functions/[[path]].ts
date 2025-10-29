@@ -69,10 +69,13 @@ export const onRequest: PagesFunction<Env> = async (context) => {
   }
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // 정적 파일 처리 (assets, fonts, icons 등)
+  // 정적 파일 및 클라이언트 라우팅 경로 처리
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   const staticPaths = ['/assets/', '/fonts/', '/pwa-icons/', '/favicon.ico', '/manifest.webmanifest', '/sw.js', '/workbox-']
-  if (staticPaths.some(prefix => pathname.startsWith(prefix))) {
+  const clientRoutes = ['/note', '/auth/callback']  // 클라이언트 라우팅이 필요한 경로
+
+  if (staticPaths.some(prefix => pathname.startsWith(prefix)) ||
+      clientRoutes.some(route => pathname.startsWith(route))) {
     return context.next()
   }
 

@@ -406,3 +406,694 @@ src/
 ---
 
 이 계획으로 유연하고 확장 가능한 크롤링 시스템 구축 가능 🚀
+
+---
+---
+
+# 📍 크롤링 게시판 지역 기반 관리 개선 계획
+
+> **작성일**: 2025-01-29
+> **목적**: 기존 크롤링 시스템에 지역 기반 검색/필터링 및 전국 확장 대비 구조 추가
+
+---
+
+## 🎯 개선 목표 (3가지 핵심 요구사항)
+
+1. **지역 기반 검색/필터링**: 경기도, 남양주시 등 지역별로 게시판 검색 가능
+2. **전국 확장 대비 DB 구조**: 서울, 충청, 강원 등 전국 17개 광역자치단체로 확장 가능한 구조
+3. **개발자 노트 연동**: 제출 → 관리자 승인 → 크롤링 활성화 워크플로우 구축
+
+---
+
+## 🔍 현재 상황 분석
+
+### 기존 제한사항
+
+현재 `crawl_boards` 테이블:
+```sql
+CREATE TABLE crawl_boards (
+  id UUID PRIMARY KEY,
+  board_name TEXT,           -- "경기도교육청 > 경기교육청"
+  base_url TEXT,
+  last_crawled_at TIMESTAMP,
+  crawl_batch_size INTEGER,
+  error_count INTEGER
+)
+```
+
+**문제점:**
+- 지역 정보가 `board_name` 문자열에 묻혀있음 (구조화되지 않음)
+- 지역별 필터링이 불가능 (LIKE 검색만 가능)
+- 전국 확장 시 지역 계층 관리 불가 (시도 > 시군구)
+- 통계 집계 및 그룹화 어려움
+
+### 기존 데이터 (3개 게시판)
+
+```
+1. 경기도교육청 > 경기교육청
+2. 경기도교육청 > 남양주교육지원청
+3. 경기도교육청 > 의정부교육지원청
+```
+
+모두 경기도(KR-41) 소속, 하위 지역은 남양주시(4136025), 의정부시(4111025)
+
+---
+
+## 🏗️ 설계 결정사항
+
+### 1. 지역 코드 시스템 (ISO 3166-2 기반)
+
+한국 행정구역 표준 코드 사용:
+
+| 광역자치단체 | ISO 코드 | 행정구역 코드 |
+|------------|---------|-------------|
+| 서울특별시 | KR-11 | 11 |
+| 부산광역시 | KR-26 | 26 |
+| 대구광역시 | KR-27 | 27 |
+| 인천광역시 | KR-28 | 28 |
+| 광주광역시 | KR-29 | 29 |
+| 대전광역시 | KR-30 | 30 |
+| 울산광역시 | KR-31 | 31 |
+| 세종특별자치시 | KR-50 | 36 |
+| 경기도 | KR-41 | 41 |
+| 강원특별자치도 | KR-42 | 51 |
+| 충청북도 | KR-43 | 43 |
+| 충청남도 | KR-44 | 44 |
+| 전북특별자치도 | KR-45 | 52 |
+| 전라남도 | KR-46 | 46 |
+| 경상북도 | KR-47 | 47 |
+| 경상남도 | KR-48 | 48 |
+| 제주특별자치도 | KR-49 | 50 |
+
+**시군구 코드 예시:**
+- 남양주시: 4136025 (경기도 41 + 남양주 36025)
+- 의정부시: 4111025 (경기도 41 + 의정부 11025)
+
+### 2. 데이터베이스 스키마
+
+#### 2.1 `regions` 테이블 (신규 생성)
+
+지역 계층 구조를 관리하는 참조 테이블:
+
+```sql
+CREATE TABLE regions (
+  code TEXT PRIMARY KEY,              -- 'KR-41' 또는 '4136025'
+  name TEXT NOT NULL,                 -- '경기도' 또는 '남양주시'
+  level TEXT NOT NULL,                -- 'province' 또는 'city'
+  parent_code TEXT REFERENCES regions(code),
+  display_order INTEGER,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- 인덱스
+CREATE INDEX idx_regions_parent ON regions(parent_code);
+CREATE INDEX idx_regions_level ON regions(level);
+```
+
+**초기 데이터 (17개 광역자치단체):**
+```sql
+INSERT INTO regions (code, name, level, parent_code, display_order) VALUES
+  ('KR-11', '서울특별시', 'province', NULL, 1),
+  ('KR-26', '부산광역시', 'province', NULL, 2),
+  ('KR-27', '대구광역시', 'province', NULL, 3),
+  ('KR-28', '인천광역시', 'province', NULL, 4),
+  ('KR-29', '광주광역시', 'province', NULL, 5),
+  ('KR-30', '대전광역시', 'province', NULL, 6),
+  ('KR-31', '울산광역시', 'province', NULL, 7),
+  ('KR-50', '세종특별자치시', 'province', NULL, 8),
+  ('KR-41', '경기도', 'province', NULL, 9),
+  ('KR-42', '강원특별자치도', 'province', NULL, 10),
+  ('KR-43', '충청북도', 'province', NULL, 11),
+  ('KR-44', '충청남도', 'province', NULL, 12),
+  ('KR-45', '전북특별자치도', 'province', NULL, 13),
+  ('KR-46', '전라남도', 'province', NULL, 14),
+  ('KR-47', '경상북도', 'province', NULL, 15),
+  ('KR-48', '경상남도', 'province', NULL, 16),
+  ('KR-49', '제주특별자치도', 'province', NULL, 17);
+
+-- 경기도 시군구 예시
+INSERT INTO regions (code, name, level, parent_code, display_order) VALUES
+  ('4136025', '남양주시', 'city', 'KR-41', 1),
+  ('4111025', '의정부시', 'city', 'KR-41', 2);
+```
+
+#### 2.2 `crawl_boards` 테이블 확장
+
+```sql
+ALTER TABLE crawl_boards
+  ADD COLUMN region_code TEXT REFERENCES regions(code),
+  ADD COLUMN subregion_code TEXT REFERENCES regions(code),
+  ADD COLUMN region_display_name TEXT,  -- "경기도 > 남양주시" (UI용)
+  ADD COLUMN school_level TEXT,         -- 'elementary', 'middle', 'high', 'mixed'
+  ADD COLUMN is_active BOOLEAN DEFAULT false,
+  ADD COLUMN approved_at TIMESTAMP,
+  ADD COLUMN approved_by UUID REFERENCES auth.users(id);
+
+-- 인덱스
+CREATE INDEX idx_crawl_boards_region ON crawl_boards(region_code);
+CREATE INDEX idx_crawl_boards_subregion ON crawl_boards(subregion_code);
+CREATE INDEX idx_crawl_boards_active ON crawl_boards(is_active);
+```
+
+**마이그레이션 스크립트 (기존 3개 게시판):**
+```sql
+-- 1. 경기도교육청 > 경기교육청
+UPDATE crawl_boards
+SET region_code = 'KR-41',
+    subregion_code = NULL,
+    region_display_name = '경기도',
+    school_level = 'mixed',
+    is_active = true
+WHERE board_name = '경기도교육청 > 경기교육청';
+
+-- 2. 경기도교육청 > 남양주교육지원청
+UPDATE crawl_boards
+SET region_code = 'KR-41',
+    subregion_code = '4136025',
+    region_display_name = '경기도 > 남양주시',
+    school_level = 'mixed',
+    is_active = true
+WHERE board_name LIKE '%남양주%';
+
+-- 3. 경기도교육청 > 의정부교육지원청
+UPDATE crawl_boards
+SET region_code = 'KR-41',
+    subregion_code = '4111025',
+    region_display_name = '경기도 > 의정부시',
+    school_level = 'mixed',
+    is_active = true
+WHERE board_name LIKE '%의정부%';
+```
+
+#### 2.3 `developer_submissions` 테이블 확장
+
+개발자 노트의 게시판 제출과 연동:
+
+```sql
+ALTER TABLE developer_submissions
+  ADD COLUMN crawl_board_id UUID REFERENCES crawl_boards(id),
+  ADD COLUMN admin_review_status TEXT DEFAULT 'pending',  -- 'pending', 'approved', 'rejected'
+  ADD COLUMN admin_review_comment TEXT,
+  ADD COLUMN reviewed_by UUID REFERENCES auth.users(id),
+  ADD COLUMN reviewed_at TIMESTAMP;
+
+-- 인덱스
+CREATE INDEX idx_submissions_review_status ON developer_submissions(admin_review_status);
+CREATE INDEX idx_submissions_crawl_board ON developer_submissions(crawl_board_id);
+```
+
+### 3. TypeScript 타입 정의
+
+#### `src/types/index.ts`
+
+```typescript
+export type RegionLevel = 'province' | 'city' | 'district';
+
+export interface Region {
+  code: string;              // 'KR-41' or '4136025'
+  name: string;              // '경기도' or '남양주시'
+  level: RegionLevel;
+  parentCode?: string;
+  displayOrder: number;
+  createdAt: string;
+}
+
+export type SchoolLevel = 'elementary' | 'middle' | 'high' | 'mixed';
+
+export interface CrawlBoard {
+  id: string;
+  boardName: string;
+  baseUrl: string;
+  lastCrawledAt?: string;
+  crawlBatchSize: number;
+  errorCount: number;
+
+  // 신규 필드
+  regionCode?: string;           // 'KR-41'
+  subregionCode?: string;        // '4136025'
+  regionDisplayName?: string;    // '경기도 > 남양주시'
+  schoolLevel?: SchoolLevel;
+  isActive: boolean;
+  approvedAt?: string;
+  approvedBy?: string;
+}
+
+export type ReviewStatus = 'pending' | 'approved' | 'rejected';
+
+export interface DeveloperSubmission {
+  id: string;
+  userId: string;
+  title: string;
+  description: string;
+  boardUrl: string;
+  regionCode?: string;
+  subregionCode?: string;
+  schoolLevel?: SchoolLevel;
+
+  // 승인 관련
+  crawlBoardId?: string;
+  adminReviewStatus: ReviewStatus;
+  adminReviewComment?: string;
+  reviewedBy?: string;
+  reviewedAt?: string;
+
+  createdAt: string;
+  updatedAt: string;
+}
+```
+
+---
+
+## 📋 4단계 구현 계획
+
+### Phase 1: 지역 코드 시스템 및 DB 마이그레이션 (우선순위 1)
+
+**목표:** 지역 기반 필터링을 위한 데이터 구조 구축
+
+**작업 내역:**
+
+1. **마이그레이션 파일 생성**
+   - `supabase/migrations/20250129_create_regions_table.sql`
+   - `supabase/migrations/20250129_extend_crawl_boards.sql`
+   - `supabase/migrations/20250129_extend_developer_submissions.sql`
+
+2. **TypeScript 타입 업데이트**
+   - `src/types/index.ts`: Region, CrawlBoard, DeveloperSubmission 타입 확장
+   - `src/lib/supabase/queries.ts`: DB 매핑 함수 업데이트
+     - `mapCrawlBoardFromDbRow()`: region 필드 매핑
+     - `mapCrawlBoardToDbRow()`: region 필드 변환
+
+3. **지역 조회 함수 생성**
+   - `src/lib/supabase/regions.ts` (신규 파일)
+   ```typescript
+   export async function fetchAllProvinces(): Promise<Region[]>
+   export async function fetchCitiesByProvince(provinceCode: string): Promise<Region[]>
+   export async function buildRegionDisplayName(regionCode?: string, subregionCode?: string): Promise<string>
+   ```
+
+4. **기존 데이터 마이그레이션**
+   - 3개 게시판에 지역 코드 할당
+   - `scripts/db/migrate-crawl-boards-regions.ts` 실행
+
+**검증:**
+```sql
+-- 17개 광역자치단체 확인
+SELECT COUNT(*) FROM regions WHERE level = 'province';  -- 17
+
+-- 경기도 시군구 확인
+SELECT * FROM regions WHERE parent_code = 'KR-41';
+
+-- 기존 게시판 지역 코드 확인
+SELECT board_name, region_code, subregion_code, region_display_name
+FROM crawl_boards;
+```
+
+---
+
+### Phase 2: 개발자 제출 폼 개선 (우선순위 2)
+
+**목표:** 개발자가 지역 정보를 포함하여 게시판을 제출할 수 있도록 UI 개선
+
+**작업 내역:**
+
+1. **지역 선택 컴포넌트 생성**
+   - [src/components/developer/RegionSelector.tsx](src/components/developer/RegionSelector.tsx)
+   ```typescript
+   interface RegionSelectorProps {
+     onRegionChange: (regionCode?: string, subregionCode?: string) => void;
+     initialRegionCode?: string;
+     initialSubregionCode?: string;
+   }
+   ```
+   - 2단계 선택: 시도 선택 → 시군구 선택 (optional)
+   - 데이터: `regions` 테이블에서 fetch
+
+2. **학교급 선택 UI 추가**
+   - Radio buttons: 초등학교 / 중학교 / 고등학교 / 혼합
+
+3. **제출 폼 업데이트**
+   - [src/components/developer/SubmissionForm.tsx](src/components/developer/SubmissionForm.tsx)
+   - 지역 선택 + 학교급 선택 추가
+   - `developer_submissions` 테이블에 저장
+
+4. **제출 내역 표시 개선**
+   - [src/components/developer/SubmissionList.tsx](src/components/developer/SubmissionList.tsx)
+   - 지역 정보 뱃지 표시
+   - 승인 상태 표시 (pending/approved/rejected)
+
+**UI 예시:**
+```
+┌─────────────────────────────────────────┐
+│ 게시판 제출하기                          │
+├─────────────────────────────────────────┤
+│ 제목: [                               ] │
+│ URL:  [                               ] │
+│                                         │
+│ 지역 선택:                              │
+│   시도: [경기도 ▼]                      │
+│   시군구: [남양주시 ▼] (선택사항)        │
+│                                         │
+│ 학교급:                                 │
+│   ○ 초등학교  ○ 중학교                  │
+│   ○ 고등학교  ● 혼합                    │
+│                                         │
+│ 설명: [                               ] │
+│                                         │
+│         [제출하기]                       │
+└─────────────────────────────────────────┘
+```
+
+**검증:**
+- 개발자 페이지에서 게시판 제출 → `developer_submissions` 테이블에 지역 정보 저장 확인
+- 제출 내역에서 지역 뱃지 표시 확인
+
+---
+
+### Phase 3: 관리자 승인 UI 및 크롤러 연동 (우선순위 3)
+
+**목표:** 관리자가 제출된 게시판을 검토/승인하고, 승인 시 크롤링 활성화
+
+**작업 내역:**
+
+1. **관리자 페이지 - 제출 내역 탭 추가**
+   - [src/components/admin/SubmissionReviewList.tsx](src/components/admin/SubmissionReviewList.tsx)
+   - 승인 대기 목록 표시 (admin_review_status = 'pending')
+   - 지역별 필터링 UI
+   - 상태별 필터링 (pending/approved/rejected)
+
+2. **승인 모달 컴포넌트**
+   - [src/components/admin/ApprovalModal.tsx](src/components/admin/ApprovalModal.tsx)
+   ```typescript
+   interface ApprovalModalProps {
+     submission: DeveloperSubmission;
+     onApprove: (comment?: string) => Promise<void>;
+     onReject: (reason: string) => Promise<void>;
+     onClose: () => void;
+   }
+   ```
+   - 게시판 정보 확인 UI
+   - 승인/거부 버튼
+   - 코멘트 입력란
+
+3. **승인 처리 로직**
+   - [src/lib/supabase/admin-actions.ts](src/lib/supabase/admin-actions.ts)
+   ```typescript
+   export async function approveSubmission(
+     submissionId: string,
+     adminUserId: string,
+     comment?: string
+   ): Promise<CrawlBoard>
+   ```
+   - 승인 시 자동으로 `crawl_boards` 레코드 생성
+   - `is_active = true` 설정
+   - 지역 정보 복사
+   - `developer_submissions` 상태 업데이트
+
+4. **크롤링 게시판 목록 필터 UI**
+   - [src/components/admin/CrawlBoardList.tsx](src/components/admin/CrawlBoardList.tsx)에 필터 추가
+   ```typescript
+   interface FilterState {
+     regionCode?: string;
+     subregionCode?: string;
+     schoolLevel?: SchoolLevel;
+     isActive?: boolean;
+     searchKeyword?: string;
+   }
+   ```
+   - 지역 드롭다운 (17개 광역자치단체)
+   - 하위 지역 드롭다운 (선택된 시도의 시군구)
+   - 학교급 필터
+   - 활성화 상태 토글
+
+5. **Supabase 쿼리 확장**
+   - [src/lib/supabase/queries.ts](src/lib/supabase/queries.ts)
+   ```typescript
+   export async function fetchCrawlBoardsWithFilters(filters: {
+     regionCode?: string;
+     subregionCode?: string;
+     schoolLevel?: SchoolLevel;
+     isActive?: boolean;
+     searchKeyword?: string;
+   }): Promise<CrawlBoard[]>
+   ```
+
+**UI 예시 (관리자 - 승인 대기):**
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ 게시판 제출 승인 관리                                            │
+├─────────────────────────────────────────────────────────────────┤
+│ 필터: [전체 지역 ▼] [전체 학교급 ▼] [● 승인대기 ○ 전체]         │
+├─────────────────────────────────────────────────────────────────┤
+│ ┌─────────────────────────────────────────────────────────────┐ │
+│ │ 📌 의정부교육지원청 채용 게시판                              │ │
+│ │ 🏷️ 경기도 > 의정부시  📚 혼합                                │ │
+│ │ 제출자: user@example.com  │  2025-01-27 14:30               │ │
+│ │ [상세보기] [승인] [거부]                                     │ │
+│ └─────────────────────────────────────────────────────────────┘ │
+│ ┌─────────────────────────────────────────────────────────────┐ │
+│ │ 📌 화성교육지원청 공고                                       │ │
+│ │ 🏷️ 경기도 > 화성시  📚 초등학교                             │ │
+│ │ 제출자: dev@example.com  │  2025-01-26 10:15                │ │
+│ │ [상세보기] [승인] [거부]                                     │ │
+│ └─────────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**UI 예시 (관리자 - 크롤링 게시판 목록 필터):**
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ 크롤링 게시판 관리                                               │
+├─────────────────────────────────────────────────────────────────┤
+│ 지역: [경기도 ▼]  하위: [전체 ▼]  학교급: [전체 ▼]  [● 활성화만] │
+│ 검색: [                                               ] [🔍]     │
+├─────────────────────────────────────────────────────────────────┤
+│ ✅ 경기도교육청 > 경기교육청                                     │
+│    🏷️ 경기도  📚 혼합  ⏰ 마지막 크롤: 2025-01-29 08:00          │
+│    [수정] [비활성화] [테스트 크롤링]                             │
+│                                                                  │
+│ ✅ 경기도교육청 > 남양주교육지원청                               │
+│    🏷️ 경기도 > 남양주시  📚 혼합  ⏰ 2025-01-29 08:05            │
+│    [수정] [비활성화] [테스트 크롤링]                             │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**검증:**
+- 제출된 게시판 승인 → `crawl_boards` 테이블에 새 레코드 생성 확인
+- `is_active = true`, 지역 정보 복사 확인
+- 지역 필터 작동 확인 (경기도 선택 시 3개 게시판만 표시)
+- 하위 지역 필터 (남양주시 선택 시 1개만 표시)
+
+---
+
+### Phase 4: 크롤러 통합 및 검증 (우선순위 4)
+
+**목표:** 크롤러가 `is_active = true`인 게시판만 크롤링하도록 수정
+
+**작업 내역:**
+
+1. **크롤러 쿼리 수정**
+   - [crawler/lib/db-utils.js](crawler/lib/db-utils.js)
+   ```javascript
+   // BEFORE
+   SELECT * FROM crawl_boards ORDER BY last_crawled_at ASC NULLS FIRST;
+
+   // AFTER
+   SELECT * FROM crawl_boards
+   WHERE is_active = true
+   ORDER BY last_crawled_at ASC NULLS FIRST;
+   ```
+
+2. **지역 기반 크롤링 우선순위**
+   - 특정 지역 우선 크롤링 옵션 추가
+   ```bash
+   node index.js --region=KR-41  # 경기도만
+   node index.js --subregion=4136025  # 남양주시만
+   ```
+
+3. **크롤링 로그 개선**
+   - 로그에 지역 정보 추가
+   ```
+   [2025-01-29 08:00:00] 크롤링 시작: 경기도교육청 > 남양주교육지원청 (경기도 > 남양주시)
+   [2025-01-29 08:05:23] 완료: 5개 공고 수집, 2개 신규 등록
+   ```
+
+4. **관리자 대시보드 통계**
+   - [src/components/admin/CrawlStats.tsx](src/components/admin/CrawlStats.tsx)
+   - 지역별 크롤링 통계
+   ```typescript
+   interface CrawlStats {
+     totalBoards: number;
+     activeBoards: number;
+     boardsByRegion: { regionName: string; count: number }[];
+     lastCrawlTime: string;
+   }
+   ```
+
+5. **검증 스크립트**
+   - [scripts/test/verify-crawl-integration.ts](scripts/test/verify-crawl-integration.ts)
+   - 모든 활성 게시판에 유효한 지역 코드가 있는지 확인
+   - `regions` 테이블과 조인하여 무결성 검증
+
+**검증:**
+```bash
+# 1. 크롤러 실행 (활성화된 게시판만)
+cd crawler
+node index.js
+
+# 2. 로그 확인
+tail -f crawler.log | grep "경기도"
+
+# 3. DB 검증
+SELECT cb.board_name, r.name AS region_name, cb.is_active, cb.last_crawled_at
+FROM crawl_boards cb
+LEFT JOIN regions r ON cb.region_code = r.code
+ORDER BY cb.last_crawled_at DESC;
+```
+
+---
+
+## 🔄 워크플로우 다이어그램
+
+### 개발자 → 관리자 → 크롤러 연동
+
+```
+┌──────────────┐
+│ 개발자 노트   │
+│ /note       │
+└──────┬───────┘
+       │
+       │ 1. 게시판 제출
+       │    (URL, 지역, 학교급)
+       ↓
+┌──────────────────────┐
+│ developer_submissions│
+│ status: 'pending'    │
+└──────┬───────────────┘
+       │
+       │ 2. 관리자 검토
+       ↓
+┌──────────────┐
+│ 관리자 페이지 │
+│ /admin-portal│
+└──────┬───────┘
+       │
+       ├─→ [승인] ─→ ┌─────────────────────┐
+       │             │ crawl_boards 생성    │
+       │             │ is_active = true    │
+       │             │ 지역 정보 복사       │
+       │             └──────┬──────────────┘
+       │                    │
+       │                    │ 3. 크롤러 감지
+       │                    ↓
+       │             ┌─────────────┐
+       │             │ crawler/    │
+       │             │ index.js    │
+       │             └──────┬──────┘
+       │                    │
+       │                    │ 4. 공고 수집
+       │                    ↓
+       │             ┌─────────────┐
+       │             │ job_postings│
+       │             └─────────────┘
+       │
+       └─→ [거부] ─→ developer_submissions.status = 'rejected'
+```
+
+---
+
+## ✅ 체크리스트
+
+### Phase 1 완료 조건
+- [ ] `regions` 테이블 생성 및 17개 광역자치단체 데이터 삽입
+- [ ] `crawl_boards` 테이블에 region 관련 컬럼 추가
+- [ ] `developer_submissions` 테이블에 review 관련 컬럼 추가
+- [ ] TypeScript 타입 정의 업데이트 (`Region`, `CrawlBoard`, `DeveloperSubmission`)
+- [ ] [src/lib/supabase/regions.ts](src/lib/supabase/regions.ts) 생성 및 지역 조회 함수 구현
+- [ ] DB 매핑 함수 업데이트 (`mapCrawlBoardFromDbRow`, `mapCrawlBoardToDbRow`)
+- [ ] 기존 3개 게시판 지역 코드 마이그레이션
+- [ ] SQL 검증 쿼리로 데이터 무결성 확인
+
+### Phase 2 완료 조건
+- [ ] `RegionSelector.tsx` 컴포넌트 생성 (시도/시군구 2단계 선택)
+- [ ] `SubmissionForm.tsx`에 지역 선택 + 학교급 선택 UI 추가
+- [ ] `SubmissionList.tsx`에 지역 뱃지 + 승인 상태 표시
+- [ ] 제출 시 `developer_submissions` 테이블에 지역 정보 저장
+- [ ] `/note` 페이지에서 제출 → DB 저장 → 목록 표시 플로우 테스트
+
+### Phase 3 완료 조건
+- [ ] `SubmissionReviewList.tsx` 생성 (승인 대기 목록)
+- [ ] `ApprovalModal.tsx` 생성 (승인/거부 UI)
+- [ ] `approveSubmission()` 함수 구현 (승인 시 `crawl_boards` 자동 생성)
+- [ ] `CrawlBoardList.tsx`에 지역/학교급/활성화 필터 UI 추가
+- [ ] `fetchCrawlBoardsWithFilters()` 함수 구현
+- [ ] 관리자 페이지에서 승인 → `crawl_boards` 생성 플로우 테스트
+- [ ] 지역 필터 작동 확인 (경기도만 선택 시 3개 표시)
+
+### Phase 4 완료 조건
+- [ ] 크롤러 쿼리에 `is_active = true` 조건 추가
+- [ ] 지역별 크롤링 우선순위 옵션 추가 (`--region`, `--subregion`)
+- [ ] 크롤링 로그에 지역 정보 출력
+- [ ] `CrawlStats.tsx` 컴포넌트 생성 (지역별 통계)
+- [ ] [scripts/test/verify-crawl-integration.ts](scripts/test/verify-crawl-integration.ts) 검증 스크립트 작성
+- [ ] 크롤러 실행 → 활성화된 게시판만 크롤링 확인
+- [ ] 전체 워크플로우 E2E 테스트 (제출 → 승인 → 크롤링 → 공고 수집)
+
+---
+
+## 🔧 기술적 고려사항
+
+### 1. 성능 최적화
+- `regions` 테이블은 참조 테이블로 크기가 작으므로 캐싱 권장
+- `crawl_boards` 필터링 쿼리에 인덱스 필수 (`region_code`, `subregion_code`, `is_active`)
+- 관리자 대시보드는 통계 쿼리 캐싱 고려 (Redis 또는 Supabase Realtime)
+
+### 2. 데이터 무결성
+- `regions.code`를 외래키로 참조하여 잘못된 지역 코드 방지
+- `approved_at`와 `is_active` 동시 설정으로 승인 추적
+- `crawl_boards.region_display_name`은 UI 표시용 (정규화 X)
+
+### 3. 확장성
+- 새로운 시군구 추가 시 `regions` 테이블에만 INSERT
+- 전국 확장 시 17개 광역자치단체 → 229개 시군구로 확대 가능
+- 지역 계층은 `parent_code`로 무한 확장 가능 (읍면동 레벨도 추가 가능)
+
+### 4. UX 개선 아이디어
+- 지역 선택 시 실시간 게시판 개수 표시 ("경기도 (3개 게시판)")
+- 크롤링 실패 시 관리자에게 알림 (이메일 또는 인앱 알림)
+- 개발자 제출 거부 시 사유 표시 (투명성)
+
+### 5. 보안
+- 관리자 승인 기능은 `roles = ['admin']` 체크 필수
+- 개발자 제출은 인증된 사용자만 가능 (RLS 정책)
+- 크롤러는 `service_role` 키로만 `crawl_boards` 조회
+
+---
+
+## 📅 예상 개발 기간
+
+- **Phase 1**: 1일 (마이그레이션 + 타입 정의)
+- **Phase 2**: 1일 (개발자 폼 UI)
+- **Phase 3**: 2일 (관리자 승인 UI + 로직)
+- **Phase 4**: 1일 (크롤러 통합 + 검증)
+
+**총 예상 기간: 5일**
+
+---
+
+## 📚 관련 문서
+
+- `BACKEND_STRUCTURE.md`: Supabase 테이블 스키마 전체
+- `FRONTEND_STRUCTURE.md`: React 컴포넌트 구조
+- `CRAWLING_PLAN.md`: 본 문서 (크롤링 개선 계획)
+- `DEVELOPER_PAGE_PLAN.md`: 개발자 노트 페이지 설계
+- `supabase/migrations/`: 실제 마이그레이션 SQL 파일들
+
+---
+
+## 📝 변경 이력
+
+- **2025-01-29**: 지역 기반 관리 개선 계획 추가
+  - 사용자 요구사항: 지역 필터링, 전국 확장, 개발자 제출 워크플로우
+  - 대화 컨텍스트 기반으로 작성됨 (이전 PC에서 작업한 크롤링-플랜-1 브랜치 내용 반영 안 됨)
+  - ISO 3166-2 기반 17개 광역자치단체 코드 시스템 설계
+  - 4단계 구현 계획 수립
