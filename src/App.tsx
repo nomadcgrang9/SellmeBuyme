@@ -4,6 +4,7 @@ import AIRecommendations from '@/components/ai/AIRecommendations';
 import AIInsightBox from '@/components/ai/AIInsightBox';
 import CardGrid from '@/components/cards/CardGrid';
 import JobDetailModal from '@/components/cards/JobDetailModal';
+import JobPostingEditModal from '@/components/forms/JobPostingEditModal';
 import ProfileSetupModal, { ROLE_OPTIONS, type RoleOption } from '@/components/auth/ProfileSetupModal';
 import ProfileViewModal from '@/components/auth/ProfileViewModal';
 import SocialSignupModal, { type AuthProvider } from '@/components/auth/SocialSignupModal';
@@ -79,6 +80,8 @@ export default function App() {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authModalMode, setAuthModalMode] = useState<'signup' | 'login'>('signup');
   const [loadingProvider, setLoadingProvider] = useState<AuthProvider | null>(null);
+  const [editingJob, setEditingJob] = useState<JobPostingCard | null>(null);
+  const [isEditFormOpen, setIsEditFormOpen] = useState(false);
 
   // AI 추천 카드 클릭 시 전체 데이터 조회
   const handleCardClick = async (card: Card) => {
@@ -233,6 +236,35 @@ export default function App() {
       setLoadingProvider(null);
       setIsAuthModalOpen(false);
     }
+  };
+
+  const handleJobEditClick = (card: Card) => {
+    if (card.type !== 'job') return;
+    setEditingJob(card as JobPostingCard);
+    setIsEditFormOpen(true);
+    // 상세보기 모달 닫기
+    setSelectedJob(null);
+  };
+
+  const handleEditFormClose = () => {
+    setIsEditFormOpen(false);
+    setEditingJob(null);
+  };
+
+  const handleEditFormSuccess = (updatedJob: JobPostingCard) => {
+    // 카드 목록 업데이트
+    setCards(prevCards =>
+      prevCards.map(card =>
+        card.id === updatedJob.id && card.type === 'job'
+          ? updatedJob
+          : card
+      )
+    );
+    // 상세보기 모달도 업데이트
+    if (selectedJob?.id === updatedJob.id) {
+      setSelectedJob(updatedJob);
+    }
+    handleEditFormClose();
   };
 
   const normalizeProfileForEdit = (data: UserProfileRow | null | undefined) => {
@@ -581,6 +613,7 @@ export default function App() {
               <CardGrid
                 cards={cards}
                 onCardClick={handleCardClick}
+                onJobEditClick={handleJobEditClick}
               />
 
               <div ref={sentinelRef} className="h-1" aria-hidden />
@@ -669,6 +702,17 @@ export default function App() {
           job={selectedJob}
           isOpen={!!selectedJob}
           onClose={() => setSelectedJob(null)}
+          onEditClick={handleJobEditClick}
+        />
+      )}
+
+      {/* 공고 수정 모달 */}
+      {editingJob && (
+        <JobPostingEditModal
+          job={editingJob}
+          isOpen={isEditFormOpen}
+          onClose={handleEditFormClose}
+          onSuccess={handleEditFormSuccess}
         />
       )}
 

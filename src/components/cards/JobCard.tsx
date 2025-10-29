@@ -11,17 +11,23 @@ import {
   IconAlertCircle
 } from '@tabler/icons-react';
 import MapPopup from '@/components/map/MapPopup';
+import { useAuthStore } from '@/stores/authStore';
 
 interface JobCardProps {
   job: JobPostingCard;
   cardIndex?: number;
   onClick?: () => void;
+  onEditClick?: (job: JobPostingCard) => void;
 }
 
-export default function JobCard({ job, cardIndex = 0, onClick }: JobCardProps) {
+export default function JobCard({ job, cardIndex = 0, onClick, onEditClick }: JobCardProps) {
   const [showMapModal, setShowMapModal] = useState(false);
   const cardRef = useRef<HTMLElement>(null);
   const expansionRef = useRef<HTMLDivElement>(null);
+  const { user } = useAuthStore((state) => ({ user: state.user }));
+
+  // 소유권 확인: 로그인 사용자 && 사용자 등록 공고 && 본인 공고
+  const isOwner = user && job.user_id === user.id && job.source === 'user_posted';
 
   // 태그 중복 제거 및 정규화
   const normalizedTags = job.tags.map(tag =>
@@ -49,7 +55,9 @@ export default function JobCard({ job, cardIndex = 0, onClick }: JobCardProps) {
     job.work_period ||
     condensedQualification ||
     job.contact ||
-    job.source_url
+    job.source_url ||
+    job.form_payload ||
+    job.source === 'user_posted'
   );
 
   return (
@@ -186,13 +194,13 @@ export default function JobCard({ job, cardIndex = 0, onClick }: JobCardProps) {
                 </div>
               )}
 
-              <div className="flex gap-2 pt-1 text-sm font-semibold">
+              <div className="flex gap-2 pt-1 text-sm font-semibold flex-wrap">
                 {job.source_url && (
                   <a
                     href={job.source_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex-1 inline-flex items-center justify-center gap-1 rounded-lg bg-gray-100 text-gray-900 px-3 py-2 hover:bg-gray-200 transition-colors"
+                    className="flex-1 min-w-[80px] inline-flex items-center justify-center gap-1 rounded-lg bg-gray-100 text-gray-900 px-3 py-2 hover:bg-gray-200 transition-colors"
                     onClick={(event) => event.stopPropagation()}
                   >
                     원문링크
@@ -206,7 +214,7 @@ export default function JobCard({ job, cardIndex = 0, onClick }: JobCardProps) {
                     event.stopPropagation();
                     setShowMapModal(true);
                   }}
-                  className="flex-1 inline-flex items-center justify-center rounded-lg bg-blue-50 text-blue-600 px-3 py-2 hover:bg-blue-100 transition-colors"
+                  className="flex-1 min-w-[80px] inline-flex items-center justify-center rounded-lg bg-blue-50 text-blue-600 px-3 py-2 hover:bg-blue-100 transition-colors"
                 >
                   지도보기
                 </button>
@@ -215,9 +223,23 @@ export default function JobCard({ job, cardIndex = 0, onClick }: JobCardProps) {
                   <button
                     type="button"
                     onClick={() => onClick()}
-                    className="flex-1 inline-flex items-center justify-center gap-1 rounded-lg border border-gray-200 px-3 py-2 text-gray-700 hover:border-gray-300 transition-colors"
+                    className="flex-1 min-w-[80px] inline-flex items-center justify-center gap-1 rounded-lg border border-gray-200 px-3 py-2 text-gray-700 hover:border-gray-300 transition-colors"
                   >
                     상세보기
+                  </button>
+                )}
+
+                {/* 수정하기 버튼 (소유자만) */}
+                {isOwner && onEditClick && (
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onEditClick(job);
+                    }}
+                    className="flex-1 min-w-[80px] inline-flex items-center justify-center rounded-lg bg-amber-50 text-amber-600 px-3 py-2 hover:bg-amber-100 transition-colors"
+                  >
+                    수정하기
                   </button>
                 )}
               </div>
