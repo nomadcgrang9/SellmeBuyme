@@ -6,9 +6,9 @@ import type {
   DevIdeaRow,
   DevIdea,
   IdeaCategory,
-  BoardSubmissionRow,
-  BoardSubmission,
-  BoardSubmissionCreate,
+  DevBoardSubmissionRow,
+  DevBoardSubmission,
+  BoardSubmissionFormData,
 } from '@/types/developer';
 
 // Converter functions must be imported without 'type' (runtime values)
@@ -275,8 +275,8 @@ export async function uploadIdeaImage(
  * @returns 생성된 제출
  */
 export async function createBoardSubmission(
-  submission: BoardSubmissionCreate
-): Promise<BoardSubmission> {
+  submission: BoardSubmissionFormData
+): Promise<DevBoardSubmission> {
   const { data, error } = await supabase
     .from('dev_board_submissions')
     .insert({
@@ -284,7 +284,7 @@ export async function createBoardSubmission(
       board_url: submission.boardUrl,
       region: submission.region || null,
       description: submission.description || null,
-      submitter_name: submission.submitterName || '익명',
+      submitter_name: '익명',
     })
     .select()
     .single();
@@ -294,7 +294,7 @@ export async function createBoardSubmission(
     throw new Error(`게시판 제출에 실패했습니다: ${error.message}`);
   }
 
-  return convertSubmissionRowToSubmission(data as BoardSubmissionRow);
+  return convertSubmissionRowToSubmission(data as DevBoardSubmissionRow);
 }
 
 /**
@@ -306,7 +306,7 @@ export async function createBoardSubmission(
 export async function getBoardSubmissions(
   limit = 20,
   offset = 0
-): Promise<BoardSubmission[]> {
+): Promise<DevBoardSubmission[]> {
   const { data, error } = await supabase
     .from('dev_board_submissions')
     .select('*')
@@ -318,7 +318,7 @@ export async function getBoardSubmissions(
     throw new Error(`게시판 제출을 불러올 수 없습니다: ${error.message}`);
   }
 
-  return data.map((row: BoardSubmissionRow) =>
+  return data.map((row: DevBoardSubmissionRow) =>
     convertSubmissionRowToSubmission(row)
   );
 }
@@ -330,7 +330,7 @@ export async function getBoardSubmissions(
  */
 export async function getBoardSubmissionById(
   id: string
-): Promise<BoardSubmission> {
+): Promise<DevBoardSubmission> {
   const { data, error } = await supabase
     .from('dev_board_submissions')
     .select('*')
@@ -342,7 +342,7 @@ export async function getBoardSubmissionById(
     throw new Error(`게시판 제출을 불러올 수 없습니다: ${error.message}`);
   }
 
-  return convertSubmissionRowToSubmission(data as BoardSubmissionRow);
+  return convertSubmissionRowToSubmission(data as DevBoardSubmissionRow);
 }
 
 /**
