@@ -3,6 +3,7 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { jobPostingSchema, type JobPostingFormData } from '@/lib/validation/formSchemas';
+import { createJobPosting, type CreateJobPostingInput } from '@/lib/supabase/queries';
 import FormLayout from './FormLayout';
 import RegionSelector from './RegionSelector';
 import SchoolLevelSelector from './SchoolLevelSelector';
@@ -22,6 +23,7 @@ export default function JobPostingForm({ onClose, onSubmit }: JobPostingFormProp
     handleSubmit,
     watch,
     setValue,
+    reset,
     formState: { errors }
   } = useForm<JobPostingFormData>({
     resolver: zodResolver(jobPostingSchema),
@@ -69,13 +71,35 @@ export default function JobPostingForm({ onClose, onSubmit }: JobPostingFormProp
       if (onSubmit) {
         await onSubmit(data);
       } else {
-        console.log('공고 등록 데이터:', data);
-        alert('공고가 등록되었습니다. (백엔드 미구현)');
-        onClose();
+        const payload: CreateJobPostingInput = {
+          organization: data.organization,
+          title: data.title,
+          schoolLevel: data.schoolLevel,
+          subject: data.subject,
+          location: data.location,
+          compensation: data.compensation,
+          recruitmentStart: data.recruitmentStart,
+          recruitmentEnd: data.recruitmentEnd,
+          isOngoing: data.isOngoing,
+          workStart: data.workStart,
+          workEnd: data.workEnd,
+          isNegotiable: data.isNegotiable,
+          description: data.description,
+          phone: data.phone,
+          email: data.email,
+          attachmentFile: data.attachment || null
+        };
+
+        await createJobPosting(payload);
       }
+
+      reset();
+      alert('공고가 등록되었습니다.');
+      onClose();
     } catch (error) {
       console.error('등록 실패:', error);
-      alert('등록에 실패했습니다. 다시 시도해주세요.');
+      const message = error instanceof Error ? error.message : '등록에 실패했습니다. 다시 시도해주세요.';
+      alert(message);
     } finally {
       setIsSubmitting(false);
     }

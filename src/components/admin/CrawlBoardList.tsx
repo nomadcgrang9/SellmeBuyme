@@ -23,16 +23,30 @@ export default function CrawlBoardList({ onCreate, onEdit, onLogs, refreshToken 
   const [savingBoardId, setSavingBoardId] = useState<string | null>(null);
   const [runningBoardId, setRunningBoardId] = useState<string | null>(null);
   const [expandedBoardIds, setExpandedBoardIds] = useState<Set<string>>(new Set());
+  const [searchKeyword, setSearchKeyword] = useState('');
+  const [debouncedSearchKeyword, setDebouncedSearchKeyword] = useState('');
+
+  // 디바운싱: 500ms 후에 검색 실행
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchKeyword(searchKeyword);
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [searchKeyword]);
 
   useEffect(() => {
     void loadBoards();
-  }, [refreshToken]);
+  }, [refreshToken, debouncedSearchKeyword]);
 
   const loadBoards = async () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await fetchCrawlBoards();
+      const data = await fetchCrawlBoards({
+        searchKeyword: debouncedSearchKeyword || undefined,
+        useSimilaritySearch: true
+      });
       setBoards(data);
       setExpandedBoardIds((prev) => {
         const next = new Set<string>();
@@ -120,6 +134,9 @@ export default function CrawlBoardList({ onCreate, onEdit, onLogs, refreshToken 
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-semibold text-gray-900">크롤링 게시판 목록</h2>
+          <p className="mt-1 text-sm text-gray-500">
+            {searchKeyword ? `"${searchKeyword}" 검색 결과 ${boards.length}개` : `총 ${boards.length}개 게시판`}
+          </p>
         </div>
         <button
           onClick={onCreate}
@@ -127,6 +144,32 @@ export default function CrawlBoardList({ onCreate, onEdit, onLogs, refreshToken 
         >
           + 게시판 등록
         </button>
+      </div>
+
+      {/* 검색 필터 */}
+      <div className="flex gap-3">
+        <div className="relative flex-1">
+          <input
+            type="text"
+            placeholder="게시판 이름, URL, 지역으로 검색... (예: 경기도, 성남, 의정부)"
+            value={searchKeyword}
+            onChange={(e) => setSearchKeyword(e.target.value)}
+            className="w-full rounded-md border border-gray-300 px-4 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+          />
+          {loading && debouncedSearchKeyword !== searchKeyword && (
+            <div className="absolute right-3 top-1/2 -translate-y-1/2">
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-primary"></div>
+            </div>
+          )}
+        </div>
+        {searchKeyword && (
+          <button
+            onClick={() => setSearchKeyword('')}
+            className="rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50"
+          >
+            초기화
+          </button>
+        )}
       </div>
 
       {error && <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
@@ -137,7 +180,10 @@ export default function CrawlBoardList({ onCreate, onEdit, onLogs, refreshToken 
         </div>
       ) : boards.length === 0 ? (
         <div className="rounded-md border border-dashed border-gray-300 bg-gray-50 px-4 py-12 text-center text-sm text-gray-500">
-          등록된 게시판이 없습니다. "게시판 등록" 버튼을 눌러 시작하세요.
+          {searchKeyword
+            ? `"${searchKeyword}" 검색 결과가 없습니다. 다른 키워드로 시도해보세요.`
+            : '등록된 게시판이 없습니다. "게시판 등록" 버튼을 눌러 시작하세요.'
+          }
         </div>
       ) : (
         <div className="space-y-3">

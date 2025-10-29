@@ -487,15 +487,20 @@ export async function approveBoardSubmissionAndCreateCrawlBoard(
     submission.subregionCode
   );
 
-  // 3. 크롤 게시판 생성
+  // 3. 크롤 게시판 생성 (지역 정보 포함)
   const crawlBoardInput: CreateCrawlBoardInput = {
     name: submission.boardName,
     boardUrl: submission.boardUrl,
     category: 'job', // 기본값: 채용 공고
     description: submission.description || `${regionDisplayName} - 개발자 제출`,
-    isActive: true,
-    status: 'idle',
+    isActive: false, // 크롤러 소스 작성 전까지 비활성화
+    status: 'active', // crawl_status enum: 'active', 'broken', 'blocked'
     crawlBatchSize: 10,
+    // 지역 정보 복사
+    regionCode: submission.regionCode,
+    subregionCode: submission.subregionCode,
+    regionDisplayName: regionDisplayName,
+    schoolLevel: submission.schoolLevel,
   };
 
   const crawlBoard = await createCrawlBoard(crawlBoardInput);

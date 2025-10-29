@@ -6,8 +6,8 @@ import { buildRegionDisplayName } from '@/lib/supabase/regions';
 import type { DevBoardSubmission } from '@/types/developer';
 
 interface BoardSubmissionListProps {
-  onApprove: (submission: DevBoardSubmission) => void;
-  onReject: (submission: DevBoardSubmission) => void;
+  onApprove: (submissionId: string) => void;
+  onReject?: (submissionId: string) => void;
   refreshToken?: number;
 }
 
@@ -171,19 +171,25 @@ export default function BoardSubmissionList({
               {submission.status === 'pending' && (
                 <div className="flex gap-2">
                   <button
-                    onClick={() => onApprove(submission)}
+                    onClick={() => {
+                      console.log('[BoardSubmissionList] Approval clicked for submission:', submission);
+                      console.log('[BoardSubmissionList] Submission ID:', submission.id);
+                      onApprove(submission.id);
+                    }}
                     className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors"
                   >
                     <Check className="w-4 h-4" />
                     승인
                   </button>
-                  <button
-                    onClick={() => onReject(submission)}
-                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors"
-                  >
-                    <X className="w-4 h-4" />
-                    거부
-                  </button>
+                  {onReject && (
+                    <button
+                      onClick={() => onReject(submission.id)}
+                      className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors"
+                    >
+                      <X className="w-4 h-4" />
+                      거부
+                    </button>
+                  )}
                 </div>
               )}
 
