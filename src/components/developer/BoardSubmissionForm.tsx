@@ -1,7 +1,10 @@
 // BoardSubmissionForm - 게시판 등록 제출 폼
 import { useState } from 'react';
 import { X, ExternalLink } from 'lucide-react';
+import RegionSelector from './RegionSelector';
+import SchoolLevelSelector from './SchoolLevelSelector';
 import type { BoardSubmissionFormData } from '@/types/developer';
+import type { SchoolLevel } from '@/types';
 
 interface BoardSubmissionFormProps {
   onClose: () => void;
@@ -14,7 +17,9 @@ export default function BoardSubmissionForm({
 }: BoardSubmissionFormProps) {
   const [boardName, setBoardName] = useState('');
   const [boardUrl, setBoardUrl] = useState('');
-  const [region, setRegion] = useState('');
+  const [provinceCode, setProvinceCode] = useState<string | null>(null);
+  const [cityCode, setCityCode] = useState<string | null>(null);
+  const [schoolLevel, setSchoolLevel] = useState<SchoolLevel | null>(null);
   const [description, setDescription] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -32,6 +37,14 @@ export default function BoardSubmissionForm({
       setError('게시판 URL을 입력해주세요');
       return;
     }
+    if (!provinceCode) {
+      setError('광역자치단체를 선택해주세요');
+      return;
+    }
+    if (!schoolLevel) {
+      setError('학교급을 선택해주세요');
+      return;
+    }
 
     // URL 형식 검사
     try {
@@ -46,7 +59,9 @@ export default function BoardSubmissionForm({
       await onSubmit({
         boardName: boardName.trim(),
         boardUrl: boardUrl.trim(),
-        region: region.trim() || undefined,
+        regionCode: provinceCode,
+        subregionCode: cityCode,
+        schoolLevel,
         description: description.trim() || undefined,
       });
       onClose();
@@ -136,24 +151,23 @@ export default function BoardSubmissionForm({
             )}
           </div>
 
-          {/* 지역 (선택) */}
-          <div>
-            <label
-              htmlFor="region"
-              className="block text-sm font-medium text-gray-700 mb-1"
-            >
-              지역 (선택)
-            </label>
-            <input
-              type="text"
-              id="region"
-              value={region}
-              onChange={(e) => setRegion(e.target.value)}
-              placeholder="예: 경기도, 서울특별시"
-              disabled={isSubmitting}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#a8c5e0] focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
-            />
-          </div>
+          {/* 지역 선택 (필수) */}
+          <RegionSelector
+            provinceCode={provinceCode}
+            cityCode={cityCode}
+            onProvinceChange={setProvinceCode}
+            onCityChange={setCityCode}
+            disabled={isSubmitting}
+            required
+          />
+
+          {/* 학교급 선택 (필수) */}
+          <SchoolLevelSelector
+            value={schoolLevel}
+            onChange={setSchoolLevel}
+            disabled={isSubmitting}
+            required
+          />
 
           {/* 설명 (선택) */}
           <div>

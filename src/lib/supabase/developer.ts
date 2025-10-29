@@ -1,5 +1,7 @@
 // Developer Page Supabase Query Functions
 import { supabase } from './client';
+import { buildRegionDisplayName } from './regions';
+import { createCrawlBoard } from './queries';
 import type {
   GitHubDeploymentRow,
   GitHubDeployment,
@@ -10,6 +12,7 @@ import type {
   DevBoardSubmission,
   BoardSubmissionFormData,
 } from '@/types/developer';
+import type { CreateCrawlBoardInput, CrawlBoard } from '@/types';
 
 // Converter functions must be imported without 'type' (runtime values)
 import {
@@ -282,9 +285,13 @@ export async function createBoardSubmission(
     .insert({
       board_name: submission.boardName,
       board_url: submission.boardUrl,
-      region: submission.region || null,
+      region: submission.region || null,  // deprecated, for backward compatibility
+      region_code: submission.regionCode,
+      subregion_code: submission.subregionCode,
+      school_level: submission.schoolLevel,
       description: submission.description || null,
       submitter_name: '익명',
+      status: 'pending',  // 초기 상태는 대기 중
     })
     .select()
     .single();
@@ -379,4 +386,147 @@ export async function deleteBoardSubmission(id: string): Promise<void> {
     console.error('Failed to delete board submission:', error);
     throw new Error(`게시판 제출 삭제에 실패했습니다: ${error.message}`);
   }
+}
+
+/**
+ * 게시판 제출 승인
+ * @param submissionId - 제출 ID
+ * @param reviewComment - 검토 코멘트 (선택)
+ * @param adminUserId - 승인한 관리자 ID
+ * @returns 업데이트된 제출
+ */
+export async function approveBoardSubmission(
+  submissionId: string,
+  reviewComment: string | undefined,
+  adminUserId: string
+): Promise<DevBoardSubmission> {
+  const timestamp = new Date().toISOString();
+
+  const { data, error } = await supabase
+    .from('dev_board_submissions')
+    .update({
+      status: 'approved',
+      admin_review_comment: reviewComment || null,
+      reviewed_by: adminUserId,
+      reviewed_at: timestamp,
+      approved_by: adminUserId,
+      approved_at: timestamp,
+    })
+    .eq('id', submissionId)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Failed to approve board submission:', error);
+    throw new Error(`게시판 제출 승인에 실패했습니다: ${error.message}`);
+  }
+
+  return convertSubmissionRowToSubmission(data as DevBoardSubmissionRow);
+}
+
+/**
+ * 게시판 제출 거부
+ * @param submissionId - 제출 ID
+ * @param reviewComment - 거부 사유 (필수)
+ * @param adminUserId - 거부한 관리자 ID
+ * @returns 업데이트된 제출
+ */
+export async function rejectBoardSubmission(
+  submissionId: string,
+  reviewComment: string,
+  adminUserId: string
+): Promise<DevBoardSubmission> {
+  if (!reviewComment.trim()) {
+    throw new Error('거부 사유를 입력해주세요');
+  }
+
+  const timestamp = new Date().toISOString();
+
+  const { data, error } = await supabase
+    .from('dev_board_submissions')
+    .update({
+      status: 'rejected',
+      admin_review_comment: reviewComment,
+      reviewed_by: adminUserId,
+      reviewed_at: timestamp,
+    })
+    .eq('id', submissionId)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Failed to reject board submission:', error);
+    throw new Error(`게시판 제출 거부에 실패했습니다: ${error.message}`);
+  }
+
+  return convertSubmissionRowToSubmission(data as DevBoardSubmissionRow);
+}
+
+/**
+ * 게시판 제출 승인 및 크롤 게시판 생성
+ * @param submission - 승인할 제출
+ * @param reviewComment - 검토 코멘트 (선택)
+ * @param adminUserId - 승인한 관리자 ID
+ * @returns 생성된 크롤 게시판
+ */
+export async function approveBoardSubmissionAndCreateCrawlBoard(
+  submission: DevBoardSubmission,
+  reviewComment: string | undefined,
+  adminUserId: string
+): Promise<{ submission: DevBoardSubmission; crawlBoard: CrawlBoard }> {
+  // 1. 제출 승인
+  const approvedSubmission = await approveBoardSubmission(
+    submission.id,
+    reviewComment,
+    adminUserId
+  );
+
+  // 2. 지역 표시명 생성
+  const regionDisplayName = await buildRegionDisplayName(
+    submission.regionCode,
+    submission.subregionCode
+  );
+
+  // 3. 크롤 게시판 생성
+  const crawlBoardInput: CreateCrawlBoardInput = {
+    name: submission.boardName,
+    boardUrl: submission.boardUrl,
+    category: 'job', // 기본값: 채용 공고
+    description: submission.description || `${regionDisplayName} - 개발자 제출`,
+    isActive: true,
+    status: 'idle',
+    crawlBatchSize: 10,
+  };
+
+  const crawlBoard = await createCrawlBoard(crawlBoardInput);
+
+  // 4. 제출과 크롤 게시판 연결
+  const { error: linkError } = await supabase
+    .from('dev_board_submissions')
+    .update({ crawl_board_id: crawlBoard.id })
+    .eq('id', submission.id);
+
+  if (linkError) {
+    console.error('Failed to link submission to crawl board:', linkError);
+    // 연결 실패해도 크롤 게시판은 이미 생성되었으므로 계속 진행
+  }
+
+  // 5. 생성된 크롤 게시판에 지역 정보 업데이트
+  const { error: updateError } = await supabase
+    .from('crawl_boards')
+    .update({
+      region_code: submission.regionCode,
+      subregion_code: submission.subregionCode,
+      region_display_name: regionDisplayName,
+      school_level: submission.schoolLevel,
+      approved_at: new Date().toISOString(),
+      approved_by: adminUserId,
+    })
+    .eq('id', crawlBoard.id);
+
+  if (updateError) {
+    console.error('Failed to update crawl board with region info:', updateError);
+  }
+
+  return { submission: approvedSubmission, crawlBoard };
 }
