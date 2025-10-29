@@ -1361,3 +1361,579 @@ npx tsx scripts/test/verify-crawl-integration.ts
 **마지막 업데이트**: 2025-01-29 오후
 **작업자**: Claude (AI Assistant)
 **다음 작업**: Phase 4 구현 (다른 PC에서 이어서 진행)
+
+---
+---
+
+# 📍 관리자 페이지 UI 개선 완료 (2025-10-29)
+
+> **작업일**: 2025-10-29
+> **목적**: 개발자 제출 승인 워크플로우 UI 구조 개선 및 버그 수정
+
+---
+
+## 🎯 구현 내용
+
+### ✅ AdminPage 구조 개선
+
+**문제점**:
+- "개발자 제출 승인"이 독립적인 사이드바 메뉴 항목으로 구현됨
+- "크롤링 게시판 목록"도 독립 메뉴로 분리되어 있음
+- 관련 기능이 흩어져 있어 사용자 경험 저하
+
+**해결 방법**:
+```typescript
+// BEFORE (❌ 잘못된 구조)
+ADMIN_TABS = [
+  { key: 'overview', label: '대시보드' },
+  { key: 'submissions', label: '개발자 제출 승인' },  // 독립 메뉴
+  { key: 'crawl', label: '크롤링 게시판 목록' },      // 독립 메뉴
+  ...
+]
+
+// AFTER (✅ 올바른 구조)
+ADMIN_TABS = [
+  { key: 'overview', label: '대시보드' },
+  { key: 'crawl', label: '크롤링 게시판 관리', badge: 'NEW' },  // 통합 메뉴
+  ...
+]
+
+// 'crawl' 탭 안에 2개의 CollapsibleSection (쪽 버튼)
+<CollapsibleSection title="승인대기 크롤링 게시판" defaultOpen={true}>
+  <BoardSubmissionList />
+</CollapsibleSection>
+
+<CollapsibleSection title="승인된 크롤링 게시판" defaultOpen={false}>
+  <CrawlBoardList />
+</CollapsibleSection>
+```
+
+**구현 파일**:
+- `src/pages/AdminPage.tsx` - 사이드바 구조 변경 및 CollapsibleSection 적용
+- `src/components/developer/CollapsibleSection.tsx` - 재사용 (이미 존재)
+
+---
+
+### ✅ BoardApprovalModal 버그 수정
+
+**문제점**:
+- `approveBoardSubmissionAndCreateCrawlBoard()` 함수 호출 시 잘못된 인자 전달
+- 함수 시그니처: `(submission: DevBoardSubmission, reviewComment?: string, adminUserId: string)`
+- 실제 호출: `(submission.id)` - submission ID만 전달
+- 결과: `invalid input syntax for type uuid: "undefined"` 오류
+
+**해결 방법**:
+```typescript
+// BEFORE (❌ 잘못된 호출)
+await approveBoardSubmissionAndCreateCrawlBoard(submission.id);
+
+// AFTER (✅ 올바른 호출)
+const { data: { user } } = await supabase.auth.getUser();
+await approveBoardSubmissionAndCreateCrawlBoard(
+  submission,      // 전체 객체 전달
+  undefined,       // reviewComment (선택)
+  user.id         // adminUserId
+);
+```
+
+**구현 파일**:
+- `src/components/admin/BoardApprovalModal.tsx` - 함수 호출 수정 및 supabase import 추가
+
+---
+
+### ✅ 디버깅 로그 추가
+
+승인 버튼 클릭부터 API 호출까지 전체 흐름을 추적하기 위한 console.log 추가:
+
+**로그 체인**:
+```
+[BoardSubmissionList] Approval clicked for submission: {...}
+[BoardSubmissionList] Submission ID: a8ef19c2-...
+    ↓
+[AdminPage] Approving submission ID: a8ef19c2-...
+    ↓
+[BoardApprovalModal] Received submissionId: a8ef19c2-...
+[BoardApprovalModal] Loaded submissions: 1
+[BoardApprovalModal] Found submission: {...}
+    ↓
+[BoardApprovalModal] Calling approveBoardSubmissionAndCreateCrawlBoard with: {...}
+```
+
+**구현 파일**:
+- `src/components/admin/BoardSubmissionList.tsx` - 승인 버튼 클릭 로그
+- `src/pages/AdminPage.tsx` - onApprove 핸들러 로그
+- `src/components/admin/BoardApprovalModal.tsx` - submission 로드 및 API 호출 로그
+
+---
+
+## 🔍 기술 세부사항
+
+### 1. CollapsibleSection 컴포넌트 재사용
+
+**기존 컴포넌트 활용**:
+- `src/components/developer/CollapsibleSection.tsx`
+- Framer Motion 애니메이션 적용
+- ChevronDown/ChevronRight 아이콘으로 상태 표시
+- count prop으로 항목 개수 표시 가능
+
+**props 구조**:
+```typescript
+interface CollapsibleSectionProps {
+  title: string;           // "승인대기 크롤링 게시판"
+  count?: number;          // 항목 개수 (선택)
+  defaultOpen?: boolean;   // 초기 열림 상태
+  children: ReactNode;     // 내부 컨텐츠
+}
+```
+
+### 2. 개발자 제출 → 승인 워크플로우
+
+**정상 흐름**:
+```
+1. 개발자 노트 (/note)에서 게시판 제출
+   ↓ dev_board_submissions (status: 'pending')
+
+2. 관리자 페이지 > 크롤링 게시판 관리 > 승인대기 크롤링 게시판
+   ↓ BoardSubmissionList에서 목록 확인
+
+3. [승인] 버튼 클릭
+   ↓ BoardApprovalModal 표시
+
+4. [승인하기] 버튼 클릭
+   ↓ approveBoardSubmissionAndCreateCrawlBoard() 호출
+   ├─ dev_board_submissions.status = 'approved'
+   ├─ dev_board_submissions.approved_at, approved_by 기록
+   ├─ crawl_boards 테이블에 새 레코드 생성
+   ├─ 지역 정보 복사 (region_code, subregion_code, school_level)
+   └─ dev_board_submissions.crawl_board_id = 생성된 crawl_boards.id
+
+5. 승인된 크롤링 게시판 섹션에서 확인 가능
+```
+
+### 3. pg_trgm 계층적 검색 (이전 구현)
+
+**이미 구현된 기능** (Phase 4-2 일부):
+- `supabase/migrations/20250202_add_crawl_boards_search_indexes.sql`
+- pg_trgm 확장 및 GIN 인덱스 생성
+- `search_crawl_boards_advanced()` RPC 함수
+- 계층적 지역 검색: "경기도" 검색 → "경기도 > 남양주시", "경기도 > 의정부시" 모두 반환
+- ILIKE fallback으로 호환성 보장
+
+**사용 중인 컴포넌트**:
+- `src/components/admin/CrawlBoardList.tsx` - debounced search (500ms)
+- `src/lib/supabase/queries.ts` - fetchCrawlBoards() with RPC fallback
+
+---
+
+## 📋 완료 체크리스트
+
+### UI 구조 개선
+- ✅ "크롤링 게시판 목록" → "크롤링 게시판 관리"로 이름 변경
+- ✅ "개발자 제출 승인" 독립 메뉴 제거
+- ✅ CollapsibleSection 2개 추가 (승인대기 / 승인됨)
+- ✅ CollapsibleSection import 및 적용
+- ✅ NEW 뱃지 유지
+
+### 버그 수정
+- ✅ BoardApprovalModal 함수 호출 수정
+- ✅ supabase client import 추가
+- ✅ adminUserId 자동 조회 (supabase.auth.getUser())
+- ✅ 전체 submission 객체 전달
+
+### 디버깅 개선
+- ✅ BoardSubmissionList 클릭 이벤트 로그
+- ✅ AdminPage onApprove 핸들러 로그
+- ✅ BoardApprovalModal submission 로드 로그
+- ✅ API 호출 파라미터 로그
+
+---
+
+## 🚧 남은 작업 (Phase 4 계속)
+
+### Phase 4-1: 크롤러 쿼리 수정 (미완료)
+- ⏳ `crawler/lib/supabase.js` 또는 `crawler/lib/db-utils.js`에 `is_active = true` 조건 추가
+- ⏳ 기존 3개 게시판(경기, 성남, 의정부) `is_active = true`로 마이그레이션
+- ⏳ 크롤러 실행하여 활성 게시판만 크롤링하는지 검증
+
+### Phase 4-2: 관리자 페이지 지역 필터 추가 (부분 완료)
+- ✅ pg_trgm 계층적 검색 구현 (완료)
+- ⏳ 17개 광역자치단체 드롭다운 필터
+- ⏳ 시/군/구 검색 입력창
+- ⏳ 각 게시판 카드에 "📍 경기도 > 남양주시" 표시
+
+### Phase 4-3: 통계 대시보드 (미완료)
+- ⏳ `src/components/admin/CrawlStats.tsx` 컴포넌트 생성
+- ⏳ 지역별 게시판 개수 표시
+- ⏳ 지역별 크롤링 성공/실패 통계
+- ⏳ 간단한 차트 (Chart.js 또는 Recharts)
+
+### Phase 4-4: 검증 스크립트 (미완료)
+- ⏳ `scripts/test/verify-crawl-integration.ts` 작성
+- ⏳ 제출 → 승인 → crawl_boards 생성 E2E 테스트
+- ⏳ 지역 정보 복사 검증
+
+---
+
+## 📝 변경 파일 목록
+
+### 수정된 파일:
+1. `src/pages/AdminPage.tsx`
+   - ADMIN_TABS 배열 수정 (submissions 제거, crawl 이름 변경)
+   - CollapsibleSection import 추가
+   - renderTabContent() 'crawl' case 재구성
+   - onApprove 핸들러에 console.log 추가
+
+2. `src/components/admin/BoardApprovalModal.tsx`
+   - supabase client import 추가
+   - handleApprove() 함수 전체 재작성
+   - supabase.auth.getUser()로 adminUserId 조회
+   - approveBoardSubmissionAndCreateCrawlBoard() 인자 수정
+   - console.log 추가
+
+3. `src/components/admin/BoardSubmissionList.tsx`
+   - 승인 버튼 onClick 핸들러에 console.log 추가
+
+### 재사용된 파일:
+- `src/components/developer/CollapsibleSection.tsx` (기존 컴포넌트 활용)
+
+---
+
+## 🔧 테스트 방법
+
+### 1. UI 구조 확인
+```bash
+# http://localhost:5174/admin-page 접속
+# 삼선바 메뉴에서 "크롤링 게시판 관리" 클릭
+# 2개의 쪽 버튼 확인:
+#   - 승인대기 크롤링 게시판 (기본 열림)
+#   - 승인된 크롤링 게시판 (기본 닫힘)
+```
+
+### 2. 승인 기능 테스트
+```bash
+# F12 (개발자 도구) → Console 탭 열기
+# "승인대기 크롤링 게시판" 섹션에서 [승인] 버튼 클릭
+# 콘솔에서 다음 로그 확인:
+#   [BoardSubmissionList] Approval clicked...
+#   [AdminPage] Approving submission ID...
+#   [BoardApprovalModal] Received submissionId...
+#   [BoardApprovalModal] Found submission...
+#   [BoardApprovalModal] Calling approve...
+
+# 승인 모달에서 [승인하기] 버튼 클릭
+# 성공 메시지 확인
+# "승인된 크롤링 게시판" 섹션에서 새 게시판 확인
+```
+
+### 3. DB 검증
+```sql
+-- Supabase SQL Editor에서 실행
+
+-- 1. 승인된 제출 확인
+SELECT id, board_name, status, approved_at, approved_by
+FROM dev_board_submissions
+WHERE status = 'approved'
+ORDER BY approved_at DESC;
+
+-- 2. 생성된 크롤 게시판 확인
+SELECT cb.id, cb.name, cb.region_display_name, cb.school_level, cb.is_active, dbs.id AS submission_id
+FROM crawl_boards cb
+LEFT JOIN dev_board_submissions dbs ON dbs.crawl_board_id = cb.id
+WHERE dbs.status = 'approved';
+
+-- 3. 지역 정보 복사 확인
+SELECT
+  dbs.board_name AS submission_name,
+  dbs.region_code AS submission_region,
+  dbs.subregion_code AS submission_subregion,
+  cb.region_code AS board_region,
+  cb.subregion_code AS board_subregion,
+  cb.region_display_name
+FROM dev_board_submissions dbs
+JOIN crawl_boards cb ON dbs.crawl_board_id = cb.id
+WHERE dbs.status = 'approved';
+```
+
+---
+
+## 🐛 알려진 이슈 및 해결
+
+### Issue #1: UUID undefined 오류
+**증상**: `invalid input syntax for type uuid: "undefined"`
+**원인**: `approveBoardSubmissionAndCreateCrawlBoard(submission.id)` 잘못된 인자 전달
+**해결**: 전체 submission 객체 및 adminUserId 전달
+
+### Issue #2: 독립 메뉴 구조
+**증상**: "개발자 제출 승인"이 사이드바에 독립 메뉴로 표시
+**원인**: ADMIN_TABS 배열에 별도 항목으로 추가
+**해결**: CollapsibleSection으로 "크롤링 게시판 관리" 탭 내부에 통합
+
+---
+
+## 📊 현재 상태 요약
+
+### ✅ 완료된 Phase:
+- **Phase 1**: 지역 기반 DB 시스템 (regions 테이블, crawl_boards 확장)
+- **Phase 2**: 개발자 제출 폼 (지역 선택, 학교급 선택)
+- **Phase 3**: 관리자 승인 시스템 (승인/거부, crawl_boards 자동 생성)
+- **Phase 3.5**: 관리자 페이지 UI 개선 (CollapsibleSection, 버그 수정) ← **2025-10-29 완료**
+
+### ⏳ 남은 Phase:
+- **Phase 4-1**: 크롤러 is_active 필터링
+- **Phase 4-2**: 관리자 페이지 지역 필터 UI (부분 완료)
+- **Phase 4-3**: 통계 대시보드
+- **Phase 4-4**: 검증 스크립트
+
+---
+
+**최종 업데이트**: 2025-10-29 오후 8시
+**작업자**: Claude (AI Assistant)
+**다음 작업**: Phase 4-1 (크롤러 is_active 필터 구현)
+
+---
+---
+
+# 🐛 버그 수정 및 완전 통합 완료 (2025-10-29 오후 9시)
+
+> **작업일**: 2025-10-29 오후 8-9시
+> **목적**: RLS 정책 오류 및 데이터 매핑 버그 수정, 전체 승인 워크플로우 완성
+
+---
+
+## 🔥 발견된 버그들
+
+### Bug #1: RLS 정책 - WITH CHECK 제한 ❌
+**증상**: `invalid input syntax for type uuid: "undefined"`
+**원인**:
+- 기존 RLS 정책: `WITH CHECK (status = 'pending')`
+- 승인 시도: `UPDATE ... SET status = 'approved'`
+- 결과: WITH CHECK이 새 값('approved')을 거부
+
+**해결**:
+- 파일: `supabase/migrations/20250210_fix_dev_board_submissions_rls.sql` 생성
+- 정책 분리:
+  1. 일반 사용자: 자신의 pending 제출만 수정
+  2. 관리자: 모든 제출 승인/거부 가능
+
+### Bug #2: user_profiles 테이블 PK 오류 ❌
+**증상**: `column user_profiles.id does not exist`
+**원인**: RLS 정책에서 `user_profiles.id` 참조했지만 실제 PK는 `user_id`
+**해결**: `WHERE user_profiles.user_id = auth.uid()` 수정
+
+### Bug #3: crawl_status enum 값 오류 ❌
+**증상**: `invalid input value for enum crawl_status: "idle"`
+**원인**:
+- 코드: `status: 'idle'`
+- DB enum: `('active', 'broken', 'blocked')`
+**해결**:
+- `src/lib/supabase/developer.ts` 수정
+- `status: 'active'`, `isActive: false`로 변경
+
+### Bug #4: 지역 정보 매핑 누락 ❌ (Critical)
+**증상**:
+- 승인 성공 메시지 표시
+- DB에 crawl_board 생성 안 됨
+- "승인된 크롤링 게시판" 목록에 안 나타남
+
+**원인**:
+- `mapCrawlBoardToDbRow()` 함수에서 지역 필드 4개 누락:
+  - `regionCode` → `region_code`
+  - `subregionCode` → `subregion_code`
+  - `regionDisplayName` → `region_display_name`
+  - `schoolLevel` → `school_level`
+
+**해결**:
+- `src/lib/supabase/queries.ts` Line 1263-1267 추가
+- 모든 지역 필드 매핑 구현
+
+---
+
+## ✅ 최종 수정 파일 목록
+
+### 1. Supabase 마이그레이션
+- **`supabase/migrations/20250210_fix_dev_board_submissions_rls.sql`** (신규)
+  - 기존 제한적인 UPDATE 정책 제거
+  - 일반 사용자용 정책 추가
+  - 관리자용 정책 추가 (user_profiles.roles 확인)
+
+### 2. 백엔드 로직
+- **`src/lib/supabase/developer.ts`** (수정)
+  - Line 496-497: `isActive: false`, `status: 'active'` 변경
+  - Line 499-503: 지역 정보 4개 필드 추가
+
+### 3. 타입 정의
+- **`src/types/index.ts`** (수정)
+  - `CreateCrawlBoardInput` 인터페이스에 지역 필드 4개 추가
+
+### 4. 쿼리 함수
+- **`src/lib/supabase/queries.ts`** (수정)
+  - Line 1263-1267: `mapCrawlBoardToDbRow()` 함수에 지역 필드 매핑 추가
+
+### 5. 프론트엔드 컴포넌트 (이전 작업)
+- **`src/pages/AdminPage.tsx`** (수정)
+  - CollapsibleSection으로 UI 구조 변경
+  - 디버깅 로그 추가
+- **`src/components/admin/BoardApprovalModal.tsx`** (수정)
+  - 함수 호출 인자 수정
+  - supabase client import
+  - 디버깅 로그 추가
+- **`src/components/admin/BoardSubmissionList.tsx`** (수정)
+  - 디버깅 로그 추가
+
+---
+
+## 🧪 최종 테스트 결과
+
+### 테스트 케이스: 남양주교육지원청 구인구직 게시판
+
+**1단계: 초기 상태**
+```sql
+SELECT id, board_name, status, crawl_board_id
+FROM dev_board_submissions
+WHERE board_name LIKE '%남양주%';
+```
+결과: `status = 'pending'`, `crawl_board_id = NULL`
+
+**2단계: 관리자 승인**
+- 브라우저: 관리자 페이지 > 크롤링 게시판 관리 > 승인대기 크롤링 게시판
+- 남양주 게시판 [승인] 버튼 클릭
+- [승인하기] 클릭
+
+**3단계: 콘솔 로그 확인**
+```
+[BoardSubmissionList] Approval clicked for submission: {...}
+[BoardSubmissionList] Submission ID: a8ef19c2-a2ac-4e05-8b09-fbf0a9ad2e7f
+[AdminPage] Approving submission ID: a8ef19c2-...
+[BoardApprovalModal] Received submissionId: a8ef19c2-...
+[BoardApprovalModal] Found submission: {...}
+[BoardApprovalModal] Calling approveBoardSubmissionAndCreateCrawlBoard with: {
+  submission: {...},
+  adminUserId: "85823de2-b69b-4829-8e1b-c3764c7d633c"
+}
+```
+✅ 에러 없음!
+
+**4단계: DB 검증**
+```sql
+-- dev_board_submissions 확인
+SELECT status, approved_at, crawl_board_id
+FROM dev_board_submissions
+WHERE board_name LIKE '%남양주%';
+```
+결과:
+- `status = 'approved'` ✅
+- `approved_at = '2025-10-29 20:46:35'` ✅
+- `crawl_board_id = [UUID]` ✅
+
+```sql
+-- crawl_boards 확인
+SELECT id, name, board_url, is_active, status, region_display_name
+FROM crawl_boards
+WHERE name LIKE '%남양주%';
+```
+결과:
+- `name = '남양주교육지원청 구인구직'` ✅
+- `is_active = false` ✅ (크롤러 소스 작성 전)
+- `status = 'active'` ✅
+- `region_display_name = '경기도'` ✅
+
+**5단계: UI 확인**
+- ✅ "승인대기 크롤링 게시판": 승인됨 표시
+- ✅ "승인된 크롤링 게시판": 남양주 게시판 나타남 (총 4개)
+
+---
+
+## 📊 최종 시스템 상태
+
+### crawl_boards 테이블 (4개 게시판)
+1. **경기도 교육청 구인정보조회**
+   - region: 경기도
+   - is_active: true
+   - 크롤러 소스: ✅ 존재
+
+2. **성남교육지원청 구인**
+   - region: 경기도 > 성남시
+   - is_active: true
+   - 크롤러 소스: ✅ 존재
+
+3. **의정부교육지원청 구인**
+   - region: 경기도 > 의정부시
+   - is_active: true
+   - 크롤러 소스: ✅ 존재
+
+4. **남양주교육지원청 구인구직** ← 새로 추가!
+   - region: 경기도
+   - is_active: false (크롤러 소스 작성 전)
+   - 승인 방식: 개발자 제출 → 관리자 승인
+
+---
+
+## 🔑 핵심 배운 점
+
+### 1. RLS 정책의 WITH CHECK 절
+- `USING`: 현재 row를 읽을 수 있는지 확인 (UPDATE 전)
+- `WITH CHECK`: 새 row가 정책을 만족하는지 확인 (UPDATE 후)
+- 승인 워크플로우에서는 status 변경을 허용해야 함!
+
+### 2. 데이터 매핑 함수의 중요성
+- TypeScript 타입만 정의해도 안 됨
+- DB row ↔ TS object 변환 함수에서 모든 필드를 명시적으로 매핑해야 함
+- 누락된 필드는 DB에 `NULL` 또는 기본값으로 저장됨
+
+### 3. 디버깅 로그의 가치
+- 각 단계마다 console.log 추가
+- 문제 발생 시 정확한 위치 파악 가능
+- 승인 → 실패 → 원인 파악 → 수정 → 재테스트 사이클 단축
+
+### 4. 트랜잭션 vs 단계별 처리
+- 현재 구현: `approveBoardSubmission()` → `createCrawlBoard()` → `linkSubmission()`
+- 문제: 중간에 실패 시 부분 완료 상태 발생 가능
+- 개선 방향: Supabase Edge Function으로 트랜잭션 처리 고려
+
+---
+
+## 🚧 남은 작업 (Phase 4)
+
+### Phase 4-1: 크롤러 is_active 필터링 (우선순위 1)
+- ⏳ `crawler/lib/supabase.js` 수정
+- ⏳ `WHERE is_active = true` 조건 추가
+- ⏳ 남양주 게시판 크롤러 소스 작성 (`crawler/sources/namyangju.js`)
+- ⏳ 관리자가 `is_active = true`로 활성화
+
+### Phase 4-2: 관리자 페이지 지역 필터 UI (우선순위 2)
+- ✅ pg_trgm 계층적 검색 (완료)
+- ⏳ 17개 광역자치단체 드롭다운 필터
+- ⏳ 시/군/구 검색 입력창
+- ⏳ 각 게시판 카드에 "📍 경기도 > 남양주시" 표시
+
+### Phase 4-3: 통계 대시보드 (우선순위 3)
+- ⏳ `src/components/admin/CrawlStats.tsx` 생성
+- ⏳ 지역별 게시판 개수
+- ⏳ 승인 대기/승인됨 통계
+
+### Phase 4-4: 검증 스크립트 (우선순위 4)
+- ⏳ E2E 테스트 스크립트
+- ⏳ 제출 → 승인 → crawl_board 생성 검증
+
+---
+
+## 📝 변경 이력 요약
+
+### 2025-10-29 오후 8시 (Phase 3.5)
+- AdminPage UI 구조 개선 (CollapsibleSection)
+- UUID undefined 버그 수정
+- 디버깅 로그 추가
+
+### 2025-10-29 오후 9시 (Bug Fixes & Integration)
+- **RLS 정책 수정**: dev_board_submissions UPDATE 정책 분리
+- **user_profiles PK 수정**: `id` → `user_id`
+- **crawl_status enum 수정**: `'idle'` → `'active'`
+- **지역 정보 매핑 추가**: mapCrawlBoardToDbRow() 4개 필드 추가
+- **최종 통합 테스트 성공**: 남양주 게시판 승인 완료 ✅
+
+---
+
+**최종 업데이트**: 2025-10-29 오후 9시
+**작업자**: Claude (AI Assistant)
+**현재 상태**: Phase 3 완전 완료 ✅, Phase 4 준비 완료
+**다음 작업**: 남양주 크롤러 소스 작성 또는 Phase 4-2 (지역 필터 UI)
