@@ -179,6 +179,23 @@ export type CrawlBoardStatus = 'active' | 'broken' | 'blocked';
 
 export type CrawlJobStatus = 'pending' | 'running' | 'success' | 'failed';
 
+// ============================================================================
+// Regional Management Types
+// ============================================================================
+
+export type RegionLevel = 'province' | 'city' | 'district';
+
+export type SchoolLevel = 'elementary' | 'middle' | 'high' | 'mixed';
+
+export interface Region {
+  code: string;              // 'KR-41' or '4136025'
+  name: string;              // '경기도' or '남양주시'
+  level: RegionLevel;
+  parentCode: string | null;
+  displayOrder: number;
+  createdAt: string;
+}
+
 export interface CrawlBoard {
   id: string;
   name: string;
@@ -195,6 +212,14 @@ export interface CrawlBoard {
   errorMessage: string | null;
   createdAt: string;
   updatedAt: string;
+
+  // Regional management fields
+  regionCode?: string | null;
+  subregionCode?: string | null;
+  regionDisplayName?: string | null;
+  schoolLevel?: SchoolLevel | null;
+  approvedAt?: string | null;
+  approvedBy?: string | null;
 }
 
 export interface CreateCrawlBoardInput {

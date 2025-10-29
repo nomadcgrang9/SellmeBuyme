@@ -999,6 +999,14 @@ function mapCrawlBoardFromDbRow(row: any): CrawlBoard {
     errorMessage: row.error_message,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+
+    // Regional management fields
+    regionCode: row.region_code,
+    subregionCode: row.subregion_code,
+    regionDisplayName: row.region_display_name,
+    schoolLevel: row.school_level,
+    approvedAt: row.approved_at,
+    approvedBy: row.approved_by,
   };
 }
 

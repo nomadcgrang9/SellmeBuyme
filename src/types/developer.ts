@@ -30,15 +30,23 @@ export interface DevBoardSubmissionRow {
   submitter_name: string;
   board_name: string;
   board_url: string;
-  region: string | null;
+  region: string | null;  // deprecated, use region_code/subregion_code
   description: string | null;
   screenshot_url: string | null;
   status: SubmissionStatus;
-  admin_notes: string | null;
+  admin_review_comment: string | null;  // renamed from admin_notes
   approved_by: string | null;
   approved_at: string | null;
   created_at: string;
   updated_at: string;
+
+  // Regional management fields (new)
+  region_code: string | null;
+  subregion_code: string | null;
+  school_level: string | null;
+  crawl_board_id: string | null;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
 }
 
 export interface GitHubDeploymentRow {
@@ -75,15 +83,23 @@ export interface DevBoardSubmission {
   submitterName: string;
   boardName: string;
   boardUrl: string;
-  region: string | null;
+  region: string | null;  // deprecated, use regionCode/subregionCode
   description: string | null;
   screenshotUrl: string | null;
   status: SubmissionStatus;
-  adminNotes: string | null;
+  adminReviewComment: string | null;  // renamed from adminNotes
   approvedBy: string | null;
   approvedAt: string | null;
   createdAt: string;
   updatedAt: string;
+
+  // Regional management fields (new)
+  regionCode: string | null;
+  subregionCode: string | null;
+  schoolLevel: string | null;
+  crawlBoardId: string | null;
+  reviewedBy: string | null;
+  reviewedAt: string | null;
 }
 
 export interface GitHubDeployment {
@@ -112,7 +128,10 @@ export interface IdeaFormData {
 export interface BoardSubmissionFormData {
   boardName: string;
   boardUrl: string;
-  region?: string;
+  region?: string;  // deprecated, for backward compatibility
+  regionCode: string;  // required: province code (e.g., 'KR-41')
+  subregionCode: string | null;  // optional: city code (e.g., '4113025')
+  schoolLevel: 'elementary' | 'middle' | 'high' | 'mixed';  // required
   description?: string;
   screenshot?: File | null;
 }
@@ -164,11 +183,19 @@ export function convertSubmissionRowToSubmission(
     description: row.description,
     screenshotUrl: row.screenshot_url,
     status: row.status,
-    adminNotes: row.admin_notes,
+    adminReviewComment: row.admin_review_comment,
     approvedBy: row.approved_by,
     approvedAt: row.approved_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+
+    // Regional management fields
+    regionCode: row.region_code,
+    subregionCode: row.subregion_code,
+    schoolLevel: row.school_level,
+    crawlBoardId: row.crawl_board_id,
+    reviewedBy: row.reviewed_by,
+    reviewedAt: row.reviewed_at,
   };
 }
 
