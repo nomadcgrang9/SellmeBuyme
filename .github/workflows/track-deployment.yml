@@ -1,0 +1,38 @@
+# GitHub Actions - 배포 추적
+name: Track Deployment
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  track:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Track deployment
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          curl -X POST "$SUPABASE_URL/functions/v1/track-deployment" \
+            -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "id": "${{ github.run_id }}",
+              "deployment_trigger": {
+                "metadata": {
+                  "commit_hash": "${{ github.sha }}",
+                  "commit_message": "${{ github.event.head_commit.message }}",
+                  "branch": "${{ github.ref_name }}"
+                }
+              },
+              "latest_stage": {
+                "status": "success"
+              },
+              "modified_on": "${{ github.event.head_commit.timestamp }}"
+            }'
