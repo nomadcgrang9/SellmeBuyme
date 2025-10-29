@@ -22,7 +22,7 @@ interface BeforeInstallPromptEvent extends Event {
 }
 
 export default function DeveloperPage() {
-  const { deployments, loading: deploymentsLoading, error: deploymentsError } = useDeployments(2);
+  const { deployments, loading: deploymentsLoading, error: deploymentsError } = useDeployments(1);
   const {
     ideas,
     loading: ideasLoading,
