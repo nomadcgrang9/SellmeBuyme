@@ -9,8 +9,10 @@ import {
   IconPhone,
   IconFileDownload,
   IconExternalLink,
-  IconBook
+  IconBook,
+  IconEdit
 } from '@tabler/icons-react';
+import { useAuthStore } from '@/stores/authStore';
 
 type StatItem = {
   icon: typeof IconMapPin;
@@ -23,9 +25,14 @@ interface JobDetailModalProps {
   job: JobPostingCard;
   isOpen: boolean;
   onClose: () => void;
+  onEditClick?: (job: JobPostingCard) => void;
 }
 
-export default function JobDetailModal({ job, isOpen, onClose }: JobDetailModalProps) {
+export default function JobDetailModal({ job, isOpen, onClose, onEditClick }: JobDetailModalProps) {
+  const { user } = useAuthStore((state) => ({ user: state.user }));
+  
+  // 소유권 확인
+  const isOwner = user && job.user_id === user.id && job.source === 'user_posted';
   if (!isOpen) return null;
 
   const structured = job.structured_content ?? null;
@@ -239,10 +246,23 @@ export default function JobDetailModal({ job, isOpen, onClose }: JobDetailModalP
             </div>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-            {job.attachment_url ? (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+            {/* 사용자 업로드 공고문 (attachment_url) */}
+            {job.attachment_url && job.source === 'user_posted' ? (
               <a
                 href={job.attachment_url}
+                download
+                className="flex items-center justify-center gap-2 px-5 py-2.5 bg-primary text-white font-semibold rounded-lg hover:bg-primary/90 transition-colors"
+              >
+                <IconFileDownload size={20} />
+                공고문 다운로드
+              </a>
+            ) : job.attachment_url && job.source !== 'user_posted' ? (
+              // 크롤링 공고의 경우 (attachment_url이 있으면 외부 링크)
+              <a
+                href={job.attachment_url}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="flex items-center justify-center gap-2 px-5 py-2.5 bg-primary text-white font-semibold rounded-lg hover:bg-primary/90 transition-colors"
               >
                 <IconFileDownload size={20} />
@@ -268,6 +288,16 @@ export default function JobDetailModal({ job, isOpen, onClose }: JobDetailModalP
                 <IconExternalLink size={20} />
                 원문링크
               </a>
+            )}
+            {isOwner && onEditClick && (
+              <button
+                type="button"
+                onClick={() => onEditClick(job)}
+                className="flex items-center justify-center gap-2 px-5 py-2.5 bg-amber-50 text-amber-600 font-semibold rounded-lg hover:bg-amber-100 transition-colors"
+              >
+                <IconEdit size={20} />
+                수정하기
+              </button>
             )}
           </div>
 
