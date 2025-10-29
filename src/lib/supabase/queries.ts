@@ -1,5 +1,5 @@
 import { supabase } from './client';
-import { uploadJobAttachment, getJobAttachmentUrl, deleteJobAttachment } from './storage';
+import { uploadJobAttachment, getJobAttachmentPublicUrl, deleteJobAttachment } from './storage';
 import type { User } from '@supabase/supabase-js';
 import {
   DEFAULT_CATEGORY,
@@ -154,6 +154,7 @@ function buildJobContent(input: CreateJobPostingInput): string {
 
 export interface UpdateJobPostingInput extends CreateJobPostingInput {
   jobId: string;
+  removeAttachment?: boolean;
 }
 
 export async function updateJobPosting(input: UpdateJobPostingInput) {
@@ -191,36 +192,37 @@ export async function updateJobPosting(input: UpdateJobPostingInput) {
   const location = formatLocation(input.location);
   const content = buildJobContent(input);
 
-  // 새 첨부파일 업로드 (기존 파일 교체)
-  let attachmentPath: string | null = existingJob.attachment_path;
+  // 첨부파일 처리
+  let attachmentPath: string | null = existingJob.attachment_path ?? null;
   let attachmentUrl: string | null = null;
+
+  const shouldDeleteExisting = Boolean(existingJob.attachment_path && (input.removeAttachment || input.attachmentFile));
+
+  if (shouldDeleteExisting) {
+    try {
+      await deleteJobAttachment(existingJob.attachment_path);
+    } catch (deleteError) {
+      console.error('기존 첨부파일 삭제 실패:', deleteError);
+    }
+    attachmentPath = null;
+    attachmentUrl = null;
+  }
 
   if (input.attachmentFile) {
     try {
-      // 기존 파일 삭제
-      if (existingJob.attachment_path) {
-        try {
-          await deleteJobAttachment(existingJob.attachment_path);
-        } catch (deleteError) {
-          console.error('기존 첨부파일 삭제 실패:', deleteError);
-        }
-      }
-
-      // 새 파일 업로드
       attachmentPath = await uploadJobAttachment(input.attachmentFile, user.id);
-      attachmentUrl = await getJobAttachmentUrl(attachmentPath);
+      // 공개 URL 생성 (만료 없음)
+      attachmentUrl = getJobAttachmentPublicUrl(attachmentPath);
     } catch (uploadError) {
       console.error('첨부파일 업로드 실패:', uploadError);
       const message = uploadError instanceof Error ? uploadError.message : '첨부파일 업로드에 실패했습니다.';
       console.warn(`경고: ${message}`);
+      // 업로드 실패 시 attachment_url은 null로 유지
+      attachmentUrl = null;
     }
-  } else if (existingJob.attachment_path) {
-    // 기존 파일이 있으면 URL 재생성
-    try {
-      attachmentUrl = await getJobAttachmentUrl(existingJob.attachment_path);
-    } catch (urlError) {
-      console.error('첨부파일 URL 생성 실패:', urlError);
-    }
+  } else if (!input.removeAttachment && attachmentPath) {
+    // 기존 파일이 있으면 공개 URL 생성
+    attachmentUrl = getJobAttachmentPublicUrl(attachmentPath);
   }
 
   // 폼 데이터 저장용 payload 생성
@@ -307,12 +309,15 @@ export async function createJobPosting(input: CreateJobPostingInput) {
   if (input.attachmentFile) {
     try {
       attachmentPath = await uploadJobAttachment(input.attachmentFile, user.id);
-      attachmentUrl = await getJobAttachmentUrl(attachmentPath);
+      // 공개 URL 생성 (만료 없음)
+      attachmentUrl = getJobAttachmentPublicUrl(attachmentPath);
     } catch (uploadError) {
       console.error('첨부파일 업로드 실패:', uploadError);
       // 첨부파일 업로드 실패는 공고 등록을 막지 않음 (경고만 표시)
       const message = uploadError instanceof Error ? uploadError.message : '첨부파일 업로드에 실패했습니다.';
       console.warn(`경고: ${message}`);
+      // 업로드 실패 시 attachment_url은 null로 유지
+      attachmentUrl = null;
     }
   }
 
@@ -2507,13 +2512,44 @@ function createEmptySearchResponse(limit: number, offset: number): SearchRespons
   };
 }
 
-function mapJobPostingToCard(job: any): JobPostingCard {
+export function mapJobPostingToCard(job: any): JobPostingCard {
   const structured = (job?.structured_content ?? null) as StructuredJobContent | null;
   const overview = structured?.overview ?? null;
-  const combinedContact = job?.contact
-    || [structured?.contact?.department, structured?.contact?.name, structured?.contact?.phone, structured?.contact?.email]
+  const formPayload = job?.form_payload ?? null;
+  
+  // 연락처 정보 조합 (우선순위: DB contact > form_payload > structured)
+  let combinedContact = job?.contact;
+  if (!combinedContact && formPayload) {
+    const parts = [];
+    if (formPayload.phone) parts.push(formPayload.phone);
+    if (formPayload.email) parts.push(formPayload.email);
+    combinedContact = parts.length > 0 ? parts.join(' / ') : undefined;
+  }
+  if (!combinedContact) {
+    combinedContact = [structured?.contact?.department, structured?.contact?.name, structured?.contact?.phone, structured?.contact?.email]
       .filter(Boolean)
       .join(' / ') || undefined;
+  }
+
+  // 근무기간 (우선순위: DB work_period > form_payload > structured)
+  let workPeriod = job?.work_period || job?.work_term || overview?.work_period;
+  if (!workPeriod && formPayload) {
+    if (formPayload.isNegotiable) {
+      workPeriod = '협의 가능';
+    } else if (formPayload.workStart && formPayload.workEnd) {
+      workPeriod = `${formPayload.workStart} ~ ${formPayload.workEnd}`;
+    }
+  }
+
+  // 접수기간 (우선순위: DB application_period > form_payload > structured)
+  let applicationPeriod = job?.application_period || overview?.application_period;
+  if (!applicationPeriod && formPayload) {
+    if (formPayload.isOngoing) {
+      applicationPeriod = '상시 모집';
+    } else if (formPayload.recruitmentStart && formPayload.recruitmentEnd) {
+      applicationPeriod = `${formPayload.recruitmentStart} ~ ${formPayload.recruitmentEnd}`;
+    }
+  }
 
   return {
     id: job.id,
@@ -2526,17 +2562,19 @@ function mapJobPostingToCard(job: any): JobPostingCard {
     compensation: job.compensation || '협의',
     deadline: job.deadline ? formatDeadline(job.deadline) : '상시모집',
     daysLeft: job.deadline ? calculateDaysLeft(job.deadline) : undefined,
-    work_period: job.work_period || job.work_term || overview?.work_period || undefined,
-    application_period: job.application_period || overview?.application_period || undefined,
+    work_period: workPeriod,
+    application_period: applicationPeriod,
     work_time: job.work_time || undefined,
     contact: combinedContact,
     detail_content: job.detail_content,
     attachment_url: job.attachment_url,
+    attachment_path: job.attachment_path ?? null,
     source_url: job.source_url,
     qualifications: job.qualifications || structured?.qualifications || [],
     structured_content: structured,
     user_id: job.user_id ?? null,
-    source: job.source ?? null
+    source: job.source ?? null,
+    form_payload: formPayload
   };
 }
 
