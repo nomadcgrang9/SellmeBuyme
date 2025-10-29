@@ -112,9 +112,9 @@ export interface IdeaFormData {
 export interface BoardSubmissionFormData {
   boardName: string;
   boardUrl: string;
-  region: string;
-  description: string;
-  screenshot: File | null;
+  region?: string;
+  description?: string;
+  screenshot?: File | null;
 }
 
 // =============================================================================

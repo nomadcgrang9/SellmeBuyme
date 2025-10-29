@@ -72,8 +72,11 @@ export const onRequest: PagesFunction<Env> = async (context) => {
   // 실제 관리자 경로 체크 (서버사이드)
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   if (!pathname.startsWith(ADMIN_PATH)) {
-    // 관리자 경로가 아니면 일반 페이지로 전달
-    return context.next()
+    // 관리자 경로가 아니면 SPA fallback (index.html 반환)
+    // 이렇게 해야 /note 같은 클라이언트 라우팅이 작동함
+    return context.env.ASSETS.fetch(
+      new Request(url.origin + '/index.html', context.request)
+    )
   }
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -134,7 +137,10 @@ export const onRequest: PagesFunction<Env> = async (context) => {
 
   // ✅ 모든 체크 통과! AdminPage HTML 반환
   console.log(`✅ 관리자 인증 성공: ${user.email}`)
-  return context.next()
+  // SPA fallback: index.html을 반환하여 React 라우팅 활성화
+  return context.env.ASSETS.fetch(
+    new Request(url.origin + '/index.html', context.request)
+  )
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

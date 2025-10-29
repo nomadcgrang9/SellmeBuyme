@@ -1,10 +1,10 @@
 // BoardSubmissionCard - 게시판 제출 카드
 import { ExternalLink, MapPin, User, Calendar } from 'lucide-react';
 import StatusBadge from './StatusBadge';
-import type { BoardSubmission } from '@/types/developer';
+import type { DevBoardSubmission } from '@/types/developer';
 
 interface BoardSubmissionCardProps {
-  submission: BoardSubmission;
+  submission: DevBoardSubmission;
 }
 
 // 상대 시간 표시 함수 (간단한 구현)
