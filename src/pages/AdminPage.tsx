@@ -4,6 +4,9 @@ import CrawlBoardList from '@/components/admin/CrawlBoardList';
 import CrawlBoardForm from '@/components/admin/CrawlBoardForm';
 import CrawlLogViewer from '@/components/admin/CrawlLogViewer';
 import PromoTabManager from '@/components/admin/PromoTabManager';
+import BoardSubmissionList from '@/components/admin/BoardSubmissionList';
+import BoardApprovalModal from '@/components/admin/BoardApprovalModal';
+import { CollapsibleSection } from '@/components/developer/CollapsibleSection';
 import type { CrawlBoard, CreateCrawlBoardInput } from '@/types';
 import { createCrawlBoard, updateCrawlBoard } from '@/lib/supabase/queries';
 import { useAdminAuth } from '@/lib/hooks/useAdminAuth';
@@ -23,7 +26,7 @@ interface AdminTab {
 
 const ADMIN_TABS: AdminTab[] = [
   { key: 'overview', label: '대시보드', description: '요약 지표' },
-  { key: 'crawl', label: '크롤링 관리', description: '게시판 등록 및 상태 모니터링', badge: 'NEW' },
+  { key: 'crawl', label: '크롤링 게시판 관리', description: '개발자 제출 승인 및 게시판 관리', badge: 'NEW' },
   { key: 'promo', label: '홍보카드 관리', description: '추천 섹션 프로모·띠지 배너 편집' },
   { key: 'content', label: '콘텐츠 관리', description: '공고 / 인력 검수' },
   { key: 'settings', label: '설정', description: '권한 및 시스템 설정' }
@@ -40,6 +43,7 @@ export default function AdminPageWithHamburger() {
   const [notice, setNotice] = useState<Notice | null>(null);
   const [refreshToken, setRefreshToken] = useState(0);
   const [submitting, setSubmitting] = useState(false);
+  const [approvalSubmissionId, setApprovalSubmissionId] = useState<string | null>(null);
 
   useEffect(() => {
     void initialize();
@@ -97,6 +101,16 @@ export default function AdminPageWithHamburger() {
   const handleTabClick = (tabKey: string) => {
     setActiveTab(tabKey);
     setIsSidebarOpen(false);
+  };
+
+  const handleApprovalSuccess = () => {
+    setApprovalSubmissionId(null);
+    setRefreshToken((token) => token + 1);
+    setNotice({ type: 'success', message: '게시판이 승인되어 크롤링 목록에 추가되었습니다.' });
+  };
+
+  const handleApprovalCancel = () => {
+    setApprovalSubmissionId(null);
   };
 
   // 로딩 중
@@ -177,12 +191,38 @@ export default function AdminPageWithHamburger() {
               </div>
             )}
 
-            <CrawlBoardList
-              onCreate={handleCreateClick}
-              onEdit={handleEdit}
-              onLogs={handleLogs}
-              refreshToken={refreshToken}
-            />
+            <div className="space-y-4">
+              {/* 승인대기 크롤링 게시판 */}
+              <CollapsibleSection
+                title="승인대기 크롤링 게시판"
+                defaultOpen={true}
+              >
+                <div className="p-4">
+                  <BoardSubmissionList
+                    onApprove={(submissionId) => {
+                      console.log('[AdminPage] Approving submission ID:', submissionId);
+                      setApprovalSubmissionId(submissionId);
+                    }}
+                    refreshToken={refreshToken}
+                  />
+                </div>
+              </CollapsibleSection>
+
+              {/* 승인된 크롤링 게시판 */}
+              <CollapsibleSection
+                title="승인된 크롤링 게시판"
+                defaultOpen={false}
+              >
+                <div className="p-4">
+                  <CrawlBoardList
+                    onCreate={handleCreateClick}
+                    onEdit={handleEdit}
+                    onLogs={handleLogs}
+                    refreshToken={refreshToken}
+                  />
+                </div>
+              </CollapsibleSection>
+            </div>
           </Fragment>
         );
       case 'promo':
@@ -298,6 +338,14 @@ export default function AdminPageWithHamburger() {
       )}
 
       <CrawlLogViewer board={logsBoard} open={Boolean(logsBoard)} onClose={handleCloseLogs} />
+
+      {approvalSubmissionId && (
+        <BoardApprovalModal
+          submissionId={approvalSubmissionId}
+          onSuccess={handleApprovalSuccess}
+          onCancel={handleApprovalCancel}
+        />
+      )}
 
       {submitting && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/20">

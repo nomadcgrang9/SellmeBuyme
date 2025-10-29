@@ -1,4 +1,6 @@
 import { supabase } from './client';
+import { uploadJobAttachment, getJobAttachmentUrl, deleteJobAttachment } from './storage';
+import type { User } from '@supabase/supabase-js';
 import {
   DEFAULT_CATEGORY,
   DEFAULT_REGION,
@@ -22,6 +24,361 @@ import type {
   UpdateCrawlBoardInput,
   ViewType
 } from '@/types';
+
+type JobPostingSchoolLevel = {
+  kindergarten: boolean;
+  elementary: boolean;
+  secondary: boolean;
+  high: boolean;
+  special: boolean;
+  adultTraining: boolean;
+  other?: string;
+};
+
+type JobPostingLocation = {
+  seoul?: string[];
+  gyeonggi?: string[];
+};
+
+export interface CreateJobPostingInput {
+  organization: string;
+  title: string;
+  schoolLevel: JobPostingSchoolLevel;
+  subject?: string;
+  location: JobPostingLocation;
+  compensation?: string;
+  recruitmentStart: string;
+  recruitmentEnd: string;
+  isOngoing: boolean;
+  workStart: string;
+  workEnd: string;
+  isNegotiable: boolean;
+  description?: string;
+  phone: string;
+  email: string;
+  attachmentFile?: File | null;
+}
+
+async function ensureUserRow(user: User) {
+  const { data, error } = await supabase
+    .from('users')
+    .select('id')
+    .eq('id', user.id)
+    .maybeSingle();
+
+  if (error && error.code !== 'PGRST116') {
+    console.error('사용자 조회 실패:', error);
+    throw new Error('사용자 정보를 확인하는 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
+  }
+
+  if (data) {
+    return;
+  }
+
+  const { error: insertError } = await supabase.from('users').insert({
+    id: user.id,
+    email: user.email,
+    role: 'school'
+  });
+
+  if (insertError && insertError.code !== '23505') {
+    console.error('사용자 정보 생성 실패:', insertError);
+    throw new Error('사용자 정보를 생성할 수 없습니다. 잠시 후 다시 시도해주세요.');
+  }
+}
+
+function summarizeSchoolLevel(level: JobPostingSchoolLevel): string | null {
+  const selections: string[] = [];
+
+  if (level.kindergarten) selections.push('유치원');
+  if (level.elementary) selections.push('초등');
+  if (level.secondary) selections.push('중등');
+  if (level.high) selections.push('고등');
+  if (level.special) selections.push('특수');
+  if (level.adultTraining) selections.push('성인대상');
+
+  const custom = level.other?.trim();
+  if (custom) {
+    selections.push(custom);
+  }
+
+  return selections.length > 0 ? selections.join(', ') : null;
+}
+
+function formatLocation(location: JobPostingLocation): string {
+  const parts: string[] = [];
+  if (location.seoul && location.seoul.length > 0) {
+    parts.push(`서울(${location.seoul.join(', ')})`);
+  }
+  if (location.gyeonggi && location.gyeonggi.length > 0) {
+    parts.push(`경기(${location.gyeonggi.join(', ')})`);
+  }
+  return parts.join(' · ');
+}
+
+function buildJobContent(input: CreateJobPostingInput): string {
+  const lines: string[] = [];
+
+  if (input.description?.trim()) {
+    lines.push(input.description.trim());
+  }
+
+  const recruitmentRange = input.isOngoing
+    ? '상시 모집'
+    : [input.recruitmentStart, input.recruitmentEnd]
+        .filter(Boolean)
+        .join(' ~ ');
+
+  if (recruitmentRange) {
+    lines.push(`모집기간: ${recruitmentRange}`);
+  }
+
+  const workRange = input.isNegotiable
+    ? '협의 가능'
+    : [input.workStart, input.workEnd]
+        .filter(Boolean)
+        .join(' ~ ');
+
+  if (workRange) {
+    lines.push(`근무기간: ${workRange}`);
+  }
+
+  if (input.compensation?.trim()) {
+    lines.push(`급여/처우: ${input.compensation.trim()}`);
+  }
+
+  lines.push(`연락처: 전화 ${input.phone} / 이메일 ${input.email}`);
+
+  return lines.join('\n');
+}
+
+export interface UpdateJobPostingInput extends CreateJobPostingInput {
+  jobId: string;
+}
+
+export async function updateJobPosting(input: UpdateJobPostingInput) {
+  const {
+    data: { user },
+    error: userError
+  } = await supabase.auth.getUser();
+
+  if (userError) {
+    console.error('사용자 정보 조회 실패:', userError);
+    throw new Error('사용자 정보를 확인할 수 없습니다. 다시 로그인 후 시도해주세요.');
+  }
+
+  if (!user) {
+    throw new Error('로그인이 필요합니다. 다시 로그인 후 이용해주세요.');
+  }
+
+  // 기존 공고 조회 (소유권 확인)
+  const { data: existingJob, error: fetchError } = await supabase
+    .from('job_postings')
+    .select('user_id, attachment_path')
+    .eq('id', input.jobId)
+    .single();
+
+  if (fetchError) {
+    console.error('공고 조회 실패:', fetchError);
+    throw new Error('공고를 찾을 수 없습니다.');
+  }
+
+  if (existingJob.user_id !== user.id) {
+    throw new Error('이 공고를 수정할 권한이 없습니다.');
+  }
+
+  const schoolLevel = summarizeSchoolLevel(input.schoolLevel);
+  const location = formatLocation(input.location);
+  const content = buildJobContent(input);
+
+  // 새 첨부파일 업로드 (기존 파일 교체)
+  let attachmentPath: string | null = existingJob.attachment_path;
+  let attachmentUrl: string | null = null;
+
+  if (input.attachmentFile) {
+    try {
+      // 기존 파일 삭제
+      if (existingJob.attachment_path) {
+        try {
+          await deleteJobAttachment(existingJob.attachment_path);
+        } catch (deleteError) {
+          console.error('기존 첨부파일 삭제 실패:', deleteError);
+        }
+      }
+
+      // 새 파일 업로드
+      attachmentPath = await uploadJobAttachment(input.attachmentFile, user.id);
+      attachmentUrl = await getJobAttachmentUrl(attachmentPath);
+    } catch (uploadError) {
+      console.error('첨부파일 업로드 실패:', uploadError);
+      const message = uploadError instanceof Error ? uploadError.message : '첨부파일 업로드에 실패했습니다.';
+      console.warn(`경고: ${message}`);
+    }
+  } else if (existingJob.attachment_path) {
+    // 기존 파일이 있으면 URL 재생성
+    try {
+      attachmentUrl = await getJobAttachmentUrl(existingJob.attachment_path);
+    } catch (urlError) {
+      console.error('첨부파일 URL 생성 실패:', urlError);
+    }
+  }
+
+  // 폼 데이터 저장용 payload 생성
+  const formPayload = {
+    organization: input.organization,
+    title: input.title,
+    schoolLevel: input.schoolLevel,
+    subject: input.subject,
+    location: input.location,
+    compensation: input.compensation,
+    recruitmentStart: input.recruitmentStart,
+    recruitmentEnd: input.recruitmentEnd,
+    isOngoing: input.isOngoing,
+    workStart: input.workStart,
+    workEnd: input.workEnd,
+    isNegotiable: input.isNegotiable,
+    description: input.description,
+    phone: input.phone,
+    email: input.email
+  };
+
+  const payload = {
+    organization: input.organization,
+    title: input.title,
+    location,
+    content,
+    compensation: input.compensation && input.compensation.trim().length > 0 ? input.compensation : null,
+    deadline: input.isOngoing || !input.recruitmentEnd ? null : input.recruitmentEnd,
+    school_level: schoolLevel,
+    subject: input.subject && input.subject.trim().length > 0 ? input.subject : null,
+    application_period: input.isOngoing
+      ? '상시 모집'
+      : `${input.recruitmentStart} ~ ${input.recruitmentEnd}`,
+    work_period: input.isNegotiable
+      ? '협의 가능'
+      : `${input.workStart} ~ ${input.workEnd}`,
+    contact: [input.phone, input.email].filter(Boolean).join(' / '),
+    attachment_url: attachmentUrl,
+    attachment_path: attachmentPath,
+    form_payload: formPayload,
+    updated_at: new Date().toISOString()
+  };
+
+  const { data, error } = await supabase
+    .from('job_postings')
+    .update(payload)
+    .eq('id', input.jobId)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('공고 수정 실패:', error);
+    throw new Error(error.message || '공고 수정에 실패했습니다. 잠시 후 다시 시도해주세요.');
+  }
+
+  return data;
+}
+
+export async function createJobPosting(input: CreateJobPostingInput) {
+  const {
+    data: { user },
+    error: userError
+  } = await supabase.auth.getUser();
+
+  if (userError) {
+    console.error('사용자 정보 조회 실패:', userError);
+    throw new Error('사용자 정보를 확인할 수 없습니다. 다시 로그인 후 시도해주세요.');
+  }
+
+  if (!user) {
+    throw new Error('로그인이 필요합니다. 다시 로그인 후 이용해주세요.');
+  }
+
+  await ensureUserRow(user);
+
+  const schoolLevel = summarizeSchoolLevel(input.schoolLevel);
+  const location = formatLocation(input.location);
+  const content = buildJobContent(input);
+
+  // 첨부파일 업로드 (선택사항)
+  let attachmentPath: string | null = null;
+  let attachmentUrl: string | null = null;
+
+  if (input.attachmentFile) {
+    try {
+      attachmentPath = await uploadJobAttachment(input.attachmentFile, user.id);
+      attachmentUrl = await getJobAttachmentUrl(attachmentPath);
+    } catch (uploadError) {
+      console.error('첨부파일 업로드 실패:', uploadError);
+      // 첨부파일 업로드 실패는 공고 등록을 막지 않음 (경고만 표시)
+      const message = uploadError instanceof Error ? uploadError.message : '첨부파일 업로드에 실패했습니다.';
+      console.warn(`경고: ${message}`);
+    }
+  }
+
+  // 폼 데이터 저장용 payload 생성
+  const formPayload = {
+    organization: input.organization,
+    title: input.title,
+    schoolLevel: input.schoolLevel,
+    subject: input.subject,
+    location: input.location,
+    compensation: input.compensation,
+    recruitmentStart: input.recruitmentStart,
+    recruitmentEnd: input.recruitmentEnd,
+    isOngoing: input.isOngoing,
+    workStart: input.workStart,
+    workEnd: input.workEnd,
+    isNegotiable: input.isNegotiable,
+    description: input.description,
+    phone: input.phone,
+    email: input.email
+  };
+
+  const payload = {
+    user_id: user.id,
+    organization: input.organization,
+    title: input.title,
+    location,
+    content,
+    compensation: input.compensation && input.compensation.trim().length > 0 ? input.compensation : null,
+    deadline: input.isOngoing || !input.recruitmentEnd ? null : input.recruitmentEnd,
+    school_level: schoolLevel,
+    subject: input.subject && input.subject.trim().length > 0 ? input.subject : null,
+    source: 'user_posted' as const,
+    application_period: input.isOngoing
+      ? '상시 모집'
+      : `${input.recruitmentStart} ~ ${input.recruitmentEnd}`,
+    work_period: input.isNegotiable
+      ? '협의 가능'
+      : `${input.workStart} ~ ${input.workEnd}`,
+    contact: [input.phone, input.email].filter(Boolean).join(' / '),
+    attachment_url: attachmentUrl,
+    attachment_path: attachmentPath,
+    form_payload: formPayload
+  };
+
+  const { data, error } = await supabase
+    .from('job_postings')
+    .insert(payload)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('공고 등록 실패:', error);
+    // 공고 등록 실패 시 업로드된 첨부파일 삭제
+    if (attachmentPath) {
+      try {
+        await deleteJobAttachment(attachmentPath);
+      } catch (deleteError) {
+        console.error('첨부파일 삭제 실패:', deleteError);
+      }
+    }
+    throw new Error(error.message || '공고 등록에 실패했습니다. 잠시 후 다시 시도해주세요.');
+  }
+
+  return data;
+}
 
 type RecommendationAiComment = {
   headline?: string;
@@ -909,11 +1266,66 @@ export async function triggerCrawlBoardTest(boardId: string) {
   return data;
 }
 
-export async function fetchCrawlBoards(): Promise<CrawlBoard[]> {
-  const { data, error } = await supabase
+export interface FetchCrawlBoardsOptions {
+  searchKeyword?: string;
+  filterActive?: boolean | null;
+  filterRegionCode?: string | null;
+  useSimilaritySearch?: boolean;
+}
+
+export async function fetchCrawlBoards(options?: FetchCrawlBoardsOptions): Promise<CrawlBoard[]> {
+  const {
+    searchKeyword,
+    filterActive,
+    filterRegionCode,
+    useSimilaritySearch = true
+  } = options || {};
+
+  // 고급 검색 (pg_trgm + ILIKE 계층적 검색)
+  if (useSimilaritySearch && (searchKeyword || filterActive !== undefined || filterRegionCode)) {
+    const { data, error } = await supabase.rpc('search_crawl_boards_advanced', {
+      search_text: searchKeyword || null,
+      filter_active: filterActive ?? null,
+      filter_region_code: filterRegionCode || null,
+      similarity_threshold: 0.2
+    });
+
+    if (error) {
+      console.warn('고급 검색 실패, 기본 검색으로 fallback:', error);
+      // Fallback to basic search
+    } else if (data) {
+      return (data ?? []).map(mapCrawlBoardFromDbRow);
+    }
+  }
+
+  // 기본 검색 (Fallback 또는 옵션 비활성화 시)
+  let query = supabase
     .from('crawl_boards')
-    .select('*')
-    .order('created_at', { ascending: false });
+    .select('*');
+
+  // 활성화 필터
+  if (filterActive !== null && filterActive !== undefined) {
+    query = query.eq('is_active', filterActive);
+  }
+
+  // 지역 코드 필터
+  if (filterRegionCode) {
+    query = query.eq('region_code', filterRegionCode);
+  }
+
+  // 검색어 필터 (기본 ILIKE)
+  if (searchKeyword) {
+    query = query.or(
+      `name.ilike.%${searchKeyword}%,` +
+      `board_url.ilike.%${searchKeyword}%,` +
+      `category.ilike.%${searchKeyword}%,` +
+      `region_display_name.ilike.%${searchKeyword}%`
+    );
+  }
+
+  query = query.order('created_at', { ascending: false });
+
+  const { data, error } = await query;
 
   if (error) {
     console.error('크롤 게시판 조회 실패:', error);
@@ -1021,6 +1433,12 @@ function mapCrawlBoardToDbRow(payload: Partial<CreateCrawlBoardInput>) {
   if (payload.status !== undefined) mapped.status = payload.status;
   if (payload.crawlConfig !== undefined) mapped.crawl_config = payload.crawlConfig ?? {};
   if (payload.crawlBatchSize !== undefined) mapped.crawl_batch_size = payload.crawlBatchSize;
+
+  // Regional management fields
+  if (payload.regionCode !== undefined) mapped.region_code = payload.regionCode;
+  if (payload.subregionCode !== undefined) mapped.subregion_code = payload.subregionCode;
+  if (payload.regionDisplayName !== undefined) mapped.region_display_name = payload.regionDisplayName;
+  if (payload.schoolLevel !== undefined) mapped.school_level = payload.schoolLevel;
 
   return mapped;
 }
@@ -2117,6 +2535,8 @@ function mapJobPostingToCard(job: any): JobPostingCard {
     source_url: job.source_url,
     qualifications: job.qualifications || structured?.qualifications || [],
     structured_content: structured,
+    user_id: job.user_id ?? null,
+    source: job.source ?? null
   };
 }
 

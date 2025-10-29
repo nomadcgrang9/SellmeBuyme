@@ -20,9 +20,31 @@ export interface JobPostingCard {
   contact?: string;
   detail_content?: string;
   attachment_url?: string;
+  attachment_path?: string | null;
   source_url?: string;
   qualifications?: string[];
   structured_content?: StructuredJobContent | null;
+  user_id?: string | null;
+  source?: string | null;
+  form_payload?: JobPostingFormPayload | null;
+}
+
+export interface JobPostingFormPayload {
+  organization: string;
+  title: string;
+  schoolLevel: JobPostingSchoolLevel;
+  subject?: string;
+  location: JobPostingLocation;
+  compensation?: string;
+  recruitmentStart: string;
+  recruitmentEnd: string;
+  isOngoing: boolean;
+  workStart: string;
+  workEnd: string;
+  isNegotiable: boolean;
+  description?: string;
+  phone: string;
+  email: string;
 }
 
 export interface StructuredJobContent {
@@ -231,6 +253,11 @@ export interface CreateCrawlBoardInput {
   status?: CrawlBoardStatus;
   crawlConfig?: Record<string, unknown> | null;
   crawlBatchSize?: number;
+  // Regional management fields
+  regionCode?: string | null;
+  subregionCode?: string | null;
+  regionDisplayName?: string | null;
+  schoolLevel?: SchoolLevel | null;
 }
 
 export type UpdateCrawlBoardInput = Partial<CreateCrawlBoardInput>;

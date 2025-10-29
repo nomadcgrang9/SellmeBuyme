@@ -20,7 +20,12 @@ export async function getOrCreateCrawlSource(name, baseUrl) {
     .from('crawl_boards')
     .select('id, crawl_batch_size')
     .eq('name', name)
+    .eq('is_active', true)
     .maybeSingle();
+
+  if (!board) {
+    throw new Error(`Crawl board "${name}" not found or inactive`);
+  }
 
   const desiredBatchSize = board?.crawl_batch_size ?? 10;
 

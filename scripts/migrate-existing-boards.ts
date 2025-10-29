@@ -150,8 +150,6 @@ async function migrateCrawlBoards() {
         subregion_code: mapping.subregionCode,
         region_display_name: regionDisplayName,
         school_level: mapping.schoolLevel,
-        approved_at: new Date().toISOString(),
-        approved_by: null, // System migration, no specific admin
       })
       .eq('id', board.id);
 
