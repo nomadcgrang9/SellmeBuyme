@@ -15,6 +15,20 @@ let rootComponent = <App />
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 if (pathname.startsWith('/note')) {
   rootComponent = <DeveloperPage />
+
+  // PWA Service Worker 등록 (프로덕션 환경에서만)
+  if ('serviceWorker' in navigator && import.meta.env.PROD) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker
+        .register('/sw.js', { scope: '/note' })
+        .then((registration) => {
+          console.log('✅ PWA Service Worker 등록 성공:', registration.scope)
+        })
+        .catch((error) => {
+          console.error('❌ PWA Service Worker 등록 실패:', error)
+        })
+    })
+  }
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
