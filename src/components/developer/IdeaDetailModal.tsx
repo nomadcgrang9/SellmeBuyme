@@ -77,7 +77,7 @@ export function IdeaDetailModal({ idea, isOpen, onClose }: IdeaDetailModalProps)
                 <div className="mt-3 flex items-center gap-4 text-sm text-gray-500">
                   <span className="flex items-center gap-1">
                     <span className="text-gray-400">👤</span>
-                    {idea.author || '익명'}
+                    {idea.authorName || '익명'}
                   </span>
                   <span className="flex items-center gap-1">
                     <span className="text-gray-400">📅</span>

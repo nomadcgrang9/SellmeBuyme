@@ -1,11 +1,11 @@
 // BoardSubmissionForm - 게시판 등록 제출 폼
 import { useState } from 'react';
 import { X, ExternalLink } from 'lucide-react';
-import type { BoardSubmissionCreate } from '@/types/developer';
+import type { BoardSubmissionFormData } from '@/types/developer';
 
 interface BoardSubmissionFormProps {
   onClose: () => void;
-  onSubmit: (data: BoardSubmissionCreate) => Promise<void>;
+  onSubmit: (data: BoardSubmissionFormData) => Promise<void>;
 }
 
 export default function BoardSubmissionForm({

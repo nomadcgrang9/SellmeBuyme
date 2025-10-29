@@ -1,10 +1,10 @@
 // BoardSubmissionList - 게시판 제출 목록
 import { AlertCircle, Loader2 } from 'lucide-react';
 import BoardSubmissionCard from './BoardSubmissionCard';
-import type { BoardSubmission } from '@/types/developer';
+import type { DevBoardSubmission } from '@/types/developer';
 
 interface BoardSubmissionListProps {
-  submissions: BoardSubmission[];
+  submissions: DevBoardSubmission[];
   loading: boolean;
   error: Error | null;
 }

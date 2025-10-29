@@ -1,13 +1,13 @@
 // StatusBadge - 게시판 제출 상태 배지
 import { Clock, CheckCircle, XCircle } from 'lucide-react';
-import type { BoardSubmissionStatus } from '@/types/developer';
+import type { SubmissionStatus } from '@/types/developer';
 
 interface StatusBadgeProps {
-  status: BoardSubmissionStatus;
+  status: SubmissionStatus;
 }
 
 const STATUS_CONFIG: Record<
-  BoardSubmissionStatus,
+  SubmissionStatus,
   { label: string; icon: typeof Clock; color: string; bgColor: string }
 > = {
   pending: {

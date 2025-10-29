@@ -5,14 +5,14 @@ import {
   createBoardSubmission,
   checkBoardUrlDuplicate,
 } from '../supabase/developer';
-import type { BoardSubmission, BoardSubmissionCreate } from '@/types/developer';
+import type { DevBoardSubmission, BoardSubmissionFormData } from '@/types/developer';
 
 interface UseBoardSubmissionsResult {
-  submissions: BoardSubmission[];
+  submissions: DevBoardSubmission[];
   loading: boolean;
   error: Error | null;
   refetch: () => Promise<void>;
-  createNewSubmission: (data: BoardSubmissionCreate) => Promise<void>;
+  createNewSubmission: (data: BoardSubmissionFormData) => Promise<void>;
 }
 
 /**
@@ -23,7 +23,7 @@ interface UseBoardSubmissionsResult {
 export function useBoardSubmissions(
   limit = 20
 ): UseBoardSubmissionsResult {
-  const [submissions, setSubmissions] = useState<BoardSubmission[]>([]);
+  const [submissions, setSubmissions] = useState<DevBoardSubmission[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
@@ -41,7 +41,7 @@ export function useBoardSubmissions(
     }
   };
 
-  const createNewSubmission = async (data: BoardSubmissionCreate) => {
+  const createNewSubmission = async (data: BoardSubmissionFormData) => {
     // URL 중복 체크
     const isDuplicate = await checkBoardUrlDuplicate(data.boardUrl);
     if (isDuplicate) {
