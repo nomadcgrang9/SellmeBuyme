@@ -1,4 +1,4 @@
-# GitHub Actions - 배포 추적
+# GitHub Actions - 배포 추적 (수정 버전)
 name: Track Deployment
 
 on:
@@ -14,25 +14,23 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Track deployment
+      - name: Track deployment to Supabase
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
-          curl -X POST "$SUPABASE_URL/functions/v1/track-deployment" \
+          # 직접 Supabase REST API로 삽입 (Edge Function 우회)
+          curl -X POST "$SUPABASE_URL/rest/v1/github_deployments" \
+            -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
             -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
             -H "Content-Type: application/json" \
-            -d '{
-              "id": "${{ github.run_id }}",
-              "deployment_trigger": {
-                "metadata": {
-                  "commit_hash": "${{ github.sha }}",
-                  "commit_message": "${{ github.event.head_commit.message }}",
-                  "branch": "${{ github.ref_name }}"
-                }
-              },
-              "latest_stage": {
-                "status": "success"
-              },
-              "modified_on": "${{ github.event.head_commit.timestamp }}"
-            }'
+            -H "Prefer: return=representation" \
+            -d "{
+              \"commit_sha\": \"${{ github.sha }}\",
+              \"commit_message\": $(echo '${{ github.event.head_commit.message }}' | jq -Rs .),
+              \"branch\": \"${{ github.ref_name }}\",
+              \"author\": \"${{ github.event.head_commit.author.name }}\",
+              \"status\": \"success\",
+              \"workflow_run_id\": \"${{ github.run_id }}\",
+              \"deployed_at\": \"${{ github.event.head_commit.timestamp }}\"
+            }"
