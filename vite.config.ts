@@ -8,12 +8,7 @@ function apiMiddleware() {
   return {
     name: 'api-middleware',
     configureServer(server: any) {
-      server.middlewares.use('/api/generate-crawler', (req: any, res: any, next: () => void) => {
-        if (!req.url?.startsWith('/api/generate-crawler')) {
-          next()
-          return
-        }
-
+      server.middlewares.use('/api/generate-crawler', (req: any, res: any) => {
         if (req.method === 'OPTIONS') {
           res.setHeader('Access-Control-Allow-Origin', '*')
           res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')

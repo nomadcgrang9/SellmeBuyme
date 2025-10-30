@@ -13,7 +13,8 @@ export default function FileUploadField({
   value,
   onChange,
   error,
-  accept = '.pdf,.doc,.docx,.hwp,.hwpx',
+  // accept은 기본적으로 지정하지 않아 모든 파일 선택 가능
+  accept,
   maxSizeMB = 10,
 }: FileUploadFieldProps) {
   const [dragOver, setDragOver] = useState(false);
@@ -77,18 +78,13 @@ export default function FileUploadField({
         >
           <input
             type="file"
-            accept={accept}
+            {...(accept ? { accept } : {})}
             onChange={handleFileChange}
             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
           />
           <div className="flex flex-col items-center justify-center py-2.5 px-2">
             <IconUpload size={18} className="text-gray-400 mb-1" />
-            <p className="text-[11px] text-gray-600 text-center">
-              파일을 드래그하거나 클릭하여 업로드
-            </p>
-            <p className="text-[10px] text-gray-400 mt-0.5">
-              {accept.split(',').join(', ')} (최대 {maxSizeMB}MB)
-            </p>
+            <p className="text-[11px] text-gray-600 text-center">파일을 드래그하거나 클릭하여 업로드</p>
           </div>
         </div>
       ) : (

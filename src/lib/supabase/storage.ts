@@ -5,16 +5,24 @@ import { supabase } from './client';
 const BUCKET_NAME = 'job-posting-attachments';
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const ALLOWED_MIME_TYPES = [
+  // PDF
   'application/pdf',
+  // Word
   'application/msword',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  // Excel
   'application/vnd.ms-excel',
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  // Hancom HWP/HWPX (다양한 브라우저/OS 식별자 포함)
   'application/haansofthwp',
+  'application/hwp',
   'application/x-hwp',
   'application/vnd.hancom.hwp',
   'application/x-hwpx',
+  'application/vnd.hancom.hwpx',
+  // 일부 환경에서 미식별로 내려오는 경우
   'application/octet-stream',
+  // 기타 텍스트/이미지(혹시 모를 공고문 스캔본 업로드용)
   'text/plain',
   'image/jpeg',
   'image/png',
@@ -59,6 +67,36 @@ export async function uploadJobAttachment(file: File, userId: string): Promise<s
   const timestamp = Date.now();
   const uuid = Math.random().toString(36).substring(2, 15);
   const ext = extension || 'bin';
+  const contentType = (() => {
+    if (file.type && file.type.trim().length > 0) return file.type;
+    switch (ext) {
+      case 'hwp':
+        return 'application/vnd.hancom.hwp';
+      case 'hwpx':
+        return 'application/vnd.hancom.hwpx';
+      case 'pdf':
+        return 'application/pdf';
+      case 'doc':
+        return 'application/msword';
+      case 'docx':
+        return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+      case 'xls':
+        return 'application/vnd.ms-excel';
+      case 'xlsx':
+        return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+      case 'txt':
+        return 'text/plain';
+      case 'jpg':
+      case 'jpeg':
+        return 'image/jpeg';
+      case 'png':
+        return 'image/png';
+      case 'gif':
+        return 'image/gif';
+      default:
+        return 'application/octet-stream';
+    }
+  })();
   const fileName = `${timestamp}-${uuid}.${ext}`;
   const filePath = `${userId}/${fileName}`;
 
@@ -67,7 +105,8 @@ export async function uploadJobAttachment(file: File, userId: string): Promise<s
     .from(BUCKET_NAME)
     .upload(filePath, file, {
       cacheControl: '3600',
-      upsert: false
+      upsert: false,
+      contentType
     });
 
   if (error) {

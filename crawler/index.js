@@ -145,17 +145,32 @@ async function main() {
   
   // 2. 크롤링 대상 선택
   let targetSource = 'seongnam'; // 기본값
+  let boardId = null; // AI 생성 크롤러용
   
   const sourceArg = process.argv.find(arg => arg.startsWith('--source='));
   if (sourceArg) {
     targetSource = sourceArg.split('=')[1];
   }
   
+  const boardIdArg = process.argv.find(arg => arg.startsWith('--board-id='));
+  if (boardIdArg) {
+    boardId = boardIdArg.split('=')[1];
+    targetSource = 'ai-generated'; // AI 생성 크롤러로 표시
+  }
+  
   const config = sourcesConfig[targetSource];
   
-  if (!config || !config.active) {
+  if (!config && targetSource !== 'ai-generated') {
     logError('main', '소스를 찾을 수 없거나 비활성화됨', null, { targetSource });
     process.exit(1);
+  }
+  
+  // AI 생성 크롤러인 경우 board_id 환경변수에서 크롤러 코드 로드
+  if (targetSource === 'ai-generated' && boardId) {
+    logStep('main', 'AI 생성 크롤러 실행', { boardId });
+    // 이 부분은 나중에 구현 (현재는 스킵)
+    logWarn('main', 'AI 생성 크롤러 실행은 아직 구현 중입니다', { boardId });
+    process.exit(0);
   }
   
   let browser;

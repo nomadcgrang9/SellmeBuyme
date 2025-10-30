@@ -267,6 +267,16 @@ export default function App() {
     handleEditFormClose();
   };
 
+  const handleEditFormDelete = (jobId: string) => {
+    // 목록에서 제거
+    setCards((prev) => prev.filter((c) => !(c.type === 'job' && c.id === jobId)));
+    // 상세보기 상태 초기화
+    if (selectedJob?.id === jobId) {
+      setSelectedJob(null);
+    }
+    handleEditFormClose();
+  };
+
   const normalizeProfileForEdit = (data: UserProfileRow | null | undefined) => {
     if (!data) {
       setProfileInitialData(null);
@@ -713,6 +723,7 @@ export default function App() {
           isOpen={isEditFormOpen}
           onClose={handleEditFormClose}
           onSuccess={handleEditFormSuccess}
+          onDelete={handleEditFormDelete}
         />
       )}
 

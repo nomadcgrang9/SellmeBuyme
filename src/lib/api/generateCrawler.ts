@@ -71,21 +71,54 @@ export async function createCrawlBoardLocally(
   adminUserId: string,
   crawlerCode: string
 ): Promise<{ id: string }> {
+  const { data: existingBoard, error: fetchError } = await supabase
+    .from('crawl_boards')
+    .select('id, is_active')
+    .eq('board_url', boardUrl)
+    .maybeSingle();
+
+  if (fetchError) {
+    throw new Error(`crawl_boards 조회 실패: ${fetchError.message}`);
+  }
+
+  if (existingBoard?.id) {
+    // 기존 게시판이 비활성화되어 있으면 활성화하고 최신 정보로 업데이트
+    const { error: updateError } = await supabase
+      .from('crawl_boards')
+      .update({
+        name: boardName,
+        description: `AI 자동 생성 크롤러 - ${boardName}`,
+        is_active: true,
+        status: 'active',
+        approved_by: adminUserId,
+        approved_at: new Date().toISOString(),
+      })
+      .eq('id', existingBoard.id);
+
+    if (updateError) {
+      console.warn('기존 crawl_board 업데이트 실패:', updateError);
+    }
+
+    return { id: existingBoard.id };
+  }
+
+  const insertPayload: Record<string, unknown> = {
+    name: boardName,
+    board_url: boardUrl,
+    category: 'job',
+    description: `AI 자동 생성 크롤러 - ${boardName}`,
+    is_active: true,
+    status: 'active',
+    crawl_batch_size: 10,
+  };
+
+  // approved_at / approved_by 는 기존 스키마에 존재하므로 유지
+  insertPayload.approved_by = adminUserId;
+  insertPayload.approved_at = new Date().toISOString();
+
   const { data, error } = await supabase
     .from('crawl_boards')
-    .insert({
-      name: boardName,
-      board_url: boardUrl,
-      category: 'job',
-      description: `AI 자동 생성 크롤러 - ${boardName}`,
-      is_active: false,
-      status: 'active',
-      crawl_batch_size: 10,
-      crawler_source_code: crawlerCode,
-      created_by: adminUserId,
-      approved_by: adminUserId,
-      approved_at: new Date().toISOString(),
-    })
+    .insert(insertPayload)
     .select('id')
     .single();
 

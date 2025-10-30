@@ -3,7 +3,7 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { jobPostingSchema, type JobPostingFormData } from '@/lib/validation/formSchemas';
-import { updateJobPosting, type UpdateJobPostingInput, mapJobPostingToCard } from '@/lib/supabase/queries';
+import { updateJobPosting, type UpdateJobPostingInput, mapJobPostingToCard, deleteJobPosting } from '@/lib/supabase/queries';
 import { JobPostingCard } from '@/types';
 import FormLayout from './FormLayout';
 import RegionSelector from './RegionSelector';
@@ -17,16 +17,19 @@ interface JobPostingEditModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: (updatedJob: JobPostingCard) => void;
+  onDelete?: (jobId: string) => void;
 }
 
 export default function JobPostingEditModal({
   job,
   isOpen,
   onClose,
-  onSuccess
+  onSuccess,
+  onDelete
 }: JobPostingEditModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [removeAttachment, setRemoveAttachment] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const {
     register,
@@ -149,6 +152,25 @@ export default function JobPostingEditModal({
       alert(message);
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!confirm('정말로 삭제하시겠어요? 삭제 후 복구할 수 없습니다.')) {
+      return;
+    }
+    setIsDeleting(true);
+    try {
+      await deleteJobPosting(job.id);
+      alert('공고가 삭제되었습니다.');
+      onDelete?.(job.id);
+      onClose();
+    } catch (error) {
+      console.error('삭제 실패:', error);
+      const message = error instanceof Error ? error.message : '삭제에 실패했습니다. 잠시 후 다시 시도해주세요.';
+      alert(message);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -393,22 +415,32 @@ export default function JobPostingEditModal({
                 </label>
               )}
 
-              {/* 취소/수정 버튼 */}
-              <div className="flex items-center justify-end gap-1.5 pt-1">
+              {/* 삭제/취소/수정 버튼 */}
+              <div className="flex items-center justify-between pt-1">
                 <button
                   type="button"
-                  onClick={onClose}
-                  className="px-3 py-1.5 text-[12px] font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors"
+                  onClick={handleDelete}
+                  disabled={isSubmitting || isDeleting}
+                  className="px-3 py-1.5 text-[12px] font-medium text-white bg-red-500 rounded hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  취소
+                  {isDeleting ? '삭제 중...' : '삭제하기'}
                 </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="px-3 py-1.5 text-[12px] font-medium text-white bg-gradient-to-r from-[#7aa3cc] to-[#68B2FF] rounded hover:from-[#6a93bc] hover:to-[#58A2EF] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isSubmitting ? '수정 중...' : '수정하기'}
-                </button>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="px-3 py-1.5 text-[12px] font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors"
+                  >
+                    취소
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="px-3 py-1.5 text-[12px] font-medium text-white bg-gradient-to-r from-[#7aa3cc] to-[#68B2FF] rounded hover:from-[#6a93bc] hover:to-[#58A2EF] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isSubmitting ? '수정 중...' : '수정하기'}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
