@@ -1,3 +1,4 @@
+
 // BoardSubmissionForm - 게시판 등록 제출 폼
 import { useState } from 'react';
 import { X, ExternalLink } from 'lucide-react';
