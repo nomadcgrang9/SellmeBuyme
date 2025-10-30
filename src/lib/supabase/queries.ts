@@ -1,5 +1,9 @@
 import { supabase } from './client';
-import { uploadJobAttachment, getJobAttachmentPublicUrl, deleteJobAttachment } from './storage';
+import {
+  uploadJobAttachment,
+  getJobAttachmentPublicUrl,
+  deleteJobAttachment
+} from './storage';
 import type { User } from '@supabase/supabase-js';
 import {
   DEFAULT_CATEGORY,
@@ -39,6 +43,65 @@ type JobPostingLocation = {
   seoul?: string[];
   gyeonggi?: string[];
 };
+
+const downloadAttachmentFunctionUrl = (() => {
+  const baseUrl = import.meta.env.VITE_SUPABASE_URL?.replace(/\/$/, '');
+  return baseUrl ? `${baseUrl}/functions/v1/download-attachment` : null;
+})();
+
+function isSupabaseStorageUrl(url: string) {
+  try {
+    const parsed = new URL(url);
+    return parsed.pathname.includes('/storage/v1/object/');
+  } catch (error) {
+    return false;
+  }
+}
+
+function sanitizeFilenameComponent(value: string) {
+  return value
+    .replace(/[\\/:*?"<>|]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function buildAttachmentFilename(organization: string, originalFilename?: string) {
+  const sanitizedOrg = sanitizeFilenameComponent(organization || '');
+  const baseName = sanitizedOrg.length > 0 ? sanitizedOrg : '공고';
+  const extension = (originalFilename?.split('.').pop() || 'hwp').toLowerCase();
+  return `${baseName} 공고문.${extension}`;
+}
+
+function buildAttachmentDownloadUrl(originalUrl: string | null, filename?: string) {
+  if (!originalUrl) return null;
+
+  if (isSupabaseStorageUrl(originalUrl)) {
+    try {
+      const url = new URL(originalUrl);
+      if (filename?.trim()) {
+        url.searchParams.set('download', filename.trim());
+      } else {
+        url.searchParams.set('download', '');
+      }
+      return url.toString();
+    } catch (error) {
+      // URL 파싱 실패 시 그대로 반환
+      return originalUrl;
+    }
+  }
+
+  if (downloadAttachmentFunctionUrl) {
+    const params = new URLSearchParams({ url: originalUrl });
+    if (filename?.trim()) {
+      params.set('filename', filename.trim());
+    }
+    return `${downloadAttachmentFunctionUrl}?${params.toString()}`;
+  }
+
+  if (!filename) return originalUrl;
+  const separator = originalUrl.includes('#') ? '&' : '#';
+  return `${originalUrl}${separator}filename=${encodeURIComponent(filename)}`;
+}
 
 export interface CreateJobPostingInput {
   organization: string;
@@ -212,7 +275,11 @@ export async function updateJobPosting(input: UpdateJobPostingInput) {
     try {
       attachmentPath = await uploadJobAttachment(input.attachmentFile, user.id);
       // 공개 URL 생성 (만료 없음)
-      attachmentUrl = getJobAttachmentPublicUrl(attachmentPath);
+      const publicUrl = getJobAttachmentPublicUrl(attachmentPath);
+      attachmentUrl = buildAttachmentDownloadUrl(
+        publicUrl,
+        buildAttachmentFilename(input.organization, input.attachmentFile.name)
+      );
     } catch (uploadError) {
       console.error('첨부파일 업로드 실패:', uploadError);
       const message = uploadError instanceof Error ? uploadError.message : '첨부파일 업로드에 실패했습니다.';
@@ -222,7 +289,11 @@ export async function updateJobPosting(input: UpdateJobPostingInput) {
     }
   } else if (!input.removeAttachment && attachmentPath) {
     // 기존 파일이 있으면 공개 URL 생성
-    attachmentUrl = getJobAttachmentPublicUrl(attachmentPath);
+    const publicUrl = getJobAttachmentPublicUrl(attachmentPath);
+    attachmentUrl = buildAttachmentDownloadUrl(
+      publicUrl,
+      buildAttachmentFilename(input.organization, attachmentPath.split('/').pop())
+    );
   }
 
   // 폼 데이터 저장용 payload 생성
@@ -310,7 +381,11 @@ export async function createJobPosting(input: CreateJobPostingInput) {
     try {
       attachmentPath = await uploadJobAttachment(input.attachmentFile, user.id);
       // 공개 URL 생성 (만료 없음)
-      attachmentUrl = getJobAttachmentPublicUrl(attachmentPath);
+      const publicUrl = getJobAttachmentPublicUrl(attachmentPath);
+      attachmentUrl = buildAttachmentDownloadUrl(
+        publicUrl,
+        buildAttachmentFilename(input.organization, input.attachmentFile.name)
+      );
     } catch (uploadError) {
       console.error('첨부파일 업로드 실패:', uploadError);
       // 첨부파일 업로드 실패는 공고 등록을 막지 않음 (경고만 표시)

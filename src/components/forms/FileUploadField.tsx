@@ -13,7 +13,7 @@ export default function FileUploadField({
   value,
   onChange,
   error,
-  accept = '.pdf,.doc,.docx,.hwp',
+  accept = '.pdf,.doc,.docx,.hwp,.hwpx',
   maxSizeMB = 10,
 }: FileUploadFieldProps) {
   const [dragOver, setDragOver] = useState(false);

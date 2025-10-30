@@ -139,10 +139,10 @@ export default function BoardApprovalModal({
       {/* Modal */}
       <div className="relative w-full max-w-2xl bg-white rounded-lg shadow-xl max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="sticky top-0 px-6 py-4 border-b flex items-center justify-between bg-green-50 border-green-200">
+        <div className="sticky top-0 px-6 py-4 border-b flex items-center justify-between bg-blue-50 border-blue-200">
           <div className="flex items-center gap-3">
-            <Check className="w-6 h-6 text-green-600" />
-            <h2 className="text-xl font-semibold text-slate-900">게시판 승인</h2>
+            <Check className="w-6 h-6 text-blue-600" />
+            <h2 className="text-xl font-semibold text-slate-900">AI 크롤러 생성</h2>
           </div>
           <button
             onClick={onCancel}
@@ -204,12 +204,14 @@ export default function BoardApprovalModal({
           </div>
 
           {/* Confirmation Message */}
-          <div className="p-4 rounded-lg bg-green-50 border border-green-200">
-            <p className="text-sm font-medium text-green-800">
-              ✅ 이 게시판을 승인하시겠습니까?
+          <div className="p-4 rounded-lg bg-blue-50 border border-blue-200">
+            <p className="text-sm font-medium text-blue-800">
+              🤖 AI를 사용하여 이 게시판의 크롤러를 자동 생성하시겠습니까?
               <br />
               <span className="text-xs">
-                승인 시 자동으로 크롤링 게시판 목록에 등록되며 크롤링이 시작됩니다.
+                Gemini 2.5 Pro가 게시판 구조를 분석하고 크롤러 코드를 생성합니다. (약 1-2분 소요)
+                <br />
+                생성 후 자동으로 크롤링 게시판 목록에 등록됩니다.
               </span>
             </p>
           </div>
@@ -235,9 +237,9 @@ export default function BoardApprovalModal({
               type="button"
               onClick={handleApprove}
               disabled={isSubmitting}
-              className="flex-1 px-4 py-3 rounded-lg text-sm font-medium text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed bg-green-600 hover:bg-green-700"
+              className="flex-1 px-4 py-3 rounded-lg text-sm font-medium text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed bg-blue-600 hover:bg-blue-700"
             >
-              {isSubmitting ? '승인 처리 중...' : '승인하기'}
+              {isSubmitting ? 'AI 크롤러 생성 중...' : 'AI 크롤러 생성'}
             </button>
           </div>
         </div>

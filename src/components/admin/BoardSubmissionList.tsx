@@ -172,14 +172,16 @@ export default function BoardSubmissionList({
                 <div className="flex gap-2">
                   <button
                     onClick={() => {
-                      console.log('[BoardSubmissionList] Approval clicked for submission:', submission);
+                      console.log('[BoardSubmissionList] AI Crawler Generation clicked for submission:', submission);
                       console.log('[BoardSubmissionList] Submission ID:', submission.id);
+                      console.log('[BoardSubmissionList] Board URL:', submission.boardUrl);
+                      console.log('[BoardSubmissionList] Board Name:', submission.boardName);
                       onApprove(submission.id);
                     }}
-                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors"
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
                   >
                     <Check className="w-4 h-4" />
-                    승인
+                    AI 크롤러 생성
                   </button>
                   {onReject && (
                     <button
