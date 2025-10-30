@@ -1,0 +1,41 @@
+name: Deploy Supabase Edge Function
+on:
+workflow_dispatch:
+inputs:
+function_name:
+description: 'Edge Function name to deploy'
+required: true
+default: 'generate-crawler'
+type: choice
+options:
+- generate-crawler
+- admin-crawl-run
+jobs:
+deploy:
+runs-on: ubuntu-latest
+permissions:
+contents: read
+steps:
+- name: Checkout repo
+uses: actions/checkout@v4
+- name: Setup Supabase CLI
+uses: supabase/setup-cli@v1
+- name: Link project
+env:
+SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+run: supabase link --project-ref "$SUPABASE_PROJECT_REF"
+- name: Set function secrets (idempotent)
+env:
+SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+run: |
+supabase secrets set
+SUPABASE_URL="$SUPABASE_URL"
+SUPABASE_SERVICE_ROLE_KEY="$SUPABASE_SERVICE_ROLE_KEY"
+GITHUB_TOKEN="$GITHUB_TOKEN"
+- name: Deploy function
+env:
+FN: ${{ github.event.inputs.function_name }}
+run: supabase functions deploy "$FN"
