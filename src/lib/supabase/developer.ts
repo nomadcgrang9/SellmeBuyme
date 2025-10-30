@@ -500,7 +500,7 @@ export async function approveBoardSubmissionAndCreateCrawlBoard(
     regionCode: submission.regionCode,
     subregionCode: submission.subregionCode,
     regionDisplayName: regionDisplayName,
-    schoolLevel: submission.schoolLevel,
+    schoolLevel: (submission.schoolLevel as 'elementary' | 'middle' | 'high' | 'mixed') || 'mixed',
   };
 
   const crawlBoard = await createCrawlBoard(crawlBoardInput);

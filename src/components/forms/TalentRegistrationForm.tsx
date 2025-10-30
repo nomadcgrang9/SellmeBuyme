@@ -11,9 +11,12 @@ import { useState } from 'react';
 interface TalentRegistrationFormProps {
   onClose: () => void;
   onSubmit?: (data: TalentRegistrationFormData) => Promise<void>;
+  mode?: 'create' | 'edit';
+  initialData?: Partial<TalentRegistrationFormData> | null;
+  onDelete?: () => Promise<void> | void;
 }
 
-export default function TalentRegistrationForm({ onClose, onSubmit }: TalentRegistrationFormProps) {
+export default function TalentRegistrationForm({ onClose, onSubmit, mode = 'create', initialData, onDelete }: TalentRegistrationFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const {
@@ -25,33 +28,35 @@ export default function TalentRegistrationForm({ onClose, onSubmit }: TalentRegi
   } = useForm<TalentRegistrationFormData>({
     resolver: zodResolver(talentRegistrationSchema),
     defaultValues: {
-      name: '',
+      name: initialData?.name ?? '',
       specialty: {
         contractTeacher: {
-          enabled: false,
-          kindergarten: false,
-          elementary: false,
-          secondary: false,
-          secondarySubjects: '',
-          special: false,
+          enabled: initialData?.specialty?.contractTeacher?.enabled ?? false,
+          kindergarten: initialData?.specialty?.contractTeacher?.kindergarten ?? false,
+          elementary: initialData?.specialty?.contractTeacher?.elementary ?? false,
+          secondary: initialData?.specialty?.contractTeacher?.secondary ?? false,
+          secondarySubjects: initialData?.specialty?.contractTeacher?.secondarySubjects ?? '',
+          special: initialData?.specialty?.contractTeacher?.special ?? false,
         },
-        careerEducation: false,
-        counseling: false,
-        afterSchool: false,
-        neulbom: false,
-        cooperativeInstructor: false,
-        adultTraining: false,
-        other: ''
+        careerEducation: initialData?.specialty?.careerEducation ?? false,
+        counseling: initialData?.specialty?.counseling ?? false,
+        afterSchool: initialData?.specialty?.afterSchool ?? false,
+        neulbom: initialData?.specialty?.neulbom ?? false,
+        cooperativeInstructor: initialData?.specialty?.cooperativeInstructor ?? false,
+        adultTraining: initialData?.specialty?.adultTraining ?? false,
+        other: initialData?.specialty?.other ?? ''
       },
-      experience: undefined,
+      experience: initialData?.experience,
       location: {
-        seoul: [],
-        gyeonggi: []
+        seoulAll: initialData?.location && 'seoulAll' in initialData.location ? (initialData.location as any).seoulAll : false,
+        gyeonggiAll: initialData?.location && 'gyeonggiAll' in initialData.location ? (initialData.location as any).gyeonggiAll : false,
+        seoul: initialData?.location?.seoul ?? [],
+        gyeonggi: initialData?.location?.gyeonggi ?? []
       },
-      license: '',
-      introduction: '',
-      phone: '',
-      email: ''
+      license: initialData?.license ?? '',
+      introduction: initialData?.introduction ?? '',
+      phone: initialData?.phone ?? '',
+      email: initialData?.email ?? ''
     }
   });
 
@@ -79,7 +84,7 @@ export default function TalentRegistrationForm({ onClose, onSubmit }: TalentRegi
 
   return (
     <FormLayout
-      title="인력 등록"
+      title={mode === 'edit' ? '인력 수정' : '인력 등록'}
       onClose={onClose}
       onSubmit={handleSubmit(handleFormSubmit)}
       isSubmitting={isSubmitting}
@@ -142,6 +147,7 @@ export default function TalentRegistrationForm({ onClose, onSubmit }: TalentRegi
           <RegionSelector
             value={location}
             onChange={(newLocation) => setValue('location', newLocation)}
+            enableProvinceAll
             error={errors.location?.message as string}
           />
 
@@ -206,21 +212,32 @@ export default function TalentRegistrationForm({ onClose, onSubmit }: TalentRegi
           </div>
 
           {/* 취소/등록 버튼 */}
-          <div className="flex items-center justify-end gap-1.5 pt-1">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-3 py-1.5 text-[14px] font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors"
-            >
-              취소
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="px-3 py-1.5 text-[14px] font-medium text-white bg-gradient-to-r from-[#7db8a3] to-[#6fb59b] rounded hover:from-[#6da893] hover:to-[#5fa58b] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isSubmitting ? '등록 중...' : '등록하기'}
-            </button>
+          <div className="flex items-center justify-between gap-1.5 pt-1">
+            {mode === 'edit' && onDelete && (
+              <button
+                type="button"
+                onClick={() => onDelete()}
+                className="px-3 py-1.5 text-[14px] font-medium text-white bg-red-500 rounded hover:bg-red-600 transition-colors"
+              >
+                삭제하기
+              </button>
+            )}
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-3 py-1.5 text-[14px] font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors"
+              >
+                취소
+              </button>
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="px-3 py-1.5 text-[14px] font-medium text-white bg-gradient-to-r from-[#7db8a3] to-[#6fb59b] rounded hover:from-[#6da893] hover:to-[#5fa58b] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isSubmitting ? (mode === 'edit' ? '수정 중...' : '등록 중...') : (mode === 'edit' ? '수정하기' : '등록하기')}
+              </button>
+            </div>
           </div>
         </div>
       </div>
