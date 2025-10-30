@@ -24,7 +24,15 @@
       "Bash(npm run dev:*)",
       "Bash(npm run preview:*)",
       "Bash(git pull:*)",
-      "Bash(git stash:*)"
+      "Bash(git stash:*)",
+      "Bash(node test-phase5-1.js:*)",
+      "Bash(npx playwright install chromium)",
+      "Bash(test:*)",
+      "Bash(npx tsx:*)",
+      "Read(//c/PRODUCT/**)",
+      "Bash(timeout 10 curl:*)",
+      "Bash(node test-namyangju.js:*)",
+      "Bash(timeout 5 bash:*)"
     ],
     "deny": [],
     "ask": []
