@@ -28,6 +28,7 @@ import type {
   UpdateCrawlBoardInput,
   ViewType
 } from '@/types';
+import type { TalentRegistrationFormData } from '@/lib/validation/formSchemas';
 
 type JobPostingSchoolLevel = {
   kindergarten: boolean;
@@ -404,6 +405,235 @@ export async function deleteJobPosting(jobId: string): Promise<{ id: string }>
   }
 
   return { id: jobId };
+}
+
+// ============================================================================
+// Talent (인력) 등록
+// ============================================================================
+
+function summarizeTalentSpecialty(input: TalentRegistrationFormData['specialty']): {
+  summary: string;
+  tags: string[];
+} {
+  const tags: string[] = [];
+
+  if (input.contractTeacher.enabled) {
+    const levels: string[] = [];
+    if (input.contractTeacher.kindergarten) levels.push('유치원');
+    if (input.contractTeacher.elementary) levels.push('초등');
+    if (input.contractTeacher.secondary) levels.push('중등');
+    if (input.contractTeacher.special) levels.push('특수');
+    const subjectText = input.contractTeacher.secondary && input.contractTeacher.secondarySubjects
+      ? `(${input.contractTeacher.secondarySubjects})`
+      : '';
+    if (levels.length > 0) {
+      tags.push('기간제교사');
+    }
+    tags.push(...levels.map((l) => `기간제-${l}`));
+    if (subjectText) tags.push('중등-과목');
+  }
+
+  if (input.careerEducation) tags.push('진로교육');
+  if (input.counseling) tags.push('상담교육');
+  if (input.afterSchool) tags.push('방과후강사');
+  if (input.neulbom) tags.push('늘봄강사');
+  if (input.cooperativeInstructor) tags.push('협력강사');
+  if (input.adultTraining) tags.push('성인직무연수');
+  if (input.other) tags.push('기타');
+
+  const titleParts: string[] = [];
+  if (input.contractTeacher.enabled) {
+    const lv: string[] = [];
+    if (input.contractTeacher.kindergarten) lv.push('유치원');
+    if (input.contractTeacher.elementary) lv.push('초등');
+    if (input.contractTeacher.secondary) lv.push('중등');
+    if (input.contractTeacher.special) lv.push('특수');
+    const base = `기간제교사${lv.length ? `(${lv.join('/')}` : ''}`;
+    const withParen = input.contractTeacher.secondary && input.contractTeacher.secondarySubjects
+      ? `${base}${lv.length ? ')' : ''} ${input.contractTeacher.secondarySubjects}`
+      : `${base}${lv.length ? ')' : ''}`;
+    titleParts.push(withParen);
+  }
+  [
+    input.careerEducation && '진로교육',
+    input.counseling && '상담교육',
+    input.afterSchool && '방과후강사',
+    input.neulbom && '늘봄',
+    input.cooperativeInstructor && '협력강사',
+    input.adultTraining && '교직원연수'
+  ].filter(Boolean).forEach((t) => titleParts.push(String(t)));
+
+  if (input.other && input.other.trim().length > 0) titleParts.push('기타');
+
+  const summary = titleParts.length > 0 ? titleParts.join(', ') : '인력';
+  return { summary, tags };
+}
+
+function mapExperienceToYears(exp: TalentRegistrationFormData['experience']): number {
+  switch (exp) {
+    case '신규':
+      return 0;
+    case '1~3년':
+      return 2;
+    case '3~5년':
+      return 4;
+    case '5년 이상':
+      return 6;
+    default:
+      return 0;
+  }
+}
+
+export async function createTalent(data: TalentRegistrationFormData): Promise<TalentCard> {
+  const { data: userRes, error: userErr } = await supabase.auth.getUser();
+  if (userErr) throw new Error('사용자 정보를 확인할 수 없습니다. 다시 로그인해 주세요.');
+  const user = userRes.user;
+  if (!user) throw new Error('로그인이 필요합니다.');
+
+  const { summary, tags } = summarizeTalentSpecialty(data.specialty);
+  const experienceYears = mapExperienceToYears(data.experience);
+
+  // location: 선택 지역을 텍스트 배열로 저장 (서울/경기 전체 포함)
+  const allSeoul = ['강남구','강동구','강북구','강서구','관악구','광진구','구로구','금천구','노원구','도봉구','동대문구','동작구','마포구','서대문구','서초구','성동구','성북구','송파구','양천구','영등포구','용산구','은평구','종로구','중구','중랑구'];
+  const allGyeonggi = ['가평군','고양시','과천시','광명시','광주시','구리시','군포시','김포시','남양주시','동두천시','부천시','성남시','수원시','시흥시','안산시','안성시','안양시','양주시','양평군','여주시','연천군','오산시','용인시','의왕시','의정부시','이천시','파주시','평택시','포천시','하남시','화성시'];
+  const locations: string[] = [];
+  if (data.location?.seoulAll) {
+    locations.push(...allSeoul.map((s) => `서울-${s}`));
+  } else if (Array.isArray(data.location?.seoul)) {
+    locations.push(...data.location.seoul.map((s) => `서울-${s}`));
+  }
+  if (data.location?.gyeonggiAll) {
+    locations.push(...allGyeonggi.map((s) => `경기-${s}`));
+  } else if (Array.isArray(data.location?.gyeonggi)) {
+    locations.push(...data.location.gyeonggi.map((s) => `경기-${s}`));
+  }
+
+  const insertPayload: any = {
+    user_id: user.id,
+    name: data.name,
+    specialty: summary,
+    tags,
+    location: locations,
+    experience_years: experienceYears,
+    phone: data.phone ?? null,
+    email: data.email ?? null,
+    license: data.license ?? null,
+    introduction: data.introduction ?? null,
+    form_payload: data,
+    // 참고: license / phone / email / introduction 은 추후 컬럼 확장 시 저장
+  };
+
+  const { data: inserted, error } = await supabase
+    .from('talents')
+    .insert(insertPayload)
+    .select('*')
+    .single();
+
+  if (error || !inserted) {
+    console.error('인력 등록 실패:', error);
+    throw new Error(error?.message || '인력 등록에 실패했습니다. 잠시 후 다시 시도해주세요.');
+  }
+
+  return mapTalentToCard(inserted);
+}
+
+export interface UpdateTalentInput extends TalentRegistrationFormData {
+  id: string;
+}
+
+export async function updateTalent(input: UpdateTalentInput): Promise<TalentCard> {
+  const { data: userRes, error: userErr } = await supabase.auth.getUser();
+  if (userErr) throw new Error('사용자 정보를 확인할 수 없습니다. 다시 로그인해 주세요.');
+  const user = userRes.user;
+  if (!user) throw new Error('로그인이 필요합니다.');
+
+  // 소유권 확인
+  const { data: existing, error: fetchErr } = await supabase
+    .from('talents')
+    .select('id, user_id')
+    .eq('id', input.id)
+    .single();
+  if (fetchErr || !existing) throw new Error('인력 정보를 찾을 수 없습니다.');
+  if (existing.user_id !== user.id) throw new Error('해당 인력을 수정할 권한이 없습니다.');
+
+  const { summary, tags } = summarizeTalentSpecialty(input.specialty);
+  const experienceYears = mapExperienceToYears(input.experience);
+
+  const allSeoul = ['강남구','강동구','강북구','강서구','관악구','광진구','구로구','금천구','노원구','도봉구','동대문구','동작구','마포구','서대문구','서초구','성동구','성북구','송파구','양천구','영등포구','용산구','은평구','종로구','중구','중랑구'];
+  const allGyeonggi = ['가평군','고양시','과천시','광명시','광주시','구리시','군포시','김포시','남양주시','동두천시','부천시','성남시','수원시','시흥시','안산시','안성시','안양시','양주시','양평군','여주시','연천군','오산시','용인시','의왕시','의정부시','이천시','파주시','평택시','포천시','하남시','화성시'];
+  const locations: string[] = [];
+  if (input.location?.seoulAll) {
+    locations.push(...allSeoul.map((s) => `서울-${s}`));
+  } else if (Array.isArray(input.location?.seoul)) {
+    locations.push(...input.location.seoul.map((s) => `서울-${s}`));
+  }
+  if (input.location?.gyeonggiAll) {
+    locations.push(...allGyeonggi.map((s) => `경기-${s}`));
+  } else if (Array.isArray(input.location?.gyeonggi)) {
+    locations.push(...input.location.gyeonggi.map((s) => `경기-${s}`));
+  }
+
+  const payload: any = {
+    name: input.name,
+    specialty: summary,
+    tags,
+    location: locations,
+    experience_years: experienceYears,
+    phone: input.phone ?? null,
+    email: input.email ?? null,
+    license: input.license ?? null,
+    introduction: input.introduction ?? null,
+    form_payload: input,
+    updated_at: new Date().toISOString(),
+  };
+
+  const { data: updated, error } = await supabase
+    .from('talents')
+    .update(payload)
+    .eq('id', input.id)
+    .select('*')
+    .single();
+
+  if (error || !updated) {
+    console.error('인력 수정 실패:', error);
+    throw new Error(error?.message || '인력 수정에 실패했습니다. 잠시 후 다시 시도해주세요.');
+  }
+  return mapTalentToCard(updated);
+}
+
+export async function deleteTalent(id: string): Promise<{ id: string }> {
+  const { data: userRes, error: userErr } = await supabase.auth.getUser();
+  if (userErr) throw new Error('사용자 정보를 확인할 수 없습니다. 다시 로그인해 주세요.');
+  const user = userRes.user;
+  if (!user) throw new Error('로그인이 필요합니다.');
+
+  const { data: existing, error: fetchErr } = await supabase
+    .from('talents')
+    .select('id, user_id')
+    .eq('id', id)
+    .single();
+  if (fetchErr || !existing) throw new Error('인력 정보를 찾을 수 없습니다.');
+  if (existing.user_id !== user.id) throw new Error('해당 인력을 삭제할 권한이 없습니다.');
+
+  const { error: delErr } = await supabase.from('talents').delete().eq('id', id);
+  if (delErr) {
+    console.error('인력 삭제 실패:', delErr);
+    throw new Error(delErr.message || '인력 삭제에 실패했습니다.');
+  }
+  return { id };
+}
+
+export async function fetchTalentById(id: string): Promise<any | null> {
+  const { data, error } = await supabase
+    .from('talents')
+    .select('*')
+    .eq('id', id)
+    .single();
+  if (error) {
+    console.error('인력 상세 조회 실패:', error);
+    return null;
+  }
+  return data;
 }
 
 export async function createJobPosting(input: CreateJobPostingInput) {
@@ -2403,9 +2633,12 @@ async function executeJobSearch({
     }
   }
 
+  // 지역 필터 (검색어가 지역명이면 location 필드에서 정확하게 매칭)
+  // "남양주" → "남양주", "남양주시" 모두 매칭되도록
   if (hasFilterValue(filters.region, DEFAULT_REGION)) {
-    const regionPattern = buildIlikePattern(filters.region + '시');
-    query = query.ilike('location', regionPattern);
+    const regionPattern = buildIlikePattern(filters.region);
+    // OR 조건으로 지역명과 지역명+시 모두 포함
+    query = query.or(`location.ilike.${regionPattern},location.ilike.%${filters.region}시%`);
   }
 
   if (hasFilterValue(filters.category, DEFAULT_CATEGORY)) {
@@ -2740,11 +2973,16 @@ function mapTalentToCard(talent: any): TalentCard {
     id: talent.id,
     type: 'talent',
     isVerified: Boolean(talent.is_verified),
+    user_id: talent.user_id ?? null,
     name: talent.name,
     specialty: talent.specialty,
     tags: talent.tags || [],
     location: locationValue,
     experience: `경력 ${experienceYears}년`,
+    phone: talent.phone ?? null,
+    email: talent.email ?? null,
+    license: talent.license ?? null,
+    introduction: talent.introduction ?? null,
     rating,
     reviewCount,
   };

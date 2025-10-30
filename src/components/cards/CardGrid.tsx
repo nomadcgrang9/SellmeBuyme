@@ -6,9 +6,10 @@ interface CardGridProps {
   cards: Card[];
   onCardClick?: (card: Card) => void;
   onJobEditClick?: (card: Card) => void;
+  onTalentEditClick?: (card: Card) => void;
 }
 
-export default function CardGrid({ cards, onCardClick, onJobEditClick }: CardGridProps) {
+export default function CardGrid({ cards, onCardClick, onJobEditClick, onTalentEditClick }: CardGridProps) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
       {cards.map((card, index) => (
@@ -21,7 +22,7 @@ export default function CardGrid({ cards, onCardClick, onJobEditClick }: CardGri
               onEditClick={onJobEditClick}
             />
           ) : (
-            <TalentCard talent={card} />
+            <TalentCard talent={card} onEditClick={onTalentEditClick} />
           )}
         </div>
       ))}

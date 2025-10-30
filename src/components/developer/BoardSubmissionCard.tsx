@@ -77,9 +77,9 @@ export default function BoardSubmissionCard({
       </div>
 
       {/* 관리자 메모 (반려된 경우) */}
-      {submission.status === 'rejected' && submission.adminNotes && (
+      {submission.status === 'rejected' && submission.adminReviewComment && (
         <div className="mt-3 p-2 bg-red-50 border border-red-200 rounded text-xs text-red-700">
-          <strong>반려 사유:</strong> {submission.adminNotes}
+          <strong>반려 사유:</strong> {submission.adminReviewComment}
         </div>
       )}
     </div>

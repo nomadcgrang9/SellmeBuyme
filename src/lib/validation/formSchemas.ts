@@ -123,15 +123,19 @@ export const talentRegistrationSchema = z.object({
   // 경력
   experience: z.enum(['신규', '1~3년', '3~5년', '5년 이상']),
 
-  // 희망 지역
+  // 희망 지역 (서울/경기 전체 선택 허용)
   location: z.object({
+    seoulAll: z.boolean().optional(),
+    gyeonggiAll: z.boolean().optional(),
     seoul: z.array(z.string()).optional(),
     gyeonggi: z.array(z.string()).optional(),
   }).refine(
-    (data: { seoul?: string[]; gyeonggi?: string[] }) =>
+    (data: { seoulAll?: boolean; gyeonggiAll?: boolean; seoul?: string[]; gyeonggi?: string[] }) =>
+      Boolean(data.seoulAll) ||
+      Boolean(data.gyeonggiAll) ||
       (data.seoul && data.seoul.length > 0) ||
       (data.gyeonggi && data.gyeonggi.length > 0),
-    { message: '최소 하나의 희망 지역을 선택해주세요' }
+    { message: '최소 하나의 지역(서울 전체/경기 전체 또는 개별 시·군·구)을 선택해주세요' }
   ),
 
   // 자격/면허

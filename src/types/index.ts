@@ -32,9 +32,20 @@ export interface JobPostingCard {
 export interface JobPostingFormPayload {
   organization: string;
   title: string;
-  schoolLevel: JobPostingSchoolLevel;
+  schoolLevel: {
+    kindergarten: boolean;
+    elementary: boolean;
+    secondary: boolean;
+    high: boolean;
+    special: boolean;
+    adultTraining: boolean;
+    other?: string;
+  };
   subject?: string;
-  location: JobPostingLocation;
+  location: {
+    seoul?: string[];
+    gyeonggi?: string[];
+  };
   compensation?: string;
   recruitmentStart: string;
   recruitmentEnd: string;
@@ -75,11 +86,16 @@ export interface TalentCard {
   id: string;
   type: 'talent';
   isVerified: boolean;
+  user_id?: string | null;
   name: string;
   specialty: string;
   tags: string[];
   location: string;
   experience: string;
+  phone?: string | null;
+  email?: string | null;
+  license?: string | null;
+  introduction?: string | null;
   rating: number;
   reviewCount: number;
 }
