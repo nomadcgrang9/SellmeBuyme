@@ -3,9 +3,127 @@ import react from '@vitejs/plugin-react'
 import path from 'path'
 import { VitePWA } from 'vite-plugin-pwa'
 
+// API 미들웨어
+function apiMiddleware() {
+  return {
+    name: 'api-middleware',
+    configureServer(server: any) {
+      server.middlewares.use('/api/generate-crawler', (req: any, res: any, next: () => void) => {
+        if (!req.url?.startsWith('/api/generate-crawler')) {
+          next()
+          return
+        }
+
+        if (req.method === 'OPTIONS') {
+          res.setHeader('Access-Control-Allow-Origin', '*')
+          res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
+          res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
+          res.writeHead(200)
+          res.end()
+          return
+        }
+
+        if (req.method !== 'POST') {
+          res.writeHead(405, { 'Content-Type': 'application/json' })
+          res.end(JSON.stringify({ error: 'Method not allowed' }))
+          return
+        }
+
+        let body = ''
+        req.on('data', (chunk: any) => {
+          body += chunk.toString()
+        })
+
+        req.on('end', () => {
+          try {
+            const { submissionId, boardName, boardUrl, adminUserId } = JSON.parse(body)
+
+            if (!submissionId || !boardName || !boardUrl || !adminUserId) {
+              res.writeHead(400, { 'Content-Type': 'application/json' })
+              res.end(JSON.stringify({
+                success: false,
+                message: '필수 필드가 누락되었습니다',
+              }))
+              return
+            }
+
+            console.log('[generate-crawler] 요청 수신:', {
+              submissionId,
+              boardName,
+              boardUrl,
+            })
+
+            const crawlerId = boardName
+              .toLowerCase()
+              .replace(/\s+/g, '_')
+              .replace(/[^a-z0-9_]/g, '')
+
+            const crawlerCode = `/**
+ * ${boardName} 크롤러
+ * AI 자동 생성 (Phase 5)
+ * 생성일: ${new Date().toISOString()}
+ */
+
+export async function crawl${boardName.replace(/\s+/g, '').replace(/[^a-zA-Z0-9]/g, '')}(page, config) {
+  console.log(\`📍 \${config.name} 크롤링 시작\`);
+  const jobs = [];
+  try {
+    await page.goto(config.url, { waitUntil: 'domcontentloaded' });
+    const rows = await page.locator('table tbody tr').all();
+    for (let i = 0; i < Math.min(rows.length, 10); i++) {
+      const row = rows[i];
+      try {
+        const titleElement = await row.locator('a').first();
+        const title = await titleElement.textContent();
+        const href = await titleElement.getAttribute('href');
+        if (title && href) {
+          jobs.push({
+            title: title.trim(),
+            url: href.startsWith('http') ? href : new URL(href, config.url).href,
+            organization: config.name,
+            location: '지역 미상',
+            postedDate: new Date().toISOString().split('T')[0],
+            source: 'crawled',
+          });
+        }
+      } catch (e) {}
+    }
+    return jobs;
+  } catch (error) {
+    console.error('크롤링 오류:', error);
+    return jobs;
+  }
+}`
+
+            res.setHeader('Access-Control-Allow-Origin', '*')
+            res.setHeader('Content-Type', 'application/json')
+            res.writeHead(200)
+            res.end(JSON.stringify({
+              success: true,
+              crawlerId,
+              crawlerCode,
+              message: `크롤러 생성 완료: ${boardName}`,
+            }))
+          } catch (error) {
+            console.error('[generate-crawler] 오류:', error)
+            res.setHeader('Content-Type', 'application/json')
+            res.writeHead(500)
+            res.end(JSON.stringify({
+              success: false,
+              message: '크롤러 생성 중 오류 발생',
+              error: error instanceof Error ? error.message : String(error),
+            }))
+          }
+        })
+      })
+    },
+  }
+}
+
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [
+    apiMiddleware(),
     react(),
     VitePWA({
       registerType: 'autoUpdate',

@@ -6,6 +6,7 @@ import { getBoardSubmissions } from '@/lib/supabase/developer';
 import { buildRegionDisplayName } from '@/lib/supabase/regions';
 import { approveBoardSubmissionAndCreateCrawlBoard, rejectBoardSubmission } from '@/lib/supabase/developer';
 import { supabase } from '@/lib/supabase/client';
+import { generateCrawlerViaAPI, createCrawlBoardLocally, approveBoardSubmissionLocally } from '@/lib/api/generateCrawler';
 
 interface BoardApprovalModalProps {
   submissionId: string;
@@ -80,16 +81,45 @@ export default function BoardApprovalModal({
         throw new Error('로그인이 필요합니다');
       }
 
-      console.log('[BoardApprovalModal] Calling approveBoardSubmissionAndCreateCrawlBoard with:', {
-        submission,
+      console.log('[BoardApprovalModal] AI 크롤러 생성 시작:', {
+        submissionId: submission.id,
+        boardName: submission.boardName,
+        boardUrl: submission.boardUrl,
         adminUserId: user.id
       });
 
-      await approveBoardSubmissionAndCreateCrawlBoard(
-        submission,
-        undefined, // reviewComment
-        user.id    // adminUserId
-      );
+      // Phase 5 파이프라인 API 호출 (로컬 백엔드)
+      const result = await generateCrawlerViaAPI({
+        submissionId: submission.id,
+        boardName: submission.boardName,
+        boardUrl: submission.boardUrl,
+        adminUserId: user.id,
+      });
+
+      console.log('[BoardApprovalModal] AI 크롤러 생성 완료:', result);
+
+      if (!result.success) {
+        throw new Error(result.error || result.message || '크롤러 생성 실패');
+      }
+
+      // 크롤 게시판 생성 (로컬 처리)
+      if (result.crawlerCode) {
+        const crawlBoard = await createCrawlBoardLocally(
+          submission.boardName,
+          submission.boardUrl,
+          user.id,
+          result.crawlerCode
+        );
+
+        // 개발자 제출 승인 (로컬 처리)
+        await approveBoardSubmissionLocally(
+          submission.id,
+          crawlBoard.id,
+          user.id
+        );
+
+        console.log('[BoardApprovalModal] 크롤 게시판 등록 완료:', crawlBoard.id);
+      }
 
       onSuccess();
     } catch (err) {
