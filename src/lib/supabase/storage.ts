@@ -10,10 +10,30 @@ const ALLOWED_MIME_TYPES = [
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   'application/vnd.ms-excel',
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/haansofthwp',
+  'application/x-hwp',
+  'application/vnd.hancom.hwp',
+  'application/x-hwpx',
+  'application/octet-stream',
   'text/plain',
   'image/jpeg',
   'image/png',
   'image/gif'
+];
+
+const ALLOWED_EXTENSIONS = [
+  'pdf',
+  'doc',
+  'docx',
+  'xls',
+  'xlsx',
+  'hwp',
+  'hwpx',
+  'txt',
+  'jpeg',
+  'jpg',
+  'png',
+  'gif'
 ];
 
 /**
@@ -28,15 +48,17 @@ export async function uploadJobAttachment(file: File, userId: string): Promise<s
     throw new Error(`파일 크기는 ${MAX_FILE_SIZE / 1024 / 1024}MB 이하여야 합니다.`);
   }
 
-  // MIME 타입 검증
-  if (!ALLOWED_MIME_TYPES.includes(file.type)) {
-    throw new Error('지원하지 않는 파일 형식입니다. (PDF, Word, Excel, 이미지 등)');
+  // MIME 타입 및 확장자 검증 (일부 브라우저는 HWP MIME을 octet-stream으로 전달)
+  const extension = file.name.split('.').pop()?.toLowerCase() || 'bin';
+
+  if (!ALLOWED_MIME_TYPES.includes(file.type) && !ALLOWED_EXTENSIONS.includes(extension)) {
+    throw new Error('지원하지 않는 파일 형식입니다. (PDF, HWP, Word, Excel, 이미지 등)');
   }
 
   // 파일명 생성: user-id/timestamp-uuid.ext
   const timestamp = Date.now();
   const uuid = Math.random().toString(36).substring(2, 15);
-  const ext = file.name.split('.').pop() || 'bin';
+  const ext = extension || 'bin';
   const fileName = `${timestamp}-${uuid}.${ext}`;
   const filePath = `${userId}/${fileName}`;
 
