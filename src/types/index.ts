@@ -32,9 +32,20 @@ export interface JobPostingCard {
 export interface JobPostingFormPayload {
   organization: string;
   title: string;
-  schoolLevel: JobPostingSchoolLevel;
+  schoolLevel: {
+    kindergarten: boolean;
+    elementary: boolean;
+    secondary: boolean;
+    high: boolean;
+    special: boolean;
+    adultTraining: boolean;
+    other?: string;
+  };
   subject?: string;
-  location: JobPostingLocation;
+  location: {
+    seoul?: string[];
+    gyeonggi?: string[];
+  };
   compensation?: string;
   recruitmentStart: string;
   recruitmentEnd: string;
