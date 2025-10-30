@@ -1,7 +1,7 @@
-import { readFileSync } from 'fs';
+import { readFileSync, writeFileSync, unlinkSync } from 'fs';
 import { createBrowser } from './lib/playwright.js';
 import { normalizeJobData, validateJobData, analyzePageScreenshot, structureDetailContent, inferMissingJobAttributes } from './lib/gemini.js';
-import { getOrCreateCrawlSource, saveJobPosting, updateCrawlSuccess, incrementErrorCount, getExistingJobBySource } from './lib/supabase.js';
+import { getOrCreateCrawlSource, saveJobPosting, updateCrawlSuccess, incrementErrorCount, getExistingJobBySource, supabase } from './lib/supabase.js';
 import { crawlSeongnam } from './sources/seongnam.js';
 import { crawlGyeonggi } from './sources/gyeonggi.js';
 import { crawlUijeongbu } from './sources/uijeongbu.js';
@@ -168,9 +168,127 @@ async function main() {
   // AI 생성 크롤러인 경우 board_id 환경변수에서 크롤러 코드 로드
   if (targetSource === 'ai-generated' && boardId) {
     logStep('main', 'AI 생성 크롤러 실행', { boardId });
-    // 이 부분은 나중에 구현 (현재는 스킵)
-    logWarn('main', 'AI 생성 크롤러 실행은 아직 구현 중입니다', { boardId });
-    process.exit(0);
+    
+    try {
+      // 1. Supabase에서 crawler_source_code 로드
+      logStep('ai-crawler', 'DB에서 크롤러 코드 로드 중...', { boardId });
+      const { data: board, error: boardError } = await supabase
+        .from('crawl_boards')
+        .select('id, name, board_url, crawler_source_code, crawl_batch_size')
+        .eq('id', boardId)
+        .single();
+      
+      if (boardError || !board) {
+        logError('ai-crawler', 'crawl_boards 조회 실패', boardError, { boardId });
+        process.exit(1);
+      }
+      
+      if (!board.crawler_source_code) {
+        logError('ai-crawler', 'crawler_source_code가 null입니다', null, { boardId, boardName: board.name });
+        process.exit(1);
+      }
+      
+      logStep('ai-crawler', '크롤러 코드 로드 완료', { 
+        boardName: board.name, 
+        codeLength: board.crawler_source_code.length 
+      });
+      
+      // 2. 임시 파일로 저장
+      const tempFileName = `temp_crawler_${boardId}.mjs`;
+      const tempFilePath = new URL(tempFileName, import.meta.url).pathname;
+      writeFileSync(tempFilePath, board.crawler_source_code, 'utf-8');
+      logStep('ai-crawler', '임시 파일 생성', { tempFilePath });
+      
+      // 3. 동적 import로 크롤러 함수 로드
+      const crawlerModule = await import(tempFilePath + `?t=${Date.now()}`);
+      const crawlerFunc = Object.values(crawlerModule)[0]; // export된 첫 함수
+      
+      if (typeof crawlerFunc !== 'function') {
+        logError('ai-crawler', '크롤러 함수를 찾을 수 없습니다', null, { tempFilePath });
+        try { unlinkSync(tempFilePath); } catch (e) {}
+        process.exit(1);
+      }
+      
+      logStep('ai-crawler', '크롤러 함수 로드 완료');
+      
+      // 4. 브라우저 시작
+      resetTokenUsage();
+      logStep('browser', 'Playwright 브라우저 생성 시작');
+      const browser = await createBrowser();
+      const page = await browser.newPage();
+      await page.setExtraHTTPHeaders({
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+      });
+      logStep('browser', '새 페이지 생성 완료');
+      
+      // 5. 크롤러 실행
+      logStep('ai-crawler', '크롤링 시작', { boardName: board.name, url: board.board_url });
+      const jobs = await crawlerFunc(page, {
+        name: board.name,
+        url: board.board_url,
+        crawlBatchSize: board.crawl_batch_size || 10,
+      });
+      
+      logStep('ai-crawler', '크롤링 완료', { jobCount: jobs.length });
+      
+      // 6. crawl_sources 정보 가져오기 (또는 생성)
+      const crawlSourceInfo = await getOrCreateCrawlSource(board.name, board.board_url);
+      const crawlSourceId = crawlSourceInfo.id;
+      
+      // 7. DB에 저장
+      let successCount = 0;
+      let skippedCount = 0;
+      
+      for (const job of jobs) {
+        try {
+          // 중복 체크
+          const existing = await getExistingJobBySource(job.url);
+          if (existing) {
+            logDebug('ai-crawler', '중복 공고 스킵', { url: job.url });
+            skippedCount++;
+            continue;
+          }
+          
+          // 저장
+          const saved = await saveJobPosting({
+            title: job.title,
+            organization: job.organization,
+            location: job.location || '지역 미상',
+            detail_content: job.detailContent || '',
+            source_url: job.url,
+            posted_date: job.postedDate,
+            attachment_url: job.attachmentUrl || null,
+          }, crawlSourceId);
+          
+          if (saved) {
+            successCount++;
+            logInfo('ai-crawler', '공고 저장 완료', { title: job.title });
+          }
+        } catch (saveError) {
+          logError('ai-crawler', '공고 저장 실패', saveError, { title: job.title });
+        }
+      }
+      
+      // 8. 크롤링 성공 업데이트
+      await updateCrawlSuccess(crawlSourceId);
+      
+      // 9. 정리
+      await browser.close();
+      try { unlinkSync(tempFilePath); } catch (e) {}
+      
+      const tokenUsage = getTokenUsage();
+      logStep('ai-crawler', 'AI 크롤러 실행 완료', {
+        total: jobs.length,
+        success: successCount,
+        skipped: skippedCount,
+        tokens: tokenUsage
+      });
+      
+      process.exit(0);
+    } catch (error) {
+      logError('ai-crawler', 'AI 크롤러 실행 중 오류', error);
+      process.exit(1);
+    }
   }
   
   let browser;
