@@ -352,6 +352,60 @@ export async function updateJobPosting(input: UpdateJobPostingInput) {
   return data;
 }
 
+/**
+ * 사용자가 업로드한 공고 삭제
+ * - 소유권 확인 후 첨부파일이 있으면 Storage에서 함께 제거
+ */
+export async function deleteJobPosting(jobId: string): Promise<{ id: string }>
+{
+  const {
+    data: { user },
+    error: userError
+  } = await supabase.auth.getUser();
+
+  if (userError) {
+    throw new Error('사용자 정보를 확인할 수 없습니다. 다시 로그인해 주세요.');
+  }
+  if (!user) {
+    throw new Error('로그인이 필요합니다. 다시 로그인해 주세요.');
+  }
+
+  // 소유자 확인 및 첨부 경로 조회
+  const { data: jobRow, error: fetchError } = await supabase
+    .from('job_postings')
+    .select('id, user_id, attachment_path')
+    .eq('id', jobId)
+    .single();
+
+  if (fetchError || !jobRow) {
+    throw new Error('공고를 찾을 수 없습니다.');
+  }
+  if (jobRow.user_id !== user.id) {
+    throw new Error('해당 공고를 삭제할 권한이 없습니다.');
+  }
+
+  // 첨부파일 제거 (에러는 로그만 남기고 계속 진행)
+  if (jobRow.attachment_path) {
+    try {
+      await deleteJobAttachment(jobRow.attachment_path);
+    } catch (e) {
+      console.error('첨부파일 삭제 실패:', e);
+    }
+  }
+
+  const { error: deleteError } = await supabase
+    .from('job_postings')
+    .delete()
+    .eq('id', jobId);
+
+  if (deleteError) {
+    console.error('공고 삭제 실패:', deleteError);
+    throw new Error(deleteError.message || '공고 삭제에 실패했습니다. 잠시 후 다시 시도해주세요.');
+  }
+
+  return { id: jobId };
+}
+
 export async function createJobPosting(input: CreateJobPostingInput) {
   const {
     data: { user },
@@ -2642,7 +2696,28 @@ export function mapJobPostingToCard(job: any): JobPostingCard {
     work_time: job.work_time || undefined,
     contact: combinedContact,
     detail_content: job.detail_content,
-    attachment_url: job.attachment_url,
+    attachment_url: (() => {
+      if (!job.attachment_url) {
+        return null;
+      }
+      const filename = buildAttachmentFilename(job.organization, job.attachment_url);
+      if (job.source === 'user_posted') {
+        return job.attachment_url;
+      }
+      if (downloadAttachmentFunctionUrl) {
+        const params = new URLSearchParams();
+        if (job.attachment_path) {
+          params.set('path', job.attachment_path);
+        } else {
+          params.set('url', job.attachment_url);
+        }
+        if (filename?.trim()) {
+          params.set('filename', filename.trim());
+        }
+        return `${downloadAttachmentFunctionUrl}?${params.toString()}`;
+      }
+      return job.attachment_url;
+    })(),
     attachment_path: job.attachment_path ?? null,
     source_url: job.source_url,
     qualifications: job.qualifications || structured?.qualifications || [],

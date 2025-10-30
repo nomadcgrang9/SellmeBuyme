@@ -1,0 +1,23 @@
+Phase 5 AI Crawler Generation - Workflow and Script Support
+
+Changes:
+1. GitHub Actions Workflow (.github/workflows/run-crawler.yml)
+   - Updated resolve_manual_source to support AI-generated crawlers
+   - Added ai-generated source handling in run crawler step
+   - Maintains backward compatibility with existing 3 crawlers
+
+2. Crawler Script (crawler/index.js)
+   - Added --board-id parameter support for AI-generated crawlers
+   - Added targetSource detection for ai-generated type
+   - Prepared for future AI crawler execution logic
+
+3. Frontend API (src/lib/api/generateCrawler.ts)
+   - Added duplicate URL handling with board reuse
+   - Automatically activates newly created boards (is_active: true)
+   - Removed unsupported columns from INSERT payload
+
+4. Database Migrations
+   - Added crawler_source_code column to crawl_boards
+   - Added created_by column to crawl_boards
+
+This branch enables the full Phase 5 pipeline to work with GitHub Actions.

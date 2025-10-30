@@ -49,18 +49,27 @@ jobs:
 
       - name: Resolve crawler source
         id: resolve_manual_source
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          BOARD_ID: ${{ github.event.inputs.board_id }}
         run: |
-          BOARD_ID="${{ github.event.inputs.board_id }}"
+          BOARD_ID="${BOARD_ID}"
+          
+          # 기존 하드코딩된 board ID 매핑 (호환성 유지)
           if [ "$BOARD_ID" = "f4c852f1-f49a-42c5-8823-0edd346f99bb" ]; then
             echo "source=gyeonggi" >> $GITHUB_OUTPUT
+            exit 0
           elif [ "$BOARD_ID" = "5a94f47d-5feb-4821-99af-f8805cc3d619" ]; then
             echo "source=seongnam" >> $GITHUB_OUTPUT
+            exit 0
           elif [ "$BOARD_ID" = "55d09cac-71aa-48d5-a8b8-bbd9181970bb" ]; then
             echo "source=uijeongbu" >> $GITHUB_OUTPUT
-          else
-            echo "Unknown board ID: $BOARD_ID"
-            exit 1
+            exit 0
           fi
+          
+          # 새로운 AI 생성 크롤러는 기본 source 사용
+          echo "source=ai-generated" >> $GITHUB_OUTPUT
 
       - name: Run crawler
         working-directory: crawler
@@ -107,6 +116,10 @@ jobs:
               ;;
             "uijeongbu")
               node index.js --source=uijeongbu
+              ;;
+            "ai-generated")
+              echo "🤖 Running AI-generated crawler for board: $BOARD_ID"
+              node index.js --board-id="$BOARD_ID" --mode="$CRAWL_MODE"
               ;;
             *)
               echo "⚠️  Unknown crawler source: $CRAWLER_SOURCE"
