@@ -65,7 +65,7 @@ function sanitizeFilenameComponent(value: string) {
     .trim();
 }
 
-function buildAttachmentFilename(organization: string, originalFilename?: string) {
+function buildAttachmentFilename(organization: string, originalFilename?: string | null) {
   const sanitizedOrg = sanitizeFilenameComponent(organization || '');
   const baseName = sanitizedOrg.length > 0 ? sanitizedOrg : '공고';
   const extension = (originalFilename?.split('.').pop() || 'hwp').toLowerCase();
@@ -85,7 +85,6 @@ function buildAttachmentDownloadUrl(originalUrl: string | null, filename?: strin
       }
       return url.toString();
     } catch (error) {
-      // URL 파싱 실패 시 그대로 반환
       return originalUrl;
     }
   }
@@ -290,9 +289,10 @@ export async function updateJobPosting(input: UpdateJobPostingInput) {
   } else if (!input.removeAttachment && attachmentPath) {
     // 기존 파일이 있으면 공개 URL 생성
     const publicUrl = getJobAttachmentPublicUrl(attachmentPath);
+    const existingFilename = attachmentPath.split('/').pop() ?? null;
     attachmentUrl = buildAttachmentDownloadUrl(
       publicUrl,
-      buildAttachmentFilename(input.organization, attachmentPath.split('/').pop())
+      buildAttachmentFilename(input.organization, existingFilename)
     );
   }
 

@@ -48,7 +48,7 @@ export async function uploadJobAttachment(file: File, userId: string): Promise<s
     throw new Error(`파일 크기는 ${MAX_FILE_SIZE / 1024 / 1024}MB 이하여야 합니다.`);
   }
 
-  // MIME 타입 검증
+  // MIME 타입 및 확장자 검증 (일부 브라우저는 HWP MIME을 octet-stream으로 전달)
   const extension = file.name.split('.').pop()?.toLowerCase() || 'bin';
 
   if (!ALLOWED_MIME_TYPES.includes(file.type) && !ALLOWED_EXTENSIONS.includes(extension)) {
