@@ -75,11 +75,16 @@ export interface TalentCard {
   id: string;
   type: 'talent';
   isVerified: boolean;
+  user_id?: string | null;
   name: string;
   specialty: string;
   tags: string[];
   location: string;
   experience: string;
+  phone?: string | null;
+  email?: string | null;
+  license?: string | null;
+  introduction?: string | null;
   rating: number;
   reviewCount: number;
 }

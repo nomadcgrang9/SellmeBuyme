@@ -9,6 +9,8 @@ import CompactTalentCard from '../cards/CompactTalentCard';
 import TextType from '../common/TextType';
 import JobPostingForm from '../forms/JobPostingForm';
 import TalentRegistrationForm from '../forms/TalentRegistrationForm';
+import { createTalent } from '@/lib/supabase/queries';
+import type { TalentRegistrationFormData } from '@/lib/validation/formSchemas';
 import ExperienceRegistrationForm from '../forms/ExperienceRegistrationForm';
 import PromoCardStack from '../promo/PromoCardStack';
 
@@ -156,7 +158,15 @@ export default function AIRecommendations({
               <JobPostingForm onClose={() => setActiveSection(null)} />
             ) : activeSection === 'talent' ? (
               // 인력 등록 폼
-              <TalentRegistrationForm onClose={() => setActiveSection(null)} />
+              <TalentRegistrationForm
+                onClose={() => setActiveSection(null)}
+                onSubmit={async (form: TalentRegistrationFormData) => {
+                  const card = await createTalent(form);
+                  alert('인력 등록이 완료되었습니다.');
+                  setActiveSection(null);
+                  // 추후: 등록된 카드 노출/새로고침 로직 필요 시 여기에 추가
+                }}
+              />
             ) : activeSection === 'experience' ? (
               // 체험 등록 폼
               <ExperienceRegistrationForm onClose={() => setActiveSection(null)} />
