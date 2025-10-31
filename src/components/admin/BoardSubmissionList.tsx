@@ -38,7 +38,7 @@ export default function BoardSubmissionList({
     async function loadSubmissions() {
       try {
         setLoading(true);
-        const data = await getBoardSubmissions(50);
+        const data = await getBoardSubmissions(50, 0, true); // filterPending=true: 승인되지 않은 것만
         setSubmissions(data);
 
         // Build region display names

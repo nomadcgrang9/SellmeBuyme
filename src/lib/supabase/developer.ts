@@ -312,7 +312,8 @@ export async function createBoardSubmission(
  */
 export async function getBoardSubmissions(
   limit = 20,
-  offset = 0
+  offset = 0,
+  filterPending = false
 ): Promise<DevBoardSubmission[]> {
   const { data, error} = await supabase
     .from('dev_board_submissions')
@@ -332,7 +333,7 @@ export async function getBoardSubmissions(
   }
 
   // crawl_boards의 approved_at으로 덮어쓰기
-  return data.map((row: any) => {
+  const submissions = data.map((row: any) => {
     const submission: DevBoardSubmissionRow = {
       ...row,
       // crawl_boards의 approved_at이 있으면 그걸 사용, 없으면 원본 사용
@@ -341,6 +342,13 @@ export async function getBoardSubmissions(
     };
     return convertSubmissionRowToSubmission(submission);
   });
+
+  // filterPending=true면 승인되지 않은 것만 반환
+  if (filterPending) {
+    return submissions.filter(sub => !sub.approvedAt);
+  }
+
+  return submissions;
 }
 
 /**
