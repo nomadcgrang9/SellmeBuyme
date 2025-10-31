@@ -100,6 +100,42 @@ export interface TalentCard {
   reviewCount: number;
 }
 
+export interface ExperienceFormPayload {
+  programTitle: string;
+  category: string[];
+  targetSchoolLevel: string[];
+  location: {
+    seoul?: string[];
+    gyeonggi?: string[];
+  };
+  introduction: string;
+  operationType: string[];
+  capacity?: string | null;
+  phone: string;
+  email: string;
+}
+
+export interface ExperienceCard {
+  id: string;
+  type: 'experience';
+  user_id?: string | null;
+  programTitle: string;
+  categories: string[];
+  targetSchoolLevels: string[];
+  regionSeoul: string[];
+  regionGyeonggi: string[];
+  locationSummary: string;
+  operationTypes: string[];
+  capacity?: string | null;
+  introduction: string;
+  contactPhone: string;
+  contactEmail: string;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+  form_payload?: ExperienceFormPayload | null;
+}
+
 export type ViewType = 'all' | 'job' | 'talent' | 'experience';
 
 export type SortOptionValue =
@@ -139,7 +175,7 @@ export interface SearchStoreState {
   resetAll: () => void;
 }
 
-export type Card = JobPostingCard | TalentCard;
+export type Card = JobPostingCard | TalentCard | ExperienceCard;
 
 export interface SearchPagination {
   limit: number;

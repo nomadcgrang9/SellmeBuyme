@@ -314,9 +314,15 @@ export async function getBoardSubmissions(
   limit = 20,
   offset = 0
 ): Promise<DevBoardSubmission[]> {
-  const { data, error } = await supabase
+  const { data, error} = await supabase
     .from('dev_board_submissions')
-    .select('*')
+    .select(`
+      *,
+      crawl_boards!dev_board_submissions_crawl_board_id_fkey(
+        approved_at,
+        approved_by
+      )
+    `)
     .order('created_at', { ascending: false })
     .range(offset, offset + limit - 1);
 
@@ -325,9 +331,16 @@ export async function getBoardSubmissions(
     throw new Error(`게시판 제출을 불러올 수 없습니다: ${error.message}`);
   }
 
-  return data.map((row: DevBoardSubmissionRow) =>
-    convertSubmissionRowToSubmission(row)
-  );
+  // crawl_boards의 approved_at으로 덮어쓰기
+  return data.map((row: any) => {
+    const submission: DevBoardSubmissionRow = {
+      ...row,
+      // crawl_boards의 approved_at이 있으면 그걸 사용, 없으면 원본 사용
+      approved_at: row.crawl_boards?.approved_at ?? row.approved_at,
+      approved_by: row.crawl_boards?.approved_by ?? row.approved_by,
+    };
+    return convertSubmissionRowToSubmission(submission);
+  });
 }
 
 /**
