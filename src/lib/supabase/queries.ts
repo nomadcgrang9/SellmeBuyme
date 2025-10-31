@@ -1634,6 +1634,7 @@ export interface FetchCrawlBoardsOptions {
   searchKeyword?: string;
   filterActive?: boolean | null;
   filterRegionCode?: string | null;
+  filterApproved?: boolean | null;
   useSimilaritySearch?: boolean;
 }
 
@@ -1642,6 +1643,7 @@ export async function fetchCrawlBoards(options?: FetchCrawlBoardsOptions): Promi
     searchKeyword,
     filterActive,
     filterRegionCode,
+    filterApproved,
     useSimilaritySearch = true
   } = options || {};
 
@@ -1675,6 +1677,13 @@ export async function fetchCrawlBoards(options?: FetchCrawlBoardsOptions): Promi
   // 지역 코드 필터
   if (filterRegionCode) {
     query = query.eq('region_code', filterRegionCode);
+  }
+
+  // 승인 상태 필터
+  if (filterApproved === true) {
+    query = query.not('approved_at', 'is', null);
+  } else if (filterApproved === false) {
+    query = query.is('approved_at', null);
   }
 
   // 검색어 필터 (기본 ILIKE)

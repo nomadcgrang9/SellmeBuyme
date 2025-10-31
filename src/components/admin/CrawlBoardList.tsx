@@ -16,9 +16,10 @@ interface CrawlBoardListProps {
   onEdit?: (board: CrawlBoard) => void;
   onLogs?: (board: CrawlBoard) => void;
   refreshToken?: number;
+  filterApproved?: boolean | null;
 }
 
-export default function CrawlBoardList({ onCreate, onEdit, onLogs, refreshToken }: CrawlBoardListProps) {
+export default function CrawlBoardList({ onCreate, onEdit, onLogs, refreshToken, filterApproved }: CrawlBoardListProps) {
   const [boards, setBoards] = useState<CrawlBoard[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -39,7 +40,7 @@ export default function CrawlBoardList({ onCreate, onEdit, onLogs, refreshToken 
 
   useEffect(() => {
     void loadBoards();
-  }, [refreshToken, debouncedSearchKeyword]);
+  }, [refreshToken, debouncedSearchKeyword, filterApproved]);
 
   const loadBoards = async () => {
     setLoading(true);
@@ -47,6 +48,7 @@ export default function CrawlBoardList({ onCreate, onEdit, onLogs, refreshToken 
     try {
       const data = await fetchCrawlBoards({
         searchKeyword: debouncedSearchKeyword || undefined,
+        filterApproved: filterApproved,
         useSimilaritySearch: true
       });
       setBoards(data);
