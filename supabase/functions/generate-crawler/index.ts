@@ -174,10 +174,10 @@ Deno.serve(async (req) => {
 
     const githubToken = Deno.env.get("GITHUB_TOKEN")
     if (githubToken) {
-      console.log("[generate-crawler] attempting to trigger GitHub Actions")
+      console.log("[generate-crawler] attempting to trigger GitHub Actions for AI crawler generation")
       try {
         const githubResponse = await fetch(
-          "https://api.github.com/repos/nomadcgrang9/SellmeBuyme/actions/workflows/run-crawler.yml/dispatches",
+          "https://api.github.com/repos/nomadcgrang9/SellmeBuyme/dispatches",
           {
             method: "POST",
             headers: {
@@ -186,17 +186,17 @@ Deno.serve(async (req) => {
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              ref: "main",
-              inputs: {
-                board_id: crawlBoardId,
-                crawl_mode: "run",
+              event_type: "generate_crawler",
+              client_payload: {
+                board_name: payload.boardName,
+                board_url: payload.boardUrl,
               },
             }),
           }
         )
 
         if (githubResponse.ok) {
-          console.log("[generate-crawler] GitHub Actions dispatch succeeded")
+          console.log("[generate-crawler] GitHub Actions dispatch succeeded (repository_dispatch)")
         } else {
           const errorText = await githubResponse.text()
           console.warn("[generate-crawler] GitHub Actions dispatch failed:", errorText)
@@ -205,7 +205,7 @@ Deno.serve(async (req) => {
         console.warn("[generate-crawler] GitHub Actions dispatch error:", error)
       }
     } else {
-      console.warn("[generate-crawler] GITHUB_TOKEN not set, skipping automatic run")
+      console.warn("[generate-crawler] GITHUB_TOKEN not set, skipping automatic AI generation")
     }
 
     const responseBody: GenerateCrawlerResponse = {
@@ -268,7 +268,7 @@ function generateSampleCrawler(boardName: string, boardUrl: string): string {
  */
 
 export async function crawl${sanitized}(page, config) {
-  console.log(\`¢º ${boardName} crawl start\`)
+  console.log(\`ï¿½ï¿½ ${boardName} crawl start\`)
 
   const jobs = []
 
