@@ -485,6 +485,222 @@ function mapExperienceToYears(exp: TalentRegistrationFormData['experience']): nu
   }
 }
 
+function normalizeStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => (typeof item === 'string' ? item.trim() : ''))
+    .filter((item) => item.length > 0);
+}
+
+function buildExperienceLocationSummary(seoul: string[], gyeonggi: string[]): string {
+  const parts: string[] = [];
+  if (seoul.length > 0) {
+    parts.push(`서울 ${seoul.join(', ')}`);
+  }
+  if (gyeonggi.length > 0) {
+    parts.push(`경기 ${gyeonggi.join(', ')}`);
+  }
+  return parts.length > 0 ? parts.join(' · ') : '지역 미지정';
+}
+
+function mapExperienceRowToCard(row: any): ExperienceCard {
+  const regionSeoul = normalizeStringArray(row?.region_seoul);
+  const regionGyeonggi = normalizeStringArray(row?.region_gyeonggi);
+  const categories = normalizeStringArray(row?.categories);
+  const targetLevels = normalizeStringArray(row?.target_school_levels);
+  const operationTypes = normalizeStringArray(row?.operation_types);
+
+  return {
+    id: row?.id,
+    type: 'experience',
+    user_id: row?.user_id ?? null,
+    programTitle: row?.program_title ?? '',
+    categories,
+    targetSchoolLevels: targetLevels,
+    regionSeoul,
+    regionGyeonggi,
+    locationSummary: buildExperienceLocationSummary(regionSeoul, regionGyeonggi),
+    operationTypes,
+    capacity: row?.capacity ?? null,
+    introduction: row?.introduction ?? '',
+    contactPhone: row?.contact_phone ?? '',
+    contactEmail: row?.contact_email ?? '',
+    status: row?.status ?? 'active',
+    createdAt: row?.created_at ?? '',
+    updatedAt: row?.updated_at ?? row?.created_at ?? '',
+    form_payload: row?.form_payload ?? null,
+  };
+}
+
+export async function createExperience(data: ExperienceRegistrationFormData): Promise<ExperienceCard> {
+  const { data: userRes, error: userErr } = await supabase.auth.getUser();
+  if (userErr) throw new Error('사용자 정보를 확인할 수 없습니다. 다시 로그인해 주세요.');
+  const user = userRes.user;
+  if (!user) throw new Error('로그인이 필요합니다. 다시 로그인해 주세요.');
+
+  await ensureUserRow(user);
+
+  const categories = normalizeStringArray(data.category);
+  const targetLevels = normalizeStringArray(data.targetSchoolLevel);
+  const regionSeoul = normalizeStringArray(data.location?.seoul);
+  const regionGyeonggi = normalizeStringArray(data.location?.gyeonggi);
+  const operationTypes = normalizeStringArray(data.operationType);
+  const capacity = data.capacity?.trim() ?? null;
+  const phone = data.phone.trim();
+  const email = data.email.trim();
+
+  const formPayload: ExperienceRegistrationFormData = {
+    ...data,
+    capacity: capacity ?? '',
+    location: {
+      seoul: regionSeoul,
+      gyeonggi: regionGyeonggi,
+    }
+  };
+
+  const insertPayload = {
+    user_id: user.id,
+    program_title: data.programTitle.trim(),
+    categories,
+    target_school_levels: targetLevels,
+    region_seoul: regionSeoul,
+    region_gyeonggi: regionGyeonggi,
+    operation_types: operationTypes,
+    capacity: capacity && capacity.length > 0 ? capacity : null,
+    introduction: data.introduction.trim(),
+    contact_phone: phone,
+    contact_email: email,
+    form_payload: formPayload,
+  };
+
+  const { data: inserted, error } = await supabase
+    .from('experiences')
+    .insert(insertPayload)
+    .select('*')
+    .single();
+
+  if (error || !inserted) {
+    console.error('체험 등록 실패:', error);
+    throw new Error(error?.message || '체험 등록에 실패했습니다. 잠시 후 다시 시도해주세요.');
+  }
+
+  return mapExperienceRowToCard(inserted);
+}
+
+export interface UpdateExperienceInput extends ExperienceRegistrationFormData {
+  id: string;
+}
+
+export async function updateExperience(input: UpdateExperienceInput): Promise<ExperienceCard> {
+  const { data: userRes, error: userErr } = await supabase.auth.getUser();
+  if (userErr) throw new Error('사용자 정보를 확인할 수 없습니다. 다시 로그인해 주세요.');
+  const user = userRes.user;
+  if (!user) throw new Error('로그인이 필요합니다. 다시 로그인해 주세요.');
+
+  const { data: existing, error: fetchErr } = await supabase
+    .from('experiences')
+    .select('id, user_id')
+    .eq('id', input.id)
+    .single();
+
+  if (fetchErr || !existing) {
+    throw new Error('체험 정보를 찾을 수 없습니다.');
+  }
+  if (existing.user_id !== user.id) {
+    throw new Error('해당 체험을 수정할 권한이 없습니다.');
+  }
+
+  const categories = normalizeStringArray(input.category);
+  const targetLevels = normalizeStringArray(input.targetSchoolLevel);
+  const regionSeoul = normalizeStringArray(input.location?.seoul);
+  const regionGyeonggi = normalizeStringArray(input.location?.gyeonggi);
+  const operationTypes = normalizeStringArray(input.operationType);
+  const capacity = input.capacity?.trim() ?? null;
+  const phone = input.phone.trim();
+  const email = input.email.trim();
+
+  const formPayload: ExperienceRegistrationFormData = {
+    ...input,
+    capacity: capacity ?? '',
+    location: {
+      seoul: regionSeoul,
+      gyeonggi: regionGyeonggi,
+    }
+  };
+
+  const payload = {
+    program_title: input.programTitle.trim(),
+    categories,
+    target_school_levels: targetLevels,
+    region_seoul: regionSeoul,
+    region_gyeonggi: regionGyeonggi,
+    operation_types: operationTypes,
+    capacity: capacity && capacity.length > 0 ? capacity : null,
+    introduction: input.introduction.trim(),
+    contact_phone: phone,
+    contact_email: email,
+    form_payload: formPayload,
+    updated_at: new Date().toISOString(),
+  };
+
+  const { data: updated, error } = await supabase
+    .from('experiences')
+    .update(payload)
+    .eq('id', input.id)
+    .select('*')
+    .single();
+
+  if (error || !updated) {
+    console.error('체험 수정 실패:', error);
+    throw new Error(error?.message || '체험 수정에 실패했습니다. 잠시 후 다시 시도해주세요.');
+  }
+
+  return mapExperienceRowToCard(updated);
+}
+
+export async function deleteExperience(id: string): Promise<{ id: string }> {
+  const { data: userRes, error: userErr } = await supabase.auth.getUser();
+  if (userErr) throw new Error('사용자 정보를 확인할 수 없습니다. 다시 로그인해 주세요.');
+  const user = userRes.user;
+  if (!user) throw new Error('로그인이 필요합니다. 다시 로그인해 주세요.');
+
+  const { data: existing, error: fetchErr } = await supabase
+    .from('experiences')
+    .select('id, user_id')
+    .eq('id', id)
+    .single();
+
+  if (fetchErr || !existing) {
+    throw new Error('체험 정보를 찾을 수 없습니다.');
+  }
+  if (existing.user_id !== user.id) {
+    throw new Error('해당 체험을 삭제할 권한이 없습니다.');
+  }
+
+  const { error } = await supabase.from('experiences').delete().eq('id', id);
+  if (error) {
+    console.error('체험 삭제 실패:', error);
+    throw new Error(error.message || '체험 삭제에 실패했습니다. 잠시 후 다시 시도해주세요.');
+  }
+
+  return { id };
+}
+
+export async function fetchExperienceById(id: string): Promise<any | null> {
+  const { data, error } = await supabase
+    .from('experiences')
+    .select('*')
+    .eq('id', id)
+    .single();
+
+  if (error) {
+    console.error('체험 상세 조회 실패:', error);
+    return null;
+  }
+
+  return data;
+}
+
 export async function createTalent(data: TalentRegistrationFormData): Promise<TalentCard> {
   const { data: userRes, error: userErr } = await supabase.auth.getUser();
   if (userErr) throw new Error('사용자 정보를 확인할 수 없습니다. 다시 로그인해 주세요.');

@@ -3,9 +3,9 @@
 import { useState } from 'react';
 import JobPostingForm from '../forms/JobPostingForm';
 import TalentRegistrationForm from '../forms/TalentRegistrationForm';
-import { createTalent } from '@/lib/supabase/queries';
-import type { TalentRegistrationFormData } from '@/lib/validation/formSchemas';
 import ExperienceRegistrationForm from '../forms/ExperienceRegistrationForm';
+import { createExperience, createTalent } from '@/lib/supabase/queries';
+import type { ExperienceRegistrationFormData, TalentRegistrationFormData } from '@/lib/validation/formSchemas';
 
 type RegisterType = 'job' | 'talent' | 'experience' | null;
 
@@ -83,7 +83,14 @@ export default function RegisterButtonsSection() {
       {activeSection === 'experience' && (
         <section className="bg-white py-4 border-b">
           <div className="max-w-container mx-auto px-6">
-            <ExperienceRegistrationForm onClose={() => setActiveSection(null)} />
+            <ExperienceRegistrationForm
+              onClose={() => setActiveSection(null)}
+              onSubmit={async (form: ExperienceRegistrationFormData) => {
+                await createExperience(form);
+                alert('체험 등록이 완료되었습니다.');
+                setActiveSection(null);
+              }}
+            />
           </div>
         </section>
       )}
