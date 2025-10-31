@@ -1,8 +1,8 @@
-import { loadPage, getTextBySelectors, getAttributeBySelectors, resolveUrl } from '../lib/playwright.js';
+import { loadPage, getTextBySelectors, getAttributeBySelectors, resolveUrl } from './lib/playwright.js';
 
 /**
  * 남양주교육지원청 구인구직 테스트 크롤러 (AI 생성)
- * Generated at 2025-10-31T09:48:06.617Z
+ * Generated at 2025-10-31T12:53:50.831Z
  */
 export async function crawl남양주교육지원청구인구직테스트(page, config) {
   console.log(`\n📍 ${config.name} 크롤링 시작`);
@@ -55,7 +55,8 @@ export async function crawl남양주교육지원청구인구직테스트(page, c
   const waitSelectors = fallbackSelectors.listContainer.join(', ');
 
   // 1. 목록 페이지 로딩
-  await loadPage(page, config.baseUrl, waitSelectors);
+  const baseUrl = config.url || config.baseUrl;
+  await loadPage(page, baseUrl, waitSelectors);
 
   const jobs = [];
 
@@ -94,14 +95,31 @@ export async function crawl남양주교육지원청구인구직테스트(page, c
         const date = await getTextBySelectors(row, fallbackSelectors.date.join(','));
         console.log(`     날짜: "${date}"`);
 
-        // 링크 추출
-        const href = await getAttributeBySelectors(row, fallbackSelectors.link.join(','), 'href');
-        if (!href) {
-          console.warn(`     링크 없음, 건너뜀`);
-          continue;
-        }
+        // 링크 추출 (data-id 속성 우선 - 한국 정부 사이트용)
+        let absoluteLink;
+        const nttId = await getAttributeBySelectors(row, fallbackSelectors.link.join(','), 'data-id');
 
-        const absoluteLink = resolveUrl(config.baseUrl, href);
+        // data-id가 없으면 href로 시도
+        if (!nttId) {
+          const href = await getAttributeBySelectors(row, fallbackSelectors.link.join(','), 'href');
+          // href가 javascript:가 아니면 사용, 아니면 건너뜀
+          if (!href || href.startsWith('javascript')) {
+            console.warn(`     링크 없음 (data-id와 href 모두 없음), 건너뜀`);
+            continue;
+          }
+          absoluteLink = resolveUrl(baseUrl, href);
+        } else {
+          // data-id로 상세 페이지 URL 구성
+          // 기본 게시판 URL 패턴: selectNttInfo.do?mi=xxxxx&bbsId=xxxxx&nttSn=data-id
+          const match = baseUrl.match(/selectNttList.do?(.+?)&bbsId=([^&]+)/);
+          if (!match) {
+            console.warn(`     기본 URL 패턴을 파싱할 수 없음, 건너뜀`);
+            continue;
+          }
+          const params = match[1];
+          const bbsId = match[2];
+          absoluteLink = `${baseUrl.split('selectNttList.do')[0]}selectNttInfo.do?${params}&bbsId=${bbsId}&nttSn=${nttId}`;
+        }
         console.log(`     링크: ${absoluteLink}`);
 
         // 상세 페이지 크롤링
@@ -109,9 +127,21 @@ export async function crawl남양주교육지원청구인구직테스트(page, c
         await page.goto(absoluteLink, { waitUntil: 'domcontentloaded', timeout: 30000 });
         await page.waitForTimeout(1000);
 
-        // 본문 추출
+        // 본문 추출 (한국 정부 사이트 셀렉터 우선, fallback 포함)
         const content = await page.evaluate(() => {
-          const contentEl = document.querySelector('.view-content, .content, .detail, .board-view, .board_view');
+          // 우선순위 1: 일반적인 본문 셀렉터
+          let contentEl = document.querySelector('.nttCn, #nttCn, .cn, .txt_area, .view_content, .view-content, .content, .detail, .board-view, .board_view');
+
+          // 우선순위 2: 한국 교육청 사이트 컨테이너
+          if (!contentEl || (contentEl.textContent?.trim().length || 0) < 50) {
+            contentEl = document.querySelector('#subContent, .subContent_body, #content, .board_content');
+          }
+
+          // 우선순위 3: 전체 body (최후의 수단)
+          if (!contentEl || (contentEl.textContent?.trim().length || 0) < 50) {
+            contentEl = document.body;
+          }
+
           return contentEl ? contentEl.textContent?.trim() : '';
         });
 
@@ -129,12 +159,13 @@ export async function crawl남양주교육지원청구인구직테스트(page, c
         const screenshotBase64 = screenshot.toString('base64');
 
         jobs.push({
+          organization: config.name,
           title: title || '제목 없음',
           date: date || '날짜 없음',
           link: absoluteLink,
-          detailContent: content || '',
-          attachmentUrl: attachmentUrl ? resolveUrl(absoluteLink, attachmentUrl) : null,
-          screenshotBase64: screenshotBase64
+          detail_content: content || '',
+          attachment_url: attachmentUrl ? resolveUrl(absoluteLink, attachmentUrl) : null,
+          screenshot_base64: screenshotBase64
         });
 
         console.log(`  ✅ ${i + 1}. 완료`);
@@ -142,7 +173,7 @@ export async function crawl남양주교육지원청구인구직테스트(page, c
         // 목록 페이지로 돌아가기
         if (i < maxRows - 1) {
           console.log(`     목록으로 돌아가는 중...`);
-          await page.goto(config.baseUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+          await page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
           await page.waitForTimeout(1000);
         }
 
