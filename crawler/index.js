@@ -193,16 +193,6 @@ async function main() {
         codeLength: board.crawler_source_code.length
       });
 
-      // 1-1. 크롤러 코드 길이 검증 (1082자는 불충분한 템플릿)
-      if (board.crawler_source_code.length < 2000) {
-        logError('ai-crawler', '크롤러 코드가 너무 짧습니다 (불충분한 템플릿)', null, {
-          codeLength: board.crawler_source_code.length,
-          boardName: board.name,
-          message: 'scripts/generate-crawler-ai.ts를 실행하여 정교한 크롤러 코드를 생성하세요'
-        });
-        process.exit(1);
-      }
-
       // 2. 임시 파일로 저장
       const tempFileName = `temp_crawler_${boardId}.mjs`;
       const tempFileUrl = new URL(tempFileName, import.meta.url);
