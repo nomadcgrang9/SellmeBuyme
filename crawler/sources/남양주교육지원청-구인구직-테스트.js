@@ -87,15 +87,15 @@ export async function crawl남양주교육지원청구인구직테스트(page, c
         console.log(`\n  🔍 행 ${i + 1} 처리 중:`);
 
         // 제목 추출
-        const title = await getTextBySelectors(row, fallbackSelectors.title);
+        const title = await getTextBySelectors(row, fallbackSelectors.title.join(','));
         console.log(`     제목: "${title}"`);
 
         // 날짜 추출
-        const date = await getTextBySelectors(row, fallbackSelectors.date);
+        const date = await getTextBySelectors(row, fallbackSelectors.date.join(','));
         console.log(`     날짜: "${date}"`);
 
         // 링크 추출
-        const href = await getAttributeBySelectors(row, fallbackSelectors.link, 'href');
+        const href = await getAttributeBySelectors(row, fallbackSelectors.link.join(','), 'href');
         if (!href) {
           console.warn(`     링크 없음, 건너뜀`);
           continue;
