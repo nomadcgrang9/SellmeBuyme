@@ -1,32 +1,5 @@
-/**
- * Supabase Edge Function: AI 크롤러 자동 생성
- * 
- * Phase 5 파이프라인 호출:
- * - Phase 5-1: 게시판 구조 분석 (boardAnalyzer)
- * - Phase 5-2: 크롤러 코드 생성 (codeGenerator)
- * - Phase 5-3: Sandbox 테스트 (sandbox)
- * - Phase 5-4: Self-Correction Loop (selfCorrection)
- * 
- * 요청:
- * POST /functions/v1/generate-crawler
- * {
- *   "submissionId": "uuid",
- *   "boardName": "구리남양주교육지원청",
- *   "boardUrl": "https://www.goegn.kr/...",
- *   "adminUserId": "uuid"
- * }
- * 
- * 응답:
- * {
- *   "success": true,
- *   "crawlerId": "namyangju",
- *   "crawlerCode": "...",
- *   "crawlBoardId": "uuid",
- *   "message": "크롤러 생성 완료"
- * }
- */
-
-// Supabase Edge Function - Deno 런타임에서 자동으로 제공됨
+import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.4"
+import { generateCrawlerCode } from "../_shared/ai-crawler.ts"
 
 interface GenerateCrawlerRequest {
   submissionId: string
@@ -44,291 +17,337 @@ interface GenerateCrawlerResponse {
   error?: string
 }
 
-serve(async (req: Request) => {
-  // CORS 처리
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', {
+const JSON_HEADERS = {
+  "Content-Type": "application/json",
+  "Access-Control-Allow-Origin": "*",
+}
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response("ok", {
       headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        ...JSON_HEADERS,
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
       },
     })
   }
 
-  if (req.method !== 'POST') {
-    return new Response(
-      JSON.stringify({ success: false, message: 'POST 요청만 허용됩니다' }),
-      { status: 405, headers: { 'Content-Type': 'application/json' } }
-    )
+  if (req.method !== "POST") {
+    return new Response(JSON.stringify({ success: false, message: "POST requests only." }), {
+      status: 405,
+      headers: JSON_HEADERS,
+    })
   }
 
   try {
-    const payload: GenerateCrawlerRequest = await req.json()
-    
-    // 필수 필드 검증
+    const payload = (await req.json()) as GenerateCrawlerRequest
+
     if (!payload.submissionId || !payload.boardName || !payload.boardUrl || !payload.adminUserId) {
       return new Response(
         JSON.stringify({
           success: false,
-          message: '필수 필드가 누락되었습니다: submissionId, boardName, boardUrl, adminUserId',
+          message: "submissionId, boardName, boardUrl, adminUserId are required.",
         }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
+        {
+          status: 400,
+          headers: JSON_HEADERS,
+        }
       )
     }
 
-    console.log('[generate-crawler] 요청 수신:', {
-      submissionId: payload.submissionId,
-      boardName: payload.boardName,
-      boardUrl: payload.boardUrl,
-    })
+    console.log("[generate-crawler] request payload:", payload)
 
-    // Supabase 클라이언트 초기화
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")
 
     if (!supabaseUrl || !supabaseServiceKey) {
-      throw new Error('Supabase 환경변수 미설정')
+      throw new Error("SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is not set.")
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
+    const adminMetaUserId = await resolveAdminUserId(supabase, payload.adminUserId)
+    const timestamp = new Date().toISOString()
 
-    // Phase 5 파이프라인 호출
-    console.log('[generate-crawler] Phase 5 파이프라인 시작...')
-
-    // 크롤러 ID 생성
     const crawlerId = payload.boardName
       .toLowerCase()
-      .replace(/\s+/g, '_')
-      .replace(/[^a-z0-9_]/g, '')
+      .replace(/\s+/g, "_")
+      .replace(/[^a-z0-9_]/g, "")
 
-    // ✅ 샘플 크롤러 생성 (실제로는 AI 분석 필요)
-    const crawlerCode = generateSampleCrawler(payload.boardName, payload.boardUrl)
-    
-    console.log('[generate-crawler] ⚠️ 주의: 현재는 샘플 크롤러만 생성됩니다.')
-    console.log('[generate-crawler] 실제 AI 분석을 위해서는 다음이 필요합니다:')
-    console.log('[generate-crawler]   1. boardAnalyzer - 게시판 구조 분석')
-    console.log('[generate-crawler]   2. codeGenerator - AI 기반 크롤러 코드 생성')
-    console.log('[generate-crawler]   3. sandbox - 생성된 코드 테스트')
-    console.log('[generate-crawler]   4. selfCorrection - 오류 수정 루프')
+    let crawlerCode: string
+    try {
+      crawlerCode = await generateCrawlerCode(payload.boardName, payload.boardUrl)
+      console.log("[generate-crawler] AI pipeline generated crawler code successfully.")
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      console.warn("[generate-crawler] AI pipeline failed, falling back to sample code:", message)
+      crawlerCode = generateSampleCrawler(payload.boardName, payload.boardUrl)
+    }
+    console.log('[generate-crawler] crawler code length:', crawlerCode.length)
 
-    // crawl_boards 테이블에 등록
-    const { data: crawlBoard, error: crawlBoardError } = await supabase
-      .from('crawl_boards')
-      .insert({
-        name: payload.boardName,
-        board_url: payload.boardUrl,
-        category: 'job',
-        description: `AI 자동 생성 크롤러 - ${payload.boardName}`,
-        is_active: true,  // ✅ 즉시 활성화하여 크롤링 가능하도록 설정
-        status: 'active',
-        crawl_batch_size: 10,
-        crawler_source_code: crawlerCode,  // ✅ 생성된 크롤러 코드 저장
-        created_by: payload.adminUserId,
-        approved_by: payload.adminUserId,
-        approved_at: new Date().toISOString(),
-      })
-      .select('id')
-      .single()
-
-    if (crawlBoardError) {
-      throw new Error(`crawl_boards 등록 실패: ${crawlBoardError.message}`)
+    const insertPayload: Record<string, unknown> = {
+      name: payload.boardName,
+      board_url: payload.boardUrl,
+      category: "job",
+      description: `AI generated crawler - ${payload.boardName}`,
+      is_active: true,
+      status: "active",
+      crawl_batch_size: 10,
+      crawler_source_code: crawlerCode,
+      approved_at: timestamp,
     }
 
-    // dev_board_submissions 테이블 업데이트
-    const { error: updateError } = await supabase
-      .from('dev_board_submissions')
-      .update({
-        status: 'approved',
-        crawl_board_id: crawlBoard.id,
-        approved_by: payload.adminUserId,
-        approved_at: new Date().toISOString(),
-      })
-      .eq('id', payload.submissionId)
-
-    if (updateError) {
-      console.warn('[generate-crawler] dev_board_submissions 업데이트 경고:', updateError)
+    if (adminMetaUserId) {
+      insertPayload.created_by = adminMetaUserId
+      insertPayload.approved_by = adminMetaUserId
+    } else {
+      console.warn("[generate-crawler] admin user not found, skipping created_by/approved_by metadata.")
     }
 
-    console.log('[generate-crawler] 크롤러 생성 완료:', {
-      crawlerId,
-      crawlBoardId: crawlBoard.id,
-    })
+    let crawlBoardId: string
 
-    // ✅ GitHub Actions 워크플로우 자동 트리거 (즉시 크롤링 실행)
-    const githubToken = Deno.env.get('GITHUB_TOKEN')
+    const { data: insertedBoard, error: insertError } = await supabase
+      .from("crawl_boards")
+      .insert([insertPayload])
+      .select("id")
+      .maybeSingle()
+
+    if (insertError) {
+      const message = insertError.message ?? ""
+      if (message.includes("duplicate key value") || message.includes("idx_crawl_boards_board_url")) {
+        console.log("[generate-crawler] board already exists, updating existing record")
+
+        const updatePayload: Record<string, unknown> = {
+          category: "job",
+          description: `AI generated crawler - ${payload.boardName}`,
+          is_active: true,
+          status: "active",
+          crawl_batch_size: 10,
+          crawler_source_code: crawlerCode,
+        }
+
+        if (adminMetaUserId) {
+          updatePayload.approved_by = adminMetaUserId
+          updatePayload.approved_at = timestamp
+        }
+
+        const { data: updatedBoard, error: updateError } = await supabase
+          .from("crawl_boards")
+          .update(updatePayload)
+          .eq("board_url", payload.boardUrl)
+          .select("id")
+          .maybeSingle()
+
+        if (updateError || !updatedBoard) {
+          throw new Error(`Failed to update crawl_boards: ${updateError?.message ?? "not found"}`)
+        }
+
+        crawlBoardId = updatedBoard.id
+      } else {
+        throw new Error(`Failed to insert into crawl_boards: ${message}`)
+      }
+    } else {
+      if (!insertedBoard?.id) {
+        throw new Error("crawl_boards insert succeeded but no id was returned.")
+      }
+      crawlBoardId = insertedBoard.id
+    }
+
+    const submissionUpdatePayload: Record<string, unknown> = {
+      status: "approved",
+      crawl_board_id: crawlBoardId,
+      approved_at: timestamp,
+    }
+
+    if (adminMetaUserId) {
+      submissionUpdatePayload.approved_by = adminMetaUserId
+    }
+
+    const { error: submissionUpdateError } = await supabase
+      .from("dev_board_submissions")
+      .update(submissionUpdatePayload)
+      .eq("id", payload.submissionId)
+
+    if (submissionUpdateError) {
+      console.warn("[generate-crawler] dev_board_submissions update warning:", submissionUpdateError)
+    }
+
+    const githubToken = Deno.env.get("GITHUB_TOKEN")
     if (githubToken) {
-      console.log('[generate-crawler] GitHub Actions 트리거 시작...')
-      
+      console.log("[generate-crawler] attempting to trigger GitHub Actions")
       try {
         const githubResponse = await fetch(
-          'https://api.github.com/repos/nomadcgrang9/SellmeBuyme/actions/workflows/run-crawler.yml/dispatches',
+          "https://api.github.com/repos/nomadcgrang9/SellmeBuyme/actions/workflows/run-crawler.yml/dispatches",
           {
-            method: 'POST',
+            method: "POST",
             headers: {
-              'Authorization': `token ${githubToken}`,
-              'Accept': 'application/vnd.github.v3+json',
-              'Content-Type': 'application/json',
+              Authorization: `token ${githubToken}`,
+              Accept: "application/vnd.github.v3+json",
+              "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              ref: 'main',
+              ref: "main",
               inputs: {
-                board_id: crawlBoard.id,
-                crawl_mode: 'run',
+                board_id: crawlBoardId,
+                crawl_mode: "run",
               },
             }),
           }
         )
 
         if (githubResponse.ok) {
-          console.log('[generate-crawler] GitHub Actions 트리거 성공')
+          console.log("[generate-crawler] GitHub Actions dispatch succeeded")
         } else {
           const errorText = await githubResponse.text()
-          console.warn('[generate-crawler] GitHub Actions 트리거 실패:', errorText)
+          console.warn("[generate-crawler] GitHub Actions dispatch failed:", errorText)
         }
-      } catch (githubError) {
-        console.warn('[generate-crawler] GitHub Actions 트리거 오류:', githubError)
-        // 트리거 실패해도 크롤러는 생성되었으므로 계속 진행
+      } catch (error) {
+        console.warn("[generate-crawler] GitHub Actions dispatch error:", error)
       }
     } else {
-      console.warn('[generate-crawler] GITHUB_TOKEN 환경변수 없음 - 자동 크롤링 스킵')
+      console.warn("[generate-crawler] GITHUB_TOKEN not set, skipping automatic run")
     }
 
-    const response: GenerateCrawlerResponse = {
+    const responseBody: GenerateCrawlerResponse = {
       success: true,
       crawlerId,
       crawlerCode,
-      crawlBoardId: crawlBoard.id,
-      message: `크롤러 생성 완료: ${payload.boardName}`,
+      crawlBoardId,
+      message: `Crawler ready for ${payload.boardName}`,
     }
 
-    return new Response(JSON.stringify(response), {
+    return new Response(JSON.stringify(responseBody), {
       status: 200,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-      },
+      headers: JSON_HEADERS,
     })
   } catch (error) {
-    console.error('[generate-crawler] 오류:', error)
+    console.error("[generate-crawler] error:", error)
 
-    const response: GenerateCrawlerResponse = {
+    const responseBody: GenerateCrawlerResponse = {
       success: false,
-      message: '크롤러 생성 중 오류 발생',
+      message: "Failed to generate crawler.",
       error: error instanceof Error ? error.message : String(error),
     }
 
-    return new Response(JSON.stringify(response), {
+    return new Response(JSON.stringify(responseBody), {
       status: 500,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-      },
+      headers: JSON_HEADERS,
     })
   }
 })
 
-/**
- * 샘플 크롤러 코드 생성 (임시)
- * 실제로는 Phase 5 파이프라인에서 생성된 코드를 사용합니다.
- */
+async function resolveAdminUserId(client: SupabaseClient, adminUserId: string): Promise<string | null> {
+  if (!adminUserId) return null
+
+  try {
+    const { data, error } = await client.auth.admin.getUserById(adminUserId)
+    if (error) {
+      console.warn("[generate-crawler] failed to resolve admin user id:", error.message)
+      return null
+    }
+
+    if (!data?.user) {
+      console.warn("[generate-crawler] admin user not found for id:", adminUserId)
+      return null
+    }
+
+    return data.user.id
+  } catch (error) {
+    console.warn("[generate-crawler] admin user lookup error:", error)
+    return null
+  }
+}
+
 function generateSampleCrawler(boardName: string, boardUrl: string): string {
+  const sanitized = boardName.replace(/\s+/g, "").replace(/[^a-zA-Z0-9]/g, "")
+  const timestamp = new Date().toISOString()
+
   return `/**
- * ${boardName} 크롤러
- * AI 자동 생성 (Phase 5)
- * 생성일: ${new Date().toISOString()}
+ * ${boardName} crawler (fallback)
+ * Generated at ${timestamp}
  */
 
-export async function crawl${boardName.replace(/\s+/g, '').replace(/[^a-zA-Z0-9]/g, '')}(page, config) {
-  console.log(\`📍 \${config.name} 크롤링 시작\`);
-  
-  const jobs = [];
-  
+export async function crawl${sanitized}(page, config) {
+  console.log(\`�� ${boardName} crawl start\`)
+
+  const jobs = []
+
   try {
-    // 1. 목록 페이지 접속
-    console.log(\`🌐 목록 페이지 접속: \${config.url}\`);
-    await page.goto(config.url, { waitUntil: 'domcontentloaded', timeout: 30000 });
-    await page.waitForTimeout(2000);
-    
-    // 2. 게시글 목록 추출 (여러 선택자 시도)
-    let rows = [];
+    await page.goto(config.url ?? '${boardUrl}', { waitUntil: 'domcontentloaded', timeout: 30000 })
+    await page.waitForTimeout(2000)
+
     const selectors = [
       'table tbody tr',
       '.board-list tbody tr',
       '.tbl_list tbody tr',
       'table tr',
       '.list-item'
-    ];
-    
+    ]
+
+    let rows = []
     for (const selector of selectors) {
-      rows = await page.locator(selector).all();
+      rows = await page.locator(selector).all()
       if (rows.length > 0) {
-        console.log(\`✅ 선택자 "\${selector}" 로 \${rows.length}개 발견\`);
-        break;
+        console.log(\`? selector "${selector}" yielded ${rows.length} rows\`)
+        break
       }
     }
-    
-    console.log(\`📋 발견된 공고 수: \${rows.length}개\`);
-    
+
     if (rows.length === 0) {
-      console.warn('⚠️ 공고 목록을 찾을 수 없습니다');
-      return jobs;
+      console.warn('?? no rows detected with fallback selectors')
+      return jobs
     }
-    
-    // 3. 각 게시글 처리 (최대 10개)
-    const maxCount = Math.min(rows.length, config.crawlBatchSize || 10);
+
+    const maxCount = Math.min(rows.length, config.crawlBatchSize || 10)
     for (let i = 0; i < maxCount; i++) {
       try {
-        const row = rows[i];
-        
-        // 제목 및 링크 추출
-        const linkElement = await row.locator('a').first();
-        const title = await linkElement.textContent();
-        let href = await linkElement.getAttribute('href');
-        
-        if (!title || !href) {
-          continue;
-        }
-        
-        // 상대 URL을 절대 URL로 변환
+        const row = rows[i]
+
+        const linkElement = await row.locator('a').first()
+        const title = (await linkElement.textContent())?.trim()
+        let href = await linkElement.getAttribute('href')
+
+        if (!title || !href) continue
+
         if (!href.startsWith('http')) {
-          const baseUrl = new URL(config.url);
-          href = new URL(href, baseUrl.origin).href;
+          const baseUrl = new URL(config.url ?? '${boardUrl}')
+          href = new URL(href, baseUrl.origin).href
         }
-        
-        // 날짜 추출 시도
-        let postedDate = new Date().toISOString().split('T')[0];
+
+        let postedDate = new Date().toISOString().split('T')[0]
         try {
-          const dateText = await row.locator('td').nth(2).textContent();
-          if (dateText && /\\d{4}/.test(dateText)) {
-            postedDate = dateText.trim().replace(/\\./g, '-');
+          const dateText = (await row.locator('td').nth(2).textContent())?.trim()
+          if (dateText && /\d{4}/.test(dateText)) {
+            postedDate = dateText.replace(/\./g, '-')
           }
-        } catch (e) {
-          // 날짜 추출 실패 시 현재 날짜 사용
+        } catch {
+          // ignore date parsing issues
         }
-        
+
         jobs.push({
-          title: title.trim(),
+          title,
           url: href,
           organization: config.name,
-          location: '지역 미상',
-          postedDate: postedDate,
+          location: 'unknown',
+          postedDate,
           detailContent: '',
           attachmentUrl: null,
-        });
-        
-        console.log(\`  ✅ \${i + 1}. \${title.trim()}\`);
+        })
+
+        console.log(\`  ? ${title}\`)
       } catch (rowError) {
-        console.warn(\`  ⚠️ 행 \${i + 1} 처리 오류: \${rowError.message}\`);
+        console.warn('  ?? row processing error:', rowError instanceof Error ? rowError.message : rowError)
       }
     }
-    
-    console.log(\`✅ 크롤링 완료: \${jobs.length}개 수집\`);
-    return jobs;
+
+    console.log(\`collected ${jobs.length} items\`)
+    return jobs
   } catch (error) {
-    console.error('❌ 크롤링 오류:', error);
-    return jobs;
+    console.error('fallback crawler error:', error)
+    return jobs
   }
 }
 `
 }
+
+
