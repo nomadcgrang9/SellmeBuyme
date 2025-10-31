@@ -624,6 +624,9 @@ export default function App() {
                 cards={cards}
                 onCardClick={handleCardClick}
                 onJobEditClick={handleJobEditClick}
+                onExperienceEditClick={(card) => {
+                  console.log('TODO: open experience edit modal', card);
+                }}
               />
 
               <div ref={sentinelRef} className="h-1" aria-hidden />
