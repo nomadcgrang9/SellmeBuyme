@@ -154,6 +154,8 @@ export interface SearchFilters {
   region: RegionOption;
   category: CategoryOption;
   sort: SortOptionValue;
+  experienceCategory?: string;
+  experienceOperation?: string;
 }
 
 export interface SearchStoreState {
