@@ -172,7 +172,7 @@ Deno.serve(async (req) => {
       console.warn("[generate-crawler] dev_board_submissions update warning:", submissionUpdateError)
     }
 
-    const githubToken = Deno.env.get("GITHUB_TOKEN")
+    const githubToken = Deno.env.get("GH_PAT")
     if (githubToken) {
       console.log("[generate-crawler] attempting to trigger GitHub Actions for AI crawler generation")
       try {
@@ -205,7 +205,7 @@ Deno.serve(async (req) => {
         console.warn("[generate-crawler] GitHub Actions dispatch error:", error)
       }
     } else {
-      console.warn("[generate-crawler] GITHUB_TOKEN not set, skipping automatic AI generation")
+      console.warn("[generate-crawler] GH_PAT not set, skipping automatic AI generation")
     }
 
     const responseBody: GenerateCrawlerResponse = {
