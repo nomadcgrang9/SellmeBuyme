@@ -219,6 +219,7 @@ export default function AdminPageWithHamburger() {
                     onEdit={handleEdit}
                     onLogs={handleLogs}
                     refreshToken={refreshToken}
+                    filterApproved={true}
                   />
                 </div>
               </CollapsibleSection>

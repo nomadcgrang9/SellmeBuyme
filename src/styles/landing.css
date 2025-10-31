@@ -54,9 +54,22 @@
 .slides-wrapper{ min-height:70vh; display:flex; align-items:center; justify-content:center; flex-direction:column; padding:48px 12px; }
 .slide{ width:100%; max-width:980px; display:flex; flex-direction:column; align-items:center; gap:18px; }
 .title{ font-size:56px; text-align:center; line-height:1.05; font-weight:800; margin:0; }
-.title .gradient-text{ display:inline-block; background: linear-gradient(90deg, var(--header-text-grad-1), var(--header-text-grad-2)); color:transparent; -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
-.title .gradient-text.highlight{ background: linear-gradient(90deg,#A78BFA,#EC4899); }
-.title .gradient-text::selection{ background:rgba(180,198,255,0.35); -webkit-text-fill-color:inherit; color:#1E1E1E; }
+.title .gradient-text{ display:inline-block; color:var(--header-text-grad-2); }
+.title .gradient-text.highlight{ color:#EC4899; }
+.title .gradient-text::selection{ background:rgba(180,198,255,0.35); color:#1E1E1E; }
+
+@supports (-webkit-background-clip:text) or (background-clip:text) {
+  .title .gradient-text{
+    background: linear-gradient(90deg, var(--header-text-grad-1), var(--header-text-grad-2));
+    color:transparent;
+    -webkit-background-clip:text;
+    background-clip:text;
+    -webkit-text-fill-color:transparent;
+  }
+  .title .gradient-text.highlight{
+    background: linear-gradient(90deg,#A78BFA,#EC4899);
+  }
+}
 .center-sub{ font-size:20px; color:#444; text-align:center; margin-top:6px }
 
 .cta.big{ padding:14px 22px; font-size:16px; border-radius:12px }

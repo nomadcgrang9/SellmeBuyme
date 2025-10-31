@@ -35,13 +35,48 @@ const order: SlideKey[] = [
   'done'
 ]
 
-const SlideTitle = ({ text, highlight = false }: { text: string; highlight?: boolean }) => (
-  <motion.h2 className="title" initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.55 }}>
-    <span className={`gradient-text${highlight ? ' highlight' : ''}`} data-text={text}>
-      {text}
-    </span>
-  </motion.h2>
-)
+function hexToRgb(hex: string) {
+  const cleaned = hex.replace('#', '')
+  const bigint = parseInt(cleaned, 16)
+  return {
+    r: (bigint >> 16) & 255,
+    g: (bigint >> 8) & 255,
+    b: bigint & 255
+  }
+}
+
+function interpolateColor(start: string, end: string, ratio: number) {
+  const s = hexToRgb(start)
+  const e = hexToRgb(end)
+  const clampRatio = Math.min(Math.max(ratio, 0), 1)
+  const r = Math.round(s.r + (e.r - s.r) * clampRatio)
+  const g = Math.round(s.g + (e.g - s.g) * clampRatio)
+  const b = Math.round(s.b + (e.b - s.b) * clampRatio)
+  return `rgb(${r}, ${g}, ${b})`
+}
+
+const SlideTitle = ({ text, highlight = false }: { text: string; highlight?: boolean }) => {
+  const [start, end] = highlight ? ['#A78BFA', '#EC4899'] : ['#60A5FA', '#3730A3']
+  const chars = Array.from(text)
+  const count = chars.filter(ch => ch.trim().length > 0).length
+  let painted = -1
+
+  return (
+    <motion.h2 className="title" initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.55 }}>
+      {chars.map((char, idx) => {
+        const isSpace = char.trim().length === 0
+        if (!isSpace) painted += 1
+        const ratio = count <= 1 ? 0 : painted / (count - 1)
+        const color = isSpace ? (highlight ? '#EC4899' : '#3730A3') : interpolateColor(start, end, ratio)
+        return (
+          <span key={`${char}-${idx}`} style={{ color, display: 'inline-block' }}>
+            {isSpace ? '\u00A0' : char}
+          </span>
+        )
+      })}
+    </motion.h2>
+  )
+}
 
 export default function Landing() {
   const [step, setStep] = useState<SlideKey>('greeting')
