@@ -71,18 +71,28 @@ export async function createCrawlBoardLocally(
   adminUserId: string,
   crawlerCode: string
 ): Promise<{ id: string }> {
+  console.log('[createCrawlBoardLocally] 크롤 게시판 생성/업데이트 시작:', {
+    boardName,
+    boardUrl,
+    adminUserId,
+    crawlerCodeLength: crawlerCode?.length,
+  });
+
   const { data: existingBoard, error: fetchError } = await supabase
     .from('crawl_boards')
-    .select('id, is_active')
+    .select('id, is_active, crawler_source_code')
     .eq('board_url', boardUrl)
     .maybeSingle();
 
   if (fetchError) {
+    console.error('[createCrawlBoardLocally] crawl_boards 조회 실패:', fetchError);
     throw new Error(`crawl_boards 조회 실패: ${fetchError.message}`);
   }
 
   if (existingBoard?.id) {
-    // 기존 게시판이 비활성화되어 있으면 활성화하고 최신 정보로 업데이트
+    console.log('[createCrawlBoardLocally] 기존 게시판 발견, 업데이트 중:', existingBoard.id);
+
+    // 기존 게시판이 비활성화되어 있거나 크롤러 코드가 없으면 업데이트
     const { error: updateError } = await supabase
       .from('crawl_boards')
       .update({
@@ -92,15 +102,20 @@ export async function createCrawlBoardLocally(
         status: 'active',
         approved_by: adminUserId,
         approved_at: new Date().toISOString(),
+        crawler_source_code: crawlerCode,
       })
       .eq('id', existingBoard.id);
 
     if (updateError) {
-      console.warn('기존 crawl_board 업데이트 실패:', updateError);
+      console.error('[createCrawlBoardLocally] 기존 crawl_board 업데이트 실패:', updateError);
+    } else {
+      console.log('[createCrawlBoardLocally] 기존 게시판 업데이트 완료:', existingBoard.id);
     }
 
     return { id: existingBoard.id };
   }
+
+  console.log('[createCrawlBoardLocally] 새 게시판 등록 중...');
 
   const insertPayload: Record<string, unknown> = {
     name: boardName,
@@ -110,11 +125,10 @@ export async function createCrawlBoardLocally(
     is_active: true,
     status: 'active',
     crawl_batch_size: 10,
+    crawler_source_code: crawlerCode,
+    approved_by: adminUserId,
+    approved_at: new Date().toISOString(),
   };
-
-  // approved_at / approved_by 는 기존 스키마에 존재하므로 유지
-  insertPayload.approved_by = adminUserId;
-  insertPayload.approved_at = new Date().toISOString();
 
   const { data, error } = await supabase
     .from('crawl_boards')
@@ -123,9 +137,11 @@ export async function createCrawlBoardLocally(
     .single();
 
   if (error) {
+    console.error('[createCrawlBoardLocally] crawl_boards 등록 실패:', error);
     throw new Error(`crawl_boards 등록 실패: ${error.message}`);
   }
 
+  console.log('[createCrawlBoardLocally] 새 게시판 등록 완료:', data.id);
   return data;
 }
 
@@ -138,6 +154,12 @@ export async function approveBoardSubmissionLocally(
   crawlBoardId: string,
   adminUserId: string
 ): Promise<void> {
+  console.log('[approveBoardSubmissionLocally] 제출 승인 처리 시작:', {
+    submissionId,
+    crawlBoardId,
+    adminUserId,
+  });
+
   const { error } = await supabase
     .from('dev_board_submissions')
     .update({
@@ -149,6 +171,8 @@ export async function approveBoardSubmissionLocally(
     .eq('id', submissionId);
 
   if (error) {
-    console.warn('[approveBoardSubmissionLocally] 경고:', error);
+    console.error('[approveBoardSubmissionLocally] 제출 승인 업데이트 실패:', error);
+  } else {
+    console.log('[approveBoardSubmissionLocally] 제출 승인 완료:', submissionId);
   }
 }

@@ -1733,6 +1733,55 @@ export async function updateCrawlBoard(
   return mapCrawlBoardFromDbRow(data);
 }
 
+export async function unapproveCrawlBoard(boardId: string): Promise<void> {
+  const { error } = await supabase
+    .from('crawl_boards')
+    .update({
+      approved_at: null,
+      approved_by: null
+    })
+    .eq('id', boardId);
+
+  if (error) {
+    console.error('승인 취소 실패:', error);
+    throw error;
+  }
+}
+
+export async function deleteCrawlBoard(boardId: string): Promise<void> {
+  // 먼저 관련 데이터 삭제
+  const { error: logsError } = await supabase
+    .from('crawl_logs')
+    .delete()
+    .eq('board_id', boardId);
+
+  if (logsError) {
+    console.error('크롤 로그 삭제 실패:', logsError);
+    throw logsError;
+  }
+
+  const { error: submissionsError } = await supabase
+    .from('dev_board_submissions')
+    .delete()
+    .eq('crawl_board_id', boardId);
+
+  if (submissionsError) {
+    console.error('제출 기록 삭제 실패:', submissionsError);
+    throw submissionsError;
+  }
+
+  // 게시판 삭제
+  const { error: boardError } = await supabase
+    .from('crawl_boards')
+    .delete()
+    .eq('id', boardId);
+
+  if (boardError) {
+    console.error('게시판 삭제 실패:', boardError);
+    throw boardError;
+  }
+}
+
 export async function fetchCrawlLogs(boardId?: string, status?: string): Promise<CrawlLog[]> {
   let query = supabase
     .from('crawl_logs')

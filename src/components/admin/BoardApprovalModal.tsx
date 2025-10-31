@@ -104,6 +104,12 @@ export default function BoardApprovalModal({
 
       // 크롤 게시판 생성 (로컬 처리)
       if (result.crawlerCode) {
+        console.log('[BoardApprovalModal] 크롤 게시판 생성 시작:', {
+          boardName: submission.boardName,
+          boardUrl: submission.boardUrl,
+          codeLength: result.crawlerCode.length,
+        });
+
         const crawlBoard = await createCrawlBoardLocally(
           submission.boardName,
           submission.boardUrl,
@@ -111,14 +117,23 @@ export default function BoardApprovalModal({
           result.crawlerCode
         );
 
+        console.log('[BoardApprovalModal] 크롤 게시판 등록 완료:', crawlBoard.id);
+
         // 개발자 제출 승인 (로컬 처리)
+        console.log('[BoardApprovalModal] 제출 승인 처리 시작');
         await approveBoardSubmissionLocally(
           submission.id,
           crawlBoard.id,
           user.id
         );
 
-        console.log('[BoardApprovalModal] 크롤 게시판 등록 완료:', crawlBoard.id);
+        console.log('[BoardApprovalModal] 전체 파이프라인 완료:', {
+          submissionId: submission.id,
+          crawlBoardId: crawlBoard.id,
+        });
+      } else {
+        console.error('[BoardApprovalModal] 크롤러 코드가 없습니다!', result);
+        throw new Error('크롤러 코드 생성 실패');
       }
 
       onSuccess();

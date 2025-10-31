@@ -1,13 +1,15 @@
 /**
  * API Route: /api/generate-crawler
  * AI 크롤러 자동 생성 엔드포인트
- * 
- * Phase 5 파이프라인 호출:
- * - Phase 5-1: 게시판 구조 분석
- * - Phase 5-2: 크롤러 코드 생성
- * - Phase 5-3: Sandbox 테스트
- * - Phase 5-4: Self-Correction Loop
+ *
+ * Supabase Edge Function 'generate-crawler' 호출
+ * - AI 기반 게시판 구조 분석
+ * - 크롤러 코드 자동 생성
+ * - 페이지네이션 로직 포함
  */
+
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://qpwnsvsiduvvqdijyxio.supabase.co';
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 export default async function handler(
   req: any,
@@ -16,7 +18,7 @@ export default async function handler(
   // CORS 헤더 설정
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
   // OPTIONS 요청 처리
   if (req.method === 'OPTIONS') {
@@ -38,35 +40,57 @@ export default async function handler(
       });
     }
 
-    console.log('[generate-crawler] 요청 수신:', {
+    console.log('[generate-crawler API] Supabase Edge Function 호출:', {
       submissionId,
       boardName,
       boardUrl,
+      adminUserId,
     });
 
-    // 크롤러 ID 생성
-    const crawlerId = boardName
-      .toLowerCase()
-      .replace(/\s+/g, '_')
-      .replace(/[^a-z0-9_]/g, '');
+    // Supabase Edge Function 호출
+    const edgeFunctionUrl = `${SUPABASE_URL}/functions/v1/generate-crawler`;
 
-    // 샘플 크롤러 코드 생성
-    // 실제로는 Phase 5 파이프라인 호출
-    const crawlerCode = generateSampleCrawler(boardName, boardUrl);
-
-    console.log('[generate-crawler] 크롤러 생성 완료:', {
-      crawlerId,
-      codeLength: crawlerCode.length,
+    const response = await fetch(edgeFunctionUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+      },
+      body: JSON.stringify({
+        submissionId,
+        boardName,
+        boardUrl,
+        adminUserId,
+        maxPages: 3,
+        maxItems: 30,
+      }),
     });
 
-    return res.status(200).json({
-      success: true,
-      crawlerId,
-      crawlerCode,
-      message: `크롤러 생성 완료: ${boardName}`,
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('[generate-crawler API] Edge Function 오류:', {
+        status: response.status,
+        statusText: response.statusText,
+        body: errorText,
+      });
+
+      return res.status(response.status).json({
+        success: false,
+        message: `Edge Function 호출 실패: ${response.statusText}`,
+        error: errorText,
+      });
+    }
+
+    const result = await response.json();
+
+    console.log('[generate-crawler API] Edge Function 응답:', {
+      success: result.success,
+      crawlerCodeLength: result.crawlerCode?.length,
     });
+
+    return res.status(200).json(result);
   } catch (error) {
-    console.error('[generate-crawler] 오류:', error);
+    console.error('[generate-crawler API] 오류:', error);
 
     return res.status(500).json({
       success: false,
@@ -74,63 +98,4 @@ export default async function handler(
       error: error instanceof Error ? error.message : String(error),
     });
   }
-}
-
-/**
- * 샘플 크롤러 코드 생성
- * 실제로는 Phase 5 파이프라인에서 생성된 코드를 사용합니다.
- */
-function generateSampleCrawler(boardName: string, boardUrl: string): string {
-  return `/**
- * ${boardName} 크롤러
- * AI 자동 생성 (Phase 5)
- * 생성일: ${new Date().toISOString()}
- */
-
-export async function crawl${boardName.replace(/\s+/g, '').replace(/[^a-zA-Z0-9]/g, '')}(page, config) {
-  console.log(\`📍 \${config.name} 크롤링 시작\`);
-  
-  const jobs = [];
-  
-  try {
-    // 1. 목록 페이지 접속
-    console.log(\`🌐 목록 페이지 접속: \${config.url}\`);
-    await page.goto(config.url, { waitUntil: 'domcontentloaded' });
-    
-    // 2. 게시글 목록 추출
-    const rows = await page.locator('table tbody tr').all();
-    console.log(\`📋 발견된 공고 수: \${rows.length}개\`);
-    
-    // 3. 각 게시글 처리
-    for (let i = 0; i < Math.min(rows.length, 10); i++) {
-      const row = rows[i];
-      
-      try {
-        const titleElement = await row.locator('a').first();
-        const title = await titleElement.textContent();
-        const href = await titleElement.getAttribute('href');
-        
-        if (title && href) {
-          jobs.push({
-            title: title.trim(),
-            url: href.startsWith('http') ? href : new URL(href, config.url).href,
-            organization: config.name,
-            location: '지역 미상',
-            postedDate: new Date().toISOString().split('T')[0],
-            source: 'crawled',
-          });
-        }
-      } catch (rowError) {
-        console.warn(\`행 처리 오류: \${rowError}\`);
-      }
-    }
-    
-    console.log(\`✅ 크롤링 완료: \${jobs.length}개 수집\`);
-    return jobs;
-  } catch (error) {
-    console.error('크롤링 오류:', error);
-    return jobs;
-  }
-}
-`;
 }
