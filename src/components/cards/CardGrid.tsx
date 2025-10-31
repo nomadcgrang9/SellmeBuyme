@@ -21,9 +21,9 @@ export default function CardGrid({ cards, onCardClick, onJobEditClick, onTalentE
               onClick={() => onCardClick?.(card)}
               onEditClick={onJobEditClick}
             />
-          ) : (
+          ) : card.type === 'talent' ? (
             <TalentCard talent={card} onEditClick={onTalentEditClick} />
-          )}
+          ) : null}
         </div>
       ))}
     </div>

@@ -15,6 +15,7 @@ import type {
   CrawlBoard,
   CrawlLog,
   CreateCrawlBoardInput,
+  ExperienceCard,
   JobPostingCard,
   SearchFilters,
   SearchQueryParams,
@@ -28,7 +29,7 @@ import type {
   UpdateCrawlBoardInput,
   ViewType
 } from '@/types';
-import type { TalentRegistrationFormData } from '@/lib/validation/formSchemas';
+import type { ExperienceRegistrationFormData, TalentRegistrationFormData } from '@/lib/validation/formSchemas';
 
 type JobPostingSchoolLevel = {
   kindergarten: boolean;
