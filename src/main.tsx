@@ -5,6 +5,7 @@ import AdminPage from './pages/AdminPage'
 import DeveloperPage from './pages/DeveloperPage'
 import AuthCallback from './pages/AuthCallback'
 import './index.css'
+import Landing from './pages/Landing'
 
 const pathname = window.location.pathname
 
@@ -48,6 +49,10 @@ else if (pathname.match(/^\/[a-z0-9\-]{20,}/i)) {
 }
 else if (pathname.startsWith('/auth/callback')) {
   rootComponent = <AuthCallback />
+}
+// 데모/시연용 랜딩 페이지
+else if (pathname.startsWith('/landing')) {
+  rootComponent = <Landing />
 }
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
