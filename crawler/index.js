@@ -188,11 +188,21 @@ async function main() {
         process.exit(1);
       }
       
-      logStep('ai-crawler', '크롤러 코드 로드 완료', { 
-        boardName: board.name, 
-        codeLength: board.crawler_source_code.length 
+      logStep('ai-crawler', '크롤러 코드 로드 완료', {
+        boardName: board.name,
+        codeLength: board.crawler_source_code.length
       });
-      
+
+      // 1-1. 크롤러 코드 길이 검증 (1082자는 불충분한 템플릿)
+      if (board.crawler_source_code.length < 2000) {
+        logError('ai-crawler', '크롤러 코드가 너무 짧습니다 (불충분한 템플릿)', null, {
+          codeLength: board.crawler_source_code.length,
+          boardName: board.name,
+          message: 'scripts/generate-crawler-ai.ts를 실행하여 정교한 크롤러 코드를 생성하세요'
+        });
+        process.exit(1);
+      }
+
       // 2. 임시 파일로 저장
       const tempFileName = `temp_crawler_${boardId}.mjs`;
       const tempFileUrl = new URL(tempFileName, import.meta.url);
@@ -238,34 +248,57 @@ async function main() {
       const crawlSourceInfo = await getOrCreateCrawlSource(board.name, board.board_url);
       const crawlSourceId = crawlSourceInfo.id;
       
-      // 7. DB에 저장
+      // 7. DB에 저장 (Gemini AI 정규화 적용)
       let successCount = 0;
       let skippedCount = 0;
-      
+
       for (const job of jobs) {
         try {
           // 중복 체크
-          const existing = await getExistingJobBySource(job.url);
+          const existing = await getExistingJobBySource(job.link || job.url);
           if (existing) {
-            logDebug('ai-crawler', '중복 공고 스킵', { url: job.url });
+            logDebug('ai-crawler', '중복 공고 스킵', { url: job.link || job.url });
             skippedCount++;
             continue;
           }
-          
-          // 저장
-          const saved = await saveJobPosting({
+
+          // Gemini AI로 데이터 정규화 (camelCase와 snake_case 모두 지원)
+          const detailContent = job.detailContent || job.detail_content || '';
+          const normalized = await normalizeJobData({
             title: job.title,
-            organization: job.organization,
-            location: job.location || '지역 미상',
-            detail_content: job.detailContent || '',
-            source_url: job.url,
-            posted_date: job.postedDate,
-            attachment_url: job.attachmentUrl || null,
+            date: job.date || '',
+            link: job.link || job.url,
+            detailContent: detailContent
+          }, board.name);
+
+          if (!normalized) {
+            logWarn('ai-crawler', 'AI 정규화 실패, 원본 데이터 사용', { title: job.title });
+          }
+
+          // 저장 (Gemini가 추출한 organization, title 사용)
+          const saved = await saveJobPosting({
+            title: normalized?.title || job.title,
+            organization: normalized?.organization || job.organization || board.name,
+            location: normalized?.location || job.location || '지역 미상',
+            compensation: normalized?.compensation || '협의',
+            deadline: normalized?.deadline || null,
+            application_period: normalized?.application_period || null,
+            work_period: normalized?.work_period || null,
+            contact: normalized?.contact || null,
+            tags: normalized?.tags || [],
+            detail_content: detailContent,
+            source_url: job.link || job.url,
+            posted_date: job.postedDate || job.date,
+            attachment_url: job.attachmentUrl || job.attachment_url || null,
+            is_urgent: normalized?.is_urgent || false,
           }, crawlSourceId);
-          
+
           if (saved) {
             successCount++;
-            logInfo('ai-crawler', '공고 저장 완료', { title: job.title });
+            logInfo('ai-crawler', '공고 저장 완료', {
+              organization: normalized?.organization,
+              title: normalized?.title
+            });
           }
         } catch (saveError) {
           logError('ai-crawler', '공고 저장 실패', saveError, { title: job.title });
