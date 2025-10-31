@@ -332,13 +332,17 @@ export async function getBoardSubmissions(
     throw new Error(`게시판 제출을 불러올 수 없습니다: ${error.message}`);
   }
 
-  // crawl_boards의 approved_at으로 덮어쓰기
+  // crawl_boards의 approved_at으로 완전히 교체 (fallback 없음)
   const submissions = data.map((row: any) => {
     const submission: DevBoardSubmissionRow = {
       ...row,
-      // crawl_boards의 approved_at이 있으면 그걸 사용, 없으면 원본 사용
-      approved_at: row.crawl_boards?.approved_at ?? row.approved_at,
-      approved_by: row.crawl_boards?.approved_by ?? row.approved_by,
+      // crawl_boards의 approved_at만 사용 (NULL이면 NULL 유지)
+      approved_at: row.crawl_boards?.approved_at !== undefined
+        ? row.crawl_boards.approved_at
+        : row.approved_at,
+      approved_by: row.crawl_boards?.approved_by !== undefined
+        ? row.crawl_boards.approved_by
+        : row.approved_by,
     };
     return convertSubmissionRowToSubmission(submission);
   });
