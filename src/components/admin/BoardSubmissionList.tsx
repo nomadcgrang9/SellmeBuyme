@@ -203,10 +203,12 @@ export default function BoardSubmissionList({
               )}
 
               {/* Approval Info (if approved) */}
-              {submission.status === 'approved' && submission.approvedAt && (
+              {(submission.status === 'approved' || submission.approvedAt) && (
                 <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded text-sm text-green-700">
                   <strong>승인됨:</strong>{' '}
-                  {new Date(submission.approvedAt).toLocaleString('ko-KR')}
+                  {submission.approvedAt
+                    ? new Date(submission.approvedAt).toLocaleString('ko-KR')
+                    : '승인 완료'}
                 </div>
               )}
             </div>

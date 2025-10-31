@@ -4,7 +4,9 @@ import {
   fetchCrawlBoards,
   triggerCrawlBoardRun,
   triggerCrawlBoardTest,
-  updateCrawlBoard
+  updateCrawlBoard,
+  unapproveCrawlBoard,
+  deleteCrawlBoard
 } from '@/lib/supabase/queries';
 import type { CrawlBoard, UpdateCrawlBoardInput } from '@/types';
 import CrawlBatchSizeInput from './CrawlBatchSizeInput';
@@ -104,6 +106,40 @@ export default function CrawlBoardList({ onCreate, onEdit, onLogs, refreshToken 
       setError('테스트 크롤링 실행에 실패했습니다.');
     } finally {
       setRunningBoardId(null);
+    }
+  };
+
+  const handleUnapprove = async (board: CrawlBoard) => {
+    if (!confirm(`"${board.name}" 게시판의 승인을 취소하시겠습니까?`)) {
+      return;
+    }
+
+    setSavingBoardId(board.id);
+    try {
+      await unapproveCrawlBoard(board.id);
+      await loadBoards();
+    } catch (err) {
+      console.error(err);
+      setError('승인 취소에 실패했습니다.');
+    } finally {
+      setSavingBoardId(null);
+    }
+  };
+
+  const handleDelete = async (board: CrawlBoard) => {
+    if (!confirm(`"${board.name}" 게시판을 완전히 삭제하시겠습니까?\n\n관련된 크롤링 로그와 제출 기록도 모두 삭제됩니다.\n이 작업은 되돌릴 수 없습니다.`)) {
+      return;
+    }
+
+    setSavingBoardId(board.id);
+    try {
+      await deleteCrawlBoard(board.id);
+      await loadBoards();
+    } catch (err) {
+      console.error(err);
+      setError('게시판 삭제에 실패했습니다.');
+    } finally {
+      setSavingBoardId(null);
     }
   };
 
@@ -210,6 +246,13 @@ export default function CrawlBoardList({ onCreate, onEdit, onLogs, refreshToken 
                     <div className="mt-1 flex flex-wrap gap-2 text-xs text-gray-500">
                       <span>상태: {board.status}</span>
                       <span>활성화: {board.isActive ? '사용' : '중지'}</span>
+                      {board.approvedAt ? (
+                        <span className="text-green-600">
+                          승인됨: {new Date(board.approvedAt).toLocaleDateString('ko-KR')}
+                        </span>
+                      ) : (
+                        <span className="text-amber-600">승인 대기</span>
+                      )}
                       <span>최근 성공: {board.lastSuccessAt ? new Date(board.lastSuccessAt).toLocaleString() : '-'}</span>
                     </div>
                   </div>
@@ -248,6 +291,22 @@ export default function CrawlBoardList({ onCreate, onEdit, onLogs, refreshToken 
                     className="rounded-md border border-gray-200 px-3 py-1.5 text-sm text-gray-700 hover:border-primary hover:text-primary disabled:opacity-50"
                   >
                     {board.isActive ? '비활성화' : '활성화'}
+                  </button>
+                  {board.approvedAt && (
+                    <button
+                      onClick={() => handleUnapprove(board)}
+                      disabled={savingBoardId === board.id}
+                      className="rounded-md border border-amber-200 px-3 py-1.5 text-sm text-amber-700 hover:border-amber-400 hover:text-amber-800 disabled:opacity-50"
+                    >
+                      승인 취소
+                    </button>
+                  )}
+                  <button
+                    onClick={() => handleDelete(board)}
+                    disabled={savingBoardId === board.id}
+                    className="rounded-md border border-red-200 px-3 py-1.5 text-sm text-red-600 hover:border-red-400 hover:text-red-700 disabled:opacity-50"
+                  >
+                    삭제
                   </button>
                 </div>
               </div>
