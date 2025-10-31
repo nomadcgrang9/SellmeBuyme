@@ -195,12 +195,15 @@ async function main() {
       
       // 2. 임시 파일로 저장
       const tempFileName = `temp_crawler_${boardId}.mjs`;
-      const tempFilePath = new URL(tempFileName, import.meta.url).pathname;
+      const tempFileUrl = new URL(tempFileName, import.meta.url);
+      const tempFilePath = tempFileUrl.pathname.startsWith('/') && process.platform === 'win32'
+        ? tempFileUrl.pathname.substring(1) // Windows: remove leading slash
+        : tempFileUrl.pathname;
       writeFileSync(tempFilePath, board.crawler_source_code, 'utf-8');
       logStep('ai-crawler', '임시 파일 생성', { tempFilePath });
-      
+
       // 3. 동적 import로 크롤러 함수 로드
-      const crawlerModule = await import(tempFilePath + `?t=${Date.now()}`);
+      const crawlerModule = await import(tempFileUrl.href + `?t=${Date.now()}`);
       const crawlerFunc = Object.values(crawlerModule)[0]; // export된 첫 함수
       
       if (typeof crawlerFunc !== 'function') {
