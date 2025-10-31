@@ -12,21 +12,57 @@ const supabase = createClient(
 
 async function uploadCrawlerToDb() {
   const boardName = process.argv[2];
+  const filePath = process.argv[3];
 
   if (!boardName) {
-    console.error('사용법: npx tsx scripts/upload-crawler-to-db.ts <게시판명>');
+    console.error('사용법: npx tsx scripts/upload-crawler-to-db.ts <게시판명> [파일경로]');
     process.exit(1);
   }
 
   console.log(`📝 ${boardName} 크롤러 코드 DB 업로드 시작...\n`);
 
   // 1. 로컬 파일에서 생성된 크롤러 코드 읽기
-  const fileName = boardName
-    .toLowerCase()
-    .replace(/\s+/g, '-')
-    .replace(/[^a-z0-9가-힣-]/g, '');
+  let localFilePath: string;
 
-  const localFilePath = join(process.cwd(), 'crawler', 'sources', `${fileName}.js`);
+  if (filePath) {
+    // 파일 경로가 직접 제공된 경우
+    localFilePath = join(process.cwd(), filePath);
+  } else {
+    // 파일 경로가 없으면 게시판명으로 최근 생성된 파일 찾기
+    const { readdirSync, statSync } = await import('fs');
+    const sourcesDir = join(process.cwd(), 'crawler', 'sources');
+
+    // 게시판명을 정규화하여 패턴 생성
+    const normalizedName = boardName
+      .toLowerCase()
+      .replace(/\s+/g, '-')
+      .replace(/[^a-z0-9가-힣-]/g, '');
+
+    // sources 디렉토리에서 매칭되는 파일 찾기 (테스트 포함)
+    const files = readdirSync(sourcesDir)
+      .filter(f => f.includes(normalizedName) && f.endsWith('.js'))
+      .map(f => ({
+        name: f,
+        path: join(sourcesDir, f),
+        mtime: statSync(join(sourcesDir, f)).mtime
+      }))
+      .sort((a, b) => b.mtime.getTime() - a.mtime.getTime()); // 최신 파일 우선
+
+    if (files.length === 0) {
+      console.error(`❌ 게시판명 "${boardName}"과 매칭되는 파일을 찾을 수 없습니다.`);
+      console.error(`   검색 위치: ${sourcesDir}`);
+      console.error(`   검색 패턴: *${normalizedName}*.js`);
+      process.exit(1);
+    }
+
+    localFilePath = files[0].path;
+
+    if (files.length > 1) {
+      console.log(`ℹ️  여러 파일이 발견되었습니다. 가장 최근 파일을 사용합니다:`);
+      files.forEach((f, i) => console.log(`   ${i === 0 ? '→' : ' '} ${f.name}`));
+      console.log();
+    }
+  }
 
   if (!existsSync(localFilePath)) {
     console.error(`❌ 파일을 찾을 수 없습니다: ${localFilePath}`);
