@@ -1960,7 +1960,8 @@ export async function updateCrawlBoard(
 }
 
 export async function unapproveCrawlBoard(boardId: string): Promise<void> {
-  const { error } = await supabase
+  // 1. crawl_boards 승인 취소
+  const { error: boardError } = await supabase
     .from('crawl_boards')
     .update({
       approved_at: null,
@@ -1968,9 +1969,22 @@ export async function unapproveCrawlBoard(boardId: string): Promise<void> {
     })
     .eq('id', boardId);
 
-  if (error) {
-    console.error('승인 취소 실패:', error);
-    throw error;
+  if (boardError) {
+    console.error('crawl_boards 승인 취소 실패:', boardError);
+    throw boardError;
+  }
+
+  // 2. dev_board_submissions status를 pending으로 변경
+  const { error: submissionError } = await supabase
+    .from('dev_board_submissions')
+    .update({
+      status: 'pending'
+    })
+    .eq('crawl_board_id', boardId);
+
+  if (submissionError) {
+    console.error('dev_board_submissions status 변경 실패:', submissionError);
+    throw submissionError;
   }
 }
 
