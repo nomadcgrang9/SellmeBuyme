@@ -72,7 +72,14 @@ Deno.serve(async (req) => {
     }
 
     // 외부 서버에서 파일 가져오기
-    const response = await fetch(targetUrl);
+    const response = await fetch(targetUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': '*/*',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Connection': 'keep-alive',
+      },
+    });
     
     if (!response.ok) {
       return new Response(
