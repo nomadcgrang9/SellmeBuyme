@@ -264,9 +264,15 @@ export default function JobDetailModal({ job, isOpen, onClose, onEditClick }: Jo
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={(e) => {
-                  console.log('[DEBUG] 다운로드 URL:', job.attachment_url);
-                  console.log('[DEBUG] URL에 apikey 포함 여부:', job.attachment_url.includes('apikey='));
-                  console.log('[DEBUG] 전체 URL 파라미터:', new URL(job.attachment_url).searchParams.toString());
+                  if (job.attachment_url) {
+                    console.log('[DEBUG] 다운로드 URL:', job.attachment_url);
+                    console.log('[DEBUG] URL에 apikey 포함 여부:', job.attachment_url.includes('apikey='));
+                    try {
+                      console.log('[DEBUG] 전체 URL 파라미터:', new URL(job.attachment_url).searchParams.toString());
+                    } catch (err) {
+                      console.log('[DEBUG] URL 파싱 실패:', err);
+                    }
+                  }
                 }}
                 className="flex items-center justify-center gap-2 px-5 py-2.5 bg-primary text-white font-semibold rounded-lg hover:bg-primary/90 transition-colors"
               >
