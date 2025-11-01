@@ -91,22 +91,8 @@ function buildAttachmentDownloadUrl(originalUrl: string | null, filename?: strin
     }
   }
 
-  if (downloadAttachmentFunctionUrl) {
-    const params = new URLSearchParams({ url: originalUrl });
-    if (filename?.trim()) {
-      params.set('filename', filename.trim());
-    }
-    // Edge Function 호출 시 anon key 포함 (Supabase 인증 우회)
-    const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-    if (anonKey) {
-      params.set('apikey', anonKey);
-    }
-    return `${downloadAttachmentFunctionUrl}?${params.toString()}`;
-  }
-
-  if (!filename) return originalUrl;
-  const separator = originalUrl.includes('#') ? '&' : '#';
-  return `${originalUrl}${separator}filename=${encodeURIComponent(filename)}`;
+  // 크롤링된 외부 URL은 그대로 반환 (Edge Function 사용 안 함)
+  return originalUrl;
 }
 
 export interface CreateJobPostingInput {
@@ -3534,26 +3520,7 @@ export function mapJobPostingToCard(job: any): JobPostingCard {
         return null;
       }
       const filename = buildAttachmentFilename(job.organization, job.attachment_url);
-      if (job.source === 'user_posted') {
-        return job.attachment_url;
-      }
-      if (downloadAttachmentFunctionUrl) {
-        const params = new URLSearchParams();
-        if (job.attachment_path) {
-          params.set('path', job.attachment_path);
-        } else {
-          params.set('url', job.attachment_url);
-        }
-        if (filename?.trim()) {
-          params.set('filename', filename.trim());
-        }
-        // Edge Function 호출 시 anon key 포함 (Supabase 인증 우회)
-        const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-        if (anonKey) {
-          params.set('apikey', anonKey);
-        }
-        return `${downloadAttachmentFunctionUrl}?${params.toString()}`;
-      }
+      // 원본 URL 그대로 반환 (사용자 업로드 & 크롤링 모두)
       return job.attachment_url;
     })(),
     attachment_path: job.attachment_path ?? null,

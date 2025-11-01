@@ -517,10 +517,8 @@ async function main() {
           candidateFilename: candidateAttachmentFilename,
         });
 
-        const attachmentUrlWithFilename = buildAttachmentDownloadUrl(
-          rawJob.attachmentUrl,
-          canonicalAttachmentFilename
-        );
+        // 원본 URL을 그대로 사용 (Edge Function 우회)
+        const attachmentUrlWithFilename = rawJob.attachmentUrl;
 
         // 6-6. 직무 속성 추론 (학교급, 과목, 라이센스)
         // organization 우선순위: AI 정리 > 크롤러 추출 > 기타
