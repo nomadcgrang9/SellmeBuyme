@@ -6,11 +6,13 @@ import ActionMenu from './ActionMenu';
 interface FloatingActionButtonProps {
   onIdeaClick: () => void;
   onBoardClick: () => void;
+  onProjectClick: () => void;
 }
 
 export default function FloatingActionButton({
   onIdeaClick,
   onBoardClick,
+  onProjectClick,
 }: FloatingActionButtonProps) {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -39,6 +41,7 @@ export default function FloatingActionButton({
           onClose={() => setIsOpen(false)}
           onIdeaClick={onIdeaClick}
           onBoardClick={onBoardClick}
+          onProjectClick={onProjectClick}
         />
       )}
     </>

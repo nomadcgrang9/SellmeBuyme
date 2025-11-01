@@ -4,6 +4,7 @@ import AIRecommendations from '@/components/ai/AIRecommendations';
 import AIInsightBox from '@/components/ai/AIInsightBox';
 import CardGrid from '@/components/cards/CardGrid';
 import JobDetailModal from '@/components/cards/JobDetailModal';
+import ExperienceDetailModal from '@/components/cards/ExperienceDetailModal';
 import JobPostingEditModal from '@/components/forms/JobPostingEditModal';
 import ExperienceEditModal from '@/components/forms/ExperienceEditModal';
 import ProfileSetupModal, { ROLE_OPTIONS, type RoleOption } from '@/components/auth/ProfileSetupModal';
@@ -85,10 +86,18 @@ export default function App() {
   const [isEditFormOpen, setIsEditFormOpen] = useState(false);
   const [editingExperience, setEditingExperience] = useState<ExperienceCard | null>(null);
   const [isExperienceEditOpen, setIsExperienceEditOpen] = useState(false);
+  const [selectedExperience, setSelectedExperience] = useState<ExperienceCard | null>(null);
 
   // AI 추천 카드 클릭 시 전체 데이터 조회
   const handleCardClick = async (card: Card) => {
     console.log('카드 클릭:', card);
+
+    // 체험 카드 처리
+    if (card.type === 'experience') {
+      setSelectedExperience(card as ExperienceCard);
+      return;
+    }
+
     if (card.type !== 'job') return;
 
     // 이미 완전한 데이터를 가지고 있는지 확인 (하단 카드는 모든 필드가 있음)
@@ -746,6 +755,16 @@ export default function App() {
           isOpen={!!selectedJob}
           onClose={() => setSelectedJob(null)}
           onEditClick={handleJobEditClick}
+        />
+      )}
+
+      {/* 체험 상세보기 모달 */}
+      {selectedExperience && (
+        <ExperienceDetailModal
+          experience={selectedExperience}
+          isOpen={!!selectedExperience}
+          onClose={() => setSelectedExperience(null)}
+          onEditClick={handleExperienceEditClick}
         />
       )}
 

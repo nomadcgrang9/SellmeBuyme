@@ -48,17 +48,26 @@ export default function ExperienceRegistrationForm({ onClose, onSubmit }: Experi
   const operationType = watch('operationType');
 
   const handleFormSubmit = async (data: ExperienceRegistrationFormData) => {
+    const timestamp = new Date().toISOString();
+    console.log(`[ExperienceRegistrationForm ${timestamp}] handleFormSubmit 호출`);
+    console.log(`[ExperienceRegistrationForm ${timestamp}] onSubmit prop:`, onSubmit ? '있음' : '없음');
+    console.log(`[ExperienceRegistrationForm ${timestamp}] onSubmit 타입:`, typeof onSubmit);
+    console.log(`[ExperienceRegistrationForm ${timestamp}] 데이터:`, data);
+
     setIsSubmitting(true);
     try {
       if (onSubmit) {
+        console.log(`[ExperienceRegistrationForm ${timestamp}] onSubmit 실행 시작`);
         await onSubmit(data);
+        console.log(`[ExperienceRegistrationForm ${timestamp}] onSubmit 실행 완료`);
       } else {
+        console.log(`[ExperienceRegistrationForm ${timestamp}] ❌ onSubmit prop 없음 - else 블록 실행`);
         console.log('체험 등록 데이터:', data);
         alert('체험 등록이 완료되었습니다.');
         onClose();
       }
     } catch (error) {
-      console.error('등록 실패:', error);
+      console.error(`[ExperienceRegistrationForm ${timestamp}] 등록 실패:`, error);
       alert('등록에 실패했습니다. 다시 시도해주세요.');
     } finally {
       setIsSubmitting(false);

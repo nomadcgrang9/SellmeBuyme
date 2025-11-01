@@ -9,10 +9,11 @@ import CompactTalentCard from '../cards/CompactTalentCard';
 import TextType from '../common/TextType';
 import JobPostingForm from '../forms/JobPostingForm';
 import TalentRegistrationForm from '../forms/TalentRegistrationForm';
-import { createTalent } from '@/lib/supabase/queries';
-import type { TalentRegistrationFormData } from '@/lib/validation/formSchemas';
+import { createTalent, createExperience } from '@/lib/supabase/queries';
+import type { TalentRegistrationFormData, ExperienceRegistrationFormData } from '@/lib/validation/formSchemas';
 import ExperienceRegistrationForm from '../forms/ExperienceRegistrationForm';
 import PromoCardStack from '../promo/PromoCardStack';
+import { useSearchStore } from '@/stores/searchStore';
 
 interface AIRecommendationsProps {
   cards: Card[];
@@ -39,6 +40,7 @@ export default function AIRecommendations({
   const [visibleCount, setVisibleCount] = useState(3);
   const [activeSection, setActiveSection] = useState<'job' | 'talent' | 'experience' | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const { setViewType } = useSearchStore();
 
   useEffect(() => {
     const handleResize = () => {
@@ -169,7 +171,27 @@ export default function AIRecommendations({
               />
             ) : activeSection === 'experience' ? (
               // 체험 등록 폼
-              <ExperienceRegistrationForm onClose={() => setActiveSection(null)} />
+              <ExperienceRegistrationForm
+                onClose={() => setActiveSection(null)}
+                onSubmit={async (form: ExperienceRegistrationFormData) => {
+                  const timestamp = new Date().toISOString();
+                  console.log(`[AIRecommendations ${timestamp}] ✅ 체험 등록 시작:`, form);
+                  try {
+                    const result = await createExperience(form);
+                    console.log(`[AIRecommendations ${timestamp}] 체험 등록 성공:`, result);
+                    alert('체험 등록이 완료되었습니다.');
+                    // 체험 뷰로 전환하여 새로 등록된 카드 표시
+                    setTimeout(() => {
+                      console.log(`[AIRecommendations ${timestamp}] 체험 뷰로 전환`);
+                      setViewType('experience');
+                      setActiveSection(null);
+                    }, 500);
+                  } catch (error) {
+                    console.error(`[AIRecommendations ${timestamp}] 체험 등록 실패:`, error);
+                    throw error; // ExperienceRegistrationForm의 catch로 전달
+                  }
+                }}
+              />
             ) : (
               <>
                 {/* AI 코멘트 띠지 */}

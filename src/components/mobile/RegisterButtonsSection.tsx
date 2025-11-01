@@ -91,16 +91,29 @@ export default function RegisterButtonsSection() {
         <section className="bg-white py-4 border-b">
           <div className="max-w-container mx-auto px-6">
             <ExperienceRegistrationForm
-              onClose={() => setActiveSection(null)}
+              onClose={() => {
+                console.log('[RegisterButtonsSection] onClose 호출');
+                setActiveSection(null);
+              }}
               onSubmit={async (form: ExperienceRegistrationFormData) => {
-                await createExperience(form);
-                alert('체험 등록이 완료되었습니다.');
-                // 체험 뷰로 전환하여 새로 등록된 카드 표시
-                // 약간의 지연을 두어 DB 동기화 대기
-                setTimeout(() => {
-                  setViewType('experience');
-                  setActiveSection(null);
-                }, 500);
+                const timestamp = new Date().toISOString();
+                console.log(`[RegisterButtonsSection ${timestamp}] ✅ onSubmit 호출됨!`);
+                console.log(`[RegisterButtonsSection ${timestamp}] 체험 등록 시작:`, form);
+                try {
+                  const result = await createExperience(form);
+                  console.log(`[RegisterButtonsSection ${timestamp}] 체험 등록 성공:`, result);
+                  alert('체험 등록이 완료되었습니다.');
+                  // 체험 뷰로 전환하여 새로 등록된 카드 표시
+                  // 약간의 지연을 두어 DB 동기화 대기
+                  setTimeout(() => {
+                    console.log(`[RegisterButtonsSection ${timestamp}] 체험 뷰로 전환`);
+                    setViewType('experience');
+                    setActiveSection(null);
+                  }, 500);
+                } catch (error) {
+                  console.error(`[RegisterButtonsSection ${timestamp}] 체험 등록 실패:`, error);
+                  throw error; // ExperienceRegistrationForm의 catch로 전달
+                }
               }}
             />
           </div>

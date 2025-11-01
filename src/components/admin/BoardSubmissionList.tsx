@@ -195,10 +195,10 @@ export default function BoardSubmissionList({
                 </div>
               )}
 
-              {/* Review Comment (if rejected) */}
-              {submission.status === 'rejected' && submission.adminReviewComment && (
-                <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded text-sm text-red-700">
-                  <strong>거부 사유:</strong> {submission.adminReviewComment}
+              {/* Review Comment (if has comment) */}
+              {submission.adminReviewComment && (
+                <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded text-sm text-blue-700">
+                  <strong>검토 의견:</strong> {submission.adminReviewComment}
                 </div>
               )}
 

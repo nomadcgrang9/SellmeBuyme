@@ -1,16 +1,18 @@
 // ActionMenu - 플로팅 버튼 액션 메뉴
-import { Lightbulb, Globe, X } from 'lucide-react';
+import { Lightbulb, Globe, Rocket, X } from 'lucide-react';
 
 interface ActionMenuProps {
   onClose: () => void;
   onIdeaClick: () => void;
   onBoardClick: () => void;
+  onProjectClick: () => void;
 }
 
 export default function ActionMenu({
   onClose,
   onIdeaClick,
   onBoardClick,
+  onProjectClick,
 }: ActionMenuProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
@@ -77,6 +79,29 @@ export default function ActionMenu({
                 </h3>
                 <p className="text-sm text-gray-600">
                   크롤링할 게시판 URL을 제안하세요
+                </p>
+              </div>
+            </div>
+          </button>
+
+          {/* 프로젝트 생성 */}
+          <button
+            onClick={() => {
+              onClose();
+              onProjectClick();
+            }}
+            className="w-full p-4 bg-white border-2 border-gray-200 rounded-lg hover:border-[#a8c5e0] hover:bg-[#f0f7fc] transition-all text-left group"
+          >
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center flex-shrink-0 group-hover:bg-purple-200 transition-colors">
+                <Rocket className="w-5 h-5 text-purple-600" />
+              </div>
+              <div className="flex-1">
+                <h3 className="font-semibold text-gray-900 mb-1">
+                  프로젝트 생성
+                </h3>
+                <p className="text-sm text-gray-600">
+                  아이디어를 프로젝트로 전환하여 관리하세요
                 </p>
               </div>
             </div>

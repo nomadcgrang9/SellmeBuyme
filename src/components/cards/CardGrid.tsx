@@ -33,6 +33,7 @@ export default function CardGrid({ cards, onCardClick, onJobEditClick, onTalentE
           ) : (
             <ExperienceCard
               card={card}
+              onCardClick={() => onCardClick?.(card)}
               onEditClick={onExperienceEditClick}
             />
           )}

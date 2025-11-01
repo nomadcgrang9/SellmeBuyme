@@ -8,7 +8,7 @@ import type { IdeaCategory } from '@/types/developer';
 interface IdeaFormProps {
   onClose: () => void;
   onSubmit: (data: {
-    title: string;
+    authorName: string;
     content: string;
     category: IdeaCategory;
     images: File[];
@@ -16,7 +16,7 @@ interface IdeaFormProps {
 }
 
 export default function IdeaForm({ onClose, onSubmit }: IdeaFormProps) {
-  const [title, setTitle] = useState('');
+  const [authorName, setAuthorName] = useState('');
   const [content, setContent] = useState('');
   const [category, setCategory] = useState<IdeaCategory>('feature');
   const [images, setImages] = useState<File[]>([]);
@@ -28,8 +28,8 @@ export default function IdeaForm({ onClose, onSubmit }: IdeaFormProps) {
     e.preventDefault();
 
     // 유효성 검사
-    if (!title.trim()) {
-      alert('제목을 입력해주세요');
+    if (!authorName.trim()) {
+      alert('작성자를 입력해주세요');
       return;
     }
     if (!content.trim()) {
@@ -39,7 +39,7 @@ export default function IdeaForm({ onClose, onSubmit }: IdeaFormProps) {
 
     setIsSubmitting(true);
     try {
-      await onSubmit({ title, content, category, images });
+      await onSubmit({ authorName, content, category, images });
       onClose();
     } catch (error) {
       console.error('Failed to submit idea:', error);
@@ -75,16 +75,16 @@ export default function IdeaForm({ onClose, onSubmit }: IdeaFormProps) {
 
         {/* 폼 */}
         <form onSubmit={handleSubmit} className="p-4 space-y-4">
-          {/* 제목 */}
+          {/* 작성자 */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              제목 <span className="text-red-500">*</span>
+              작성자 <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="아이디어 제목을 입력하세요"
+              value={authorName}
+              onChange={(e) => setAuthorName(e.target.value)}
+              placeholder="이름을 입력하세요"
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#a8c5e0] focus:border-transparent"
               required
             />
