@@ -12,6 +12,7 @@ interface ExtractedSelectors {
   title: string;
   date: string;
   link: string;
+  location?: string;
   detailContent?: string;
   attachment?: string;
 }
@@ -102,6 +103,7 @@ ${html}
 3. **title**: 제목 텍스트가 있는 요소
 4. **date**: 날짜 텍스트가 있는 요소
 5. **link**: 상세 페이지로 가는 링크 (href 속성)
+6. **location**: 이 게시판의 지역을 게시판 이름/페이지 제목/URL에서 추출 (예: "의정부", "남양주", "경기도", "서울" 등. 지역이 명확하지 않으면 null)
 
 **출력 형식** (JSON만 출력, 다른 텍스트 없이):
 \`\`\`json
@@ -110,7 +112,8 @@ ${html}
   "rows": "tbody tr",
   "title": "td.title a",
   "date": "td.date",
-  "link": "td.title a"
+  "link": "td.title a",
+  "location": "의정부"
 }
 \`\`\`
 
@@ -118,6 +121,7 @@ ${html}
 - CSS 셀렉터는 구체적으로 작성
 - nth-child() 사용 가능 (예: "td:nth-child(3)")
 - 한국 교육청 게시판 구조 고려
+- location은 게시판 이름, 페이지 제목, URL에서 지역명을 추출 (필수 아님, null 가능)
 - 반드시 JSON 형식으로만 응답`;
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -249,6 +253,9 @@ export async function crawl${functionName}(page, config) {
   // AI가 추출한 셀렉터
   const aiSelectors = ${JSON.stringify(config.selectors, null, 2)};
 
+  // AI가 추출한 지역 정보
+  const aiLocation = aiSelectors.location || null;
+
   // Fallback 셀렉터 (AI 셀렉터 우선, 실패 시 범용 셀렉터 시도)
   const fallbackSelectors = {
     listContainer: [
@@ -378,11 +385,123 @@ export async function crawl${functionName}(page, config) {
           return contentEl ? contentEl.textContent?.trim() : '';
         });
 
-        // 첨부파일 추출
-        const attachmentUrl = await page.evaluate(() => {
+        // 첨부파일 추출 (3단계 + 4단계 동적 파싱)
+        let attachmentUrl = null;
+        let extractedData = null;
+
+        // 1단계: 기본 선택자로 시도
+        attachmentUrl = await page.evaluate(() => {
           const link = document.querySelector('a[href*="download"], a[href*="attach"], a[href*="file"]');
           return link ? link.getAttribute('href') : null;
         });
+
+        // 2단계: 파일 확장자 검색
+        if (!attachmentUrl) {
+          const fileExtensions = ['.hwp', '.hwpx', '.pdf', '.doc', '.docx', '.xls', '.xlsx'];
+          for (const ext of fileExtensions) {
+            attachmentUrl = await page.evaluate((extension) => {
+              const lowerExtension = extension.toLowerCase();
+              const links = Array.from(document.querySelectorAll('a'));
+              const target = links.find((link) => {
+                const hrefValue = link.getAttribute('href') || link.href || '';
+                const textValue = link.textContent || '';
+                return hrefValue.toLowerCase().includes(lowerExtension) || textValue.toLowerCase().includes(lowerExtension);
+              });
+              if (!target) return null;
+              const href = target.getAttribute('href') || target.getAttribute('data-href') || target.getAttribute('data-file') || target.href;
+              if (!href) return null;
+              const trimmed = href.trim();
+              if (!trimmed || trimmed.toLowerCase().startsWith('javascript:') || trimmed === '#') return null;
+              return trimmed;
+            }, ext);
+            if (attachmentUrl) break;
+          }
+        }
+
+        // 3단계: 키워드 검색
+        if (!attachmentUrl) {
+          const keywordCandidates = ['첨부', '다운로드', '내려받기', '파일'];
+          attachmentUrl = await page.evaluate((keywords) => {
+            const links = Array.from(document.querySelectorAll('a, button'));
+            const lowerKeywords = keywords.map((keyword) => keyword.toLowerCase());
+            const target = links.find((element) => {
+              const text = (element.textContent || '').toLowerCase();
+              const aria = (element.getAttribute('aria-label') || '').toLowerCase();
+              return lowerKeywords.some((keyword) => text.includes(keyword) || aria.includes(keyword));
+            });
+            if (!target) return null;
+            const href = target.getAttribute('href') || target.getAttribute('data-href') || target.getAttribute('data-file') || target.href;
+            if (!href) return null;
+            const trimmed = href.trim();
+            if (!trimmed || trimmed.toLowerCase().startsWith('javascript:') || trimmed === '#') return null;
+            return trimmed;
+          }, keywordCandidates);
+        }
+
+        let resolvedAttachmentUrl = attachmentUrl ? resolveUrl(absoluteLink, attachmentUrl) : null;
+
+        // 4단계: onclick 동적 파싱
+        if (!resolvedAttachmentUrl) {
+          extractedData = await page.evaluate(() => {
+            const prvwLinks = document.querySelectorAll('.prvw a, .prvw_btns a');
+            for (const link of prvwLinks) {
+              const onclick = link.getAttribute('onclick');
+              if (!onclick) continue;
+
+              // previewAjax('URL', 'filename') 패턴 추출
+              const match = onclick.match(/previewAjax\\s*\\(\\s*['"]([^'"]+)['"]\\s*,\\s*['"]([^'"]+)['"]/);
+              if (match && match[1]) {
+                return { url: match[1], filename: match[2] || null };
+              }
+
+              // preListen('URL', 'filename') 패턴
+              const match2 = onclick.match(/preListen\\s*\\(\\s*['"]([^'"]+)['"]\\s*,\\s*['"]([^'"]+)['"]/);
+              if (match2 && match2[1]) {
+                return { url: match2[1], filename: match[2] || null };
+              }
+
+              // URL만 있는 경우
+              const matchUrlOnly = onclick.match(/previewAjax\\s*\\(\\s*['"]([^'"]+)['"]/);
+              if (matchUrlOnly && matchUrlOnly[1]) {
+                return { url: matchUrlOnly[1], filename: null };
+              }
+            }
+            return null;
+          });
+
+          if (extractedData?.url) {
+            resolvedAttachmentUrl = resolveUrl(absoluteLink, extractedData.url);
+          }
+        }
+
+        // 4단계-B: DEXT5 스크립트 분석
+        if (!resolvedAttachmentUrl && !extractedData) {
+          const dextScriptData = await page.evaluate(() => {
+            const scripts = Array.from(document.scripts || []);
+            for (const script of scripts) {
+              const text = script.textContent || '';
+              const match = text.match(/DEXT5UPLOAD\\.AddUploadedFile\\(\`([^\`]+)\`\\s*,\\s*\`([^\`]+)\`\\s*,\\s*\`([^\`]+)\`\\s*,\\s*\`([^\`]+)\`/);
+              if (match) {
+                return {
+                  itemKey: match[1],
+                  filename: match[2],
+                  path: match[3],
+                  size: match[4],
+                };
+              }
+            }
+            return null;
+          });
+
+          if (dextScriptData?.path) {
+            extractedData = {
+              url: dextScriptData.path,
+              filename: dextScriptData.filename || null,
+              size: dextScriptData.size || null,
+            };
+            resolvedAttachmentUrl = resolveUrl(absoluteLink, dextScriptData.path);
+          }
+        }
 
         // 스크린샷 캡처
         const screenshot = await page.screenshot({
@@ -396,8 +515,9 @@ export async function crawl${functionName}(page, config) {
           title: title || '제목 없음',
           date: date || '날짜 없음',
           link: absoluteLink,
+          location: aiLocation || null,
           detail_content: content || '',
-          attachment_url: attachmentUrl ? resolveUrl(absoluteLink, attachmentUrl) : null,
+          attachment_url: resolvedAttachmentUrl || null,
           screenshot_base64: screenshotBase64
         });
 
