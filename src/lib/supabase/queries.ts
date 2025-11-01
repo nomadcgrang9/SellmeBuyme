@@ -96,6 +96,11 @@ function buildAttachmentDownloadUrl(originalUrl: string | null, filename?: strin
     if (filename?.trim()) {
       params.set('filename', filename.trim());
     }
+    // Edge Function 호출 시 anon key 포함 (Supabase 인증 우회)
+    const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+    if (anonKey) {
+      params.set('apikey', anonKey);
+    }
     return `${downloadAttachmentFunctionUrl}?${params.toString()}`;
   }
 
@@ -3541,6 +3546,11 @@ export function mapJobPostingToCard(job: any): JobPostingCard {
         }
         if (filename?.trim()) {
           params.set('filename', filename.trim());
+        }
+        // Edge Function 호출 시 anon key 포함 (Supabase 인증 우회)
+        const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+        if (anonKey) {
+          params.set('apikey', anonKey);
         }
         return `${downloadAttachmentFunctionUrl}?${params.toString()}`;
       }
