@@ -61,6 +61,12 @@ Deno.serve(async (req) => {
     const targetUrl = url.searchParams.get('url');
     const filename = url.searchParams.get('filename');
 
+    // 디버깅 로그
+    console.log('[download-attachment] Request received');
+    console.log('[download-attachment] targetUrl:', targetUrl);
+    console.log('[download-attachment] filename:', filename);
+    console.log('[download-attachment] Full URL:', req.url);
+
     if (!targetUrl) {
       return new Response(
         JSON.stringify({ error: 'url parameter is required' }),
@@ -72,19 +78,84 @@ Deno.serve(async (req) => {
     }
 
     // 외부 서버에서 파일 가져오기
-    const response = await fetch(targetUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': '*/*',
-        'Accept-Encoding': 'gzip, deflate, br',
-        'Connection': 'keep-alive',
-      },
-    });
-    
+    console.log('[download-attachment] Fetching from:', targetUrl);
+
+    // 구리남양주(goegn.kr) SSL 인증서 문제: 미리 HTTP로 변환
+    let fetchUrl = targetUrl;
+    if (fetchUrl.includes('goegn.kr') && fetchUrl.startsWith('https://')) {
+      fetchUrl = fetchUrl.replace('https://', 'http://');
+      console.log('[download-attachment] goegn.kr detected, forced to HTTP:', fetchUrl);
+    }
+
+    // === 디버깅: fetch 직전 URL 상태 ===
+    console.log('[DEBUG] fetchUrl value:', fetchUrl);
+    console.log('[DEBUG] fetchUrl protocol:', fetchUrl.startsWith('http://') ? 'HTTP' : fetchUrl.startsWith('https://') ? 'HTTPS' : 'UNKNOWN');
+    console.log('[DEBUG] fetchUrl includes goegn.kr:', fetchUrl.includes('goegn.kr'));
+
+    // 구리남양주(goegn.kr) SSL 인증서 문제 해결: try-catch로 폴백 처리
+    let response;
+
+    try {
+      // 먼저 일반 fetch 시도 (성남, 의정부, 경기도용)
+      console.log('[DEBUG] About to fetch:', fetchUrl);
+      response = await fetch(fetchUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': '*/*',
+          'Accept-Encoding': 'gzip, deflate, br',
+          'Connection': 'keep-alive',
+        },
+      });
+
+      // === 디버깅: fetch 직후 response 상태 ===
+      console.log('[DEBUG] Fetch succeeded');
+      console.log('[DEBUG] response.url (final URL after redirects):', response.url);
+      console.log('[DEBUG] response.redirected:', response.redirected);
+      console.log('[DEBUG] response.type:', response.type);
+      console.log('[DEBUG] response.status:', response.status);
+
+    } catch (sslError) {
+      // SSL 에러 발생 시 (구리남양주용) - HTTP로 다시 시도
+      console.log('[download-attachment] SSL error, retrying with HTTP:', sslError);
+      console.log('[DEBUG] Error name:', sslError.name);
+      console.log('[DEBUG] Error message:', sslError.message);
+
+      // HTTPS를 HTTP로 변경하여 재시도
+      const httpUrl = fetchUrl.replace('https://', 'http://');
+      console.log('[download-attachment] Retrying with HTTP:', httpUrl);
+      console.log('[DEBUG] httpUrl protocol:', httpUrl.startsWith('http://') ? 'HTTP' : 'OTHER');
+
+      try {
+        console.log('[DEBUG] About to retry fetch with HTTP:', httpUrl);
+        response = await fetch(httpUrl, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': '*/*',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Connection': 'keep-alive',
+          },
+        });
+        console.log('[download-attachment] HTTP fetch succeeded');
+        console.log('[DEBUG] HTTP retry response.url:', response.url);
+        console.log('[DEBUG] HTTP retry response.redirected:', response.redirected);
+        console.log('[DEBUG] HTTP retry response.status:', response.status);
+
+      } catch (httpError) {
+        console.error('[download-attachment] HTTP fetch also failed:', httpError);
+        console.log('[DEBUG] HTTP retry error name:', httpError.name);
+        console.log('[DEBUG] HTTP retry error message:', httpError.message);
+        throw httpError; // 상위 catch로 전달
+      }
+    }
+
+    console.log('[download-attachment] Response status:', response.status, response.statusText);
+    console.log('[download-attachment] Response headers:', Object.fromEntries(response.headers.entries()));
+
     if (!response.ok) {
+      console.error('[download-attachment] Fetch failed:', response.status, response.statusText);
       return new Response(
-        JSON.stringify({ error: 'Failed to fetch file from source' }),
-        { 
+        JSON.stringify({ error: 'Failed to fetch file from source', status: response.status, statusText: response.statusText }),
+        {
           status: response.status,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
@@ -117,10 +188,13 @@ Deno.serve(async (req) => {
       .replace(/\s+/g, ' ')
       .trim() || 'download';
 
-    headers.set(
-      'Content-Disposition',
-      `attachment; filename="${asciiFilename}"; filename*=UTF-8''${encodedFilename}`
-    );
+    const contentDisposition = `attachment; filename="${asciiFilename}"; filename*=UTF-8''${encodedFilename}`;
+
+    // 디버깅 로그
+    console.log('[download-attachment] Final filename:', finalFilename);
+    console.log('[download-attachment] Content-Disposition:', contentDisposition);
+
+    headers.set('Content-Disposition', contentDisposition);
 
     // 스트림을 그대로 전달
     return new Response(response.body, { 

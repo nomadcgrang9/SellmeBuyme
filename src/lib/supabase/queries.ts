@@ -48,7 +48,10 @@ type JobPostingLocation = {
 
 const downloadAttachmentFunctionUrl = (() => {
   const baseUrl = import.meta.env.VITE_SUPABASE_URL?.replace(/\/$/, '');
-  return baseUrl ? `${baseUrl}/functions/v1/download-attachment` : null;
+  const url = baseUrl ? `${baseUrl}/functions/v1/download-attachment` : null;
+  console.log('[downloadAttachmentFunctionUrl] VITE_SUPABASE_URL:', import.meta.env.VITE_SUPABASE_URL);
+  console.log('[downloadAttachmentFunctionUrl] Generated URL:', url);
+  return url;
 })();
 
 function isSupabaseStorageUrl(url: string) {
@@ -70,14 +73,32 @@ function sanitizeFilenameComponent(value: string) {
 function buildAttachmentFilename(organization: string, originalFilename?: string | null) {
   const sanitizedOrg = sanitizeFilenameComponent(organization || '');
   const baseName = sanitizedOrg.length > 0 ? sanitizedOrg : '공고';
-  const extension = (originalFilename?.split('.').pop() || 'hwp').toLowerCase();
-  return `${baseName} 공고문.${extension}`;
+
+  // URL에 쿼리스트링이 있으면 (경기도 fileDownload.do?fileKey=...) 확장자를 추출하지 않음
+  let extension = 'hwp';
+  if (originalFilename && !originalFilename.includes('?')) {
+    // 쿼리스트링이 없는 경우에만 확장자 추출
+    const parts = originalFilename.split('.');
+    const lastPart = parts[parts.length - 1];
+    // 확장자처럼 보이는 부분만 사용 (길이 2-5자)
+    if (lastPart && lastPart.length >= 2 && lastPart.length <= 5 && /^[a-z0-9]+$/i.test(lastPart)) {
+      extension = lastPart.toLowerCase();
+    }
+  }
+
+  const filename = `${baseName} 공고문.${extension}`;
+  console.log('[buildAttachmentFilename] organization:', organization, 'originalFilename:', originalFilename, '=> filename:', filename);
+  return filename;
 }
 
 function buildAttachmentDownloadUrl(originalUrl: string | null, filename?: string) {
   if (!originalUrl) return null;
 
+  console.log('[buildAttachmentDownloadUrl] Called with:', { originalUrl, filename });
+  console.log('[buildAttachmentDownloadUrl] downloadAttachmentFunctionUrl:', downloadAttachmentFunctionUrl);
+
   if (isSupabaseStorageUrl(originalUrl)) {
+    console.log('[buildAttachmentDownloadUrl] Supabase Storage URL detected');
     try {
       const url = new URL(originalUrl);
       if (filename?.trim()) {
@@ -93,13 +114,22 @@ function buildAttachmentDownloadUrl(originalUrl: string | null, filename?: strin
 
   // 크롤링된 공고: Edge Function을 통해 파일명 변경
   if (downloadAttachmentFunctionUrl && filename) {
+    // 구리남양주(goegn.kr)는 SSL 문제로 UUID 형식 다운로드 (원본 URL 사용)
+    if (originalUrl.includes('goegn.kr')) {
+      console.log('[buildAttachmentDownloadUrl] goegn.kr detected, using original URL (UUID format)');
+      return originalUrl;
+    }
+
     const params = new URLSearchParams();
     params.set('url', originalUrl);
     params.set('filename', filename.trim());
-    return `${downloadAttachmentFunctionUrl}?${params.toString()}`;
+    const finalUrl = `${downloadAttachmentFunctionUrl}?${params.toString()}`;
+    console.log('[buildAttachmentDownloadUrl] Edge Function URL generated:', finalUrl);
+    return finalUrl;
   }
 
   // 파일명이 없으면 원본 URL 그대로 반환
+  console.log('[buildAttachmentDownloadUrl] Returning original URL (no filename or no function URL)');
   return originalUrl;
 }
 
