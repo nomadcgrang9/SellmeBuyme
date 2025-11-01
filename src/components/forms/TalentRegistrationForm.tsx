@@ -147,7 +147,6 @@ export default function TalentRegistrationForm({ onClose, onSubmit, mode = 'crea
           <RegionSelector
             value={location}
             onChange={(newLocation) => setValue('location', newLocation)}
-            enableProvinceAll
             error={errors.location?.message as string}
           />
 

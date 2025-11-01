@@ -1,5 +1,14 @@
-import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.4"
-import { generateCrawlerCode } from "../_shared/ai-crawler.ts"
+/**
+ * Edge Function: generate-crawler
+ *
+ * 역할:
+ * 1. GitHub Actions 트리거 (GH_PAT 사용 - 브라우저 노출 방지)
+ * 2. dev_board_submissions 승인 처리
+ *
+ * 주의: 크롤러 코드 생성 및 DB 저장은 GitHub Actions가 처리합니다!
+ */
+
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4"
 
 interface GenerateCrawlerRequest {
   submissionId: string
@@ -10,9 +19,6 @@ interface GenerateCrawlerRequest {
 
 interface GenerateCrawlerResponse {
   success: boolean
-  crawlerId?: string
-  crawlerCode?: string
-  crawlBoardId?: string
   message: string
   error?: string
 }
@@ -20,15 +26,16 @@ interface GenerateCrawlerResponse {
 const JSON_HEADERS = {
   "Content-Type": "application/json",
   "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 }
 
 Deno.serve(async (req) => {
+  // CORS preflight
   if (req.method === "OPTIONS") {
     return new Response("ok", {
       headers: {
         ...JSON_HEADERS,
         "Access-Control-Allow-Methods": "POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type, Authorization",
       },
     })
   }
@@ -56,8 +63,14 @@ Deno.serve(async (req) => {
       )
     }
 
-    console.log("[generate-crawler] request payload:", payload)
+    console.log("[generate-crawler] Request received:", {
+      submissionId: payload.submissionId,
+      boardName: payload.boardName,
+      boardUrl: payload.boardUrl,
+      adminUserId: payload.adminUserId,
+    })
 
+    // 1. Submission 승인 처리
     const supabaseUrl = Deno.env.get("SUPABASE_URL")
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")
 
@@ -66,154 +79,62 @@ Deno.serve(async (req) => {
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
-    const adminMetaUserId = await resolveAdminUserId(supabase, payload.adminUserId)
-    const timestamp = new Date().toISOString()
 
-    const crawlerId = payload.boardName
-      .toLowerCase()
-      .replace(/\s+/g, "_")
-      .replace(/[^a-z0-9_]/g, "")
-
-    let crawlerCode: string
-    try {
-      crawlerCode = await generateCrawlerCode(payload.boardName, payload.boardUrl)
-      console.log("[generate-crawler] AI pipeline generated crawler code successfully.")
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error)
-      console.warn("[generate-crawler] AI pipeline failed, falling back to sample code:", message)
-      crawlerCode = generateSampleCrawler(payload.boardName, payload.boardUrl)
-    }
-    console.log('[generate-crawler] crawler code length:', crawlerCode.length)
-
-    const insertPayload: Record<string, unknown> = {
-      name: payload.boardName,
-      board_url: payload.boardUrl,
-      category: "job",
-      description: `AI generated crawler - ${payload.boardName}`,
-      is_active: true,
-      status: "active",
-      crawl_batch_size: 10,
-      crawler_source_code: crawlerCode,
-      approved_at: timestamp,
-    }
-
-    if (adminMetaUserId) {
-      insertPayload.created_by = adminMetaUserId
-      insertPayload.approved_by = adminMetaUserId
-    } else {
-      console.warn("[generate-crawler] admin user not found, skipping created_by/approved_by metadata.")
-    }
-
-    let crawlBoardId: string
-
-    const { data: insertedBoard, error: insertError } = await supabase
-      .from("crawl_boards")
-      .insert([insertPayload])
-      .select("id")
-      .maybeSingle()
-
-    if (insertError) {
-      const message = insertError.message ?? ""
-      if (message.includes("duplicate key value") || message.includes("idx_crawl_boards_board_url")) {
-        console.log("[generate-crawler] board already exists, updating existing record")
-
-        const updatePayload: Record<string, unknown> = {
-          category: "job",
-          description: `AI generated crawler - ${payload.boardName}`,
-          is_active: true,
-          status: "active",
-          crawl_batch_size: 10,
-          crawler_source_code: crawlerCode,
-        }
-
-        if (adminMetaUserId) {
-          updatePayload.approved_by = adminMetaUserId
-          updatePayload.approved_at = timestamp
-        }
-
-        const { data: updatedBoard, error: updateError } = await supabase
-          .from("crawl_boards")
-          .update(updatePayload)
-          .eq("board_url", payload.boardUrl)
-          .select("id")
-          .maybeSingle()
-
-        if (updateError || !updatedBoard) {
-          throw new Error(`Failed to update crawl_boards: ${updateError?.message ?? "not found"}`)
-        }
-
-        crawlBoardId = updatedBoard.id
-      } else {
-        throw new Error(`Failed to insert into crawl_boards: ${message}`)
-      }
-    } else {
-      if (!insertedBoard?.id) {
-        throw new Error("crawl_boards insert succeeded but no id was returned.")
-      }
-      crawlBoardId = insertedBoard.id
-    }
-
-    const submissionUpdatePayload: Record<string, unknown> = {
-      status: "approved",
-      crawl_board_id: crawlBoardId,
-      approved_at: timestamp,
-    }
-
-    if (adminMetaUserId) {
-      submissionUpdatePayload.approved_by = adminMetaUserId
-    }
-
-    const { error: submissionUpdateError } = await supabase
+    const { error: submissionError } = await supabase
       .from("dev_board_submissions")
-      .update(submissionUpdatePayload)
+      .update({
+        status: "processing",
+        approved_by: payload.adminUserId,
+        approved_at: new Date().toISOString(),
+      })
       .eq("id", payload.submissionId)
 
-    if (submissionUpdateError) {
-      console.warn("[generate-crawler] dev_board_submissions update warning:", submissionUpdateError)
-    }
-
-    const githubToken = Deno.env.get("GH_PAT")
-    if (githubToken) {
-      console.log("[generate-crawler] attempting to trigger GitHub Actions for AI crawler generation")
-      try {
-        const githubResponse = await fetch(
-          "https://api.github.com/repos/nomadcgrang9/SellmeBuyme/dispatches",
-          {
-            method: "POST",
-            headers: {
-              Authorization: `token ${githubToken}`,
-              Accept: "application/vnd.github.v3+json",
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              event_type: "generate_crawler",
-              client_payload: {
-                board_name: payload.boardName,
-                board_url: payload.boardUrl,
-              },
-            }),
-          }
-        )
-
-        if (githubResponse.ok) {
-          console.log("[generate-crawler] GitHub Actions dispatch succeeded (repository_dispatch)")
-        } else {
-          const errorText = await githubResponse.text()
-          console.warn("[generate-crawler] GitHub Actions dispatch failed:", errorText)
-        }
-      } catch (error) {
-        console.warn("[generate-crawler] GitHub Actions dispatch error:", error)
-      }
+    if (submissionError) {
+      console.warn("[generate-crawler] Submission update warning:", submissionError)
     } else {
-      console.warn("[generate-crawler] GH_PAT not set, skipping automatic AI generation")
+      console.log("[generate-crawler] Submission marked as processing")
     }
+
+    // 2. GitHub Actions 트리거 (GH_PAT 사용)
+    const githubToken = Deno.env.get("GH_PAT")
+    if (!githubToken) {
+      throw new Error("GH_PAT environment variable is not set. Cannot trigger GitHub Actions.")
+    }
+
+    console.log("[generate-crawler] Triggering GitHub Actions...")
+
+    const githubResponse = await fetch(
+      "https://api.github.com/repos/nomadcgrang9/SellmeBuyme/dispatches",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${githubToken}`,
+          Accept: "application/vnd.github.v3+json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          event_type: "generate_crawler",
+          client_payload: {
+            submission_id: payload.submissionId,
+            board_name: payload.boardName,
+            board_url: payload.boardUrl,
+            admin_user_id: payload.adminUserId,
+          },
+        }),
+      }
+    )
+
+    if (!githubResponse.ok) {
+      const errorText = await githubResponse.text()
+      throw new Error(`GitHub Actions trigger failed: ${errorText}`)
+    }
+
+    console.log("[generate-crawler] GitHub Actions triggered successfully!")
+    console.log("[generate-crawler] Full AI crawler will be generated in background (1-2 minutes)")
 
     const responseBody: GenerateCrawlerResponse = {
       success: true,
-      crawlerId,
-      crawlerCode,
-      crawlBoardId,
-      message: `Crawler ready for ${payload.boardName}`,
+      message: "GitHub Actions triggered. AI crawler generation in progress.",
     }
 
     return new Response(JSON.stringify(responseBody), {
@@ -221,11 +142,11 @@ Deno.serve(async (req) => {
       headers: JSON_HEADERS,
     })
   } catch (error) {
-    console.error("[generate-crawler] error:", error)
+    console.error("[generate-crawler] Error:", error)
 
     const responseBody: GenerateCrawlerResponse = {
       success: false,
-      message: "Failed to generate crawler.",
+      message: "Failed to trigger crawler generation.",
       error: error instanceof Error ? error.message : String(error),
     }
 
@@ -235,119 +156,3 @@ Deno.serve(async (req) => {
     })
   }
 })
-
-async function resolveAdminUserId(client: SupabaseClient, adminUserId: string): Promise<string | null> {
-  if (!adminUserId) return null
-
-  try {
-    const { data, error } = await client.auth.admin.getUserById(adminUserId)
-    if (error) {
-      console.warn("[generate-crawler] failed to resolve admin user id:", error.message)
-      return null
-    }
-
-    if (!data?.user) {
-      console.warn("[generate-crawler] admin user not found for id:", adminUserId)
-      return null
-    }
-
-    return data.user.id
-  } catch (error) {
-    console.warn("[generate-crawler] admin user lookup error:", error)
-    return null
-  }
-}
-
-function generateSampleCrawler(boardName: string, boardUrl: string): string {
-  const sanitized = boardName.replace(/\s+/g, "").replace(/[^a-zA-Z0-9]/g, "")
-  const timestamp = new Date().toISOString()
-
-  return `/**
- * ${boardName} crawler (fallback)
- * Generated at ${timestamp}
- */
-
-export async function crawl${sanitized}(page, config) {
-  console.log(\`�� ${boardName} crawl start\`)
-
-  const jobs = []
-
-  try {
-    await page.goto(config.url ?? '${boardUrl}', { waitUntil: 'domcontentloaded', timeout: 30000 })
-    await page.waitForTimeout(2000)
-
-    const selectors = [
-      'table tbody tr',
-      '.board-list tbody tr',
-      '.tbl_list tbody tr',
-      'table tr',
-      '.list-item'
-    ]
-
-    let rows = []
-    for (const selector of selectors) {
-      rows = await page.locator(selector).all()
-      if (rows.length > 0) {
-        console.log(\`? selector "${selector}" yielded ${rows.length} rows\`)
-        break
-      }
-    }
-
-    if (rows.length === 0) {
-      console.warn('?? no rows detected with fallback selectors')
-      return jobs
-    }
-
-    const maxCount = Math.min(rows.length, config.crawlBatchSize || 10)
-    for (let i = 0; i < maxCount; i++) {
-      try {
-        const row = rows[i]
-
-        const linkElement = await row.locator('a').first()
-        const title = (await linkElement.textContent())?.trim()
-        let href = await linkElement.getAttribute('href')
-
-        if (!title || !href) continue
-
-        if (!href.startsWith('http')) {
-          const baseUrl = new URL(config.url ?? '${boardUrl}')
-          href = new URL(href, baseUrl.origin).href
-        }
-
-        let postedDate = new Date().toISOString().split('T')[0]
-        try {
-          const dateText = (await row.locator('td').nth(2).textContent())?.trim()
-          if (dateText && /\d{4}/.test(dateText)) {
-            postedDate = dateText.replace(/\./g, '-')
-          }
-        } catch {
-          // ignore date parsing issues
-        }
-
-        jobs.push({
-          title,
-          url: href,
-          organization: config.name,
-          location: 'unknown',
-          postedDate,
-          detailContent: '',
-          attachmentUrl: null,
-        })
-
-        console.log(\`  ? ${title}\`)
-      } catch (rowError) {
-        console.warn('  ?? row processing error:', rowError instanceof Error ? rowError.message : rowError)
-      }
-    }
-
-    console.log(\`collected ${jobs.length} items\`)
-    return jobs
-  } catch (error) {
-    console.error('fallback crawler error:', error)
-    return jobs
-  }
-}
-`
-}
-
-

@@ -5,12 +5,14 @@ import JobPostingForm from '../forms/JobPostingForm';
 import TalentRegistrationForm from '../forms/TalentRegistrationForm';
 import ExperienceRegistrationForm from '../forms/ExperienceRegistrationForm';
 import { createExperience, createTalent } from '@/lib/supabase/queries';
+import { useSearchStore } from '@/stores/searchStore';
 import type { ExperienceRegistrationFormData, TalentRegistrationFormData } from '@/lib/validation/formSchemas';
 
 type RegisterType = 'job' | 'talent' | 'experience' | null;
 
 export default function RegisterButtonsSection() {
   const [activeSection, setActiveSection] = useState<RegisterType>(null);
+  const { setViewType } = useSearchStore();
 
   return (
     <>
@@ -73,7 +75,12 @@ export default function RegisterButtonsSection() {
               onSubmit={async (form: TalentRegistrationFormData) => {
                 await createTalent(form);
                 alert('인력 등록이 완료되었습니다.');
-                setActiveSection(null);
+                // 인력 뷰로 전환하여 새로 등록된 카드 표시
+                // 약간의 지연을 두어 DB 동기화 대기
+                setTimeout(() => {
+                  setViewType('talent');
+                  setActiveSection(null);
+                }, 500);
               }}
             />
           </div>
@@ -88,7 +95,12 @@ export default function RegisterButtonsSection() {
               onSubmit={async (form: ExperienceRegistrationFormData) => {
                 await createExperience(form);
                 alert('체험 등록이 완료되었습니다.');
-                setActiveSection(null);
+                // 체험 뷰로 전환하여 새로 등록된 카드 표시
+                // 약간의 지연을 두어 DB 동기화 대기
+                setTimeout(() => {
+                  setViewType('experience');
+                  setActiveSection(null);
+                }, 500);
               }}
             />
           </div>

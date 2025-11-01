@@ -67,5 +67,16 @@
       "date": "td:nth-child(5)",
       "link": "td.ta_l a"
     }
+  },
+  "남양주교육지원청구인구직": {
+    "name": "남양주교육지원청 구인구직",
+    "baseUrl": "https://www.goegn.kr/goegn/na/ntt/selectNttList.do?mi=14084&bbsId=8656",
+    "selectors": {
+      "listContainer": "table",
+      "rows": "tbody tr",
+      "title": "td.ta_l a",
+      "date": "td:nth-child(5)",
+      "link": "td.ta_l a"
+    }
   }
 }

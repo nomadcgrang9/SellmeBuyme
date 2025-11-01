@@ -23,10 +23,7 @@ export async function getOrCreateCrawlSource(name, baseUrl) {
     .eq('is_active', true)
     .maybeSingle();
 
-  if (!board) {
-    throw new Error(`Crawl board "${name}" not found or inactive`);
-  }
-
+  // crawl_boards에 없어도 기본값으로 진행 (자동 생성)
   const desiredBatchSize = board?.crawl_batch_size ?? 10;
 
   const { data: existing } = await supabase
