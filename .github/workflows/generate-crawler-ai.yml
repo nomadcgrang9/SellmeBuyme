@@ -44,10 +44,13 @@ jobs:
         run: |
           npx tsx scripts/generate-crawler-ai.ts "$BOARD_URL" "$BOARD_NAME"
 
-      - name: Upload crawler code to DB
+      - name: Approve submission and update DB
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SUBMISSION_ID: ${{ github.event.client_payload.submission_id }}
           BOARD_NAME: ${{ github.event.client_payload.board_name || inputs.board_name }}
+          BOARD_URL: ${{ github.event.client_payload.board_url || inputs.board_url }}
+          ADMIN_USER_ID: ${{ github.event.client_payload.admin_user_id }}
         run: |
-          npx tsx scripts/upload-crawler-to-db.ts "$BOARD_NAME"
+          npx tsx scripts/approve-submission-and-update-db.ts
