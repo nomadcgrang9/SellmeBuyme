@@ -1230,15 +1230,16 @@ function mapPromoCardRow(row: PromoCardRow, collectionId: string): PromoCardSett
   };
 }
 
-// 캐시 유효성 검사: 24시간 이상 지난 캐시는 무효
+// 캐시 유효성 검사: 6시간 이상 지난 캐시는 무효 (Phase 1 개선: 24h → 6h)
 export function isCacheValid(updatedAt: string): boolean {
   if (!updatedAt) return false;
-  
+
   const now = new Date();
   const cacheTime = new Date(updatedAt);
   const diffHours = (now.getTime() - cacheTime.getTime()) / (1000 * 60 * 60);
-  
-  return diffHours < 24;
+
+  // 6시간 이내만 유효 (더 자주 갱신하여 신규 공고 반영)
+  return diffHours < 6;
 }
 
 // 프로필 변경 감지: 추천에 영향을 주는 필드만 비교
@@ -1265,6 +1266,53 @@ export function hasProfileChanged(
     }
   }
   
+  return false;
+}
+
+/**
+ * 스마트 캐시 무효화 판단 (Phase 2 개선)
+ * @param cache - 캐시 데이터
+ * @param profile - 현재 사용자 프로필
+ * @returns 캐시를 무효화해야 하면 true
+ */
+export function shouldInvalidateCache(
+  cache: { cards: unknown[]; updated_at: string; profile_snapshot?: Record<string, unknown> } | null,
+  profile: Record<string, unknown> | null
+): boolean {
+  if (!cache) return true;
+
+  const now = new Date();
+  const cacheTime = new Date(cache.updated_at);
+
+  // 조건 1: 6시간 경과 시 무효화
+  const diffHours = (now.getTime() - cacheTime.getTime()) / (1000 * 60 * 60);
+  if (diffHours >= 6) {
+    return true;
+  }
+
+  // 조건 2: 캐시 내 마감 지난 공고가 50% 이상일 시 무효화
+  const jobs = (cache.cards || []).filter((c: any) => c.type === 'job');
+  if (jobs.length > 0) {
+    const expired = jobs.filter((job: any) => {
+      if (!job.deadline) return false;
+      try {
+        return new Date(job.deadline).getTime() < now.getTime();
+      } catch {
+        return false;
+      }
+    });
+
+    // 절반 이상 만료 시 갱신 필요
+    if (expired.length / jobs.length >= 0.5) {
+      return true;
+    }
+  }
+
+  // 조건 3: 프로필 변경 시 무효화
+  if (profile && cache.profile_snapshot && hasProfileChanged(cache.profile_snapshot, profile)) {
+    return true;
+  }
+
   return false;
 }
 
@@ -1538,6 +1586,37 @@ export async function fetchRecommendationsCache(userId: string): Promise<{
     profileSnapshot: data.profile_snapshot ?? null,
     updatedAt: data.updated_at
   };
+}
+
+/**
+ * 최근 신규 공고 조회 (Phase 2: 하이브리드 추천)
+ * @param hoursAgo - 몇 시간 전까지의 공고를 조회할지 (기본: 6시간)
+ * @param limit - 최대 조회 개수 (기본: 10개)
+ * @returns 신규 공고 카드 배열
+ */
+export async function fetchFreshJobs(hoursAgo: number = 6, limit: number = 10): Promise<Card[]> {
+  try {
+    const now = new Date();
+    const cutoffTime = new Date(now.getTime() - hoursAgo * 60 * 60 * 1000);
+
+    const { data, error } = await supabase
+      .from('job_postings')
+      .select('*')
+      .gte('created_at', cutoffTime.toISOString())
+      .gte('deadline', now.toISOString())  // 마감 안 지난 것만
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      console.error('신규 공고 조회 실패:', error);
+      return [];
+    }
+
+    return (data || []).map(mapJobPostingToCard);
+  } catch (err) {
+    console.error('신규 공고 조회 예외:', err);
+    return [];
+  }
 }
 
 // Edge Function 호출: 프로필 기반 추천 생성
