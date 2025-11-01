@@ -760,3 +760,176 @@ export async function deleteProject(id: string): Promise<void> {
     throw new Error(`프로젝트 삭제에 실패했습니다: ${error.message}`);
   }
 }
+
+// =============================================================================
+// Comments System
+// =============================================================================
+
+/**
+ * 클라이언트 IP 해시 계산 (간단한 구현)
+ * @returns IP 해시 문자열
+ */
+function getClientIpHash(): string {
+  // 프론트엔드에서는 정확한 IP를 얻을 수 없으므로 브라우저 정보 기반 해시 사용
+  const browserInfo = `${navigator.userAgent}-${navigator.language}`;
+  let hash = 0;
+  for (let i = 0; i < browserInfo.length; i++) {
+    const char = browserInfo.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32bit integer
+  }
+  return Math.abs(hash).toString(16);
+}
+
+/**
+ * 댓글 조회
+ * @param targetType - 대상 타입 (idea, submission, project)
+ * @param targetId - 대상 ID
+ * @returns 댓글 목록
+ */
+export async function getComments(
+  targetType: 'idea' | 'submission' | 'project',
+  targetId: string
+) {
+  const { data, error } = await supabase
+    .from('dev_comments')
+    .select('*')
+    .eq('target_type', targetType)
+    .eq('target_id', targetId)
+    .order('created_at', { ascending: true });
+
+  if (error) {
+    console.error('Failed to fetch comments:', error);
+    throw new Error(`댓글을 불러올 수 없습니다: ${error.message}`);
+  }
+
+  return data || [];
+}
+
+/**
+ * 댓글 작성
+ * @param targetType - 대상 타입
+ * @param targetId - 대상 ID
+ * @param content - 댓글 내용
+ * @param authorName - 작성자 이름
+ * @param parentId - 부모 댓글 ID (대댓글인 경우)
+ * @returns 생성된 댓글
+ */
+export async function createComment(
+  targetType: 'idea' | 'submission' | 'project',
+  targetId: string,
+  content: string,
+  authorName: string,
+  parentId?: string
+) {
+  const ipHash = getClientIpHash();
+
+  // 작성자 정보 업데이트 또는 생성
+  const { data: existingAuthor } = await supabase
+    .from('dev_comment_authors')
+    .select('*')
+    .eq('ip_hash', ipHash)
+    .single();
+
+  if (existingAuthor) {
+    // 기존 작성자 업데이트
+    await supabase
+      .from('dev_comment_authors')
+      .update({
+        author_name: authorName,
+        last_used_at: new Date().toISOString(),
+        comment_count: (existingAuthor.comment_count || 0) + 1,
+      })
+      .eq('ip_hash', ipHash);
+  } else {
+    // 새 작성자 생성
+    await supabase.from('dev_comment_authors').insert({
+      ip_hash: ipHash,
+      author_name: authorName,
+      comment_count: 1,
+    });
+  }
+
+  // 댓글 생성
+  const { data, error } = await supabase
+    .from('dev_comments')
+    .insert({
+      target_type: targetType,
+      target_id: targetId,
+      content,
+      author_name: authorName,
+      author_ip_hash: ipHash,
+      parent_id: parentId || null,
+    })
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Failed to create comment:', error);
+    throw new Error(`댓글 작성에 실패했습니다: ${error.message}`);
+  }
+
+  return data;
+}
+
+/**
+ * 댓글 수정
+ * @param commentId - 댓글 ID
+ * @param content - 새 내용
+ * @returns 수정된 댓글
+ */
+export async function updateComment(commentId: string, content: string) {
+  const { data, error } = await supabase
+    .from('dev_comments')
+    .update({
+      content,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', commentId)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Failed to update comment:', error);
+    throw new Error(`댓글 수정에 실패했습니다: ${error.message}`);
+  }
+
+  return data;
+}
+
+/**
+ * 댓글 삭제
+ * @param commentId - 댓글 ID
+ */
+export async function deleteComment(commentId: string): Promise<void> {
+  const { error } = await supabase
+    .from('dev_comments')
+    .delete()
+    .eq('id', commentId);
+
+  if (error) {
+    console.error('Failed to delete comment:', error);
+    throw new Error(`댓글 삭제에 실패했습니다: ${error.message}`);
+  }
+}
+
+/**
+ * 작성자 정보 조회 (IP 해시 기반)
+ * @returns 작성자 정보
+ */
+export async function getAuthorInfo() {
+  const ipHash = getClientIpHash();
+
+  const { data, error } = await supabase
+    .from('dev_comment_authors')
+    .select('author_name')
+    .eq('ip_hash', ipHash)
+    .single();
+
+  if (error && error.code !== 'PGRST116') {
+    // PGRST116: no rows returned
+    console.error('Failed to fetch author info:', error);
+  }
+
+  return data?.author_name || '';
+}

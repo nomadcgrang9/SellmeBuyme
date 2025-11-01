@@ -1,4 +1,4 @@
-// DeploymentList - GitHub 배포 목록 컴포넌트 (최근 2개)
+// DeploymentList - GitHub 배포 목록 컴포넌트 (최신 배포)
 import { AlertCircle, Loader2 } from 'lucide-react';
 import DeploymentCard from './DeploymentCard';
 import type { GitHubDeployment } from '@/types/developer';
@@ -68,12 +68,9 @@ export default function DeploymentList({
   // 배포 목록 표시
   return (
     <section className="bg-white rounded-lg border border-gray-200 p-6">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold text-gray-900">
-          GitHub 배포 추적
-        </h2>
-        <span className="text-xs text-gray-500">최근 2개</span>
-      </div>
+      <h2 className="text-lg font-semibold text-gray-900 mb-4">
+        GitHub 배포 추적
+      </h2>
 
       <div className="space-y-3">
         {deployments.map((deployment) => (

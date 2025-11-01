@@ -1,7 +1,7 @@
 // Developer Page - 셀바 개발자노트
 // Mobile-first design with max-width 640px
 import { useState, useEffect } from 'react';
-import { Lightbulb, Globe, Rocket } from 'lucide-react';
+import { Lightbulb, Globe, Rocket, Home } from 'lucide-react';
 import DeploymentList from '@/components/developer/DeploymentList';
 import IdeaForm from '@/components/developer/IdeaForm';
 import BoardSubmissionForm from '@/components/developer/BoardSubmissionForm';
@@ -115,10 +115,17 @@ export default function DeveloperPage() {
     <div className="min-h-screen bg-gray-50">
       {/* Header - Sticky */}
       <header className="sticky top-0 z-10 bg-[#a8c5e0] shadow-sm">
-        <div className="max-w-screen-sm mx-auto px-4 py-4">
+        <div className="max-w-screen-sm mx-auto px-4 py-4 flex items-center justify-between">
           <h1 className="text-xl font-bold text-gray-900">
             셀바 개발자노트
           </h1>
+          <button
+            onClick={() => window.location.href = '/'}
+            className="p-2 text-gray-700 hover:bg-white/30 rounded-lg transition-colors"
+            title="홈으로"
+          >
+            <Home className="w-5 h-5" />
+          </button>
         </div>
       </header>
 
