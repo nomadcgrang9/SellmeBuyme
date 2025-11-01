@@ -5,8 +5,9 @@
 // =============================================================================
 
 export type IdeaCategory = 'feature' | 'bug' | 'design' | 'other';
-export type SubmissionStatus = 'pending' | 'approved' | 'rejected';
+export type SubmissionStatus = 'pending' | 'approved';
 export type DeploymentStatus = 'pending' | 'success' | 'failure';
+export type ProjectStatus = 'active' | 'paused' | 'completed' | 'difficult';
 
 // =============================================================================
 // Database Row Types (matching snake_case from DB)
@@ -20,6 +21,20 @@ export interface DevIdeaRow {
   content: string;
   category: IdeaCategory;
   images: string[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DevProjectRow {
+  id: string;
+  user_id: string | null;
+  name: string;
+  goal: string;
+  participants: string[];
+  start_date: string;
+  stages: Array<{ id: string; order: number; description: string; is_completed: boolean; completed_at: string | null }>;
+  status: ProjectStatus;
+  source_idea_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -77,6 +92,28 @@ export interface DevIdea {
   updatedAt: string;
 }
 
+export interface ProjectStage {
+  id: string;
+  order: number;
+  description: string;
+  isCompleted: boolean;
+  completedAt: string | null;
+}
+
+export interface DevProject {
+  id: string;
+  userId: string | null;
+  name: string;
+  goal: string;
+  participants: string[];
+  startDate: string;
+  stages: ProjectStage[];
+  status: ProjectStatus;
+  sourceIdeaId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface DevBoardSubmission {
   id: string;
   submitterId: string | null;
@@ -119,10 +156,19 @@ export interface GitHubDeployment {
 // =============================================================================
 
 export interface IdeaFormData {
-  title: string;
+  authorName: string;
   content: string;
   category: IdeaCategory;
   images: File[];
+}
+
+export interface ProjectFormData {
+  name: string;
+  goal: string;
+  participants: string[];
+  stages: Array<{ description: string }>;
+  status: ProjectStatus;
+  sourceIdeaId?: string;
 }
 
 export interface BoardSubmissionFormData {
@@ -165,6 +211,28 @@ export function convertIdeaRowToIdea(row: DevIdeaRow): DevIdea {
     content: row.content,
     category: row.category,
     images: row.images,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+export function convertProjectRowToProject(row: DevProjectRow): DevProject {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    name: row.name,
+    goal: row.goal,
+    participants: row.participants,
+    startDate: row.start_date,
+    stages: row.stages.map(s => ({
+      id: s.id,
+      order: s.order,
+      description: s.description,
+      isCompleted: s.is_completed,
+      completedAt: s.completed_at,
+    })),
+    status: row.status,
+    sourceIdeaId: row.source_idea_id,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -227,9 +295,15 @@ export const IDEA_CATEGORIES: CategoryOption[] = [
 ];
 
 export const SUBMISSION_STATUS_CONFIG: Record<SubmissionStatus, StatusBadgeConfig> = {
-  pending: { status: 'pending', label: '대기', colorClass: 'bg-yellow-100 text-yellow-800' },
-  approved: { status: 'approved', label: '승인', colorClass: 'bg-green-100 text-green-800' },
-  rejected: { status: 'rejected', label: '거부', colorClass: 'bg-red-100 text-red-800' },
+  pending: { status: 'pending', label: '⏳ 대기중', colorClass: 'bg-yellow-100 text-yellow-800' },
+  approved: { status: 'approved', label: '✅ 승인됨', colorClass: 'bg-green-100 text-green-800' },
+};
+
+export const PROJECT_STATUS_CONFIG: Record<ProjectStatus, { label: string; icon: string; colorClass: string }> = {
+  active: { label: '🟢 진행중', icon: 'Play', colorClass: 'bg-blue-100 text-blue-800' },
+  paused: { label: '🟡 보류', icon: 'Pause', colorClass: 'bg-yellow-100 text-yellow-800' },
+  completed: { label: '✅ 완료', icon: 'CheckCircle', colorClass: 'bg-green-100 text-green-800' },
+  difficult: { label: '🔴 어려움', icon: 'AlertCircle', colorClass: 'bg-red-100 text-red-800' },
 };
 
 export const DEPLOYMENT_STATUS_CONFIG: Record<DeploymentStatus, StatusBadgeConfig> = {

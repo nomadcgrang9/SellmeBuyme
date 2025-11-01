@@ -1,14 +1,23 @@
 // IdeaCard - 아이디어 카드 컴포넌트
-import { User, Calendar } from 'lucide-react';
+import { useState } from 'react';
+import { User, Calendar, Trash2, Send } from 'lucide-react';
 import CategoryBadge from './CategoryBadge';
 import type { DevIdea } from '@/types/developer';
 
 interface IdeaCardProps {
   idea: DevIdea;
   onClick?: () => void;
+  onSendToProject?: () => void;
+  onDelete?: () => void;
 }
 
-export default function IdeaCard({ idea, onClick }: IdeaCardProps) {
+export default function IdeaCard({
+  idea,
+  onClick,
+  onSendToProject,
+  onDelete,
+}: IdeaCardProps) {
+  const [isDeleting, setIsDeleting] = useState(false);
   // 시간 포맷팅
   const formatTimeAgo = (dateString: string) => {
     const date = new Date(dateString);
@@ -29,33 +38,64 @@ export default function IdeaCard({ idea, onClick }: IdeaCardProps) {
     });
   };
 
+  const handleDelete = async () => {
+    if (confirm('정말 삭제하시겠습니까?')) {
+      setIsDeleting(true);
+      try {
+        await onDelete?.();
+      } catch (error) {
+        console.error('Failed to delete idea:', error);
+        alert('아이디어 삭제에 실패했습니다');
+        setIsDeleting(false);
+      }
+    }
+  };
+
   return (
-    <div
-      onClick={onClick}
-      className="bg-white rounded-lg border border-gray-200 p-4 hover:border-[#a8c5e0] hover:shadow-sm transition-all cursor-pointer"
-    >
-      {/* 카테고리 배지 */}
-      <div className="mb-2">
-        <CategoryBadge category={idea.category} />
+    <div className="bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
+      {/* 카드 헤더 */}
+      <div className="p-4 border-b border-gray-100">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex-1">
+            {/* 카테고리 배지 */}
+            <div className="mb-2">
+              <CategoryBadge category={idea.category} />
+            </div>
+
+            {/* 내용 미리보기 */}
+            <p className="text-sm text-gray-700 line-clamp-2 mb-2">
+              {idea.content}
+            </p>
+          </div>
+
+          {/* 우측 상단 버튼 (프로젝트 보내기 + 삭제) */}
+          <div className="flex gap-1 flex-shrink-0">
+            <button
+              onClick={onSendToProject}
+              className="p-2 text-[#7aa3cc] hover:text-[#5a8ab0] hover:bg-blue-50 rounded-lg transition-colors"
+              title="프로젝트로 보내기"
+            >
+              <Send className="w-4 h-4" />
+            </button>
+            <button
+              onClick={handleDelete}
+              disabled={isDeleting}
+              className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+              title="삭제"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
       </div>
-
-      {/* 제목 */}
-      <h3 className="font-semibold text-gray-900 mb-2 line-clamp-2">
-        {idea.title}
-      </h3>
-
-      {/* 내용 미리보기 */}
-      <p className="text-sm text-gray-600 line-clamp-3 mb-3">
-        {idea.content}
-      </p>
 
       {/* 대표 이미지 */}
       {idea.images.length > 0 && (
-        <div className="relative mb-3">
+        <div className="relative">
           <img
             src={idea.images[0]}
-            alt={`${idea.title} - 대표 이미지`}
-            className="w-full h-40 object-cover rounded-lg border border-gray-200"
+            alt="아이디어 이미지"
+            className="w-full h-40 object-cover"
           />
           {idea.images.length > 1 && (
             <div className="absolute top-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded-full backdrop-blur-sm">
@@ -66,14 +106,16 @@ export default function IdeaCard({ idea, onClick }: IdeaCardProps) {
       )}
 
       {/* 메타데이터 */}
-      <div className="flex items-center gap-3 text-xs text-gray-500">
-        <div className="flex items-center gap-1">
-          <User className="w-3 h-3" />
-          <span>{idea.authorName}</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <Calendar className="w-3 h-3" />
-          <span>{formatTimeAgo(idea.createdAt)}</span>
+      <div className="p-4 border-t border-gray-100">
+        <div className="flex items-center justify-between gap-3 text-xs text-gray-500">
+          <div className="flex items-center gap-1">
+            <User className="w-3 h-3" />
+            <span>{idea.authorName}</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <Calendar className="w-3 h-3" />
+            <span>{formatTimeAgo(idea.createdAt)}</span>
+          </div>
         </div>
       </div>
     </div>

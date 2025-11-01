@@ -11,6 +11,10 @@ import type {
   DevBoardSubmissionRow,
   DevBoardSubmission,
   BoardSubmissionFormData,
+  DevProjectRow,
+  DevProject,
+  ProjectFormData,
+  ProjectStatus,
 } from '@/types/developer';
 import type { CreateCrawlBoardInput, CrawlBoard } from '@/types';
 
@@ -19,6 +23,7 @@ import {
   convertDeploymentRowToDeployment,
   convertIdeaRowToIdea,
   convertSubmissionRowToSubmission,
+  convertProjectRowToProject,
 } from '@/types/developer';
 
 // =============================================================================
@@ -559,4 +564,199 @@ export async function approveBoardSubmissionAndCreateCrawlBoard(
   }
 
   return { submission: approvedSubmission, crawlBoard };
+}
+
+// =============================================================================
+// Dev Projects (프로젝트)
+// =============================================================================
+
+/**
+ * 프로젝트 생성
+ * @param project - 프로젝트 데이터
+ * @returns 생성된 프로젝트
+ */
+export async function createProject(project: ProjectFormData): Promise<DevProject> {
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError) {
+    console.error('Failed to get authenticated user:', authError);
+    throw new Error('인증 정보를 확인할 수 없습니다. 다시 로그인해주세요.');
+  }
+
+  if (!user) {
+    throw new Error('로그인이 필요합니다.');
+  }
+
+  const { data, error } = await supabase
+    .from('dev_projects')
+    .insert({
+      user_id: user.id,
+      name: project.name,
+      goal: project.goal,
+      participants: project.participants,
+      start_date: new Date().toISOString(),
+      stages: project.stages.map((stage, index) => ({
+        id: crypto.randomUUID(),
+        order: index + 1,
+        description: stage.description,
+        is_completed: false,
+        completed_at: null,
+      })),
+      status: project.status,
+      source_idea_id: project.sourceIdeaId || null,
+    })
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Failed to create project:', error);
+    throw new Error(`프로젝트 생성에 실패했습니다: ${error.message}`);
+  }
+
+  return convertProjectRowToProject(data as DevProjectRow);
+}
+
+/**
+ * 프로젝트 목록 조회
+ * @param limit - 조회할 프로젝트 수
+ * @param offset - 시작 위치
+ * @returns 프로젝트 목록
+ */
+export async function getProjects(
+  limit = 20,
+  offset = 0
+): Promise<DevProject[]> {
+  const { data, error } = await supabase
+    .from('dev_projects')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .range(offset, offset + limit - 1);
+
+  if (error) {
+    console.error('Failed to fetch projects:', error);
+    throw new Error(`프로젝트를 불러올 수 없습니다: ${error.message}`);
+  }
+
+  return data.map((row: DevProjectRow) => convertProjectRowToProject(row));
+}
+
+/**
+ * 프로젝트 상세 조회
+ * @param id - 프로젝트 ID
+ * @returns 프로젝트
+ */
+export async function getProjectById(id: string): Promise<DevProject> {
+  const { data, error } = await supabase
+    .from('dev_projects')
+    .select('*')
+    .eq('id', id)
+    .single();
+
+  if (error) {
+    console.error('Failed to fetch project:', error);
+    throw new Error(`프로젝트를 불러올 수 없습니다: ${error.message}`);
+  }
+
+  return convertProjectRowToProject(data as DevProjectRow);
+}
+
+/**
+ * 프로젝트 수정
+ * @param id - 프로젝트 ID
+ * @param updates - 수정할 데이터
+ * @returns 수정된 프로젝트
+ */
+export async function updateProject(
+  id: string,
+  updates: Partial<ProjectFormData>
+): Promise<DevProject> {
+  const updateData: any = {
+    updated_at: new Date().toISOString(),
+  };
+
+  if (updates.name) updateData.name = updates.name;
+  if (updates.goal) updateData.goal = updates.goal;
+  if (updates.participants) updateData.participants = updates.participants;
+  if (updates.status) updateData.status = updates.status;
+  if (updates.stages) {
+    updateData.stages = updates.stages.map((stage, index) => ({
+      id: crypto.randomUUID(),
+      order: index + 1,
+      description: stage.description,
+      is_completed: false,
+      completed_at: null,
+    }));
+  }
+
+  const { data, error } = await supabase
+    .from('dev_projects')
+    .update(updateData)
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Failed to update project:', error);
+    throw new Error(`프로젝트 수정에 실패했습니다: ${error.message}`);
+  }
+
+  return convertProjectRowToProject(data as DevProjectRow);
+}
+
+/**
+ * 프로젝트 단계 완료 처리
+ * @param projectId - 프로젝트 ID
+ * @param stageId - 단계 ID
+ * @returns 업데이트된 프로젝트
+ */
+export async function completeProjectStage(
+  projectId: string,
+  stageId: string
+): Promise<DevProject> {
+  const project = await getProjectById(projectId);
+  
+  const updatedStages = project.stages.map(stage =>
+    stage.id === stageId
+      ? { ...stage, isCompleted: true, completedAt: new Date().toISOString() }
+      : stage
+  );
+
+  const { data, error } = await supabase
+    .from('dev_projects')
+    .update({
+      stages: updatedStages.map(s => ({
+        id: s.id,
+        order: s.order,
+        description: s.description,
+        is_completed: s.isCompleted,
+        completed_at: s.completedAt,
+      })),
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', projectId)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Failed to complete project stage:', error);
+    throw new Error(`프로젝트 단계 완료 처리에 실패했습니다: ${error.message}`);
+  }
+
+  return convertProjectRowToProject(data as DevProjectRow);
+}
+
+/**
+ * 프로젝트 삭제
+ * @param id - 프로젝트 ID
+ */
+export async function deleteProject(id: string): Promise<void> {
+  const { error } = await supabase.from('dev_projects').delete().eq('id', id);
+
+  if (error) {
+    console.error('Failed to delete project:', error);
+    throw new Error(`프로젝트 삭제에 실패했습니다: ${error.message}`);
+  }
 }

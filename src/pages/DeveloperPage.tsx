@@ -1,19 +1,24 @@
 // Developer Page - 셀바 개발자노트
 // Mobile-first design with max-width 640px
 import { useState, useEffect } from 'react';
+import { Lightbulb, Globe, Rocket } from 'lucide-react';
 import DeploymentList from '@/components/developer/DeploymentList';
-import IdeaList from '@/components/developer/IdeaList';
 import IdeaForm from '@/components/developer/IdeaForm';
-import BoardSubmissionList from '@/components/developer/BoardSubmissionList';
 import BoardSubmissionForm from '@/components/developer/BoardSubmissionForm';
 import FloatingActionButton from '@/components/developer/FloatingActionButton';
 import { IdeaDetailModal } from '@/components/developer/IdeaDetailModal';
-import { Pagination } from '@/components/developer/Pagination';
 import { CollapsibleSection } from '@/components/developer/CollapsibleSection';
+import FilterButton from '@/components/developer/FilterButton';
+import PaginationDots from '@/components/developer/PaginationDots';
+import IdeaCard from '@/components/developer/IdeaCard';
+import BoardSubmissionCard from '@/components/developer/BoardSubmissionCard';
+import ProjectCard from '@/components/developer/ProjectCard';
+import ProjectFormModal from '@/components/developer/ProjectFormModal';
 import { useDeployments } from '@/lib/hooks/useDeployments';
-import { useIdeas } from '@/lib/hooks/useIdeas';
-import { useBoardSubmissions } from '@/lib/hooks/useBoardSubmissions';
-import type { DevIdea } from '@/types/developer';
+import { useFilteredIdeas } from '@/lib/hooks/useFilteredIdeas';
+import { useFilteredSubmissions } from '@/lib/hooks/useFilteredSubmissions';
+import { useProjects } from '@/lib/hooks/useProjects';
+import type { DevIdea, DevProject, ProjectFormData } from '@/types/developer';
 
 // PWA 설치 프롬프트 인터페이스
 interface BeforeInstallPromptEvent extends Event {
@@ -27,15 +32,44 @@ export default function DeveloperPage() {
     ideas,
     loading: ideasLoading,
     error: ideasError,
-    currentPage,
-    totalPages,
-    setPage,
+    filter: ideaFilter,
+    setFilter: setIdeaFilter,
+    hasMore: ideasHasMore,
+    loadMore: loadMoreIdeas,
     createNewIdea,
-  } = useIdeas(10);
-  const { submissions, loading: submissionsLoading, error: submissionsError, createNewSubmission } = useBoardSubmissions(20);
+    deleteIdeaItem,
+  } = useFilteredIdeas();
+  const {
+    submissions,
+    loading: submissionsLoading,
+    error: submissionsError,
+    filter: submissionFilter,
+    setFilter: setSubmissionFilter,
+    hasMore: submissionsHasMore,
+    loadMore: loadMoreSubmissions,
+    createNewSubmission,
+    deleteSubmissionItem,
+  } = useFilteredSubmissions();
+  const {
+    projects,
+    loading: projectsLoading,
+    error: projectsError,
+    filter: projectFilter,
+    setFilter: setProjectFilter,
+    hasMore: projectsHasMore,
+    loadMore: loadMoreProjects,
+    createNewProject,
+    updateProjectItem,
+    deleteProjectItem,
+    completeStage,
+  } = useProjects();
+
   const [showIdeaForm, setShowIdeaForm] = useState(false);
   const [showBoardForm, setShowBoardForm] = useState(false);
+  const [showProjectForm, setShowProjectForm] = useState(false);
   const [selectedIdea, setSelectedIdea] = useState<DevIdea | null>(null);
+  const [editingProject, setEditingProject] = useState<DevProject | null>(null);
+  const [sourceIdeaId, setSourceIdeaId] = useState<string | undefined>();
 
   // PWA 설치 관련 상태
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
@@ -125,37 +159,167 @@ export default function DeveloperPage() {
           />
 
           {/* 아이디어 목록 */}
-          <CollapsibleSection
-            title="아이디어 목록"
-            count={ideas.length}
+          <CollapsibleSection 
+            title="아이디어 살펴보기"
+            icon={<Lightbulb className="w-5 h-5" />}
             defaultOpen={false}
-          >
-            <div className="p-4">
-              <IdeaList
-                ideas={ideas}
-                loading={ideasLoading}
-                error={ideasError}
-                onIdeaClick={setSelectedIdea}
+            filterButton={
+              <FilterButton
+                options={[
+                  { value: 'all', label: '전체' },
+                  { value: 'feature', label: '💡 새기능' },
+                  { value: 'bug', label: '🐛 버그' },
+                  { value: 'design', label: '🎨 디자인' },
+                  { value: 'other', label: '📌 기타' },
+                ]}
+                value={ideaFilter}
+                onChange={(v) => setIdeaFilter(v as any)}
               />
-              <Pagination
-                currentPage={currentPage}
-                totalPages={totalPages}
-                onPageChange={setPage}
+            }
+          >
+            <div className="p-4 space-y-4">
+
+              {/* 아이디어 카드 리스트 */}
+              {ideasLoading ? (
+                <div className="text-center py-8 text-gray-500">로딩 중...</div>
+              ) : ideasError ? (
+                <div className="text-center py-8 text-red-500">
+                  아이디어를 불러올 수 없습니다
+                </div>
+              ) : ideas.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  아이디어가 없습니다
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {ideas.map((idea) => (
+                    <IdeaCard
+                      key={idea.id}
+                      idea={idea}
+                      onSendToProject={() => {
+                        setSourceIdeaId(idea.id);
+                        setShowProjectForm(true);
+                      }}
+                      onDelete={() => deleteIdeaItem(idea.id)}
+                    />
+                  ))}
+                </div>
+              )}
+
+              {/* 페이지네이션 */}
+              <PaginationDots
+                hasMore={ideasHasMore}
+                onLoadMore={loadMoreIdeas}
+                isLoading={ideasLoading}
               />
             </div>
           </CollapsibleSection>
 
           {/* 게시판 제출 목록 */}
-          <CollapsibleSection
-            title="게시판 등록 제출"
-            count={submissions.length}
+          <CollapsibleSection 
+            title="공고게시판 등록하기"
+            icon={<Globe className="w-5 h-5" />}
             defaultOpen={false}
+            filterButton={
+              <FilterButton
+                options={[
+                  { value: 'all', label: '전체' },
+                  { value: 'pending', label: '⏳ 대기중' },
+                  { value: 'approved', label: '✅ 승인됨' },
+                ]}
+                value={submissionFilter}
+                onChange={(v) => setSubmissionFilter(v as any)}
+              />
+            }
           >
-            <div className="p-4">
-              <BoardSubmissionList
-                submissions={submissions}
-                loading={submissionsLoading}
-                error={submissionsError}
+            <div className="p-4 space-y-4">
+
+              {/* 게시판 제출 카드 리스트 */}
+              {submissionsLoading ? (
+                <div className="text-center py-8 text-gray-500">로딩 중...</div>
+              ) : submissionsError ? (
+                <div className="text-center py-8 text-red-500">
+                  게시판 제출을 불러올 수 없습니다
+                </div>
+              ) : submissions.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  제출된 게시판이 없습니다
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {submissions.map((submission) => (
+                    <BoardSubmissionCard
+                      key={submission.id}
+                      submission={submission}
+                      onDelete={() => deleteSubmissionItem(submission.id)}
+                    />
+                  ))}
+                </div>
+              )}
+
+              {/* 페이지네이션 */}
+              <PaginationDots
+                hasMore={submissionsHasMore}
+                onLoadMore={loadMoreSubmissions}
+                isLoading={submissionsLoading}
+              />
+            </div>
+          </CollapsibleSection>
+
+          {/* 프로젝트 관리 */}
+          <CollapsibleSection 
+            title="프로젝트 관리하기"
+            icon={<Rocket className="w-5 h-5" />}
+            defaultOpen={false}
+            filterButton={
+              <FilterButton
+                options={[
+                  { value: 'all', label: '전체' },
+                  { value: 'active', label: '🟢 진행중' },
+                  { value: 'paused', label: '🟡 보류' },
+                  { value: 'completed', label: '✅ 완료' },
+                  { value: 'difficult', label: '🔴 어려움' },
+                ]}
+                value={projectFilter}
+                onChange={(v) => setProjectFilter(v as any)}
+              />
+            }
+          >
+            <div className="p-4 space-y-4">
+
+              {/* 프로젝트 카드 리스트 */}
+              {projectsLoading ? (
+                <div className="text-center py-8 text-gray-500">로딩 중...</div>
+              ) : projectsError ? (
+                <div className="text-center py-8 text-red-500">
+                  프로젝트를 불러올 수 없습니다
+                </div>
+              ) : projects.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  프로젝트가 없습니다
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {projects.map((project) => (
+                    <ProjectCard
+                      key={project.id}
+                      project={project}
+                      onEdit={(p) => {
+                        setEditingProject(p);
+                        setShowProjectForm(true);
+                      }}
+                      onDelete={() => deleteProjectItem(project.id)}
+                      onCompleteStage={(stageId) => completeStage(project.id, stageId)}
+                    />
+                  ))}
+                </div>
+              )}
+
+              {/* 페이지네이션 */}
+              <PaginationDots
+                hasMore={projectsHasMore}
+                onLoadMore={loadMoreProjects}
+                isLoading={projectsLoading}
               />
             </div>
           </CollapsibleSection>
@@ -166,6 +330,11 @@ export default function DeveloperPage() {
       <FloatingActionButton
         onIdeaClick={() => setShowIdeaForm(true)}
         onBoardClick={() => setShowBoardForm(true)}
+        onProjectClick={() => {
+          setEditingProject(null);
+          setSourceIdeaId(undefined);
+          setShowProjectForm(true);
+        }}
       />
 
       {/* 아이디어 작성 폼 모달 */}
@@ -183,6 +352,25 @@ export default function DeveloperPage() {
           onSubmit={createNewSubmission}
         />
       )}
+
+      {/* 프로젝트 생성/수정 모달 */}
+      <ProjectFormModal
+        isOpen={showProjectForm}
+        onClose={() => {
+          setShowProjectForm(false);
+          setEditingProject(null);
+          setSourceIdeaId(undefined);
+        }}
+        onSubmit={async (data: ProjectFormData) => {
+          if (editingProject) {
+            await updateProjectItem(editingProject.id, data);
+          } else {
+            await createNewProject(data);
+          }
+        }}
+        sourceIdeaId={sourceIdeaId}
+        initialProject={editingProject || undefined}
+      />
 
       {/* 아이디어 상세 모달 */}
       <IdeaDetailModal

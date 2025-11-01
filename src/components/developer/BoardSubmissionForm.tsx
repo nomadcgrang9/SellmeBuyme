@@ -3,9 +3,7 @@
 import { useState } from 'react';
 import { X, ExternalLink } from 'lucide-react';
 import RegionSelector from './RegionSelector';
-import SchoolLevelSelector from './SchoolLevelSelector';
 import type { BoardSubmissionFormData } from '@/types/developer';
-import type { SchoolLevel } from '@/types';
 
 interface BoardSubmissionFormProps {
   onClose: () => void;
@@ -20,7 +18,6 @@ export default function BoardSubmissionForm({
   const [boardUrl, setBoardUrl] = useState('');
   const [provinceCode, setProvinceCode] = useState<string | null>(null);
   const [cityCode, setCityCode] = useState<string | null>(null);
-  const [schoolLevel, setSchoolLevel] = useState<SchoolLevel | null>(null);
   const [description, setDescription] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -42,10 +39,6 @@ export default function BoardSubmissionForm({
       setError('광역자치단체를 선택해주세요');
       return;
     }
-    if (!schoolLevel) {
-      setError('학교급을 선택해주세요');
-      return;
-    }
 
     // URL 형식 검사
     try {
@@ -62,7 +55,7 @@ export default function BoardSubmissionForm({
         boardUrl: boardUrl.trim(),
         regionCode: provinceCode,
         subregionCode: cityCode,
-        schoolLevel,
+        schoolLevel: 'mixed',
         description: description.trim() || undefined,
       });
       onClose();
@@ -158,14 +151,6 @@ export default function BoardSubmissionForm({
             cityCode={cityCode}
             onProvinceChange={setProvinceCode}
             onCityChange={setCityCode}
-            disabled={isSubmitting}
-            required
-          />
-
-          {/* 학교급 선택 (필수) */}
-          <SchoolLevelSelector
-            value={schoolLevel}
-            onChange={setSchoolLevel}
             disabled={isSubmitting}
             required
           />

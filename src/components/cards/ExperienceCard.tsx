@@ -5,90 +5,102 @@ import { useAuthStore } from '@/stores/authStore';
 interface ExperienceCardProps {
   card: ExperienceCardType;
   onEditClick?: (card: ExperienceCardType) => void;
+  onCardClick?: () => void;
 }
 
-export default function ExperienceCard({ card, onEditClick }: ExperienceCardProps) {
+export default function ExperienceCard({ card, onEditClick, onCardClick }: ExperienceCardProps) {
+  console.log('[ExperienceCard] 렌더링:', {
+    id: card.id,
+    programTitle: card.programTitle,
+    introduction: card.introduction,
+    categories: card.categories,
+    locationSummary: card.locationSummary,
+    targetSchoolLevels: card.targetSchoolLevels,
+    operationTypes: card.operationTypes
+  });
+
   const { user } = useAuthStore((state) => ({ user: state.user }));
   const isOwner = Boolean(user && card.user_id && user.id === card.user_id);
 
-  const categories = card.categories.slice(0, 3);
-  const targetLevels = card.targetSchoolLevels.slice(0, 3);
-  const operationTypes = card.operationTypes.slice(0, 3);
+  const categories = card.categories?.slice(0, 3) || [];
+  const targetLevels = card.targetSchoolLevels?.slice(0, 3) || [];
+  const operationTypes = card.operationTypes?.slice(0, 3) || [];
+
+  // 더미 데이터 폴백
+  const displayTitle = card.programTitle || '[제목 없음 - 데이터 확인 필요]';
+  const displayIntro = card.introduction || '[소개 없음 - 데이터 확인 필요]';
+  const displayLocation = card.locationSummary || '[지역 없음]';
 
   return (
-    <article className="card-interactive bg-white border border-gray-200 rounded-lg shadow-md animate-slide-up overflow-hidden flex flex-col h-full" style={{ minHeight: '240px', maxHeight: '240px' }}>
-      <div className="h-0.5 bg-gradient-to-r from-[#FBBF24] to-[#F97316]" />
+    <article
+      className="card-interactive bg-white border border-gray-200 rounded-lg shadow-md animate-slide-up overflow-hidden flex flex-col h-full cursor-pointer"
+      style={{ minHeight: '240px', maxHeight: '240px' }}
+      onClick={onCardClick}
+    >
+      {/* 상단 컬러 바 - 더 두껍게 */}
+      <div className="h-1 bg-gradient-to-r from-[#ffd98e] to-[#f4c96b]" />
 
       <div className="flex h-full flex-col p-4">
+        {/* 헤더 */}
         <div className="flex items-center justify-between mb-3">
-          <span className="text-sm font-semibold text-[#F97316]">체험</span>
-          <span className="text-xs text-gray-500">{new Date(card.createdAt).toLocaleDateString()}</span>
+          <span className="text-sm font-semibold text-[#f4c96b]">체험</span>
         </div>
 
-        <h3 className="text-lg font-extrabold text-gray-900 mb-1 line-clamp-1 break-keep overflow-hidden">
-          {card.programTitle}
+        {/* 제목 */}
+        <h3 className="text-xl font-black text-gray-900 mb-2 line-clamp-1 break-keep" style={{ letterSpacing: '-0.4px' }}>
+          {displayTitle}
         </h3>
 
-        <p className="text-sm text-gray-600 leading-snug mb-2 line-clamp-2 break-keep overflow-hidden">
-          {card.introduction}
+        {/* 부제목 */}
+        <p className="text-sm text-gray-500 leading-snug mb-3 line-clamp-2 break-keep">
+          {displayIntro}
         </p>
 
+        {/* 태그 */}
         {categories.length > 0 && (
-          <div className="mb-2 flex flex-wrap gap-1.5 text-xs text-gray-700">
-            <div className="inline-flex items-center gap-1 rounded-full bg-orange-50 px-2 py-1 font-semibold text-orange-600">
-              <IconCategory size={14} stroke={1.5} />
-              <span>{categories.join(', ')}</span>
-            </div>
+          <div className="mb-3 flex flex-wrap gap-1.5">
+            {categories.slice(0, 2).map((cat, idx) => (
+              <span key={idx} className="inline-flex items-center px-2 py-0.5 rounded-md bg-gray-100 text-gray-700 text-xs font-medium">
+                {cat}
+              </span>
+            ))}
           </div>
         )}
 
-        <div className="space-y-1.5 text-sm text-gray-700">
+        {/* 핵심 정보 4개만 */}
+        <div className="space-y-1.5 text-sm text-gray-700 mt-auto">
+          {/* 지역 */}
           <div className="flex items-center gap-2">
-            <IconMapPin size={16} stroke={1.5} className="text-[#F97316] flex-shrink-0" />
-            <span className="font-medium truncate">{card.locationSummary}</span>
+            <IconMapPin size={16} stroke={1.5} className="text-gray-500 flex-shrink-0" />
+            <span className="font-medium truncate">{displayLocation}</span>
           </div>
 
+          {/* 대상 학교급 */}
           {targetLevels.length > 0 && (
             <div className="flex items-center gap-2">
-              <IconSchool size={16} stroke={1.5} className="text-[#F97316] flex-shrink-0" />
+              <IconSchool size={16} stroke={1.5} className="text-gray-500 flex-shrink-0" />
               <span className="font-medium truncate">{targetLevels.join(', ')}</span>
             </div>
           )}
 
+          {/* 운영 방식 */}
           {operationTypes.length > 0 && (
             <div className="flex items-center gap-2">
-              <IconUsers size={16} stroke={1.5} className="text-[#EA580C] flex-shrink-0" />
+              <IconUsers size={16} stroke={1.5} className="text-gray-500 flex-shrink-0" />
               <span className="font-medium truncate">{operationTypes.join(', ')}</span>
             </div>
           )}
-
-          {card.capacity && (
-            <div className="flex items-center gap-2">
-              <IconUsers size={16} stroke={1.5} className="text-[#EA580C] flex-shrink-0" />
-              <span className="font-medium truncate">수용 인원: {card.capacity}</span>
-            </div>
-          )}
-
-          <div className="flex items-center gap-2">
-            <IconPhone size={16} stroke={1.5} className="text-[#F97316] flex-shrink-0" />
-            <span className="font-medium truncate">{card.contactPhone}</span>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <IconAt size={16} stroke={1.5} className="text-[#F97316] flex-shrink-0" />
-            <span className="font-medium truncate">{card.contactEmail}</span>
-          </div>
         </div>
 
         {isOwner && onEditClick && (
-          <div className="pt-3 mt-auto">
+          <div className="pt-3">
             <button
               type="button"
               onClick={(event) => {
                 event.stopPropagation();
                 onEditClick(card);
               }}
-              className="w-full inline-flex items-center justify-center rounded-lg bg-orange-50 text-orange-600 px-3 py-2 hover:bg-orange-100 transition-colors text-sm font-semibold"
+              className="w-full inline-flex items-center justify-center rounded-lg bg-white border border-gray-300 text-gray-700 px-3 py-1.5 hover:bg-gray-50 transition-colors text-sm font-semibold"
             >
               수정하기
             </button>

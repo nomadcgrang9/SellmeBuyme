@@ -1,13 +1,98 @@
 import { resolveUrl } from '../lib/playwright.js';
 
 /**
+ * 교육지원청 도메인 → 관할 지역 매핑
+ */
+const EDUCATION_OFFICE_REGIONS = {
+  'goegp.kr': '가평군',           // 가평교육지원청
+  'www.goegp.kr': '가평군',       // 가평교육지원청 (www)
+  'goegn.kr': '구리남양주',       // 구리남양주교육지원청
+  'www.goegn.kr': '구리남양주',   // 구리남양주교육지원청 (www)
+  'goeujb.kr': '의정부',          // 의정부교육지원청
+  'www.goeujb.kr': '의정부',      // 의정부교육지원청 (www)
+  '222.120.4.134': '의정부',      // 의정부교육지원청 (IP)
+  'goesn.kr': '성남',             // 성남교육지원청
+  'www.goesn.kr': '성남',         // 성남교육지원청 (www)
+  'goeyp.kr': '양평군',           // 양평교육지원청
+  'www.goeyp.kr': '양평군',       // 양평교육지원청 (www)
+  'goepy.kr': '평택',             // 평택교육지원청
+  'www.goepy.kr': '평택',         // 평택교육지원청 (www)
+  'goeguri.kr': '구리',           // 구리교육지원청 (별도)
+  'www.goeguri.kr': '구리',       // 구리교육지원청 (www)
+  'goegj.kr': '광주',             // 광주하남교육지원청
+  'www.goegj.kr': '광주',         // 광주하남교육지원청 (www)
+  'goeysn.kr': '용인',            // 용인교육지원청
+  'www.goeysn.kr': '용인',        // 용인교육지원청 (www)
+  'goesw.kr': '수원',             // 수원교육지원청
+  'www.goesw.kr': '수원',         // 수원교육지원청 (www)
+  // 추가 교육지원청은 필요시 여기에 추가
+};
+
+/**
+ * URL에서 교육지원청 관할 지역 추출
+ */
+function getRegionFromUrl(url) {
+  if (!url) return null;
+
+  try {
+    const parsedUrl = new URL(url.startsWith('http') ? url : `https://${url}`);
+    const hostname = parsedUrl.hostname;
+
+    // 도메인 매칭
+    for (const [domain, region] of Object.entries(EDUCATION_OFFICE_REGIONS)) {
+      if (hostname.includes(domain)) {
+        return region;
+      }
+    }
+
+    // IP 주소 매칭
+    const ip = parsedUrl.hostname;
+    if (EDUCATION_OFFICE_REGIONS[ip]) {
+      return EDUCATION_OFFICE_REGIONS[ip];
+    }
+  } catch (error) {
+    console.warn(`URL 파싱 실패: ${url}`, error.message);
+  }
+
+  return null;
+}
+
+/**
+ * 학교명에서 지역 추론 (보조 수단)
+ */
+function inferRegionFromSchoolName(schoolName) {
+  if (!schoolName) return null;
+
+  // 학교명에 포함된 지역명 패턴
+  const regionPatterns = [
+    { pattern: /가평/, region: '가평군' },
+    { pattern: /구리/, region: '구리남양주' },
+    { pattern: /남양주/, region: '구리남양주' },
+    { pattern: /의정부/, region: '의정부' },
+    { pattern: /양평/, region: '양평군' },
+    { pattern: /평택/, region: '평택' },
+    { pattern: /성남/, region: '성남' },
+    { pattern: /용인/, region: '용인' },
+    { pattern: /수원/, region: '수원' },
+  ];
+
+  for (const { pattern, region } of regionPatterns) {
+    if (pattern.test(schoolName)) {
+      return region;
+    }
+  }
+
+  return null;
+}
+
+/**
  * 경기도교육청 크롤러 (POST 기반)
  */
 export async function crawlGyeonggi(page, config) {
   console.log(`\n📍 ${config.name} 크롤링 시작`);
-  
+
   const jobs = [];
-  
+
   try {
     // 1. 목록 페이지 POST 요청으로 로드
     console.log(`🌐 목록 페이지 POST 요청 중...`);
@@ -152,14 +237,28 @@ export async function crawlGyeonggi(page, config) {
       
       try {
         const detailData = await crawlDetailPage(page, config, pbancSn);
-        
+
+        // 지역 정보 결정 (우선순위: 게시판 정규식 추출 > URL 기반 매핑 > 학교명 추론)
+        let finalLocation = listInfo.location;
+
+        // 지역이 비어있거나 잘못된 경우 URL 기반 매핑 시도
+        if (!finalLocation || finalLocation.trim() === '') {
+          finalLocation = getRegionFromUrl(config.listEndpoint) ||
+                          getRegionFromUrl(config.detailEndpoint);
+        }
+
+        // 여전히 비어있으면 학교명으로 추론
+        if (!finalLocation || finalLocation.trim() === '') {
+          finalLocation = inferRegionFromSchoolName(listInfo.schoolName);
+        }
+
         // 게시판 정보와 상세 정보 병합
         const mergedJob = {
           // 기본 정보 (게시판 우선)
           title: listInfo.title || detailData.title,
           schoolName: listInfo.schoolName,
           phone: listInfo.phone,
-          location: listInfo.location,
+          location: finalLocation || listInfo.location,
           
           // 날짜 정보 (게시판 우선)
           applicationStart: listInfo.applicationStart,

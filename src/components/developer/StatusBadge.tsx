@@ -22,12 +22,6 @@ const STATUS_CONFIG: Record<
     color: 'text-green-700',
     bgColor: 'bg-green-50 border-green-200',
   },
-  rejected: {
-    label: '반려됨',
-    icon: XCircle,
-    color: 'text-red-700',
-    bgColor: 'bg-red-50 border-red-200',
-  },
 };
 
 export default function StatusBadge({ status }: StatusBadgeProps) {
