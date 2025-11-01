@@ -2140,78 +2140,38 @@ export async function updateCrawlBoard(
  * @throws Error - 삭제 또는 업데이트 실패 시
  */
 export async function unapproveCrawlBoard(boardId: string): Promise<void> {
-  // Service Role Admin 클라이언트 import (RLS 우회)
-  const { supabaseAdmin } = await import('./admin');
-
   try {
-    // 1단계: job_postings 삭제 (RLS 우회 필수 - SERVICE_ROLE_KEY 사용)
-    console.log(`[Step 1] job_postings 삭제 시작 (crawl_source_id=${boardId})`);
-    const { error: jobsError, count: jobsDeleteCount } = await supabaseAdmin
-      .from('job_postings')
-      .delete()
-      .eq('crawl_source_id', boardId)
-      .select('id', { count: 'exact' });
+    console.log(`[unapproveCrawlBoard] Edge Function 호출 시작 (boardId=${boardId})`);
 
-    if (jobsError) {
-      console.error('[Step 1 실패] job_postings 삭제 오류:', jobsError);
-      throw new Error(`job_postings 삭제 실패: ${jobsError.message}`);
+    // Edge Function 호출 (SERVICE_ROLE_KEY로 RLS 우회)
+    const { data, error } = await supabase.functions.invoke(
+      'unapprove-crawl-board',
+      {
+        body: {
+          boardId,
+        },
+      }
+    );
+
+    if (error) {
+      console.error('[unapproveCrawlBoard] Edge Function 호출 실패:', error);
+      throw new Error(`승인 취소 실패: ${error.message}`);
     }
 
-    console.log(`[Step 1 완료] ${jobsDeleteCount || 0}개 job_postings 삭제됨`);
-
-    // 2단계: crawl_logs 삭제 (RLS 우회 필수 - SERVICE_ROLE_KEY 사용)
-    console.log(`[Step 2] crawl_logs 삭제 시작 (board_id=${boardId})`);
-    const { error: logsError, count: logsDeleteCount } = await supabaseAdmin
-      .from('crawl_logs')
-      .delete()
-      .eq('board_id', boardId)
-      .select('id', { count: 'exact' });
-
-    if (logsError) {
-      console.error('[Step 2 실패] crawl_logs 삭제 오류:', logsError);
-      throw new Error(`crawl_logs 삭제 실패: ${logsError.message}`);
+    // 응답 검증
+    if (!data?.success) {
+      console.error('[unapproveCrawlBoard] Edge Function 응답 오류:', data?.error);
+      throw new Error(`승인 취소 실패: ${data?.error || '알 수 없는 오류'}`);
     }
 
-    console.log(`[Step 2 완료] ${logsDeleteCount || 0}개 crawl_logs 삭제됨`);
-
-    // 3단계: crawl_boards 승인 취소 (ANON_KEY 사용 가능 - 자신의 데이터 수정)
-    console.log(`[Step 3] crawl_boards 승인 취소 (id=${boardId})`);
-    const { error: boardError } = await supabase
-      .from('crawl_boards')
-      .update({
-        approved_at: null,
-        approved_by: null,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', boardId);
-
-    if (boardError) {
-      console.error('[Step 3 실패] crawl_boards 승인 취소 오류:', boardError);
-      throw new Error(`crawl_boards 승인 취소 실패: ${boardError.message}`);
-    }
-
-    console.log(`[Step 3 완료] crawl_boards 승인 취소됨`);
-
-    // 4단계: dev_board_submissions status → 'pending' (ANON_KEY 사용 가능)
-    console.log(`[Step 4] dev_board_submissions status 변경 (crawl_board_id=${boardId})`);
-    const { error: submissionError } = await supabase
-      .from('dev_board_submissions')
-      .update({
-        status: 'pending',
-        updated_at: new Date().toISOString(),
-      })
-      .eq('crawl_board_id', boardId);
-
-    if (submissionError) {
-      console.error('[Step 4 실패] dev_board_submissions status 변경 오류:', submissionError);
-      throw new Error(`dev_board_submissions status 변경 실패: ${submissionError.message}`);
-    }
-
-    console.log(`[Step 4 완료] dev_board_submissions status → pending`);
-
-    console.log(`\n✅ 승인 취소 완료: ${boardId}`);
+    // 성공 로깅
+    const result = data.data;
+    console.log(`[unapproveCrawlBoard] 승인 취소 완료:`);
+    console.log(`  - job_postings 삭제: ${result.jobsDeleted}개`);
+    console.log(`  - crawl_logs 삭제: ${result.logsDeleted}개`);
+    console.log(`  - boardId: ${result.boardId}`);
   } catch (error) {
-    console.error(`\n❌ 승인 취소 중 오류 발생:`, error);
+    console.error('[unapproveCrawlBoard] 오류 발생:', error);
     throw error;
   }
 }
