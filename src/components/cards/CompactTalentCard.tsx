@@ -12,7 +12,9 @@ export default function CompactTalentCard({ talent, onClick }: CompactTalentCard
       className="card-interactive bg-white border border-gray-200 rounded-lg animate-slide-up overflow-hidden h-full cursor-pointer shadow-sm hover:shadow-lg transition-shadow"
       onClick={onClick}
     >
-      
+      {/* 상단 컬러 바 (인력=그린) */}
+      <div className="h-1 bg-gradient-to-r from-[#7db8a3] to-[#6fb59b]" />
+
       <div className="flex h-full flex-col p-4">
         {/* 헤더 */}
         <div className="flex items-center justify-between mb-3">

@@ -929,12 +929,12 @@ export async function createTalent(data: TalentRegistrationFormData): Promise<Ta
     tags,
     location: locations,
     experience_years: experienceYears,
-    phone: data.phone ?? null,
-    email: data.email ?? null,
-    license: data.license ?? null,
-    introduction: data.introduction ?? null,
-    form_payload: data,
-    // 참고: license / phone / email / introduction 은 추후 컬럼 확장 시 저장
+    // 참고: phone, email, license, introduction 컬럼은 talents 테이블에 없음
+    // form_payload에 모든 데이터 보관
+    // phone: data.phone ?? null,
+    // email: data.email ?? null,
+    // license: data.license ?? null,
+    // introduction: data.introduction ?? null,
   };
 
   const { data: inserted, error } = await supabase
