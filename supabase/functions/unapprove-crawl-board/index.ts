@@ -201,27 +201,37 @@ Deno.serve(async (req) => {
     console.log('[unapprove-crawl-board] Service Role 클라이언트 생성 완료');
 
     // 4. job_postings 삭제 (Step 1)
-    console.log(`[Step 1] job_postings 삭제 시작 (crawl_source_id=${boardId})`);
-    const { error: jobsError, count: jobsDeleteCount } = await adminClient
+    // crawl_source_id 또는 crawl_board_id로 삭제 (둘 다 지원)
+    console.log(`[Step 1] job_postings 삭제 시작 (boardId=${boardId})`);
+
+    // crawl_source_id로 삭제 시도
+    const { error: jobsError1, count: jobsDeleteCount1 } = await adminClient
       .from('job_postings')
       .delete()
       .eq('crawl_source_id', boardId)
       .select('id', { count: 'exact' });
 
-    if (jobsError) {
-      console.error('[Step 1 실패] job_postings 삭제 오류:', jobsError);
-      const error: ErrorResponse = {
-        success: false,
-        error: `job_postings 삭제 실패: ${jobsError.message}`,
-        statusCode: 500,
-      };
-      return new Response(JSON.stringify(error), {
-        status: 500,
-        headers: corsHeaders,
-      });
+    if (jobsError1) {
+      console.error('[Step 1-A 실패] crawl_source_id 삭제 오류:', jobsError1);
+    } else {
+      console.log(`[Step 1-A] crawl_source_id로 ${jobsDeleteCount1 || 0}개 삭제됨`);
     }
 
-    console.log(`[Step 1 완료] ${jobsDeleteCount || 0}개 job_postings 삭제됨`);
+    // crawl_board_id로 삭제 시도
+    const { error: jobsError2, count: jobsDeleteCount2 } = await adminClient
+      .from('job_postings')
+      .delete()
+      .eq('crawl_board_id', boardId)
+      .select('id', { count: 'exact' });
+
+    if (jobsError2) {
+      console.error('[Step 1-B 실패] crawl_board_id 삭제 오류:', jobsError2);
+    } else {
+      console.log(`[Step 1-B] crawl_board_id로 ${jobsDeleteCount2 || 0}개 삭제됨`);
+    }
+
+    const totalJobsDeleted = (jobsDeleteCount1 || 0) + (jobsDeleteCount2 || 0);
+    console.log(`[Step 1 완료] 총 ${totalJobsDeleted}개 job_postings 삭제됨`);
 
     // 5. crawl_logs 삭제 (Step 2)
     console.log(`[Step 2] crawl_logs 삭제 시작 (board_id=${boardId})`);
@@ -303,7 +313,7 @@ Deno.serve(async (req) => {
       success: true,
       message: '승인 취소 완료',
       data: {
-        jobsDeleted: jobsDeleteCount || 0,
+        jobsDeleted: totalJobsDeleted,
         logsDeleted: logsDeleteCount || 0,
         boardId,
       },
