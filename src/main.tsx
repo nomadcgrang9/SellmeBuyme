@@ -33,16 +33,18 @@ if (pathname.startsWith('/note')) {
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// 주의: 관리자 경로는 더 이상 클라이언트에서 체크하지 않음!
-// Cloudflare Functions에서 모든 체크 처리
+// 관리자 페이지 라우팅
+// 로컬: /admin* 경로, 프로덕션: /admin-portal 또는 랜덤 경로
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-// 로컬 개발 환경에서만 /admin 접근 허용
+// 로컬 개발: /admin* 경로
 else if (import.meta.env.DEV && pathname.startsWith('/admin')) {
   rootComponent = <AdminPage />
 }
-// 프로덕션: Cloudflare Functions가 처리하므로 별도 체크 불필요
-// 단, AdminPage 컴포넌트는 번들에 포함되어야 함
+// 프로덕션: /admin-portal 경로
+else if (import.meta.env.PROD && pathname.startsWith('/admin-portal')) {
+  rootComponent = <AdminPage />
+}
 // 랜덤 경로 패턴 매칭 (예: /diekw-mx8k2pq9-console-secure-2025)
 else if (pathname.match(/^\/[a-z0-9\-]{20,}/i)) {
   rootComponent = <AdminPage />
