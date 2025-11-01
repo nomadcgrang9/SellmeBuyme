@@ -12,7 +12,7 @@ type RegisterType = 'job' | 'talent' | 'experience' | null;
 
 export default function RegisterButtonsSection() {
   const [activeSection, setActiveSection] = useState<RegisterType>(null);
-  const { setViewType } = useSearchStore();
+  const { setViewType, setFilter } = useSearchStore();
 
   return (
     <>
@@ -79,6 +79,8 @@ export default function RegisterButtonsSection() {
                 // 약간의 지연을 두어 DB 동기화 대기
                 setTimeout(() => {
                   setViewType('talent');
+                  // 카드 목록 강제 새로고침을 위해 lastUpdatedAt 업데이트
+                  setFilter('sort', '최신순');
                   setActiveSection(null);
                 }, 500);
               }}
@@ -108,6 +110,8 @@ export default function RegisterButtonsSection() {
                   setTimeout(() => {
                     console.log(`[RegisterButtonsSection ${timestamp}] 체험 뷰로 전환`);
                     setViewType('experience');
+                    // 카드 목록 강제 새로고침을 위해 lastUpdatedAt 업데이트
+                    setFilter('sort', '최신순');
                     setActiveSection(null);
                   }, 500);
                 } catch (error) {
