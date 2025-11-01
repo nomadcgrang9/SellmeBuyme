@@ -1,7 +1,9 @@
 // BoardSubmissionCard - 게시판 제출 카드
 import { useState } from 'react';
 import { ExternalLink, MapPin, User, Calendar, Trash2 } from 'lucide-react';
+import { CommentSection } from './comments/CommentSection';
 import StatusBadge from './StatusBadge';
+import { linkifyText } from '@/lib/utils/linkify.tsx';
 import type { DevBoardSubmission } from '@/types/developer';
 
 interface BoardSubmissionCardProps {
@@ -76,8 +78,8 @@ export default function BoardSubmissionCard({
 
         {/* 설명 (있으면) */}
         {submission.description && (
-          <p className="text-sm text-gray-700 line-clamp-2">
-            {submission.description}
+          <p className="text-sm text-gray-700 line-clamp-2 break-words">
+            {linkifyText(submission.description)}
           </p>
         )}
       </div>
@@ -105,6 +107,10 @@ export default function BoardSubmissionCard({
           <Calendar className="w-3 h-3" />
           {relativeTime}
         </div>
+      </div>
+
+      <div className="border-t border-gray-100 bg-gray-50 px-4 py-3">
+        <CommentSection targetType="submission" targetId={submission.id} />
       </div>
     </div>
   );

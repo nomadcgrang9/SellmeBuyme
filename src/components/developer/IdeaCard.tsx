@@ -1,7 +1,9 @@
 // IdeaCard - 아이디어 카드 컴포넌트
 import { useState } from 'react';
 import { User, Calendar, Trash2, Send } from 'lucide-react';
+import { CommentSection } from './comments/CommentSection';
 import CategoryBadge from './CategoryBadge';
+import { linkifyText } from '@/lib/utils/linkify.tsx';
 import type { DevIdea } from '@/types/developer';
 
 interface IdeaCardProps {
@@ -63,8 +65,8 @@ export default function IdeaCard({
             </div>
 
             {/* 내용 미리보기 */}
-            <p className="text-sm text-gray-700 line-clamp-2 mb-2">
-              {idea.content}
+            <p className="text-sm text-gray-700 line-clamp-2 mb-2 break-words">
+              {linkifyText(idea.content)}
             </p>
           </div>
 
@@ -117,6 +119,10 @@ export default function IdeaCard({
             <span>{formatTimeAgo(idea.createdAt)}</span>
           </div>
         </div>
+      </div>
+
+      <div className="border-t border-gray-100 bg-gray-50 px-4 py-3">
+        <CommentSection targetType="idea" targetId={idea.id} />
       </div>
     </div>
   );

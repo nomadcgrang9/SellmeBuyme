@@ -114,6 +114,29 @@ export interface DevProject {
   updatedAt: string;
 }
 
+// =============================================================================
+// Comment Types (Frontend)
+// =============================================================================
+
+export type CommentTargetType = 'idea' | 'submission' | 'project';
+
+export interface DevComment {
+  id: string;
+  parentId: string | null;
+  targetType: CommentTargetType;
+  targetId: string;
+  authorName: string;
+  content: string;
+  createdAt: string;
+  updatedAt: string;
+  replies?: DevComment[];
+}
+
+export interface CommentDraft {
+  content: string;
+  parentId?: string;
+}
+
 export interface DevBoardSubmission {
   id: string;
   submitterId: string | null;

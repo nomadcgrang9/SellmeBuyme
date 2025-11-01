@@ -1,5 +1,7 @@
 // ProjectCard - 프로젝트 카드 컴포넌트
 import { Trash2, Edit2, ChevronDown } from 'lucide-react';
+import { CommentSection } from './comments/CommentSection';
+import { linkifyText } from '@/lib/utils/linkify.tsx';
 import { useState } from 'react';
 import type { DevProject } from '@/types/developer';
 import { PROJECT_STATUS_CONFIG } from '@/types/developer';
@@ -94,7 +96,9 @@ export default function ProjectCard({
 
       {/* 목표 */}
       <div className="px-4 py-3 border-t border-gray-100">
-        <p className="text-sm text-gray-700 line-clamp-2">{project.goal}</p>
+        <p className="text-sm text-gray-700 line-clamp-2 break-words">
+          {linkifyText(project.goal)}
+        </p>
       </div>
 
       {/* 확장/축소 버튼 */}
@@ -150,6 +154,10 @@ export default function ProjectCard({
           </div>
         </div>
       )}
+
+      <div className="border-t border-gray-100 bg-gray-50 px-4 py-3">
+        <CommentSection targetType="project" targetId={project.id} />
+      </div>
     </div>
   );
 }
