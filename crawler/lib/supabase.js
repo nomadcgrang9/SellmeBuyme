@@ -16,50 +16,21 @@ export const supabase = createClient(supabaseUrl, supabaseKey);
  * 크롤링 소스 정보 조회 또는 생성
  */
 export async function getOrCreateCrawlSource(name, baseUrl) {
+  // crawl_boards에서 직접 ID 가져오기 (crawl_sources 테이블은 더 이상 사용하지 않음)
   const { data: board } = await supabase
     .from('crawl_boards')
     .select('id, crawl_batch_size')
     .eq('name', name)
-    .eq('is_active', true)
+    .eq('status', 'active')  // is_active 대신 status 사용
     .maybeSingle();
 
-  // crawl_boards에 없어도 기본값으로 진행 (자동 생성)
-  const desiredBatchSize = board?.crawl_batch_size ?? 10;
-
-  const { data: existing } = await supabase
-    .from('crawl_sources')
-    .select('id, crawl_batch_size')
-    .eq('name', name)
-    .maybeSingle();
-
-  if (existing) {
-    const currentBatchSize = existing.crawl_batch_size ?? 10;
-    if (desiredBatchSize !== currentBatchSize) {
-      await supabase
-        .from('crawl_sources')
-        .update({ crawl_batch_size: desiredBatchSize })
-        .eq('id', existing.id);
-    }
-    return { id: existing.id, crawlBatchSize: desiredBatchSize };
+  if (board) {
+    // crawl_boards에 있으면 해당 ID 반환
+    return { id: board.id, crawlBatchSize: board.crawl_batch_size ?? 10 };
   }
 
-  const { data: created, error: createError } = await supabase
-    .from('crawl_sources')
-    .insert({
-      name,
-      base_url: baseUrl,
-      parser_type: 'html',
-      status: 'active',
-      crawl_batch_size: desiredBatchSize
-    })
-    .select('id, crawl_batch_size')
-    .single();
-
-  if (createError) {
-    throw new Error(`Failed to create crawl source: ${createError.message}`);
-  }
-
-  return { id: created.id, crawlBatchSize: created.crawl_batch_size ?? desiredBatchSize };
+  // crawl_boards에 없으면 에러 (크롤러는 반드시 crawl_boards에 등록되어야 함)
+  throw new Error(`crawl_boards에 "${name}" 게시판이 없습니다. 먼저 관리자 페이지에서 등록해주세요.`);
 }
 
 /**
