@@ -252,30 +252,70 @@ async function main() {
             continue;
           }
 
-          // Gemini AI로 데이터 정규화 (camelCase와 snake_case 모두 지원)
           const detailContent = job.detailContent || job.detail_content || '';
-          const normalized = await normalizeJobData({
-            title: job.title,
-            date: job.date || '',
-            link: job.link || job.url,
-            detailContent: detailContent
-          }, board.name);
+          const screenshotBase64 = job.screenshot_base64 || job.screenshotBase64;
 
-          if (!normalized) {
-            logWarn('ai-crawler', 'AI 정규화 실패, 원본 데이터 사용', { title: job.title });
+          // 디버그: job 객체 keys 확인
+          logDebug('ai-crawler', 'Job 객체 keys 확인', {
+            keys: Object.keys(job),
+            hasScreenshot: !!screenshotBase64,
+            screenshotLength: screenshotBase64?.length || 0
+          });
+
+          let visionData = null;
+
+          // 🔍 Vision AI 분석 (스크린샷 있으면 최우선 사용)
+          if (screenshotBase64) {
+            try {
+              logStep('ai-crawler', 'Vision AI 분석 시작', { title: job.title });
+              visionData = await analyzePageScreenshot(screenshotBase64);
+
+              if (visionData) {
+                logInfo('ai-crawler', 'Vision AI 분석 완료', {
+                  school: visionData.school_name,
+                  job: visionData.job_title,
+                  deadline: visionData.deadline
+                });
+              }
+            } catch (visionError) {
+              logWarn('ai-crawler', 'Vision AI 분석 실패, fallback 사용', { error: visionError.message });
+            }
           }
 
-          // 저장 (Gemini가 추출한 organization, title 사용)
+          // 텍스트 기반 AI 정규화 (Vision 실패 시 fallback)
+          let normalized = null;
+          if (!visionData) {
+            normalized = await normalizeJobData({
+              title: job.title,
+              date: job.date || '',
+              link: job.link || job.url,
+              detailContent: detailContent
+            }, board.name);
+
+            if (!normalized) {
+              logWarn('ai-crawler', 'AI 정규화 실패, 원본 데이터 사용', { title: job.title });
+            }
+          }
+
+          // Vision 데이터 우선, 없으면 normalized, 없으면 fallback
+          const finalOrganization = visionData?.school_name || normalized?.organization || job.organization || board.name;
+          const finalTitle = visionData?.job_title || normalized?.title || job.title;
+          const finalLocation = visionData?.location || normalized?.location || job.location || '지역 미상';
+          const finalDeadline = visionData?.deadline || normalized?.deadline || null;
+          const finalCompensation = visionData?.compensation || normalized?.compensation || '협의';
+          const finalTags = visionData?.subjects || normalized?.tags || [];
+
+          // 저장
           const saved = await saveJobPosting({
-            title: normalized?.title || job.title,
-            organization: normalized?.organization || job.organization || board.name,
-            location: normalized?.location || job.location || '지역 미상',
-            compensation: normalized?.compensation || '협의',
-            deadline: normalized?.deadline || null,
-            application_period: normalized?.application_period || null,
-            work_period: normalized?.work_period || null,
-            contact: normalized?.contact || null,
-            tags: normalized?.tags || [],
+            title: finalTitle,
+            organization: finalOrganization,
+            location: finalLocation,
+            compensation: finalCompensation,
+            deadline: finalDeadline,
+            application_period: visionData?.application_period || normalized?.application_period || null,
+            work_period: visionData?.work_period || normalized?.work_period || null,
+            contact: visionData?.contact || normalized?.contact || null,
+            tags: finalTags,
             detail_content: detailContent,
             source_url: job.link || job.url,
             posted_date: job.postedDate || job.date,
@@ -286,8 +326,9 @@ async function main() {
           if (saved) {
             successCount++;
             logInfo('ai-crawler', '공고 저장 완료', {
-              organization: normalized?.organization,
-              title: normalized?.title
+              organization: finalOrganization,
+              title: finalTitle,
+              source: visionData ? 'Vision AI' : (normalized ? 'Text AI' : 'Fallback')
             });
           }
         } catch (saveError) {

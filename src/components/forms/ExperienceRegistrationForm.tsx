@@ -54,7 +54,7 @@ export default function ExperienceRegistrationForm({ onClose, onSubmit }: Experi
         await onSubmit(data);
       } else {
         console.log('체험 등록 데이터:', data);
-        alert('체험 등록이 완료되었습니다. (백엔드 미구현)');
+        alert('체험 등록이 완료되었습니다.');
         onClose();
       }
     } catch (error) {

@@ -5,6 +5,7 @@ import AIInsightBox from '@/components/ai/AIInsightBox';
 import CardGrid from '@/components/cards/CardGrid';
 import JobDetailModal from '@/components/cards/JobDetailModal';
 import JobPostingEditModal from '@/components/forms/JobPostingEditModal';
+import ExperienceEditModal from '@/components/forms/ExperienceEditModal';
 import ProfileSetupModal, { ROLE_OPTIONS, type RoleOption } from '@/components/auth/ProfileSetupModal';
 import ProfileViewModal from '@/components/auth/ProfileViewModal';
 import SocialSignupModal, { type AuthProvider } from '@/components/auth/SocialSignupModal';
@@ -18,7 +19,7 @@ import { fetchUserProfile, type UserProfileRow } from '@/lib/supabase/profiles';
 import { useSearchStore } from '@/stores/searchStore';
 import { useAuthStore } from '@/stores/authStore';
 import { supabase } from '@/lib/supabase/client';
-import type { Card, PromoCardSettings, JobPostingCard } from '@/types';
+import type { Card, PromoCardSettings, JobPostingCard, ExperienceCard } from '@/types';
 
 export default function App() {
   const {
@@ -82,6 +83,8 @@ export default function App() {
   const [loadingProvider, setLoadingProvider] = useState<AuthProvider | null>(null);
   const [editingJob, setEditingJob] = useState<JobPostingCard | null>(null);
   const [isEditFormOpen, setIsEditFormOpen] = useState(false);
+  const [editingExperience, setEditingExperience] = useState<ExperienceCard | null>(null);
+  const [isExperienceEditOpen, setIsExperienceEditOpen] = useState(false);
 
   // AI 추천 카드 클릭 시 전체 데이터 조회
   const handleCardClick = async (card: Card) => {
@@ -275,6 +278,35 @@ export default function App() {
       setSelectedJob(null);
     }
     handleEditFormClose();
+  };
+
+  const handleExperienceEditClick = (card: Card) => {
+    if (card.type !== 'experience') return;
+    setEditingExperience(card as ExperienceCard);
+    setIsExperienceEditOpen(true);
+  };
+
+  const handleExperienceEditClose = () => {
+    setIsExperienceEditOpen(false);
+    setEditingExperience(null);
+  };
+
+  const handleExperienceEditSuccess = (updatedExperience: ExperienceCard) => {
+    // 카드 목록 업데이트
+    setCards(prevCards =>
+      prevCards.map(card =>
+        card.id === updatedExperience.id && card.type === 'experience'
+          ? updatedExperience
+          : card
+      )
+    );
+    handleExperienceEditClose();
+  };
+
+  const handleExperienceEditDelete = (experienceId: string) => {
+    // 목록에서 제거
+    setCards((prev) => prev.filter((c) => !(c.type === 'experience' && c.id === experienceId)));
+    handleExperienceEditClose();
   };
 
   const normalizeProfileForEdit = (data: UserProfileRow | null | undefined) => {
@@ -624,9 +656,7 @@ export default function App() {
                 cards={cards}
                 onCardClick={handleCardClick}
                 onJobEditClick={handleJobEditClick}
-                onExperienceEditClick={(card) => {
-                  console.log('TODO: open experience edit modal', card);
-                }}
+                onExperienceEditClick={handleExperienceEditClick}
               />
 
               <div ref={sentinelRef} className="h-1" aria-hidden />
@@ -727,6 +757,17 @@ export default function App() {
           onClose={handleEditFormClose}
           onSuccess={handleEditFormSuccess}
           onDelete={handleEditFormDelete}
+        />
+      )}
+
+      {/* 체험 수정 모달 */}
+      {editingExperience && (
+        <ExperienceEditModal
+          experience={editingExperience}
+          isOpen={isExperienceEditOpen}
+          onClose={handleExperienceEditClose}
+          onSuccess={handleExperienceEditSuccess}
+          onDelete={handleExperienceEditDelete}
         />
       )}
 

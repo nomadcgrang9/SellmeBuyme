@@ -6,7 +6,6 @@ import { getBoardSubmissions } from '@/lib/supabase/developer';
 import { buildRegionDisplayName } from '@/lib/supabase/regions';
 import { approveBoardSubmissionAndCreateCrawlBoard, rejectBoardSubmission } from '@/lib/supabase/developer';
 import { supabase } from '@/lib/supabase/client';
-import { generateCrawlerViaAPI, createCrawlBoardLocally, approveBoardSubmissionLocally } from '@/lib/api/generateCrawler';
 
 interface BoardApprovalModalProps {
   submissionId: string;
@@ -81,60 +80,38 @@ export default function BoardApprovalModal({
         throw new Error('로그인이 필요합니다');
       }
 
-      console.log('[BoardApprovalModal] AI 크롤러 생성 시작:', {
+      console.log('[BoardApprovalModal] Edge Function 호출 시작:', {
         submissionId: submission.id,
         boardName: submission.boardName,
         boardUrl: submission.boardUrl,
         adminUserId: user.id
       });
 
-      // Phase 5 파이프라인 API 호출 (로컬 백엔드)
-      const result = await generateCrawlerViaAPI({
-        submissionId: submission.id,
-        boardName: submission.boardName,
-        boardUrl: submission.boardUrl,
-        adminUserId: user.id,
-      });
-
-      console.log('[BoardApprovalModal] AI 크롤러 생성 완료:', result);
-
-      if (!result.success) {
-        throw new Error(result.error || result.message || '크롤러 생성 실패');
-      }
-
-      // 크롤 게시판 생성 (로컬 처리)
-      if (result.crawlerCode) {
-        console.log('[BoardApprovalModal] 크롤 게시판 생성 시작:', {
+      // Edge Function을 통해 안전하게 크롤러 생성 및 GitHub Actions 트리거
+      const { data, error: functionError } = await supabase.functions.invoke('generate-crawler', {
+        body: {
+          submissionId: submission.id,
           boardName: submission.boardName,
           boardUrl: submission.boardUrl,
-          codeLength: result.crawlerCode.length,
-        });
+          adminUserId: user.id,
+        },
+      });
 
-        const crawlBoard = await createCrawlBoardLocally(
-          submission.boardName,
-          submission.boardUrl,
-          user.id,
-          result.crawlerCode
-        );
-
-        console.log('[BoardApprovalModal] 크롤 게시판 등록 완료:', crawlBoard.id);
-
-        // 개발자 제출 승인 (로컬 처리)
-        console.log('[BoardApprovalModal] 제출 승인 처리 시작');
-        await approveBoardSubmissionLocally(
-          submission.id,
-          crawlBoard.id,
-          user.id
-        );
-
-        console.log('[BoardApprovalModal] 전체 파이프라인 완료:', {
-          submissionId: submission.id,
-          crawlBoardId: crawlBoard.id,
-        });
-      } else {
-        console.error('[BoardApprovalModal] 크롤러 코드가 없습니다!', result);
-        throw new Error('크롤러 코드 생성 실패');
+      if (functionError) {
+        console.error('[BoardApprovalModal] Edge Function 에러:', functionError);
+        throw new Error(`Edge Function 호출 실패: ${functionError.message}`);
       }
+
+      console.log('[BoardApprovalModal] Edge Function 응답:', data);
+
+      if (!data?.success) {
+        const errorMsg = data?.error || data?.message || 'AI 크롤러 생성 실패';
+        console.error('[BoardApprovalModal] Edge Function 실패 응답:', errorMsg);
+        throw new Error(errorMsg);
+      }
+
+      console.log('[BoardApprovalModal] 크롤러 생성 성공:', data);
+      console.log('기본 크롤러가 생성되었습니다. GitHub Actions에서 전체 AI 크롤러를 백그라운드에서 생성합니다 (1-2분 소요)');
 
       onSuccess();
     } catch (err) {

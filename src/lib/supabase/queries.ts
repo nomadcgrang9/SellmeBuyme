@@ -532,11 +532,151 @@ function mapExperienceRowToCard(row: any): ExperienceCard {
   };
 }
 
+function applyExperienceRegionFilter(cards: ExperienceCard[], region: string): ExperienceCard[] {
+  if (!hasFilterValue(region, DEFAULT_REGION)) {
+    return cards;
+  }
+
+  if (region === '서울 전체') {
+    return cards.filter((card) => card.regionSeoul.length > 0);
+  }
+
+  if (region === '경기도 전체') {
+    return cards.filter((card) => card.regionGyeonggi.length > 0);
+  }
+
+  const normalized = region.replace(/\s+/g, '').toLowerCase();
+
+  return cards.filter((card) => {
+    const seoulMatch = card.regionSeoul.some((name) => name.replace(/\s+/g, '').toLowerCase().includes(normalized));
+    const gyeonggiMatch = card.regionGyeonggi.some((name) => name.replace(/\s+/g, '').toLowerCase().includes(normalized));
+    const summaryMatch = card.locationSummary.replace(/\s+/g, '').toLowerCase().includes(normalized);
+    return seoulMatch || gyeonggiMatch || summaryMatch;
+  });
+}
+
+function applyExperienceCategoryFilter(cards: ExperienceCard[], category: string): ExperienceCard[] {
+  if (!hasFilterValue(category, DEFAULT_CATEGORY)) {
+    return cards;
+  }
+
+  const normalized = category.trim().toLowerCase();
+
+  return cards.filter((card) => {
+    const titleMatch = card.programTitle.toLowerCase().includes(normalized);
+    const introMatch = card.introduction.toLowerCase().includes(normalized);
+    const categoryMatch = card.categories.some((item) => item.toLowerCase().includes(normalized));
+    return titleMatch || introMatch || categoryMatch;
+  });
+}
+
+function filterExperiencesByTokenGroups(cards: ExperienceCard[], tokenGroups: TokenGroup[]): ExperienceCard[] {
+  if (tokenGroups.length === 0) {
+    return cards;
+  }
+
+  return cards.filter((card) => {
+    const targetFields = [
+      card.programTitle,
+      card.introduction,
+      card.locationSummary,
+      card.categories.join(' '),
+      card.targetSchoolLevels.join(' '),
+      card.operationTypes.join(' '),
+      card.contactPhone ?? '',
+      card.contactEmail ?? '',
+    ].map((field) => field.toLowerCase());
+
+    return tokenGroups.every((group) =>
+      group.some((token) => {
+        const normalized = token.toLowerCase();
+        return targetFields.some((field) => field.includes(normalized));
+      })
+    );
+  });
+}
+
+function calculateExperienceRelevance(card: ExperienceCard, tokens: string[], fallbackQuery: string): number {
+  const baseTokens = tokens.length > 0
+    ? tokens
+    : fallbackQuery.trim().length > 0
+      ? [fallbackQuery.trim()]
+      : [];
+
+  if (baseTokens.length === 0) {
+    return 0;
+  }
+
+  const normalizedTokens = baseTokens.map((token) => token.toLowerCase());
+  const programTitle = card.programTitle.toLowerCase();
+  const introduction = card.introduction.toLowerCase();
+  const categories = card.categories.map((item) => item.toLowerCase()).join(' ');
+  const targetLevels = card.targetSchoolLevels.map((item) => item.toLowerCase()).join(' ');
+  const operationTypes = card.operationTypes.map((item) => item.toLowerCase()).join(' ');
+  const location = card.locationSummary.toLowerCase();
+  const contact = `${card.contactPhone ?? ''} ${card.contactEmail ?? ''}`.toLowerCase();
+
+  let score = 0;
+
+  normalizedTokens.forEach((token) => {
+    if (!token) return;
+
+    if (programTitle === token) {
+      score += 60;
+    } else if (programTitle.includes(token)) {
+      score += 40;
+    }
+
+    if (categories.includes(token)) {
+      score += 30;
+    }
+
+    if (location.includes(token)) {
+      score += 20;
+    }
+
+    if (introduction.includes(token)) {
+      score += 15;
+    }
+
+    if (targetLevels.includes(token)) {
+      score += 12;
+    }
+
+    if (operationTypes.includes(token)) {
+      score += 10;
+    }
+
+    if (contact.includes(token)) {
+      score += 5;
+    }
+  });
+
+  return score;
+}
+
+function sortExperiencesByRelevance(cards: ExperienceCard[], tokens: string[], fallbackQuery: string): ExperienceCard[] {
+  return [...cards].sort((a, b) => {
+    const scoreA = calculateExperienceRelevance(a, tokens, fallbackQuery);
+    const scoreB = calculateExperienceRelevance(b, tokens, fallbackQuery);
+
+    if (scoreA !== scoreB) {
+      return scoreB - scoreA;
+    }
+
+    return new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime();
+  });
+}
+
 export async function createExperience(data: ExperienceRegistrationFormData): Promise<ExperienceCard> {
+  console.log('[DEBUG] createExperience 시작:', data);
+  
   const { data: userRes, error: userErr } = await supabase.auth.getUser();
   if (userErr) throw new Error('사용자 정보를 확인할 수 없습니다. 다시 로그인해 주세요.');
   const user = userRes.user;
   if (!user) throw new Error('로그인이 필요합니다. 다시 로그인해 주세요.');
+
+  console.log('[DEBUG] 사용자 ID:', user.id);
 
   await ensureUserRow(user);
 
@@ -548,6 +688,14 @@ export async function createExperience(data: ExperienceRegistrationFormData): Pr
   const capacity = data.capacity?.trim() ?? null;
   const phone = data.phone.trim();
   const email = data.email.trim();
+
+  console.log('[DEBUG] 정규화된 데이터:', {
+    regionSeoul,
+    regionGyeonggi,
+    categories,
+    targetLevels,
+    operationTypes,
+  });
 
   const formPayload: ExperienceRegistrationFormData = {
     ...data,
@@ -573,17 +721,37 @@ export async function createExperience(data: ExperienceRegistrationFormData): Pr
     form_payload: formPayload,
   };
 
+  console.log('[DEBUG] INSERT 페이로드:', insertPayload);
+
   const { data: inserted, error } = await supabase
     .from('experiences')
     .insert(insertPayload)
     .select('*')
     .single();
 
-  if (error || !inserted) {
-    console.error('체험 등록 실패:', error);
-    throw new Error(error?.message || '체험 등록에 실패했습니다. 잠시 후 다시 시도해주세요.');
+  if (inserted) {
+    console.log('[DEBUG] INSERT 성공 - 레코드 ID:', inserted.id);
+  } else {
+    console.log('[DEBUG] INSERT 실패 - inserted가 null/undefined');
+  }
+  
+  if (error) {
+    console.log('[DEBUG] INSERT 에러 발생');
+    console.log('[DEBUG] 에러 메시지:', String(error.message || ''));
+    console.log('[DEBUG] 에러 코드:', String(error.code || ''));
+    console.log('[DEBUG] 에러 상세:', String(error.details || ''));
+    console.log('[DEBUG] 에러 힌트:', String(error.hint || ''));
+  } else {
+    console.log('[DEBUG] INSERT 에러 없음');
   }
 
+  if (error || !inserted) {
+    const errorMsg = error?.message || '체험 등록에 실패했습니다. 잠시 후 다시 시도해주세요.';
+    console.error('[ERROR] 체험 등록 실패:', errorMsg);
+    throw new Error(errorMsg);
+  }
+
+  console.log('[DEBUG] 체험 등록 성공:', inserted);
   return mapExperienceRowToCard(inserted);
 }
 
@@ -2232,6 +2400,15 @@ export async function searchCards(params: SearchQueryParams = {}): Promise<Searc
         offset,
         lastUpdatedAt,
       });
+    } else if (normalizedViewType === 'experience') {
+      response = await executeExperienceSearch({
+        searchQuery,
+        tokens,
+        tokenGroups,
+        filters,
+        limit,
+        offset,
+      });
     } else {
       response = await executeJobSearch({
         searchQuery,
@@ -2240,7 +2417,7 @@ export async function searchCards(params: SearchQueryParams = {}): Promise<Searc
         filters,
         limit,
         offset,
-        jobType: normalizedViewType === 'experience' ? EXPERIENCE_JOB_TYPE : undefined,
+        jobType: undefined,
         lastUpdatedAt,
       });
     }
@@ -2980,6 +3157,115 @@ interface TalentSearchArgs {
   limit: number;
   offset: number;
   lastUpdatedAt?: number;
+}
+
+interface ExperienceSearchArgs {
+  searchQuery: string;
+  tokens: string[];
+  tokenGroups: TokenGroup[];
+  filters: SearchFilters;
+  limit: number;
+  offset: number;
+}
+
+async function executeExperienceSearch({
+  searchQuery,
+  tokens,
+  tokenGroups,
+  filters,
+  limit,
+  offset,
+}: ExperienceSearchArgs): Promise<SearchResponse> {
+  console.log('[DEBUG] executeExperienceSearch 시작:', { searchQuery, tokens, filters, limit, offset });
+  
+  const trimmedQuery = searchQuery.trim();
+
+  let query = supabase
+    .from('experiences')
+    .select('*', { count: 'exact' })
+    .eq('status', 'active');
+
+  if (trimmedQuery.length > 0) {
+    if (tokens.length > 0) {
+      const orConditions = tokens.flatMap((token) => {
+        const pattern = buildIlikePattern(token);
+        return [
+          `program_title.ilike.${pattern}`,
+          `introduction.ilike.${pattern}`,
+          `contact_phone.ilike.${pattern}`,
+          `contact_email.ilike.${pattern}`,
+          `operation_types.ilike.${pattern}`,
+          `categories.ilike.${pattern}`,
+          `target_school_levels.ilike.${pattern}`,
+        ];
+      });
+
+      if (orConditions.length > 0) {
+        query = query.or(orConditions.join(','));
+      }
+    } else {
+      const pattern = buildIlikePattern(trimmedQuery);
+      const orConditions = [
+        `program_title.ilike.${pattern}`,
+        `introduction.ilike.${pattern}`,
+        `contact_phone.ilike.${pattern}`,
+        `contact_email.ilike.${pattern}`,
+        `operation_types.ilike.${pattern}`,
+        `categories.ilike.${pattern}`,
+        `target_school_levels.ilike.${pattern}`,
+      ];
+      query = query.or(orConditions.join(','));
+    }
+  }
+
+  if (hasFilterValue(filters.region, DEFAULT_REGION)) {
+    const regionPattern = buildIlikePattern(filters.region);
+    query = query.or(
+      `region_seoul.ilike.${regionPattern},region_gyeonggi.ilike.${regionPattern},program_title.ilike.${regionPattern}`
+    );
+  }
+
+  if (hasFilterValue(filters.category, DEFAULT_CATEGORY)) {
+    const categoryPattern = buildIlikePattern(filters.category);
+    query = query.or(
+      `categories.ilike.${categoryPattern},program_title.ilike.${categoryPattern},introduction.ilike.${categoryPattern}`
+    );
+  }
+
+  query = query.order('created_at', { ascending: false });
+
+  const from = Math.max(offset ?? DEFAULT_OFFSET, 0);
+  const to = from + Math.max(limit ?? DEFAULT_LIMIT, 1) - 1;
+
+  console.log('[DEBUG] executeExperienceSearch 쿼리 범위:', { from, to });
+
+  const { data, error, count } = await query.range(from, to);
+
+  console.log('[DEBUG] executeExperienceSearch 결과:', { data, error, count });
+
+  if (error || !data) {
+    console.error('체험 검색 실패:', error);
+    return createEmptySearchResponse(limit, offset);
+  }
+
+  const cards = data.map(mapExperienceRowToCard);
+  const filteredByTokens = filterExperiencesByTokenGroups(cards, tokenGroups);
+  const filteredByRegion = applyExperienceRegionFilter(filteredByTokens, filters.region);
+  const filteredByCategory = applyExperienceCategoryFilter(filteredByRegion, filters.category);
+
+  const shouldSortByRelevance = filters.sort === '추천순' && (tokens.length > 0 || trimmedQuery.length > 0);
+  const orderedCards = shouldSortByRelevance
+    ? sortExperiencesByRelevance(filteredByCategory, tokens, trimmedQuery)
+    : filteredByCategory;
+
+  return {
+    cards: orderedCards,
+    totalCount: count ?? orderedCards.length,
+    pagination: {
+      limit,
+      offset: from,
+    },
+  };
 }
 
 async function executeTalentSearch({

@@ -26,20 +26,26 @@ const GYEONGGI_CITIES = [
 interface RegionSelectorValue {
   seoul?: string[];
   gyeonggi?: string[];
-  seoulAll?: boolean;
-  gyeonggiAll?: boolean;
 }
 
 interface RegionSelectorProps {
   value: RegionSelectorValue;
   onChange: (value: RegionSelectorValue) => void;
   error?: string;
-  enableProvinceAll?: boolean; // 서울/경기 전체 토글 허용
 }
 
-export default function RegionSelector({ value, onChange, error, enableProvinceAll = false }: RegionSelectorProps) {
+export default function RegionSelector({ value, onChange, error }: RegionSelectorProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedRegion, setSelectedRegion] = useState<'seoul' | 'gyeonggi' | null>(null);
+
+  const handleSelectAllRegion = (region: 'seoul' | 'gyeonggi') => {
+    const allDistricts = region === 'seoul' ? SEOUL_DISTRICTS : GYEONGGI_CITIES;
+    onChange({
+      ...value,
+      [region]: allDistricts
+    });
+    setIsOpen(false);
+  };
 
   const handleDistrictToggle = (region: 'seoul' | 'gyeonggi', district: string) => {
     const currentList = value[region] || [];
@@ -56,19 +62,21 @@ export default function RegionSelector({ value, onChange, error, enableProvinceA
   const seoulCount = value.seoul?.length || 0;
   const gyeonggiCount = value.gyeonggi?.length || 0;
   const totalCount = seoulCount + gyeonggiCount;
+  const hasSelection = totalCount > 0;
 
   const getDisplayText = () => {
-    if (enableProvinceAll && (value.seoulAll || value.gyeonggiAll)) {
-      const parts: string[] = [];
-      if (value.seoulAll) parts.push('서울 전체');
-      if (value.gyeonggiAll) parts.push('경기 전체');
-      if (totalCount > 0) parts.push(`+ 개별 ${totalCount}`);
-      return parts.join(', ');
-    }
     if (totalCount === 0) return '지역 선택';
     const parts: string[] = [];
-    if (seoulCount > 0) parts.push(`서울(${seoulCount})`);
-    if (gyeonggiCount > 0) parts.push(`경기(${gyeonggiCount})`);
+    if (seoulCount === SEOUL_DISTRICTS.length) {
+      parts.push('서울 전체');
+    } else if (seoulCount > 0) {
+      parts.push(`서울(${seoulCount})`);
+    }
+    if (gyeonggiCount === GYEONGGI_CITIES.length) {
+      parts.push('경기 전체');
+    } else if (gyeonggiCount > 0) {
+      parts.push(`경기(${gyeonggiCount})`);
+    }
     return parts.join(', ');
   };
 
@@ -84,7 +92,7 @@ export default function RegionSelector({ value, onChange, error, enableProvinceA
         onClick={() => setIsOpen(!isOpen)}
         className="w-full h-7 px-2 text-[12px] border border-gray-300 rounded bg-white hover:border-gray-400 flex items-center justify-between transition-colors"
       >
-        <span className={totalCount > 0 || value.seoulAll || value.gyeonggiAll ? 'text-gray-900' : 'text-gray-400'}>
+        <span className={hasSelection ? 'text-gray-900' : 'text-gray-400'}>
           {getDisplayText()}
         </span>
         <IconChevronDown size={14} className={`transition-transform ${isOpen ? 'rotate-180' : ''}`} />
@@ -93,9 +101,9 @@ export default function RegionSelector({ value, onChange, error, enableProvinceA
       {/* 드롭다운 패널 */}
       {isOpen && (
         <div className="absolute top-full left-0 right-0 mt-0.5 bg-white border border-gray-300 rounded-lg shadow-lg z-20 p-2">
-          {/* 상단: 광역 선택 */}
-          <div className="flex gap-2 mb-2 pb-2 border-b border-gray-200">
-            <label className="flex items-center gap-1 cursor-pointer">
+          {/* 상단: 광역 선택 라디오 */}
+          <div className="flex gap-3 mb-3 pb-3 border-b border-gray-200">
+            <label className="flex items-center gap-2 cursor-pointer flex-1">
               <input
                 type="radio"
                 name="region-selector"
@@ -103,9 +111,10 @@ export default function RegionSelector({ value, onChange, error, enableProvinceA
                 onChange={() => setSelectedRegion('seoul')}
                 className="w-3.5 h-3.5"
               />
-              <span className="text-[12px] font-medium">서울 {seoulCount > 0 && `(${seoulCount})`}</span>
+              <span className="text-[12px] font-medium">서울</span>
+              {seoulCount > 0 && <span className="text-[11px] text-gray-500">({seoulCount})</span>}
             </label>
-            <label className="flex items-center gap-1 cursor-pointer">
+            <label className="flex items-center gap-2 cursor-pointer flex-1">
               <input
                 type="radio"
                 name="region-selector"
@@ -113,65 +122,59 @@ export default function RegionSelector({ value, onChange, error, enableProvinceA
                 onChange={() => setSelectedRegion('gyeonggi')}
                 className="w-3.5 h-3.5"
               />
-              <span className="text-[12px] font-medium">경기 {gyeonggiCount > 0 && `(${gyeonggiCount})`}</span>
+              <span className="text-[12px] font-medium">경기</span>
+              {gyeonggiCount > 0 && <span className="text-[11px] text-gray-500">({gyeonggiCount})</span>}
             </label>
           </div>
 
-          {enableProvinceAll && (
-            <div className="flex items-center justify-between mb-2">
-              <label className="flex items-center gap-1 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={!!value.seoulAll}
-                  onChange={(e) => onChange({ ...value, seoulAll: e.target.checked })}
-                  className="w-3.5 h-3.5"
-                />
-                <span className="text-[12px]">서울 전체</span>
-              </label>
-              <label className="flex items-center gap-1 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={!!value.gyeonggiAll}
-                  onChange={(e) => onChange({ ...value, gyeonggiAll: e.target.checked })}
-                  className="w-3.5 h-3.5"
-                />
-                <span className="text-[12px]">경기 전체</span>
-              </label>
-            </div>
-          )}
-
-          {/* 하위 체크박스 */}
+          {/* 하위 체크박스 또는 전체 선택 버튼 */}
           {selectedRegion === 'seoul' && (
-            <div className="grid grid-cols-3 gap-1 max-h-36 overflow-y-auto">
-              {SEOUL_DISTRICTS.map((district) => (
-                <label key={district} className="flex items-center gap-1 cursor-pointer hover:bg-gray-50 px-1 py-0.5 rounded">
-                  <input
-                    type="checkbox"
-                    checked={(value.seoul?.includes(district) || false) || !!value.seoulAll}
-                    disabled={!!value.seoulAll}
-                    onChange={() => handleDistrictToggle('seoul', district)}
-                    className="w-3 h-3 rounded border-gray-300 text-blue-600"
-                  />
-                  <span className="text-[11px] text-gray-700">{district}</span>
-                </label>
-              ))}
+            <div className="space-y-2">
+              <button
+                type="button"
+                onClick={() => handleSelectAllRegion('seoul')}
+                className="w-full px-2 py-1.5 text-[12px] font-medium text-white bg-blue-500 hover:bg-blue-600 rounded transition-colors"
+              >
+                서울 전체 선택
+              </button>
+              <div className="grid grid-cols-3 gap-1 max-h-36 overflow-y-auto">
+                {SEOUL_DISTRICTS.map((district) => (
+                  <label key={district} className="flex items-center gap-1 cursor-pointer hover:bg-gray-50 px-1 py-0.5 rounded">
+                    <input
+                      type="checkbox"
+                      checked={value.seoul?.includes(district) || false}
+                      onChange={() => handleDistrictToggle('seoul', district)}
+                      className="w-3 h-3 rounded border-gray-300 text-blue-600"
+                    />
+                    <span className="text-[11px] text-gray-700">{district}</span>
+                  </label>
+                ))}
+              </div>
             </div>
           )}
 
           {selectedRegion === 'gyeonggi' && (
-            <div className="grid grid-cols-3 gap-1 max-h-36 overflow-y-auto">
-              {GYEONGGI_CITIES.map((city) => (
-                <label key={city} className="flex items-center gap-1 cursor-pointer hover:bg-gray-50 px-1 py-0.5 rounded">
-                  <input
-                    type="checkbox"
-                    checked={(value.gyeonggi?.includes(city) || false) || !!value.gyeonggiAll}
-                    disabled={!!value.gyeonggiAll}
-                    onChange={() => handleDistrictToggle('gyeonggi', city)}
-                    className="w-3 h-3 rounded border-gray-300 text-blue-600"
-                  />
-                  <span className="text-[11px] text-gray-700">{city}</span>
-                </label>
-              ))}
+            <div className="space-y-2">
+              <button
+                type="button"
+                onClick={() => handleSelectAllRegion('gyeonggi')}
+                className="w-full px-2 py-1.5 text-[12px] font-medium text-white bg-blue-500 hover:bg-blue-600 rounded transition-colors"
+              >
+                경기 전체 선택
+              </button>
+              <div className="grid grid-cols-3 gap-1 max-h-36 overflow-y-auto">
+                {GYEONGGI_CITIES.map((city) => (
+                  <label key={city} className="flex items-center gap-1 cursor-pointer hover:bg-gray-50 px-1 py-0.5 rounded">
+                    <input
+                      type="checkbox"
+                      checked={value.gyeonggi?.includes(city) || false}
+                      onChange={() => handleDistrictToggle('gyeonggi', city)}
+                      className="w-3 h-3 rounded border-gray-300 text-blue-600"
+                    />
+                    <span className="text-[11px] text-gray-700">{city}</span>
+                  </label>
+                ))}
+              </div>
             </div>
           )}
 
@@ -179,11 +182,11 @@ export default function RegionSelector({ value, onChange, error, enableProvinceA
             <p className="text-[11px] text-gray-400 text-center py-2">서울 또는 경기를 선택하세요</p>
           )}
 
-          {/* 닫기 */}
+          {/* 닫기 버튼 */}
           <button
             type="button"
             onClick={() => setIsOpen(false)}
-            className="w-full mt-2 pt-2 border-t border-gray-200 text-[11px] text-blue-600 hover:text-blue-700"
+            className="w-full mt-2 pt-2 border-t border-gray-200 text-[11px] text-blue-600 hover:text-blue-700 font-medium"
           >
             선택 완료
           </button>
