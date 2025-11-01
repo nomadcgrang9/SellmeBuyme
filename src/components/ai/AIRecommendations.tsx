@@ -40,7 +40,7 @@ export default function AIRecommendations({
   const [visibleCount, setVisibleCount] = useState(3);
   const [activeSection, setActiveSection] = useState<'job' | 'talent' | 'experience' | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const { setViewType } = useSearchStore();
+  const { setViewType, setFilter } = useSearchStore();
 
   useEffect(() => {
     const handleResize = () => {
@@ -165,8 +165,13 @@ export default function AIRecommendations({
                 onSubmit={async (form: TalentRegistrationFormData) => {
                   const card = await createTalent(form);
                   alert('인력 등록이 완료되었습니다.');
-                  setActiveSection(null);
-                  // 추후: 등록된 카드 노출/새로고침 로직 필요 시 여기에 추가
+                  // 인력 뷰로 전환하여 새로 등록된 카드 표시
+                  setTimeout(() => {
+                    setViewType('talent');
+                    // 카드 목록 강제 새로고침을 위해 lastUpdatedAt 업데이트
+                    setFilter('sort', '최신순');
+                    setActiveSection(null);
+                  }, 500);
                 }}
               />
             ) : activeSection === 'experience' ? (
@@ -184,6 +189,8 @@ export default function AIRecommendations({
                     setTimeout(() => {
                       console.log(`[AIRecommendations ${timestamp}] 체험 뷰로 전환`);
                       setViewType('experience');
+                      // 카드 목록 강제 새로고침을 위해 lastUpdatedAt 업데이트
+                      setFilter('sort', '최신순');
                       setActiveSection(null);
                     }, 500);
                   } catch (error) {
