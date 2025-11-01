@@ -15,12 +15,38 @@ import RegisterButtonsSection from '@/components/mobile/RegisterButtonsSection';
 import StatisticsBanner from '@/components/mobile/StatisticsBanner';
 import BottomNav from '@/components/mobile/BottomNav';
 import PromoCardStack from '@/components/promo/PromoCardStack';
-import { searchCards, fetchRecommendationsCache, isCacheValid, hasProfileChanged, fetchPromoCards, selectRecommendationCards, filterByTeacherLevel, filterByJobType, calculateSubjectScore, filterByExperience, generateRecommendations } from '@/lib/supabase/queries';
+import { searchCards, fetchRecommendationsCache, isCacheValid, hasProfileChanged, shouldInvalidateCache, fetchPromoCards, selectRecommendationCards, filterByTeacherLevel, filterByJobType, calculateSubjectScore, filterByExperience, generateRecommendations, fetchFreshJobs } from '@/lib/supabase/queries';
 import { fetchUserProfile, type UserProfileRow } from '@/lib/supabase/profiles';
 import { useSearchStore } from '@/stores/searchStore';
 import { useAuthStore } from '@/stores/authStore';
 import { supabase } from '@/lib/supabase/client';
 import type { Card, PromoCardSettings, JobPostingCard, ExperienceCard } from '@/types';
+
+/**
+ * 마감 지난 공고 필터링 함수
+ * @param cards - 필터링할 카드 배열
+ * @returns 마감 안 지난 유효한 카드만 반환
+ */
+function filterExpiredJobs(cards: Card[]): Card[] {
+  const now = new Date();
+  return cards.filter(card => {
+    // 인력/체험 카드는 마감일 개념이 없으므로 통과
+    if (card.type !== 'job') return true;
+
+    const job = card as JobPostingCard;
+    // 마감일 정보가 없으면 통과
+    if (!job.deadline) return true;
+
+    try {
+      const deadline = new Date(job.deadline);
+      // 마감일이 현재 시각 이후인 것만 포함
+      return deadline.getTime() >= now.getTime();
+    } catch {
+      // 마감일 파싱 실패 시 안전하게 포함
+      return true;
+    }
+  });
+}
 
 export default function App() {
   const {
@@ -384,12 +410,13 @@ export default function App() {
     async function loadRecommendations() {
       setRecommendationLoading(true);
       try {
-        // 프로필과 캐시 동시 조회
-        const [cacheResult, profileResult] = await Promise.all([
+        // 프로필, 캐시, 신규 공고 동시 조회 (Phase 2: 하이브리드 전략)
+        const [cacheResult, profileResult, freshJobs] = await Promise.all([
           fetchRecommendationsCache(targetUserId),
-          fetchUserProfile(targetUserId)
+          fetchUserProfile(targetUserId),
+          fetchFreshJobs(6, 10)  // 최근 6시간 신규 공고 최대 10개
         ]);
-        
+
         if (cancelled) return;
 
         const cache = cacheResult;
@@ -400,15 +427,27 @@ export default function App() {
           setUserProfile(profile);
         }
 
-        // 캐시 유효성 검사 및 프로필 변경 감지
-        const { isCacheValid, hasProfileChanged } = await import('@/lib/supabase/queries');
-        
-        const isCacheStillValid = cache && isCacheValid(cache.updatedAt);
-        const profileHasChanged = cache && profile && hasProfileChanged(cache.profileSnapshot as Record<string, unknown>, profile as Record<string, unknown>);
-        
-        if (isCacheStillValid && !profileHasChanged && cache && cache.cards.length > 0) {
-          // 캐시가 유효하고 프로필이 변경되지 않았으면 캐시 사용
-          const sourceCards = cache.cards;
+        // 스마트 캐시 무효화 검사 (Phase 2 개선)
+        const cacheData = cache ? {
+          cards: cache.cards,
+          updated_at: cache.updatedAt,
+          profile_snapshot: cache.profileSnapshot as Record<string, unknown>
+        } : null;
+
+        const needsInvalidation = shouldInvalidateCache(cacheData, profile as Record<string, unknown>);
+
+        if (!needsInvalidation && cache && cache.cards.length > 0) {
+          // 캐시가 유효하고 프로필이 변경되지 않았으면 캐시 사용 + 신규 공고 병합
+          let sourceCards = cache.cards;
+
+          // Phase 2: 신규 공고를 캐시 앞에 병합 (최대 3개)
+          if (freshJobs && freshJobs.length > 0) {
+            const freshJobIds = new Set(freshJobs.map(j => j.id));
+            const uniqueFreshJobs = freshJobs.filter((_, idx) => idx < 3);  // 최대 3개
+            const cachedWithoutDuplicates = sourceCards.filter(c => !freshJobIds.has(c.id));
+            sourceCards = [...uniqueFreshJobs, ...cachedWithoutDuplicates];
+          }
+
           let filteredCards = selectRecommendationCards(sourceCards, profile?.roles);
           
           // 교사급 필터링
@@ -434,9 +473,13 @@ export default function App() {
           if (typeof profile?.experience_years === 'number') {
             filteredCards = filterByExperience(filteredCards, profile.experience_years);
           }
-          
+
+          // 마감 지난 공고 제거 (Phase 1 개선)
+          filteredCards = filterExpiredJobs(filteredCards);
+
           // 필터링 결과가 비면 원본 추천으로 폴백
-          const finalCards = (filteredCards.length > 0 ? filteredCards : selectRecommendationCards(sourceCards, profile?.roles)).slice(0, 6);
+          const fallbackCards = filteredCards.length > 0 ? filteredCards : selectRecommendationCards(sourceCards, profile?.roles);
+          const finalCards = filterExpiredJobs(fallbackCards).slice(0, 6);
           setRecommendationCards(finalCards);
           setRecommendedIds(new Set(finalCards.map((c) => c.id)));
           // Edge Function에서 생성한 AI 코멘트 사용
@@ -466,7 +509,11 @@ export default function App() {
               filteredCards = filterByExperience(filteredCards, profile.experience_years);
             }
 
-            const finalCards = (filteredCards.length > 0 ? filteredCards : selectRecommendationCards(sourceCards, profile?.roles)).slice(0, 6);
+            // 마감 지난 공고 제거 (Phase 1 개선)
+            filteredCards = filterExpiredJobs(filteredCards);
+
+            const fallbackCards = filteredCards.length > 0 ? filteredCards : selectRecommendationCards(sourceCards, profile?.roles);
+            const finalCards = filterExpiredJobs(fallbackCards).slice(0, 6);
             setRecommendationCards(finalCards);
             setRecommendedIds(new Set(finalCards.map((c) => c.id)));
             // Edge Function에서 생성한 AI 코멘트 사용
