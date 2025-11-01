@@ -94,6 +94,11 @@ function buildAttachmentDownloadUrl(originalUrl, filename) {
     if (filename) {
       params.set('filename', filename);
     }
+    // Edge Function 호출 시 anon key 포함 (Supabase 인증 우회)
+    const anonKey = process.env.SUPABASE_ANON_KEY || process.env.ANON_KEY;
+    if (anonKey) {
+      params.set('apikey', anonKey);
+    }
     return `${downloadFunctionUrl}?${params.toString()}`;
   }
 
