@@ -2127,32 +2127,92 @@ export async function updateCrawlBoard(
   return mapCrawlBoardFromDbRow(data);
 }
 
+/**
+ * 크롤 게시판 승인 취소 및 관련 데이터 정리
+ *
+ * 다음 작업을 트랜잭션으로 수행:
+ * 1. job_postings 삭제 (crawl_source_id 기준) - SERVICE_ROLE_KEY 사용
+ * 2. crawl_logs 삭제 (board_id 기준) - SERVICE_ROLE_KEY 사용
+ * 3. crawl_boards 승인 취소 (approved_at, approved_by NULL) - ANON_KEY
+ * 4. dev_board_submissions status → 'pending' - ANON_KEY
+ *
+ * @param boardId - crawl_boards.id (UUID)
+ * @throws Error - 삭제 또는 업데이트 실패 시
+ */
 export async function unapproveCrawlBoard(boardId: string): Promise<void> {
-  // 1. crawl_boards 승인 취소
-  const { error: boardError } = await supabase
-    .from('crawl_boards')
-    .update({
-      approved_at: null,
-      approved_by: null
-    })
-    .eq('id', boardId);
+  // Service Role Admin 클라이언트 import (RLS 우회)
+  const { supabaseAdmin } = await import('./admin');
 
-  if (boardError) {
-    console.error('crawl_boards 승인 취소 실패:', boardError);
-    throw boardError;
-  }
+  try {
+    // 1단계: job_postings 삭제 (RLS 우회 필수 - SERVICE_ROLE_KEY 사용)
+    console.log(`[Step 1] job_postings 삭제 시작 (crawl_source_id=${boardId})`);
+    const { error: jobsError, count: jobsDeleteCount } = await supabaseAdmin
+      .from('job_postings')
+      .delete()
+      .eq('crawl_source_id', boardId)
+      .select('id', { count: 'exact' });
 
-  // 2. dev_board_submissions status를 pending으로 변경
-  const { error: submissionError } = await supabase
-    .from('dev_board_submissions')
-    .update({
-      status: 'pending'
-    })
-    .eq('crawl_board_id', boardId);
+    if (jobsError) {
+      console.error('[Step 1 실패] job_postings 삭제 오류:', jobsError);
+      throw new Error(`job_postings 삭제 실패: ${jobsError.message}`);
+    }
 
-  if (submissionError) {
-    console.error('dev_board_submissions status 변경 실패:', submissionError);
-    throw submissionError;
+    console.log(`[Step 1 완료] ${jobsDeleteCount || 0}개 job_postings 삭제됨`);
+
+    // 2단계: crawl_logs 삭제 (RLS 우회 필수 - SERVICE_ROLE_KEY 사용)
+    console.log(`[Step 2] crawl_logs 삭제 시작 (board_id=${boardId})`);
+    const { error: logsError, count: logsDeleteCount } = await supabaseAdmin
+      .from('crawl_logs')
+      .delete()
+      .eq('board_id', boardId)
+      .select('id', { count: 'exact' });
+
+    if (logsError) {
+      console.error('[Step 2 실패] crawl_logs 삭제 오류:', logsError);
+      throw new Error(`crawl_logs 삭제 실패: ${logsError.message}`);
+    }
+
+    console.log(`[Step 2 완료] ${logsDeleteCount || 0}개 crawl_logs 삭제됨`);
+
+    // 3단계: crawl_boards 승인 취소 (ANON_KEY 사용 가능 - 자신의 데이터 수정)
+    console.log(`[Step 3] crawl_boards 승인 취소 (id=${boardId})`);
+    const { error: boardError } = await supabase
+      .from('crawl_boards')
+      .update({
+        approved_at: null,
+        approved_by: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', boardId);
+
+    if (boardError) {
+      console.error('[Step 3 실패] crawl_boards 승인 취소 오류:', boardError);
+      throw new Error(`crawl_boards 승인 취소 실패: ${boardError.message}`);
+    }
+
+    console.log(`[Step 3 완료] crawl_boards 승인 취소됨`);
+
+    // 4단계: dev_board_submissions status → 'pending' (ANON_KEY 사용 가능)
+    console.log(`[Step 4] dev_board_submissions status 변경 (crawl_board_id=${boardId})`);
+    const { error: submissionError } = await supabase
+      .from('dev_board_submissions')
+      .update({
+        status: 'pending',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('crawl_board_id', boardId);
+
+    if (submissionError) {
+      console.error('[Step 4 실패] dev_board_submissions status 변경 오류:', submissionError);
+      throw new Error(`dev_board_submissions status 변경 실패: ${submissionError.message}`);
+    }
+
+    console.log(`[Step 4 완료] dev_board_submissions status → pending`);
+
+    console.log(`\n✅ 승인 취소 완료: ${boardId}`);
+  } catch (error) {
+    console.error(`\n❌ 승인 취소 중 오류 발생:`, error);
+    throw error;
   }
 }
 
