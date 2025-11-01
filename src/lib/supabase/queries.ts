@@ -91,7 +91,15 @@ function buildAttachmentDownloadUrl(originalUrl: string | null, filename?: strin
     }
   }
 
-  // 크롤링된 외부 URL은 그대로 반환 (Edge Function 사용 안 함)
+  // 크롤링된 공고: Edge Function을 통해 파일명 변경
+  if (downloadAttachmentFunctionUrl && filename) {
+    const params = new URLSearchParams();
+    params.set('url', originalUrl);
+    params.set('filename', filename.trim());
+    return `${downloadAttachmentFunctionUrl}?${params.toString()}`;
+  }
+
+  // 파일명이 없으면 원본 URL 그대로 반환
   return originalUrl;
 }
 
@@ -3517,11 +3525,11 @@ export function mapJobPostingToCard(job: any): JobPostingCard {
     detail_content: job.detail_content,
     attachment_url: (() => {
       if (!job.attachment_url) {
-        return null;
+        return undefined;
       }
       const filename = buildAttachmentFilename(job.organization, job.attachment_url);
-      // 원본 URL 그대로 반환 (사용자 업로드 & 크롤링 모두)
-      return job.attachment_url;
+      // buildAttachmentDownloadUrl 함수를 통해 처리 (Edge Function 사용)
+      return buildAttachmentDownloadUrl(job.attachment_url, filename) || undefined;
     })(),
     attachment_path: job.attachment_path ?? null,
     source_url: job.source_url,
