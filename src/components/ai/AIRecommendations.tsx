@@ -131,7 +131,7 @@ export default function AIRecommendations({
               onClick={() => setActiveSection(activeSection === 'talent' ? null : 'talent')}
               className={`h-[50px] rounded-xl px-3 transition-all duration-200 flex items-center justify-center gap-1.5 font-semibold text-base ${
                 activeSection === 'talent'
-                  ? 'bg-gradient-to-r from-[#9DD2FF] to-[#68B2FF] text-white shadow-md'
+                  ? 'bg-gradient-to-r from-[#7db8a3] to-[#6fb59b] text-white shadow-md'
                   : 'text-gray-900 hover:opacity-80'
               }`}
             >
@@ -144,7 +144,7 @@ export default function AIRecommendations({
               onClick={() => setActiveSection(activeSection === 'experience' ? null : 'experience')}
               className={`h-[50px] rounded-xl px-3 transition-all duration-200 flex items-center justify-center gap-1.5 font-semibold text-base ${
                 activeSection === 'experience'
-                  ? 'bg-gradient-to-r from-[#9DD2FF] to-[#68B2FF] text-white shadow-md'
+                  ? 'bg-gradient-to-r from-[#ffd98e] to-[#f4c96b] text-gray-900 shadow-md'
                   : 'text-gray-900 hover:opacity-80'
               }`}
             >

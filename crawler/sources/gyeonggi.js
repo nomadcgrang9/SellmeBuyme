@@ -63,6 +63,21 @@ function getRegionFromUrl(url) {
 function inferRegionFromSchoolName(schoolName) {
   if (!schoolName) return null;
 
+  // 특정 학교명 직접 매핑 (지역명이 없는 학교)
+  const exactSchoolMapping = {
+    '청심국제중고등학교': '가평군',
+    '청심국제중학교': '가평군',
+    '청심국제고등학교': '가평군',
+    '청심국제': '가평군',
+  };
+
+  // 정확한 학교명 매칭 우선
+  for (const [schoolKey, region] of Object.entries(exactSchoolMapping)) {
+    if (schoolName.includes(schoolKey)) {
+      return region;
+    }
+  }
+
   // 학교명에 포함된 지역명 패턴
   const regionPatterns = [
     { pattern: /가평/, region: '가평군' },

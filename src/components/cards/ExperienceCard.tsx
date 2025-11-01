@@ -33,17 +33,17 @@ export default function ExperienceCard({ card, onEditClick, onCardClick }: Exper
 
   return (
     <article
-      className="card-interactive bg-white border border-gray-200 rounded-lg shadow-md animate-slide-up overflow-hidden flex flex-col h-full cursor-pointer"
-      style={{ minHeight: '240px', maxHeight: '240px' }}
+      className="card-interactive bg-white border border-gray-200 rounded-lg shadow-md animate-slide-up overflow-hidden cursor-pointer"
+      style={{ minHeight: '300px', display: 'flex', flexDirection: 'column' }}
       onClick={onCardClick}
     >
-      {/* 상단 컬러 바 - 더 두껍게 */}
-      <div className="h-1 bg-gradient-to-r from-[#ffd98e] to-[#f4c96b]" />
+      {/* 상단 컬러 바 */}
+      <div className="h-1 bg-gradient-to-r from-[#ffd98e] to-[#f4c96b] flex-shrink-0" />
 
-      <div className="flex h-full flex-col p-4">
+      <div className="flex flex-col p-4 flex-1">
         {/* 헤더 */}
-        <div className="flex items-center justify-between mb-3">
-          <span className="text-sm font-semibold text-[#f4c96b]">체험</span>
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-sm font-bold text-[#f4c96b]">체험</span>
         </div>
 
         {/* 제목 */}
@@ -52,7 +52,7 @@ export default function ExperienceCard({ card, onEditClick, onCardClick }: Exper
         </h3>
 
         {/* 부제목 */}
-        <p className="text-sm text-gray-500 leading-snug mb-3 line-clamp-2 break-keep">
+        <p className="text-sm text-gray-600 leading-snug mb-3 line-clamp-2 break-keep">
           {displayIntro}
         </p>
 
