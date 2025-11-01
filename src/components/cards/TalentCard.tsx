@@ -13,7 +13,7 @@ export default function TalentCard({ talent, onEditClick }: TalentCardProps) {
   return (
     <article className="card-interactive bg-white border border-gray-200 rounded-lg shadow-md animate-slide-up overflow-hidden flex flex-col h-full" style={{ minHeight: '240px', maxHeight: '240px' }}>
       {/* 상단 컬러 바 (인력=그린) */}
-      <div className="h-0.5 bg-gradient-to-r from-[#7db8a3] to-[#6fb59b]" />
+      <div className="h-1 bg-gradient-to-r from-[#7db8a3] to-[#6fb59b]" />
       
       <div className="flex h-full flex-col p-4">
         {/* 헤더 */}

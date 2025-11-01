@@ -68,11 +68,10 @@ export default function JobCard({ job, cardIndex = 0, onClick, onEditClick }: Jo
         onClick={onClick}
       >
         <div
-          className="bg-white border border-gray-200 rounded-lg shadow-md animate-slide-up flex flex-col min-h-[240px] cursor-pointer transition-all duration-300 ease-out group-hover:shadow-none group-hover:rounded-b-none group-hover:border-b-0 group-hover:z-40"
-          style={{ overflow: 'visible' }}
+          className="bg-white border border-gray-200 rounded-lg shadow-md animate-slide-up overflow-hidden flex flex-col min-h-[240px] cursor-pointer transition-all duration-300 ease-out group-hover:shadow-none group-hover:rounded-b-none group-hover:border-b-0 group-hover:z-40"
         >
           {/* 상단 컬러 바 */}
-          <div className="h-0.5 bg-gradient-to-r from-[#9DD2FF] to-[#68B2FF]" />
+          <div className="h-1 bg-gradient-to-r from-[#9DD2FF] to-[#68B2FF]" />
 
           <div className="flex h-full flex-col p-4">
             {/* 헤더 */}
