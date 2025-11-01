@@ -13,9 +13,9 @@ export default function TalentCard({ talent, onEditClick }: TalentCardProps) {
   return (
     <article className="card-interactive bg-white border border-gray-200 rounded-lg shadow-md animate-slide-up overflow-hidden flex flex-col h-full" style={{ minHeight: '240px', maxHeight: '240px' }}>
       {/* 상단 컬러 바 (인력=그린) */}
-      <div className="h-1 bg-gradient-to-r from-[#7db8a3] to-[#6fb59b]" />
-      
-      <div className="flex h-full flex-col p-4">
+      <div className="h-1 bg-gradient-to-r from-[#7db8a3] to-[#6fb59b] flex-shrink-0" />
+
+      <div className="flex flex-1 flex-col p-4">
         {/* 헤더 */}
         <div className="flex items-center justify-between mb-3">
           <span className="text-sm font-semibold text-[#2f855a]">인력</span>
