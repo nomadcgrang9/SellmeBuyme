@@ -18,20 +18,30 @@ if (!supabaseUrl || !anonKey) {
 
 async function aiFilterWithGemini(profile: UserProfileRow, scored: ScoredCard[]): Promise<Set<string> | null> {
   const apiKey = Deno.env.get('GEMINI_API_KEY');
-  if (!apiKey) return null;
+  if (!apiKey) {
+    console.log('[aiFilterWithGemini] GEMINI_API_KEY 없음 - AI 필터 스킵');
+    return null;
+  }
 
-  // 상위 20개 → 40개로 확대 (커버리지 2배)
+  // 개선: 40개 → 60개로 확대 + 최소 점수 제한 완화
   const top = scored
+    .filter((s) => s.score >= -30) // 개선: 점수가 너무 낮은 것만 제외
     .sort((a, b) => b.score - a.score)
-    .slice(0, 40)
+    .slice(0, 60) // 개선: 40 → 60개
     .map((s) => ({
       id: s.card.id,
       type: s.card.type,
       title: (s.card as any).title ?? (s.card as any).name ?? '',
       tags: (s.card as any).tags ?? [],
       location: (s.card as any).location ?? '',
-      specialty: (s.card as any).specialty ?? undefined
+      specialty: (s.card as any).specialty ?? undefined,
+      score: s.score // 개선: AI가 점수 참고하도록 추가
     }));
+
+  console.log('[aiFilterWithGemini] AI 필터 입력:', {
+    전체_후보: scored.length,
+    AI_입력_후보: top.length
+  });
 
   const prompt = {
     contents: [
@@ -40,7 +50,7 @@ async function aiFilterWithGemini(profile: UserProfileRow, scored: ScoredCard[])
         parts: [
           {
             text:
-              'You are filtering job and talent cards for a Korean education platform. Keep only the top 6 items that best match the user profile. Prefer regions in interest_regions, match roles and subjects implied by tags/title, prefer recent items and avoid expired. Return JSON with an array keep_ids.'
+              'You are filtering job and talent cards for a Korean education platform. Keep AT LEAST 8-12 items (not just 6) that match the user profile. Be generous - include items that are somewhat relevant. Prefer regions in interest_regions, match roles and subjects implied by tags/title, prefer recent items and avoid expired. Return JSON with an array keep_ids containing 8-12 IDs.'
           },
           { text: 'user_profile: ' + JSON.stringify(profile) },
           { text: 'candidates: ' + JSON.stringify(top) }
@@ -58,15 +68,26 @@ async function aiFilterWithGemini(profile: UserProfileRow, scored: ScoredCard[])
         body: JSON.stringify(prompt)
       }
     );
-    if (!resp.ok) return null;
+    if (!resp.ok) {
+      console.log('[aiFilterWithGemini] Gemini API 호출 실패:', resp.status);
+      return null;
+    }
     const data = await resp.json();
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
     const match = text.match(/\{[\s\S]*\}/);
-    if (!match) return null;
+    if (!match) {
+      console.log('[aiFilterWithGemini] JSON 파싱 실패 - AI 응답:', text.substring(0, 200));
+      return null;
+    }
     const parsed = JSON.parse(match[0]);
     const keep: string[] = Array.isArray(parsed.keep_ids) ? parsed.keep_ids : [];
+    console.log('[aiFilterWithGemini] AI 필터 결과:', {
+      선택된_카드_수: keep.length,
+      선택된_ID들: keep
+    });
     return new Set(keep);
-  } catch (_) {
+  } catch (error) {
+    console.log('[aiFilterWithGemini] AI 필터 예외:', error);
     return null;
   }
 }
@@ -902,8 +923,17 @@ function selectWithRegionMix(
   scoredCards: ScoredCard[],
   interestRegions: string[]
 ): { selected: ScoredCard[]; discarded: ScoredCard[] } {
-  const MIN_SCORE = 0; // 너무 빈 결과 방지
+  const MIN_SCORE = -20; // 개선: 0 → -20 (더 많은 후보 허용)
+  const MIN_CARDS = 4; // 개선: 최소 4개 카드 보장
+  const TARGET_CARDS = 6; // 목표 카드 개수
+
   const filtered = scoredCards.filter((s) => s.score >= MIN_SCORE);
+  console.log('[selectWithRegionMix] 필터링 결과:', {
+    입력_카드: scoredCards.length,
+    MIN_SCORE_통과: filtered.length,
+    MIN_SCORE: MIN_SCORE
+  });
+
   const sorted = filtered.sort((a, b) => b.score - a.score || a.card.id.localeCompare(b.card.id));
 
   // 버킷: 지역별 상위 카드 정렬
@@ -915,20 +945,22 @@ function selectWithRegionMix(
     buckets.set(key, arr);
   }
 
+  console.log('[selectWithRegionMix] 지역별 버킷:', Array.from(buckets.entries()).map(([region, cards]) => ({ region, count: cards.length })));
+
   // 선호 지역 순서 우선, 그 다음 기타 지역
   const normalizedInterest = (interestRegions ?? []).map((r) => getRegionKey(r));
   const otherRegions = Array.from(buckets.keys()).filter((k) => !normalizedInterest.includes(k));
   const regionOrder = [...normalizedInterest, ...otherRegions];
 
   const selected: ScoredCard[] = [];
-  const perRegionCap = 2; // 동일 지역 최대 2개
+  const perRegionCap = 3; // 개선: 2 → 3 (동일 지역 더 많이 허용)
   const regionCount = new Map<string, number>();
 
   // 라운드 로빈으로 지역을 섞어가며 선별
-  while (selected.length < 6) {
+  while (selected.length < TARGET_CARDS) {
     let progressed = false;
     for (const region of regionOrder) {
-      if (selected.length >= 6) break;
+      if (selected.length >= TARGET_CARDS) break;
       const cap = regionCount.get(region) ?? 0;
       if (cap >= perRegionCap) continue;
       const bucket = buckets.get(region);
@@ -942,14 +974,53 @@ function selectWithRegionMix(
   }
 
   // 모자라면 점수순으로 남은 카드 채우기
-  if (selected.length < 6) {
+  if (selected.length < TARGET_CARDS) {
+    console.log('[selectWithRegionMix] 목표 미달 - 점수순 추가 중:', {
+      현재: selected.length,
+      목표: TARGET_CARDS
+    });
     for (const item of sorted) {
-      if (selected.length >= 6) break;
+      if (selected.length >= TARGET_CARDS) break;
       if (!selected.some((s) => s.card.id === item.card.id)) {
         selected.push(item);
       }
     }
   }
+
+  // 개선: 최소 카드 개수 보장 (MIN_SCORE 무시하고 최신순으로 채우기)
+  if (selected.length < MIN_CARDS) {
+    console.log('[selectWithRegionMix] 최소 카드 미달 - 폴백 로직 실행:', {
+      현재: selected.length,
+      최소_요구: MIN_CARDS
+    });
+
+    // 모든 카드를 점수 무시하고 최신순으로 정렬
+    const fallbackSorted = scoredCards
+      .filter((s) => !selected.some((sel) => sel.card.id === s.card.id))
+      .sort((a, b) => {
+        const aDate = (a.card as any).created_at ? new Date((a.card as any).created_at).getTime() : 0;
+        const bDate = (b.card as any).created_at ? new Date((b.card as any).created_at).getTime() : 0;
+        return bDate - aDate;
+      });
+
+    for (const item of fallbackSorted) {
+      if (selected.length >= MIN_CARDS) break;
+      selected.push(item);
+    }
+
+    console.log('[selectWithRegionMix] 폴백 후 카드 수:', selected.length);
+  }
+
+  console.log('[selectWithRegionMix] 최종 선택:', {
+    선택된_카드: selected.length,
+    선택된_카드_목록: selected.map(s => ({
+      id: s.card.id,
+      type: s.card.type,
+      title: (s.card as any).title || (s.card as any).name,
+      score: s.score,
+      location: (s.card as any).location
+    }))
+  });
 
   const selectedIds = new Set(selected.map((s) => s.card.id));
   const discarded = scoredCards.filter((s) => !selectedIds.has(s.card.id));
