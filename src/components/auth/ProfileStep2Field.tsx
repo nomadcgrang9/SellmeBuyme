@@ -81,14 +81,18 @@ export const MIDDLE_CROSSOVER_SUBJECTS = [
   "초등 실과"
 ];
 
+export type TeacherEmploymentType = '기간제교사' | '정규교원';
+
 interface ProfileStep2FieldProps {
   roles: RoleOption[];
   teacherLevel: TeacherLevel | null;
+  teacherEmploymentType: TeacherEmploymentType | null;
   specialEducationType: SpecialEducationType | null;
   teacherSubjects: string[];
   instructorFields: string[];
   instructorCustomField: string;
   onTeacherLevelChange: (level: TeacherLevel | null) => void;
+  onTeacherEmploymentTypeChange: (type: TeacherEmploymentType | null) => void;
   onSpecialEducationTypeChange: (type: SpecialEducationType | null) => void;
   onTeacherSubjectsChange: (subjects: string[]) => void;
   onInstructorFieldsChange: (fields: string[]) => void;
@@ -99,11 +103,13 @@ interface ProfileStep2FieldProps {
 export default function ProfileStep2Field({
   roles,
   teacherLevel,
+  teacherEmploymentType,
   specialEducationType,
   teacherSubjects,
   instructorFields,
   instructorCustomField,
   onTeacherLevelChange,
+  onTeacherEmploymentTypeChange,
   onSpecialEducationTypeChange,
   onTeacherSubjectsChange,
   onInstructorFieldsChange,
@@ -204,6 +210,46 @@ export default function ProfileStep2Field({
               );
             })}
           </div>
+
+          {/* 교사 고용 형태 선택 */}
+          {teacherLevel && teacherLevel !== "특수" && (
+            <div className="space-y-3">
+              <div className="space-y-2">
+                <h3 className="text-md font-bold text-gray-900">고용 형태를 선택해 주세요</h3>
+                <p className="text-sm text-gray-500">맞춤형 추천을 위해 현재 상태를 알려주세요.</p>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => onTeacherEmploymentTypeChange('기간제교사')}
+                  className={`w-full rounded-lg border-2 p-4 transition-all ${
+                    teacherEmploymentType === '기간제교사'
+                      ? 'border-[#4b83c6] bg-[#f1f5fb]'
+                      : 'border-gray-200 bg-white hover:border-[#7aa3cc]'
+                  }`}
+                >
+                  <div className="text-left space-y-1">
+                    <span className="text-sm font-semibold text-gray-900">기간제 교사</span>
+                    <p className="text-xs text-gray-500">공고 중심 추천 (6장)</p>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onTeacherEmploymentTypeChange('정규교원')}
+                  className={`w-full rounded-lg border-2 p-4 transition-all ${
+                    teacherEmploymentType === '정규교원'
+                      ? 'border-[#4b83c6] bg-[#f1f5fb]'
+                      : 'border-gray-200 bg-white hover:border-[#7aa3cc]'
+                  }`}
+                >
+                  <div className="text-left space-y-1">
+                    <span className="text-sm font-semibold text-gray-900">정규 교원</span>
+                    <p className="text-xs text-gray-500">인력풀 & 체험 중심 (2장 + 4장)</p>
+                  </div>
+                </button>
+              </div>
+            </div>
+          )}
 
           {teacherLevel === "특수" && (
             <div className="space-y-3">

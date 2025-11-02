@@ -76,42 +76,37 @@ export function CommentThread({
   ];
 
   const connectorColor = depthColors[Math.min(depth, depthColors.length - 1)];
-  const indent = depth > 0 ? 18 : 0;
+  const indent = depth > 0 ? 16 : 0;
 
   return (
     <div className="relative" style={{ marginLeft: indent }}>
       {/* 좌측 연결선 */}
       {depth > 0 && (
         <span
-          className="absolute left-[-12px] top-6 bottom-0 w-px"
-          style={{ backgroundColor: connectorColor, opacity: 0.85 }}
+          className="absolute left-[-10px] top-4 bottom-0 w-px"
+          style={{ backgroundColor: connectorColor, opacity: 0.6 }}
         />
       )}
 
       {/* 댓글 본체 */}
       <div className="flex-1">
-        <div className="rounded-lg border border-gray-200 bg-white p-3 shadow-sm">
+        <div
+          className={`group rounded-lg px-3 py-2 transition-colors ${
+            isEditing ? 'bg-gray-50' : 'hover:bg-gray-50'
+          }`}
+        >
           {/* 헤더: 작성자, 시간, 액션 */}
-          <div className="flex items-start justify-between gap-2 mb-2">
-            <div className="flex items-center gap-2">
-              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#e6eff7] text-xs font-semibold text-[#4a6f91]">
-                {comment.authorName.charAt(0).toUpperCase()}
-              </div>
-              <div className="flex flex-col">
-                <span className="text-sm font-semibold text-gray-900">
-                  {comment.authorName}
-                </span>
-                <span className="text-xs text-gray-500">{formattedTime}</span>
-              </div>
-            </div>
+          <div className="flex items-center gap-2 text-sm">
+            <span className="font-semibold text-gray-900">{comment.authorName}</span>
+            <span className="text-xs text-gray-500">{formattedTime}</span>
 
             {/* 액션 버튼 */}
             {!isEditing && (
-              <div className="flex items-center gap-1">
+              <div className="ml-auto flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
                 <button
                   type="button"
                   onClick={() => setIsEditing(true)}
-                  className="rounded p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+                  className="rounded p-1 text-gray-400 hover:text-gray-600"
                   title="수정"
                 >
                   <Pencil className="h-3 w-3" />
@@ -119,7 +114,7 @@ export function CommentThread({
                 <button
                   type="button"
                   onClick={() => onDelete(comment.id)}
-                  className="rounded p-1 text-gray-500 hover:bg-red-50 hover:text-red-600"
+                  className="rounded p-1 text-gray-400 hover:text-red-500"
                   title="삭제"
                 >
                   <Trash2 className="h-3 w-3" />
@@ -130,7 +125,7 @@ export function CommentThread({
 
           {/* 댓글 내용 */}
           {isEditing ? (
-            <div className="space-y-2">
+            <div className="mt-2 space-y-2">
               <textarea
                 value={editValue}
                 onChange={(event) => setEditValue(event.target.value)}
@@ -158,7 +153,7 @@ export function CommentThread({
               </div>
             </div>
           ) : (
-            <p className="text-sm text-gray-700 whitespace-pre-line break-words mb-3">
+            <p className="mt-1 whitespace-pre-line break-words text-sm text-gray-800">
               {linkifyText(comment.content)}
             </p>
           )}
@@ -168,7 +163,7 @@ export function CommentThread({
             <button
               type="button"
               onClick={() => setIsReplying((prev) => !prev)}
-              className="flex items-center gap-1 rounded-lg border border-gray-200 px-2 py-1 text-xs text-gray-600 hover:bg-gray-100"
+              className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-gray-500 hover:text-gray-700"
             >
               <MessageSquare className="h-3 w-3" />
               <span>답글</span>
@@ -177,7 +172,7 @@ export function CommentThread({
 
           {/* 답글 폼 */}
           {isReplying && canReply && (
-            <div className="mt-3 rounded-lg border border-gray-200 bg-gray-50 p-3">
+            <div className="mt-2 pl-8">
               <CommentForm
                 defaultAuthorName={currentAuthorName}
                 onSubmit={(content, authorName) => {
@@ -209,7 +204,7 @@ export function CommentThread({
                   return next;
                 });
               }}
-              className="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-100"
+              className="inline-flex items-center gap-1 text-xs font-medium text-gray-500 hover:text-gray-700"
             >
               <ChevronDown
                 className={`h-3 w-3 transition-transform ${areRepliesVisible ? 'rotate-180' : ''}`}
