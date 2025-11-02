@@ -12,8 +12,7 @@ export default function CompactTalentCard({ talent, onClick }: CompactTalentCard
       className="card-interactive bg-white border border-gray-200 rounded-lg animate-slide-up overflow-hidden h-full cursor-pointer shadow-sm hover:shadow-lg transition-shadow"
       onClick={onClick}
     >
-      {/* 상단 컬러 바 (인력=그린) */}
-      <div className="h-1 bg-gradient-to-r from-[#7db8a3] to-[#6fb59b] flex-shrink-0" />
+      {/* 추천 카드 섹션에서는 상단 컬러 바 제거 */}
 
       <div className="flex flex-1 flex-col p-4">
         {/* 헤더 */}
