@@ -16,6 +16,7 @@ export type RoleOption = '교사' | '강사' | '업체' | '기타';
 export const ROLE_OPTIONS: RoleOption[] = ['교사', '강사', '업체', '기타'];
 
 export type TeacherLevel = '유치원' | '초등' | '중등' | '특수';
+export type TeacherEmploymentType = '기간제교사' | '정규교원';
 export type SpecialEducationType = '초등특수' | '중등특수';
 
 interface ProfileSetupModalProps {
@@ -45,6 +46,7 @@ export default function ProfileSetupModal({
   const [existingProfileImageUrl, setExistingProfileImageUrl] = useState<string | null>(null);
   const [roles, setRoles] = useState<RoleOption[]>([]);
   const [teacherLevel, setTeacherLevel] = useState<TeacherLevel | null>(null);
+  const [teacherEmploymentType, setTeacherEmploymentType] = useState<TeacherEmploymentType | null>(null);
   const [specialEducationType, setSpecialEducationType] = useState<SpecialEducationType | null>(null);
   const [teacherSubjects, setTeacherSubjects] = useState<string[]>([]);
   const [instructorFields, setInstructorFields] = useState<string[]>([]);
@@ -73,6 +75,7 @@ export default function ProfileSetupModal({
       setExistingProfileImageUrl(null);
       setRoles([]);
       setTeacherLevel(null);
+      setTeacherEmploymentType(null);
       setSpecialEducationType(null);
       setTeacherSubjects([]);
       setInstructorFields([]);
@@ -104,6 +107,7 @@ export default function ProfileSetupModal({
           setAgreeMarketing(data.agree_marketing ?? false);
           // Load new fields
           setTeacherLevel(data.teacher_level as TeacherLevel || null);
+          setTeacherEmploymentType(data.teacher_employment_type as TeacherEmploymentType || null);
           setSpecialEducationType(data.special_education_type as SpecialEducationType || null);
           setInstructorFields(data.instructor_fields || []);
           setInstructorCustomField(data.instructor_custom_field || '');
@@ -121,6 +125,7 @@ export default function ProfileSetupModal({
   useEffect(() => {
     if (!roles.includes('교사')) {
       setTeacherLevel(null);
+      setTeacherEmploymentType(null);
       setSpecialEducationType(null);
       setTeacherSubjects([]);
       setCapableSubjects([]);
@@ -203,6 +208,7 @@ export default function ProfileSetupModal({
       agreePrivacy,
       agreeMarketing,
       teacherLevel: teacherLevel || undefined,
+      teacherEmploymentType: teacherEmploymentType || undefined,
       specialEducationType: specialEducationType || undefined,
       instructorFields: instructorFields.length > 0 ? instructorFields : undefined,
       instructorCustomField: instructorCustomField.trim() || undefined,
@@ -422,11 +428,13 @@ export default function ProfileSetupModal({
                         <ProfileStep2Field
                           roles={roles}
                           teacherLevel={teacherLevel}
+                          teacherEmploymentType={teacherEmploymentType}
                           specialEducationType={specialEducationType}
                           teacherSubjects={teacherSubjects}
                           instructorFields={instructorFields}
                           instructorCustomField={instructorCustomField}
                           onTeacherLevelChange={setTeacherLevel}
+                          onTeacherEmploymentTypeChange={setTeacherEmploymentType}
                           onSpecialEducationTypeChange={setSpecialEducationType}
                           onTeacherSubjectsChange={setTeacherSubjects}
                           onInstructorFieldsChange={setInstructorFields}

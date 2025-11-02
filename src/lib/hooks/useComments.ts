@@ -161,8 +161,8 @@ export function useComments(targetType: CommentTargetType, targetId: string): Us
         updatedAt: item.updated_at,
       }));
       setFlatComments(comments);
-    } catch (error) {
-      console.error('Failed to load comments:', error);
+    } catch (error: any) {
+      console.warn('Supabase comments unavailable, using localStorage:', error?.message);
       // 로컬 스토리지에서 폴백
       const comments = readComments(targetKey);
       setFlatComments(comments);
@@ -218,8 +218,26 @@ export function useComments(targetType: CommentTargetType, targetId: string): Us
         setAuthorName(trimmedName);
         await createCommentAPI(targetType, targetId, trimmedContent, trimmedName, parentId);
         await load();
-      } catch (error) {
-        console.error('Failed to add comment:', error);
+      } catch (error: any) {
+        console.warn('Supabase unavailable, saving to localStorage:', error?.message);
+        // Supabase 실패 시 로컬 스토리지에 저장
+        const now = new Date().toISOString();
+        const comment: StoredComment = {
+          id: crypto.randomUUID(),
+          parentId: parentId ?? null,
+          targetType,
+          targetId,
+          authorName: trimmedName,
+          content: trimmedContent,
+          createdAt: now,
+          updatedAt: now,
+        };
+        setAuthorName(trimmedName);
+        setFlatComments((prev) => {
+          const next = [...prev, comment];
+          writeComments(targetKey, next);
+          return next;
+        });
       }
     },
     [targetId, targetType, targetKey, setAuthorName, load]
@@ -233,11 +251,21 @@ export function useComments(targetType: CommentTargetType, targetId: string): Us
       try {
         await updateCommentAPI(commentId, trimmed);
         await load();
-      } catch (error) {
-        console.error('Failed to update comment:', error);
+      } catch (error: any) {
+        console.warn('Supabase unavailable, updating localStorage:', error?.message);
+        // Supabase 실패 시 로컬 스토리지에서 업데이트
+        setFlatComments((prev) => {
+          const next = prev.map((comment) =>
+            comment.id === commentId
+              ? { ...comment, content: trimmed, updatedAt: new Date().toISOString() }
+              : comment
+          );
+          writeComments(targetKey, next);
+          return next;
+        });
       }
     },
-    [load]
+    [load, targetKey]
   );
 
   const deleteComment = useCallback(
@@ -245,11 +273,18 @@ export function useComments(targetType: CommentTargetType, targetId: string): Us
       try {
         await deleteCommentAPI(commentId);
         await load();
-      } catch (error) {
-        console.error('Failed to delete comment:', error);
+      } catch (error: any) {
+        console.warn('Supabase unavailable, deleting from localStorage:', error?.message);
+        // Supabase 실패 시 로컬 스토리지에서 삭제
+        setFlatComments((prev) => {
+          const toRemove = collectDescendants(prev, commentId);
+          const next = prev.filter((comment) => !toRemove.has(comment.id));
+          writeComments(targetKey, next);
+          return next;
+        });
       }
     },
-    [load]
+    [load, targetKey]
   );
 
   const reload = useCallback(() => {

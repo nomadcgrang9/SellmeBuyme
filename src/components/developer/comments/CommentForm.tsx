@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import type { ChangeEvent, FormEvent, KeyboardEvent } from 'react';
 
 interface CommentFormProps {
   defaultAuthorName?: string;
@@ -20,27 +21,50 @@ export function CommentForm({
   autoFocus = false,
 }: CommentFormProps) {
   const [authorName, setAuthorName] = useState(defaultAuthorName ?? '');
+  const [isNameEditing, setIsNameEditing] = useState(!(defaultAuthorName ?? '').trim());
   const [content, setContent] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const nameInputRef = useRef<HTMLInputElement | null>(null);
 
   const requiresAuthorName = !authorName.trim();
+
+  const resetTextareaHeight = () => {
+    if (!textareaRef.current) return;
+    textareaRef.current.style.height = 'auto';
+    textareaRef.current.style.height = `${Math.max(textareaRef.current.scrollHeight, 32)}px`;
+  };
+
+  useEffect(() => {
+    const nextName = defaultAuthorName ?? '';
+    setAuthorName(nextName);
+    setIsNameEditing(!nextName.trim());
+  }, [defaultAuthorName]);
 
   useEffect(() => {
     if (autoFocus && textareaRef.current) {
       textareaRef.current.focus();
+      resetTextareaHeight();
     }
   }, [autoFocus]);
 
+  useEffect(() => {
+    if (isNameEditing && nameInputRef.current) {
+      nameInputRef.current.focus();
+    }
+  }, [isNameEditing]);
+
+  useEffect(() => {
+    resetTextareaHeight();
+  }, [content]);
+
   const handleSubmit = async () => {
+    if (isSubmitting) return;
+
     const trimmedContent = content.trim();
     const finalAuthorName = authorName.trim();
 
-    if (!trimmedContent) {
-      return;
-    }
-
-    if (!finalAuthorName) {
+    if (!trimmedContent || !finalAuthorName) {
       return;
     }
 
@@ -49,52 +73,114 @@ export function CommentForm({
       await onSubmit(trimmedContent, finalAuthorName);
       onSaveAuthorName?.(finalAuthorName);
       setContent('');
+      resetTextareaHeight();
+      if (!finalAuthorName) {
+        setIsNameEditing(true);
+      }
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  const handleTextareaKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    const nativeEvent = event.nativeEvent as { isComposing?: boolean };
+    if (nativeEvent.isComposing) return;
+
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      void handleSubmit();
+    }
+
+    if (event.key === 'Escape' && onCancel) {
+      event.preventDefault();
+      setContent('');
+      resetTextareaHeight();
+      onCancel();
+    }
+  };
+
+  const handleNameKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      const trimmed = authorName.trim();
+      if (trimmed) {
+        setAuthorName(trimmed);
+        setIsNameEditing(false);
+        textareaRef.current?.focus();
+      }
+    }
+
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      const fallback = defaultAuthorName ?? '';
+      setAuthorName(fallback);
+      setIsNameEditing(!fallback.trim());
+      if (!fallback.trim()) {
+        nameInputRef.current?.focus();
+      }
+    }
+  };
+
+  const handleNameBlur = () => {
+    const trimmed = authorName.trim();
+    if (trimmed) {
+      setAuthorName(trimmed);
+      setIsNameEditing(false);
+    }
+  };
+
+  const handleContentChange = (event: ChangeEvent<HTMLTextAreaElement>) => {
+    setContent(event.target.value);
+  };
+
   return (
-    <div className="space-y-3">
-      <div className="space-y-2">
-        {requiresAuthorName && (
+    <form
+      className="w-full"
+      onSubmit={(event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        void handleSubmit();
+      }}
+    >
+      <div className={`flex items-center gap-2 rounded-md border border-gray-200 bg-white px-3 py-2 shadow-sm transition focus-within:border-blue-400 focus-within:ring-1 focus-within:ring-blue-300 ${
+        isSubmitting ? 'opacity-80' : ''
+      }`}>
+        {(requiresAuthorName || isNameEditing) ? (
           <input
+            ref={nameInputRef}
             type="text"
-            placeholder="이름을 입력해주세요"
             value={authorName}
+            placeholder="이름"
             onChange={(event) => setAuthorName(event.target.value)}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+            onKeyDown={handleNameKeyDown}
+            onBlur={handleNameBlur}
+            className="w-20 shrink-0 rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 focus:border-blue-400 focus:outline-none"
           />
+        ) : (
+          <button
+            type="button"
+            onClick={() => setIsNameEditing(true)}
+            className="shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700 hover:bg-gray-200"
+            title="클릭하여 이름을 변경"
+          >
+            {authorName}
+          </button>
         )}
+
         <textarea
           ref={textareaRef}
           placeholder={placeholder}
           value={content}
-          onChange={(event) => setContent(event.target.value)}
-          rows={autoFocus ? 2 : 3}
-          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700 resize-none focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+          onChange={handleContentChange}
+          onKeyDown={handleTextareaKeyDown}
+          rows={1}
+          className="flex-1 resize-none overflow-hidden border-0 bg-transparent text-sm text-gray-800 placeholder:text-gray-400 focus:outline-none disabled:opacity-60"
+          disabled={isSubmitting}
         />
-      </div>
 
-      <div className="flex items-center justify-end gap-2">
-        {onCancel && (
-          <button
-            type="button"
-            onClick={onCancel}
-            className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100"
-          >
-            취소
-          </button>
-        )}
-        <button
-          type="button"
-          onClick={handleSubmit}
-          disabled={isSubmitting || !content.trim()}
-          className="rounded-lg bg-blue-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-600 disabled:opacity-50"
-        >
-          {isSubmitting ? '작성 중...' : submitLabel}
-        </button>
+        <span className="shrink-0 text-[10px] font-medium text-gray-400" title="Enter: 등록 · Shift+Enter: 줄바꿈">
+          ↵ 등록
+        </span>
       </div>
-    </div>
+    </form>
   );
 }

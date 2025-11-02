@@ -16,6 +16,7 @@ export type UserProfileRow = {
   agree_marketing: boolean | null;
   capable_subjects: string[] | null;
   teacher_level: string | null;
+  teacher_employment_type: string | null; // '기간제교사' | '정규교원' | null
   preferred_job_types: string[] | null;
   preferred_subjects: string[] | null;
   special_education_type: string | null;
@@ -40,6 +41,7 @@ export type ProfileUpsertInput = {
   agreeMarketing: boolean;
   capableSubjects?: string[];
   teacherLevel?: string | null;
+  teacherEmploymentType?: string | null; // '기간제교사' | '정규교원' | null
   specialEducationType?: string | null;
   instructorFields?: string[] | null;
   instructorCustomField?: string | null;
@@ -69,7 +71,7 @@ export async function upsertUserProfile(
   userId: string,
   payload: ProfileUpsertInput
 ): Promise<{ data: UserProfileRow | null; error: PostgrestError | null }> {
-  const { displayName, phone, roles, interestRegions, experienceYears, receiveNotifications, intro, agreeTerms, agreePrivacy, agreeMarketing, capableSubjects, teacherLevel, specialEducationType, instructorFields, instructorCustomField, profileImageUrl } = payload;
+  const { displayName, phone, roles, interestRegions, experienceYears, receiveNotifications, intro, agreeTerms, agreePrivacy, agreeMarketing, capableSubjects, teacherLevel, teacherEmploymentType, specialEducationType, instructorFields, instructorCustomField, profileImageUrl } = payload;
 
   const { data, error } = await supabase
     .from('user_profiles')
@@ -88,6 +90,7 @@ export async function upsertUserProfile(
         agree_marketing: agreeMarketing,
         capable_subjects: capableSubjects || null,
         teacher_level: teacherLevel || null,
+        teacher_employment_type: teacherEmploymentType || null,
         special_education_type: specialEducationType || null,
         instructor_fields: instructorFields || null,
         instructor_custom_field: instructorCustomField || null,
