@@ -448,38 +448,12 @@ export default function App() {
             sourceCards = [...uniqueFreshJobs, ...cachedWithoutDuplicates];
           }
 
-          let filteredCards = selectRecommendationCards(sourceCards, profile?.roles);
-          
-          // 교사급 필터링
-          if (profile?.teacher_level) {
-            filteredCards = filterByTeacherLevel(filteredCards, profile.teacher_level);
-          }
-          
-          // 직종 필터링
-          if (profile?.preferred_job_types && profile.preferred_job_types.length > 0) {
-            filteredCards = filterByJobType(filteredCards, profile.preferred_job_types);
-          }
-          
-          // 과목 가중치 적용 (정렬)
-          if (profile?.preferred_subjects && profile.preferred_subjects.length > 0) {
-            filteredCards = filteredCards.sort((a, b) => {
-              const scoreA = calculateSubjectScore(a, profile.preferred_subjects);
-              const scoreB = calculateSubjectScore(b, profile.preferred_subjects);
-              return scoreB - scoreA;
-            });
-          }
+          // Edge Function이 이미 프로필 기반 최적화를 수행했으므로
+          // 프론트엔드에서는 마감 지난 공고만 제거
+          const filteredCards = filterExpiredJobs(sourceCards);
 
-          // 경력 필터링
-          if (typeof profile?.experience_years === 'number') {
-            filteredCards = filterByExperience(filteredCards, profile.experience_years);
-          }
-
-          // 마감 지난 공고 제거 (Phase 1 개선)
-          filteredCards = filterExpiredJobs(filteredCards);
-
-          // 필터링 결과가 비면 원본 추천으로 폴백
-          const fallbackCards = filteredCards.length > 0 ? filteredCards : selectRecommendationCards(sourceCards, profile?.roles);
-          const finalCards = filterExpiredJobs(fallbackCards).slice(0, 6);
+          // 최종 카드 설정 (최대 6개)
+          const finalCards = filteredCards.slice(0, 6);
           setRecommendationCards(finalCards);
           setRecommendedIds(new Set(finalCards.map((c) => c.id)));
           // Edge Function에서 생성한 AI 코멘트 사용
@@ -490,30 +464,13 @@ export default function App() {
           const gen = await generateRecommendations();
           if (gen && Array.isArray(gen.cards) && gen.cards.length > 0) {
             const sourceCards = gen.cards;
-            let filteredCards = selectRecommendationCards(sourceCards, profile?.roles);
 
-            if (profile?.teacher_level) {
-              filteredCards = filterByTeacherLevel(filteredCards, profile.teacher_level);
-            }
-            if (profile?.preferred_job_types && profile.preferred_job_types.length > 0) {
-              filteredCards = filterByJobType(filteredCards, profile.preferred_job_types);
-            }
-            if (profile?.preferred_subjects && profile.preferred_subjects.length > 0) {
-              filteredCards = filteredCards.sort((a, b) => {
-                const scoreA = calculateSubjectScore(a, profile.preferred_subjects);
-                const scoreB = calculateSubjectScore(b, profile.preferred_subjects);
-                return scoreB - scoreA;
-              });
-            }
-            if (typeof profile?.experience_years === 'number') {
-              filteredCards = filterByExperience(filteredCards, profile.experience_years);
-            }
+            // Edge Function이 이미 프로필 기반 최적화를 수행했으므로
+            // 프론트엔드에서는 마감 지난 공고만 제거
+            const filteredCards = filterExpiredJobs(sourceCards);
 
-            // 마감 지난 공고 제거 (Phase 1 개선)
-            filteredCards = filterExpiredJobs(filteredCards);
-
-            const fallbackCards = filteredCards.length > 0 ? filteredCards : selectRecommendationCards(sourceCards, profile?.roles);
-            const finalCards = filterExpiredJobs(fallbackCards).slice(0, 6);
+            // 최종 카드 설정 (최대 6개)
+            const finalCards = filteredCards.slice(0, 6);
             setRecommendationCards(finalCards);
             setRecommendedIds(new Set(finalCards.map((c) => c.id)));
             // Edge Function에서 생성한 AI 코멘트 사용
