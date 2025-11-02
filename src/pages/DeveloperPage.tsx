@@ -1,7 +1,7 @@
 // Developer Page - 셀바 개발자노트
 // Mobile-first design with max-width 640px
 import { useState, useEffect } from 'react';
-import { Lightbulb, Globe, Rocket, Home } from 'lucide-react';
+import { Lightbulb, Globe, Rocket, Home, FolderOpen, ExternalLink } from 'lucide-react';
 import DeploymentList from '@/components/developer/DeploymentList';
 import IdeaForm from '@/components/developer/IdeaForm';
 import BoardSubmissionForm from '@/components/developer/BoardSubmissionForm';
@@ -274,7 +274,7 @@ export default function DeveloperPage() {
           </CollapsibleSection>
 
           {/* 프로젝트 관리 */}
-          <CollapsibleSection 
+          <CollapsibleSection
             title="프로젝트 관리하기"
             icon={<Rocket className="w-5 h-5" />}
             defaultOpen={false}
@@ -328,6 +328,41 @@ export default function DeveloperPage() {
                 onLoadMore={loadMoreProjects}
                 isLoading={projectsLoading}
               />
+            </div>
+          </CollapsibleSection>
+
+          {/* 공유폴더 */}
+          <CollapsibleSection
+            title="팀 공유폴더"
+            icon={<FolderOpen className="w-5 h-5" />}
+            defaultOpen={false}
+          >
+            <div className="p-4">
+              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-6">
+                <div className="flex items-start gap-4">
+                  <div className="flex-shrink-0">
+                    <FolderOpen className="w-8 h-8 text-blue-600" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-gray-900 mb-2">
+                      OneDrive 팀 공유 폴더
+                    </h3>
+                    <p className="text-sm text-gray-600 mb-4">
+                      개발팀원끼리 파일을 자유롭게 업로드하고 공유할 수 있는 폴더입니다.
+                    </p>
+                    <a
+                      href="https://1drv.ms/f/c/7b77903722d22f5c/EpELl7nggVhFi9xqiFedGfcBXhs1_PW1C_6wLE2HzECHJA?e=cMEvbY"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-[#0078D4] text-white rounded-lg hover:bg-[#106EBE] transition-colors font-medium"
+                    >
+                      <FolderOpen className="w-4 h-4" />
+                      <span>공유폴더 열기</span>
+                      <ExternalLink className="w-4 h-4" />
+                    </a>
+                  </div>
+                </div>
+              </div>
             </div>
           </CollapsibleSection>
         </div>
