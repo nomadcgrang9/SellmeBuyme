@@ -110,17 +110,19 @@ export default function ExperienceCard({ card, onEditClick, onCardClick }: Exper
           )}
         </div>
 
-        {/* 우측: 동그란 프로필 이미지 */}
-        <div className="flex-shrink-0">
-          <img
-            src="/picture/experiences/sports.webp"
-            alt={`${displayTitle} 이미지`}
-            className="w-20 h-20 rounded-full object-cover shadow-md"
-            onError={(e) => {
-              e.currentTarget.style.display = 'none';
-            }}
-          />
-        </div>
+        {/* 우측: 동그란 프로필 이미지 - 테스트용: "인성교육"만 표시 */}
+        {displayTitle.includes('인성교육') && (
+          <div className="flex-shrink-0">
+            <img
+              src="/picture/experiences/sports.webp"
+              alt={`${displayTitle} 이미지`}
+              className="w-20 h-20 rounded-full object-cover shadow-md"
+              onError={(e) => {
+                e.currentTarget.style.display = 'none';
+              }}
+            />
+          </div>
+        )}
       </div>
     </article>
   );

@@ -93,17 +93,19 @@ export default function TalentCard({ talent, onEditClick }: TalentCardProps) {
           </div>
         </div>
 
-        {/* 우측: 동그란 프로필 이미지 */}
-        <div className="flex-shrink-0">
-          <img
-            src="/picture/talents/teacher.png"
-            alt={`${talent.name} 프로필`}
-            className="w-20 h-20 rounded-full object-cover shadow-md"
-            onError={(e) => {
-              e.currentTarget.style.display = 'none';
-            }}
-          />
-        </div>
+        {/* 우측: 동그란 프로필 이미지 - 테스트용: "최OO 강사"만 표시 */}
+        {talent.name.includes('최') && talent.name.includes('강사') && (
+          <div className="flex-shrink-0">
+            <img
+              src="/picture/talents/teacher.png"
+              alt={`${talent.name} 프로필`}
+              className="w-20 h-20 rounded-full object-cover shadow-md"
+              onError={(e) => {
+                e.currentTarget.style.display = 'none';
+              }}
+            />
+          </div>
+        )}
       </div>
     </article>
   );

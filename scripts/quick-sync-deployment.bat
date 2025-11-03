@@ -1,0 +1,7 @@
+@echo off
+REM Quick deployment sync script
+cd c:\PRODUCT\SellmeBuyme
+set VITE_SUPABASE_URL=https://qpwnsvsiduvvqdijyxio.supabase.co
+set SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFwd25zdnNpZHV2dnFkaWp5eGlvIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MDcwNTc3MCwiZXhwIjoyMDc2MjgxNzcwfQ.HUWniCdTVYcMO3nXrV4hVNh6f6jCPEVPGA-5_2BRYOM
+npx tsx scripts/db/sync-deployments.ts
+pause
