@@ -9,9 +9,19 @@ ALTER TABLE public.dev_projects
   ALTER COLUMN user_id DROP NOT NULL;
 
 -- =============================================================================
--- 2. Drop old INSERT policy
+-- 2. Drop ALL existing policies (to avoid conflicts)
 -- =============================================================================
 DROP POLICY IF EXISTS "Users can insert own projects" ON public.dev_projects;
+DROP POLICY IF EXISTS "Authenticated users can insert own projects" ON public.dev_projects;
+DROP POLICY IF EXISTS "Anonymous users can insert projects" ON public.dev_projects;
+
+DROP POLICY IF EXISTS "Users can update own projects" ON public.dev_projects;
+DROP POLICY IF EXISTS "Authenticated users can update own or anonymous projects" ON public.dev_projects;
+DROP POLICY IF EXISTS "Anonymous users can update anonymous projects" ON public.dev_projects;
+
+DROP POLICY IF EXISTS "Users can delete own projects" ON public.dev_projects;
+DROP POLICY IF EXISTS "Authenticated users can delete own or anonymous projects" ON public.dev_projects;
+DROP POLICY IF EXISTS "Anonymous users can delete anonymous projects" ON public.dev_projects;
 
 -- =============================================================================
 -- 3. Create new INSERT policies
@@ -30,9 +40,8 @@ CREATE POLICY "Anonymous users can insert projects"
   WITH CHECK (user_id IS NULL);
 
 -- =============================================================================
--- 4. Update UPDATE policy to handle anonymous projects
+-- 4. Create new UPDATE policies
 -- =============================================================================
-DROP POLICY IF EXISTS "Users can update own projects" ON public.dev_projects;
 
 -- 4-1. Authenticated users can update own projects or any anonymous projects
 CREATE POLICY "Authenticated users can update own or anonymous projects"
@@ -53,9 +62,8 @@ CREATE POLICY "Anonymous users can update anonymous projects"
   WITH CHECK (user_id IS NULL);
 
 -- =============================================================================
--- 5. Update DELETE policy to handle anonymous projects
+-- 5. Create new DELETE policies
 -- =============================================================================
-DROP POLICY IF EXISTS "Users can delete own projects" ON public.dev_projects;
 
 -- 5-1. Authenticated users can delete own projects or any anonymous projects
 CREATE POLICY "Authenticated users can delete own or anonymous projects"
