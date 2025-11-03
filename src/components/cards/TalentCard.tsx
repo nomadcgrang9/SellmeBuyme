@@ -15,41 +15,43 @@ export default function TalentCard({ talent, onEditClick }: TalentCardProps) {
       {/* 상단 컬러 바 (인력=그린) */}
       <div className="h-1 bg-gradient-to-r from-[#7db8a3] to-[#6fb59b] flex-shrink-0" />
 
-      <div className="flex flex-1 flex-col p-4">
-        {/* 헤더 */}
-        <div className="flex items-center justify-between mb-3">
-          <span className="text-sm font-semibold text-[#2f855a]">인력</span>
-          {talent.isVerified && (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-[#c5e3d8] text-[#0F172A] text-xs font-bold rounded-full">
-              <IconShieldCheck size={14} stroke={1.5} /> 인증
-            </span>
-          )}
-        </div>
+      <div className="flex flex-1 p-4 gap-3">
+        {/* 좌측: 텍스트 정보 */}
+        <div className="flex flex-1 flex-col min-w-0">
+          {/* 헤더 */}
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-sm font-semibold text-[#2f855a]">인력</span>
+            {talent.isVerified && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-[#c5e3d8] text-[#0F172A] text-xs font-bold rounded-full">
+                <IconShieldCheck size={14} stroke={1.5} /> 인증
+              </span>
+            )}
+          </div>
 
-        {/* 이름 */}
-        <h3 className="text-lg font-extrabold text-gray-900 mb-1 line-clamp-1 break-keep overflow-hidden">
-          {talent.name}
-        </h3>
+          {/* 이름 */}
+          <h3 className="text-lg font-extrabold text-gray-900 mb-1 line-clamp-1 break-keep overflow-hidden">
+            {talent.name}
+          </h3>
 
-        {/* 전문 분야 */}
-        <p className="text-base font-semibold text-gray-700 leading-snug mb-2 line-clamp-1 break-keep overflow-hidden">
-          {talent.specialty}
-        </p>
+          {/* 전문 분야 */}
+          <p className="text-base font-semibold text-gray-700 leading-snug mb-2 line-clamp-1 break-keep overflow-hidden">
+            {talent.specialty}
+          </p>
 
-        {/* 태그 (최대 2개) */}
-        <div className="mb-4 flex flex-wrap gap-2">
-          {talent.tags.slice(0, 2).map((tag, index) => (
-            <span
-              key={index}
-              className="rounded-full border border-gray-200 bg-white px-2.5 py-1 text-sm font-medium text-gray-700"
-            >
-              {tag}
-            </span>
-          ))}
-        </div>
+          {/* 태그 (최대 2개) */}
+          <div className="mb-4 flex flex-wrap gap-2">
+            {talent.tags.slice(0, 2).map((tag, index) => (
+              <span
+                key={index}
+                className="rounded-full border border-gray-200 bg-white px-2.5 py-1 text-sm font-medium text-gray-700"
+              >
+                {tag}
+              </span>
+            ))}
+          </div>
 
-        {/* 정보 */}
-        <div className="mt-auto space-y-1.5 text-sm text-gray-700">
+          {/* 정보 */}
+          <div className="mt-auto space-y-1.5 text-sm text-gray-700">
           <div className="flex items-center gap-2">
             <IconMapPin size={16} stroke={1.5} className="text-[#2f855a] flex-shrink-0" />
             <span className="font-medium truncate">{talent.location}</span>
@@ -88,6 +90,19 @@ export default function TalentCard({ talent, onEditClick }: TalentCardProps) {
               </button>
             </div>
           )}
+          </div>
+        </div>
+
+        {/* 우측: 동그란 프로필 이미지 */}
+        <div className="flex-shrink-0">
+          <img
+            src="/picture/talents/teacher.png"
+            alt={`${talent.name} 프로필`}
+            className="w-20 h-20 rounded-full object-cover shadow-md"
+            onError={(e) => {
+              e.currentTarget.style.display = 'none';
+            }}
+          />
         </div>
       </div>
     </article>
