@@ -581,19 +581,18 @@ export async function createProject(project: ProjectFormData): Promise<DevProjec
     error: authError,
   } = await supabase.auth.getUser();
 
+  // 인증 오류가 있어도 계속 진행 (익명 사용자 허용)
   if (authError) {
-    console.error('Failed to get authenticated user:', authError);
-    throw new Error('인증 정보를 확인할 수 없습니다. 다시 로그인해주세요.');
+    console.warn('No authenticated user, proceeding as anonymous:', authError);
   }
 
-  if (!user) {
-    throw new Error('로그인이 필요합니다.');
-  }
+  // 인증된 사용자가 있으면 user_id 사용, 없으면 NULL (익명)
+  const userId = user?.id || null;
 
   const { data, error } = await supabase
     .from('dev_projects')
     .insert({
-      user_id: user.id,
+      user_id: userId,
       name: project.name,
       goal: project.goal,
       participants: project.participants,
