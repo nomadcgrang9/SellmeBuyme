@@ -1,6 +1,6 @@
 // ProjectFormModal - 프로젝트 생성/수정 모달
 import { X, Loader2, Trash2 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { DevProject, ProjectFormData, ProjectStatus } from '@/types/developer';
 import { PROJECT_STATUS_CONFIG } from '@/types/developer';
 
@@ -19,23 +19,43 @@ export default function ProjectFormModal({
   sourceIdeaId,
   initialProject,
 }: ProjectFormModalProps) {
-  const [name, setName] = useState(initialProject?.name || '');
-  const [goal, setGoal] = useState(initialProject?.goal || '');
-  const [participants, setParticipants] = useState<string[]>(
-    initialProject?.participants ? 
-      (typeof initialProject.participants === 'number' ? [] : initialProject.participants) 
-      : ['']
-  );
-  const [stages, setStages] = useState(
-    initialProject?.stages.map(s => ({ description: s.description })) || [
-      { description: '' },
-    ]
-  );
-  const [status, setStatus] = useState<ProjectStatus>(
-    initialProject?.status || 'active'
-  );
+  const [name, setName] = useState('');
+  const [goal, setGoal] = useState('');
+  const [participants, setParticipants] = useState<string[]>(['']);
+  const [stages, setStages] = useState([{ description: '' }]);
+  const [status, setStatus] = useState<ProjectStatus>('active');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // initialProject가 변경될 때마다 폼 상태 업데이트
+  useEffect(() => {
+    if (initialProject) {
+      // 수정 모드: 기존 프로젝트 데이터로 폼 채우기
+      setName(initialProject.name);
+      setGoal(initialProject.goal);
+      setParticipants(
+        typeof initialProject.participants === 'number'
+          ? ['']
+          : initialProject.participants.length > 0
+            ? initialProject.participants
+            : ['']
+      );
+      setStages(
+        initialProject.stages.length > 0
+          ? initialProject.stages.map(s => ({ description: s.description }))
+          : [{ description: '' }]
+      );
+      setStatus(initialProject.status);
+    } else {
+      // 생성 모드: 폼 초기화
+      setName('');
+      setGoal('');
+      setParticipants(['']);
+      setStages([{ description: '' }]);
+      setStatus('active');
+    }
+    setError(null);
+  }, [initialProject, isOpen]);
 
   if (!isOpen) return null;
 
