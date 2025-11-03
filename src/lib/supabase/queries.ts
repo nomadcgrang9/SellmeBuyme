@@ -523,12 +523,29 @@ function normalizeStringArray(value: unknown): string[] {
 
 function buildExperienceLocationSummary(seoul: string[], gyeonggi: string[]): string {
   const parts: string[] = [];
+
   if (seoul.length > 0) {
-    parts.push(`서울 ${seoul.join(', ')}`);
+    // "서울-강남구" → "강남구" prefix 제거
+    const cleanedSeoul = seoul.map(region => region.replace(/^서울-?/, '').replace(/^서울특별시-?/, ''));
+    // 서울 전체인지 확인 (25개 자치구)
+    if (seoul.length >= 20) {
+      parts.push('서울 전체');
+    } else {
+      parts.push(`서울 ${cleanedSeoul.join(', ')}`);
+    }
   }
+
   if (gyeonggi.length > 0) {
-    parts.push(`경기 ${gyeonggi.join(', ')}`);
+    // "경기-성남시" → "성남시" prefix 제거
+    const cleanedGyeonggi = gyeonggi.map(region => region.replace(/^경기-?/, '').replace(/^경기도-?/, ''));
+    // 경기 전체인지 확인 (31개 시군)
+    if (gyeonggi.length >= 25) {
+      parts.push('경기 전체');
+    } else {
+      parts.push(cleanedGyeonggi.join(', '));
+    }
   }
+
   return parts.length > 0 ? parts.join(' · ') : '지역 미지정';
 }
 
@@ -3651,9 +3668,9 @@ export function mapJobPostingToCard(job: any): JobPostingCard {
 }
 
 function mapTalentToCard(talent: any): TalentCard {
-  const locationValue = Array.isArray(talent.location)
-    ? talent.location.join('/').replace(/\/+/, '/')
-    : talent.location ?? '';
+  const locationValue = formatTalentLocation(
+    Array.isArray(talent.location) ? talent.location : []
+  );
   const experienceYears = typeof talent.experience_years === 'number' ? talent.experience_years : 0;
   const rating = typeof talent.rating === 'number' ? Number(talent.rating) : 0;
   const reviewCount = talent.review_count ?? 0;
@@ -3675,5 +3692,54 @@ function mapTalentToCard(talent: any): TalentCard {
     rating,
     reviewCount,
   };
+}
+
+function formatTalentLocation(locations: string[]): string {
+  if (!locations || locations.length === 0) return '지역 미지정';
+
+  // 지역을 광역시도별로 그룹화
+  const seoulRegions: string[] = [];
+  const gyeonggiRegions: string[] = [];
+  const otherRegions: string[] = [];
+
+  locations.forEach(loc => {
+    const trimmed = loc.trim();
+    if (trimmed.startsWith('서울-') || trimmed.startsWith('서울특별시-')) {
+      const region = trimmed.replace(/^서울-?/, '').replace(/^서울특별시-?/, '');
+      if (region) seoulRegions.push(region);
+    } else if (trimmed.startsWith('경기-') || trimmed.startsWith('경기도-')) {
+      const region = trimmed.replace(/^경기-?/, '').replace(/^경기도-?/, '');
+      if (region) gyeonggiRegions.push(region);
+    } else {
+      otherRegions.push(trimmed);
+    }
+  });
+
+  const parts: string[] = [];
+
+  // 서울 지역 처리
+  if (seoulRegions.length > 0) {
+    if (seoulRegions.length >= 20) {
+      parts.push('서울 전체');
+    } else {
+      parts.push(`서울/${seoulRegions.join('/')}`);
+    }
+  }
+
+  // 경기 지역 처리
+  if (gyeonggiRegions.length > 0) {
+    if (gyeonggiRegions.length >= 25) {
+      parts.push('경기 전체');
+    } else {
+      parts.push(gyeonggiRegions.join('/'));
+    }
+  }
+
+  // 기타 지역
+  if (otherRegions.length > 0) {
+    parts.push(...otherRegions);
+  }
+
+  return parts.join('/') || '지역 미지정';
 }
 
