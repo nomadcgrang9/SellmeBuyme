@@ -1,5 +1,5 @@
 import { TalentCard as TalentCardType } from '@/types';
-import { IconMapPin, IconBriefcase, IconStar, IconShieldCheck, IconPhone, IconAt } from '@tabler/icons-react';
+import { IconMapPin, IconBriefcase, IconStar, IconPhone, IconAt } from '@tabler/icons-react';
 import { useAuthStore } from '@/stores/authStore';
 
 interface TalentCardProps {
@@ -21,11 +21,6 @@ export default function TalentCard({ talent, onEditClick }: TalentCardProps) {
           {/* 헤더 */}
           <div className="flex items-center justify-between mb-3">
             <span className="text-sm font-semibold text-[#2f855a]">인력</span>
-            {talent.isVerified && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-[#c5e3d8] text-[#0F172A] text-xs font-bold rounded-full">
-                <IconShieldCheck size={14} stroke={1.5} /> 인증
-              </span>
-            )}
           </div>
 
           {/* 이름 */}
