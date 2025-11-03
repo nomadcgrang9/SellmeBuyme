@@ -34,7 +34,8 @@ CREATE POLICY "Anonymous users can insert projects"
 -- =============================================================================
 DROP POLICY IF EXISTS "Users can update own projects" ON public.dev_projects;
 
-CREATE POLICY "Users can update own projects or anonymous projects"
+-- 4-1. Authenticated users can update own projects or any anonymous projects
+CREATE POLICY "Authenticated users can update own or anonymous projects"
   ON public.dev_projects FOR UPDATE
   TO authenticated
   USING (
@@ -44,17 +45,31 @@ CREATE POLICY "Users can update own projects or anonymous projects"
     auth.uid() = user_id OR user_id IS NULL
   );
 
+-- 4-2. Anonymous users can update anonymous projects (user_id IS NULL)
+CREATE POLICY "Anonymous users can update anonymous projects"
+  ON public.dev_projects FOR UPDATE
+  TO anon
+  USING (user_id IS NULL)
+  WITH CHECK (user_id IS NULL);
+
 -- =============================================================================
 -- 5. Update DELETE policy to handle anonymous projects
 -- =============================================================================
 DROP POLICY IF EXISTS "Users can delete own projects" ON public.dev_projects;
 
-CREATE POLICY "Users can delete own projects or anonymous projects"
+-- 5-1. Authenticated users can delete own projects or any anonymous projects
+CREATE POLICY "Authenticated users can delete own or anonymous projects"
   ON public.dev_projects FOR DELETE
   TO authenticated
   USING (
     auth.uid() = user_id OR user_id IS NULL
   );
+
+-- 5-2. Anonymous users can delete anonymous projects (user_id IS NULL)
+CREATE POLICY "Anonymous users can delete anonymous projects"
+  ON public.dev_projects FOR DELETE
+  TO anon
+  USING (user_id IS NULL);
 
 -- =============================================================================
 -- Comments
@@ -65,8 +80,14 @@ COMMENT ON POLICY "Authenticated users can insert own projects" ON public.dev_pr
 COMMENT ON POLICY "Anonymous users can insert projects" ON public.dev_projects
   IS '익명 사용자는 user_id가 NULL인 프로젝트를 생성할 수 있음';
 
-COMMENT ON POLICY "Users can update own projects or anonymous projects" ON public.dev_projects
-  IS '사용자는 자신의 프로젝트 또는 익명 프로젝트를 수정할 수 있음';
+COMMENT ON POLICY "Authenticated users can update own or anonymous projects" ON public.dev_projects
+  IS '인증된 사용자는 자신의 프로젝트 또는 모든 익명 프로젝트를 수정할 수 있음';
 
-COMMENT ON POLICY "Users can delete own projects or anonymous projects" ON public.dev_projects
-  IS '사용자는 자신의 프로젝트 또는 익명 프로젝트를 삭제할 수 있음';
+COMMENT ON POLICY "Anonymous users can update anonymous projects" ON public.dev_projects
+  IS '익명 사용자는 익명 프로젝트(user_id IS NULL)를 수정할 수 있음';
+
+COMMENT ON POLICY "Authenticated users can delete own or anonymous projects" ON public.dev_projects
+  IS '인증된 사용자는 자신의 프로젝트 또는 모든 익명 프로젝트를 삭제할 수 있음';
+
+COMMENT ON POLICY "Anonymous users can delete anonymous projects" ON public.dev_projects
+  IS '익명 사용자는 익명 프로젝트(user_id IS NULL)를 삭제할 수 있음';
