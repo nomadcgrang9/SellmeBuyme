@@ -84,6 +84,7 @@ export async function crawlSeongnam(page, config) {
           title: title,
           date: date || '날짜 없음',
           link: absoluteLink,
+          location: '성남',  // 기초자치단체 하드코딩
           detailContent: detailData.content,
           attachmentUrl: detailData.attachmentUrl,
           attachmentFilename: detailData.attachmentFilename,

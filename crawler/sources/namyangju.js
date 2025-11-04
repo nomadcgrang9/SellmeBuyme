@@ -140,7 +140,7 @@ export async function crawlNamyangju(page, config) {
           organization: '구리남양주교육지원청',
           title: listInfo.title,
           tags: ['교육공무직', '인력풀'],
-          location: '경기도 남양주시',
+          location: '구리남양주',  // 기초자치단체 (통합 표기)
           compensation: null,
           deadline: null,
           isUrgent: false,
