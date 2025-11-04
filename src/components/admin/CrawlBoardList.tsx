@@ -112,13 +112,15 @@ export default function CrawlBoardList({ onCreate, onEdit, onLogs, refreshToken,
   };
 
   const handleUnapprove = async (board: CrawlBoard) => {
-    if (!confirm(`"${board.name}" 게시판의 승인을 취소하시겠습니까?`)) {
+    if (!confirm(`"${board.name}" 게시판의 승인을 취소하시겠습니까?\n\n승인이 취소되면 "승인 대기" 상태로 돌아갑니다.`)) {
       return;
     }
 
     setSavingBoardId(board.id);
     try {
       await unapproveCrawlBoard(board.id);
+      // 승인 취소 후 필터 해제 (승인 대기 상태 보이도록)
+      setFilterApproved(null);
       await loadBoards();
     } catch (err) {
       console.error(err);
