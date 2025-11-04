@@ -59,6 +59,7 @@ export interface DevBoardSubmissionRow {
   region_code: string | null;
   subregion_code: string | null;
   school_level: string | null;
+  is_local_government: boolean | null;
   crawl_board_id: string | null;
   reviewed_by: string | null;
   reviewed_at: string | null;
@@ -157,6 +158,7 @@ export interface DevBoardSubmission {
   regionCode: string | null;
   subregionCode: string | null;
   schoolLevel: string | null;
+  isLocalGovernment: boolean | null;
   crawlBoardId: string | null;
   reviewedBy: string | null;
   reviewedAt: string | null;
@@ -285,6 +287,7 @@ export function convertSubmissionRowToSubmission(
     regionCode: row.region_code,
     subregionCode: row.subregion_code,
     schoolLevel: row.school_level,
+    isLocalGovernment: row.is_local_government,
     crawlBoardId: row.crawl_board_id,
     reviewedBy: row.reviewed_by,
     reviewedAt: row.reviewed_at,

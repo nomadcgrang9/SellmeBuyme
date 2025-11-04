@@ -19,14 +19,19 @@ export async function getOrCreateCrawlSource(name, baseUrl) {
   // crawl_boards에서 직접 ID 가져오기 (crawl_sources 테이블은 더 이상 사용하지 않음)
   const { data: board } = await supabase
     .from('crawl_boards')
-    .select('id, crawl_batch_size')
+    .select('id, crawl_batch_size, region, is_local_government')
     .eq('name', name)
     .eq('status', 'active')  // is_active 대신 status 사용
     .maybeSingle();
 
   if (board) {
     // crawl_boards에 있으면 해당 ID 반환
-    return { id: board.id, crawlBatchSize: board.crawl_batch_size ?? 10 };
+    return {
+      id: board.id,
+      crawlBatchSize: board.crawl_batch_size ?? 10,
+      region: board.region,
+      isLocalGovernment: board.is_local_government,
+    };
   }
 
   // crawl_boards에 없으면 에러 (크롤러는 반드시 crawl_boards에 등록되어야 함)
