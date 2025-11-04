@@ -282,12 +282,13 @@ Deno.serve(async (req) => {
 
     console.log('[Step 3 완료] crawl_boards 승인 취소됨');
 
-    // 7. dev_board_submissions status 변경 (Step 4)
-    console.log(`[Step 4] dev_board_submissions status 변경 (crawl_board_id=${boardId})`);
+    // 7. dev_board_submissions status 변경 및 crawl_board_id NULL 처리 (Step 4)
+    console.log(`[Step 4] dev_board_submissions status 변경 및 crawl_board_id NULL 처리 (crawl_board_id=${boardId})`);
     const { error: submissionError } = await adminClient
       .from('dev_board_submissions')
       .update({
         status: 'pending',
+        crawl_board_id: null,  // 외래 키 참조 제거
         updated_at: new Date().toISOString(),
       })
       .eq('crawl_board_id', boardId);
