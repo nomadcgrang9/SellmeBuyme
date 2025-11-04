@@ -45,8 +45,33 @@ async function approveSubmissionAndUpdateDB() {
       throw new Error(`제출 정보 조회 실패: ${submissionFetchError?.message}`);
     }
 
-    const region = submission.region || null;
+    // 2. region_code/subregion_code에서 실제 지역명 추출
+    let region: string | null = null;
     const isLocalGovernment = submission.is_local_government || false;
+
+    if (isLocalGovernment && submission.subregion_code) {
+      // 기초자치단체: subregion_code에서 지역명 추출 (예: "4163010000" → "가평")
+      const { data: city, error: cityError } = await supabase
+        .from('regions')
+        .select('name')
+        .eq('code', submission.subregion_code)
+        .maybeSingle();
+
+      if (!cityError && city) {
+        region = city.name.replace(/(시|군|구)$/, '');
+      }
+    } else if (submission.region_code) {
+      // 광역자치단체: region_code에서 지역명 추출 (예: "KR-41" → "경기도")
+      const { data: province, error: provinceError } = await supabase
+        .from('regions')
+        .select('name')
+        .eq('code', submission.region_code)
+        .maybeSingle();
+
+      if (!provinceError && province) {
+        region = province.name.replace(/(도|시)$/, '');
+      }
+    }
 
     console.log(`   지역: ${region || '미지정'}`);
     console.log(`   자치단체 유형: ${isLocalGovernment ? '기초자치단체' : '광역자치단체'}\n`);

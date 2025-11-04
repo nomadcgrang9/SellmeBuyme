@@ -289,6 +289,8 @@ Deno.serve(async (req) => {
       .update({
         status: 'pending',
         crawl_board_id: null,  // 외래 키 참조 제거
+        approved_at: null,     // 승인 시간 초기화
+        approved_by: null,     // 승인자 초기화
         updated_at: new Date().toISOString(),
       })
       .eq('crawl_board_id', boardId);
