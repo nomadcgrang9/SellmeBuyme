@@ -294,6 +294,7 @@ export async function createBoardSubmission(
       region_code: submission.regionCode,
       subregion_code: submission.subregionCode,
       school_level: submission.schoolLevel,
+      is_local_government: submission.isLocalGovernment,
       description: submission.description || null,
       submitter_name: '익명',
       status: 'pending',  // 초기 상태는 대기 중
