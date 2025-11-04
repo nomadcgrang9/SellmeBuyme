@@ -2996,15 +2996,15 @@ DB 저장: 각 공고마다 다른 지역명
 
 ### ✅ **구현 체크리스트**
 
-- [ ] Phase 6-1: DB 스키마 수정 (region, is_local_government 컬럼)
-- [ ] Phase 6-2: 개발자노트 UI (광역/기초 선택 + 지역명 입력)
-- [ ] Phase 6-3: 관리자 페이지 UI (지역 구분 표시)
-- [ ] Phase 6-4: Edge Function 수정 (region 전달)
-- [ ] Phase 6-5: AI 크롤러 생성 템플릿 (분기 로직)
-- [ ] Phase 6-6: 크롤링 실행 로직 (우선순위 변경)
-- [ ] Phase 6-7: Gemini Vision API (location 필드 추가)
-- [ ] Phase 6-8: approve-submission 스크립트 (region 저장)
-- [ ] Phase 6-9: 기존 수동 크롤러 수정 (선택적)
+- [x] Phase 6-1: DB 스키마 수정 (region, is_local_government 컬럼) ✅ 완료
+- [x] Phase 6-2: 개발자노트 UI (광역/기초 선택 + 지역명 입력) ✅ 완료
+- [ ] Phase 6-3: 관리자 페이지 UI (지역 구분 표시) - 추후 개선
+- [x] Phase 6-4: Edge Function 수정 (region 전달) ✅ 완료
+- [x] Phase 6-5: AI 크롤러 생성 템플릿 (분기 로직) ✅ 완료
+- [x] Phase 6-6: 크롤링 실행 로직 (우선순위 변경) ✅ 완료
+- [ ] Phase 6-7: Gemini Vision API (location 필드 추가) - 현재 구조 유지
+- [x] Phase 6-8: approve-submission 스크립트 (region 저장) ✅ 완료
+- [x] Phase 6-9: 기존 수동 크롤러 수정 (선택적) ✅ 완료
 - [ ] CLI 테스트 (기존 게시판 크롤링)
 - [ ] 사용자 직접 테스트 (새 게시판 등록 → AI 크롤러 생성 → 크롤링)
 
@@ -3020,5 +3020,8 @@ DB 저장: 각 공고마다 다른 지역명
 
 **최종 업데이트**: 2025-11-04
 **작성자**: Claude (AI Assistant)
-**현재 상태**: Phase 6 계획 완료, 구현 대기 중
-**다음 작업**: Phase 6 구현 시작 (사용자 승인 대기)
+**현재 상태**: Phase 6 핵심 구현 완료 (2025-11-04)
+**다음 작업**:
+1. DB 마이그레이션 실행 필요 (20250204_add_is_local_government_column.sql)
+2. 가평 게시판 테스트 (지역명 "가평", isLocalGovernment: true 설정 후)
+3. CLI 테스트 및 사용자 직접 테스트 진행

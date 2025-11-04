@@ -33,7 +33,25 @@ async function approveSubmissionAndUpdateDB() {
   console.log(`관리자 ID: ${adminUserId}\n`);
 
   try {
-    // 1. 생성된 크롤러 코드 읽기
+    // 1. dev_board_submissions에서 region 정보 가져오기
+    console.log('📝 제출 정보 조회 중...');
+    const { data: submission, error: submissionFetchError } = await supabase
+      .from('dev_board_submissions')
+      .select('region, is_local_government, region_code, subregion_code')
+      .eq('id', submissionId)
+      .single();
+
+    if (submissionFetchError || !submission) {
+      throw new Error(`제출 정보 조회 실패: ${submissionFetchError?.message}`);
+    }
+
+    const region = submission.region || null;
+    const isLocalGovernment = submission.is_local_government || false;
+
+    console.log(`   지역: ${region || '미지정'}`);
+    console.log(`   자치단체 유형: ${isLocalGovernment ? '기초자치단체' : '광역자치단체'}\n`);
+
+    // 2. 생성된 크롤러 코드 읽기
     const crawlerFileName = boardName
       .toLowerCase()
       .replace(/\s+/g, '-')
@@ -65,6 +83,8 @@ async function approveSubmissionAndUpdateDB() {
           is_active: true,
           status: 'active',
           crawler_source_code: crawlerCode,
+          region,
+          is_local_government: isLocalGovernment,
           approved_by: adminUserId,
           approved_at: new Date().toISOString(),
         })
@@ -90,6 +110,8 @@ async function approveSubmissionAndUpdateDB() {
           status: 'active',
           crawl_batch_size: 10,
           crawler_source_code: crawlerCode,
+          region,
+          is_local_government: isLocalGovernment,
           approved_by: adminUserId,
           approved_at: new Date().toISOString(),
         })

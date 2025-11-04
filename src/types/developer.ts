@@ -201,6 +201,7 @@ export interface BoardSubmissionFormData {
   regionCode: string;  // required: province code (e.g., 'KR-41')
   subregionCode: string | null;  // optional: city code (e.g., '4113025')
   schoolLevel: 'elementary' | 'middle' | 'high' | 'mixed';  // required
+  isLocalGovernment: boolean;  // required: true=기초자치단체, false=광역자치단체
   description?: string;
   screenshot?: File | null;
 }

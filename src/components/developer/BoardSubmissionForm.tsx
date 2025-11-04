@@ -18,6 +18,7 @@ export default function BoardSubmissionForm({
   const [boardUrl, setBoardUrl] = useState('');
   const [provinceCode, setProvinceCode] = useState<string | null>(null);
   const [cityCode, setCityCode] = useState<string | null>(null);
+  const [isLocalGovernment, setIsLocalGovernment] = useState<boolean>(true);
   const [description, setDescription] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -56,6 +57,7 @@ export default function BoardSubmissionForm({
         regionCode: provinceCode,
         subregionCode: cityCode,
         schoolLevel: 'mixed',
+        isLocalGovernment,
         description: description.trim() || undefined,
       });
       onClose();
@@ -143,6 +145,46 @@ export default function BoardSubmissionForm({
                 미리보기
               </a>
             )}
+          </div>
+
+          {/* 자치단체 유형 선택 (필수) */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              자치단체 유형 <span className="text-red-500">*</span>
+            </label>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setIsLocalGovernment(true)}
+                disabled={isSubmitting}
+                className={`px-4 py-3 rounded-lg border-2 text-sm font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
+                  isLocalGovernment
+                    ? 'border-[#7aa3cc] bg-[#a8c5e0]/20 text-gray-900'
+                    : 'border-gray-300 bg-white text-gray-600 hover:border-gray-400'
+                }`}
+              >
+                <div className="font-semibold mb-1">기초자치단체</div>
+                <div className="text-xs opacity-75">단일 시/군 (예: 가평, 성남)</div>
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsLocalGovernment(false)}
+                disabled={isSubmitting}
+                className={`px-4 py-3 rounded-lg border-2 text-sm font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
+                  !isLocalGovernment
+                    ? 'border-[#7aa3cc] bg-[#a8c5e0]/20 text-gray-900'
+                    : 'border-gray-300 bg-white text-gray-600 hover:border-gray-400'
+                }`}
+              >
+                <div className="font-semibold mb-1">광역자치단체</div>
+                <div className="text-xs opacity-75">여러 시/군 (예: 경기도청)</div>
+              </button>
+            </div>
+            <p className="mt-2 text-xs text-gray-500">
+              {isLocalGovernment
+                ? '단일 지역 게시판입니다. 모든 공고가 동일한 지역명을 갖습니다.'
+                : '여러 지역 공고를 포함하는 게시판입니다. AI가 각 공고의 지역을 추출합니다.'}
+            </p>
           </div>
 
           {/* 지역 선택 (필수) */}
