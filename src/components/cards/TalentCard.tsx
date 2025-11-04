@@ -1,6 +1,7 @@
 import { TalentCard as TalentCardType } from '@/types';
 import { IconMapPin, IconBriefcase, IconStar, IconPhone, IconAt } from '@tabler/icons-react';
 import { useAuthStore } from '@/stores/authStore';
+import { getTalentImage, handleImageError } from '@/lib/utils/cardImages';
 
 interface TalentCardProps {
   talent: TalentCardType;
@@ -10,6 +11,10 @@ interface TalentCardProps {
 export default function TalentCard({ talent, onEditClick }: TalentCardProps) {
   const { user } = useAuthStore((s) => ({ user: s.user }));
   const isOwner = Boolean(user && talent.user_id && user.id === talent.user_id);
+
+  // specialty 기반 이미지 경로 결정
+  const imageUrl = getTalentImage(talent.specialty);
+
   return (
     <article className="card-interactive bg-white border border-gray-200 rounded-lg shadow-md animate-slide-up overflow-hidden flex flex-col h-full" style={{ minHeight: '240px', maxHeight: '240px' }}>
       {/* 상단 컬러 바 (인력=그린) */}
@@ -88,19 +93,15 @@ export default function TalentCard({ talent, onEditClick }: TalentCardProps) {
           </div>
         </div>
 
-        {/* 우측: 동그란 프로필 이미지 - 테스트용: "최OO 강사"만 표시 */}
-        {talent.name.includes('최') && talent.name.includes('강사') && (
-          <div className="flex-shrink-0">
-            <img
-              src="/picture/talents/teacher.png"
-              alt={`${talent.name} 프로필`}
-              className="w-20 h-20 rounded-full object-cover shadow-md"
-              onError={(e) => {
-                e.currentTarget.style.display = 'none';
-              }}
-            />
-          </div>
-        )}
+        {/* 우측: 동그란 프로필 이미지 (specialty 기반 자동 매핑) */}
+        <div className="flex-shrink-0">
+          <img
+            src={imageUrl}
+            alt={`${talent.name} 프로필`}
+            className="w-20 h-20 rounded-full object-cover shadow-md"
+            onError={(e) => handleImageError(e, 'talent')}
+          />
+        </div>
       </div>
     </article>
   );
