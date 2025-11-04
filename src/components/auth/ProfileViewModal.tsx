@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   IconAlertCircle,
-  IconMapPin,
+  IconBell,
   IconSparkles,
   IconUser,
   IconX
@@ -130,11 +130,9 @@ export default function ProfileViewModal({ isOpen, onClose, userId, userEmail, o
             transition={{ type: 'spring', stiffness: 220, damping: 26 }}
             onClick={(event) => event.stopPropagation()}
           >
-            <header className="flex items-start justify-between px-7 pt-7 pb-4 border-b border-gray-100">
-              <div className="space-y-1">
+            <header className="flex items-start justify-between px-7 pt-6 pb-3 border-b border-gray-100">
+              <div>
                 <p className="text-xs font-semibold text-[#7aa3cc] uppercase tracking-wide">내 프로필</p>
-                <h2 className="text-2xl font-extrabold text-gray-900">{profile?.display_name ?? '회원 정보'}</h2>
-                <p className="text-xs text-gray-500">가입 이메일: {userEmail ?? '알 수 없음'}</p>
               </div>
               <button
                 type="button"
@@ -146,7 +144,7 @@ export default function ProfileViewModal({ isOpen, onClose, userId, userEmail, o
               </button>
             </header>
 
-            <div className="px-7 py-6 space-y-6 max-h-[70vh] overflow-y-auto">
+            <div className="px-7 py-4 space-y-3 max-h-[70vh] overflow-y-auto">
               {loadState === 'loading' && (
                 <div className="flex flex-col items-center justify-center gap-3 py-10 text-sm text-gray-500">
                   <span className="animate-spin text-2xl">⏳</span>
@@ -171,11 +169,11 @@ export default function ProfileViewModal({ isOpen, onClose, userId, userEmail, o
               )}
 
               {loadState === 'success' && profile && (
-                <div className="space-y-6">
-                  <section className="rounded-2xl border border-gray-100 bg-[#f8fbff] px-5 py-5">
-                    <div className="flex items-start gap-3">
+                <div className="space-y-3">
+                  <section className="px-5 py-3">
+                    <div className="flex items-start gap-4">
                       {profile.profile_image_url ? (
-                        <div className="relative h-16 w-16 overflow-hidden rounded-full border-2 border-white shadow-lg">
+                        <div className="relative h-16 w-16 flex-shrink-0 overflow-hidden rounded-full border-2 border-gray-200 shadow-sm">
                           <img
                             src={supabase.storage.from('profiles').getPublicUrl(profile.profile_image_url).data.publicUrl}
                             alt="프로필 사진"
@@ -183,107 +181,131 @@ export default function ProfileViewModal({ isOpen, onClose, userId, userEmail, o
                           />
                         </div>
                       ) : (
-                        <div className="mt-1 rounded-full bg-white p-2 text-[#4b83c6]"><IconUser size={18} /></div>
+                        <div className="flex-shrink-0 rounded-full bg-gray-100 p-3 text-[#4b83c6]"><IconUser size={20} /></div>
                       )}
-                      <div className="space-y-1 text-sm text-gray-700">
-                        <p className="text-xs font-semibold text-[#7aa3cc]">기본 정보</p>
-                        <p className="text-base font-bold text-gray-900">{profile.display_name}</p>
-                        <p>{userEmail ?? '이메일 정보 없음'}</p>
+                      <div className="flex-1 min-w-0 space-y-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-lg font-bold text-gray-900">{profile.display_name}</p>
+                          {roleList.length > 0 && roleList.map((role) => (
+                            <span key={role} className="rounded-full bg-[#eef3fb] px-2.5 py-0.5 text-xs font-semibold text-[#4b83c6]">
+                              {role}
+                            </span>
+                          ))}
+                        </div>
+                        <p className="text-xs text-gray-600 truncate">{userEmail ?? '이메일 정보 없음'}</p>
                         <p className="text-xs text-gray-400">가입: {new Date(profile.created_at).toLocaleString()}</p>
                       </div>
                     </div>
                   </section>
 
-                  <section className="rounded-2xl border border-gray-100 bg-white px-5 py-5 space-y-3">
-                    <div className="flex items-center gap-2">
-                      <IconSparkles size={18} className="text-[#7aa3cc]" />
-                      <h3 className="text-sm font-bold text-gray-900">역할 & 활동 정보</h3>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {roleList.length > 0 ? (
-                        roleList.map((role) => (
-                          <span key={role} className="rounded-full bg-[#eef3fb] px-3 py-1 text-xs font-semibold text-[#4b83c6]">
-                            {role}
-                          </span>
-                        ))
-                      ) : (
-                        <span className="text-xs text-gray-500">역할 정보가 없습니다.</span>
+                  <div className="grid grid-cols-[1.2fr_0.8fr] gap-3">
+                    <section className="rounded-2xl border border-gray-100 bg-white px-4 py-3 space-y-2.5">
+                      <div className="flex items-center gap-2 pb-1 border-b border-gray-100">
+                        <IconSparkles size={16} className="text-[#7aa3cc]" />
+                        <h3 className="text-xs font-bold text-gray-900">역할 & 활동 정보</h3>
+                      </div>
+
+                      <div className="space-y-0.5">
+                        <span className="text-xs font-semibold text-gray-500 block">경력</span>
+                        <p className="text-sm text-gray-800">{experienceLabel}</p>
+                      </div>
+
+                      {profile.roles?.includes('교사') && profile.teacher_level && (
+                        <div className="space-y-0.5">
+                          <span className="text-xs font-semibold text-gray-500 block">교사 역할</span>
+                          <p className="text-sm text-gray-800">
+                            {profile.teacher_level}
+                            {profile.special_education_type && (
+                              <span className="text-xs text-gray-600"> ({profile.special_education_type})</span>
+                            )}
+                          </p>
+                        </div>
                       )}
-                    </div>
-                    <div className="space-y-2">
-                      <span className="text-xs font-semibold text-gray-500">경력 연차</span>
-                      <p className="text-sm text-gray-800">{experienceLabel}</p>
-                    </div>
-                    {profile.roles?.includes('교사') && profile.teacher_level && (
+
+                      {profile.roles?.includes('강사') && (profile.instructor_fields?.length || profile.instructor_custom_field) && (
+                        <div className="space-y-1">
+                          <span className="text-xs font-semibold text-gray-500 block">강사 분야</span>
+                          <div className="flex flex-wrap gap-1">
+                            {profile.instructor_fields?.map((field) => (
+                              <span key={field} className="rounded-full bg-[#eef3fb] px-2 py-0.5 text-xs font-semibold text-[#4b83c6]">
+                                {field}
+                              </span>
+                            ))}
+                            {profile.instructor_custom_field && (
+                              <span className="rounded-full bg-[#eef3fb] px-2 py-0.5 text-xs font-semibold text-[#4b83c6]">
+                                {profile.instructor_custom_field}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
                       <div className="space-y-1">
-                        <span className="text-xs font-semibold text-gray-500">교사 역할</span>
-                        <p className="text-sm text-gray-800">{profile.teacher_level}</p>
-                        {profile.special_education_type && (
-                          <p className="text-xs text-gray-600">({profile.special_education_type})</p>
+                        <span className="text-xs font-semibold text-gray-500 block">관심 지역</span>
+                        {interestRegions.length > 0 ? (
+                          <div className="flex flex-wrap gap-1">
+                            {interestRegions.map((region) => (
+                              <span key={region} className="rounded-full bg-[#f0f6fa] px-2 py-0.5 text-xs font-semibold text-[#4b83c6]">
+                                {region}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-xs text-gray-500">관심 지역을 아직 추가하지 않았습니다.</p>
                         )}
                       </div>
-                    )}
-                    {profile.roles?.includes('강사') && (profile.instructor_fields?.length || profile.instructor_custom_field) && (
+
+                      <div className="space-y-0.5">
+                        <span className="text-xs font-semibold text-gray-500 block">한 줄 소개</span>
+                        <p className="text-sm text-gray-700 italic">
+                          {profile.intro ? profile.intro : '아직 소개가 등록되지 않았습니다.'}
+                        </p>
+                      </div>
+                    </section>
+
+                    <section className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 space-y-2.5">
+                      <div className="flex items-center gap-2 pb-1 border-b border-gray-200">
+                        <IconBell size={16} className="text-[#7aa3cc]" />
+                        <h3 className="text-xs font-bold text-gray-600">알림 & 약관</h3>
+                      </div>
+
+                      <div className="space-y-0.5">
+                        <span className="text-xs font-semibold text-gray-500 block">알림 수신</span>
+                        <p className="text-xs text-gray-700">
+                          {profile.receive_notifications ? '수신 중' : '미수신'}
+                        </p>
+                      </div>
+
                       <div className="space-y-1">
-                        <span className="text-xs font-semibold text-gray-500">강사 분야</span>
-                        <div className="flex flex-wrap gap-1">
-                          {profile.instructor_fields?.map((field) => (
-                            <span key={field} className="rounded-full bg-[#eef3fb] px-2 py-1 text-xs font-semibold text-[#4b83c6]">
-                              {field}
+                        <span className="text-xs font-semibold text-gray-500 block">약관 동의</span>
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-1.5 text-[11px]">
+                            <span className={profile.agree_terms ? 'text-emerald-600' : 'text-gray-400'}>
+                              {profile.agree_terms ? '✓' : '✗'}
                             </span>
-                          ))}
-                          {profile.instructor_custom_field && (
-                            <span className="rounded-full bg-[#eef3fb] px-2 py-1 text-xs font-semibold text-[#4b83c6]">
-                              {profile.instructor_custom_field}
+                            <span className="text-gray-600">이용약관</span>
+                          </div>
+                          <div className="flex items-center gap-1.5 text-[11px]">
+                            <span className={profile.agree_privacy ? 'text-emerald-600' : 'text-gray-400'}>
+                              {profile.agree_privacy ? '✓' : '✗'}
                             </span>
-                          )}
+                            <span className="text-gray-600">개인정보</span>
+                          </div>
+                          <div className="flex items-center gap-1.5 text-[11px]">
+                            <span className={profile.agree_marketing ? 'text-blue-600' : 'text-gray-400'}>
+                              {profile.agree_marketing ? '✓' : '✗'}
+                            </span>
+                            <span className="text-gray-600">마케팅</span>
+                          </div>
                         </div>
                       </div>
-                    )}
-                    <div className="space-y-2">
-                      <span className="text-xs font-semibold text-gray-500">관심 지역</span>
-                      {interestRegions.length > 0 ? (
-                        <div className="flex flex-wrap gap-2">
-                          {interestRegions.map((region) => (
-                            <span key={region} className="rounded-full bg-[#f0f6fa] px-3 py-1 text-xs font-semibold text-[#4b83c6]">
-                              {region}
-                            </span>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="text-xs text-gray-500">관심 지역을 아직 추가하지 않았습니다.</p>
-                      )}
-                    </div>
-                    <div className="space-y-2">
-                      <span className="text-xs font-semibold text-gray-500">한 줄 소개</span>
-                      <p className="rounded-xl border border-gray-200 bg-[#fdfefe] px-4 py-3 text-sm text-gray-700">
-                        {profile.intro ? profile.intro : '아직 소개가 등록되지 않았습니다.'}
-                      </p>
-                    </div>
-                  </section>
-
-                  <section className="rounded-2xl border border-gray-100 bg-white px-5 py-4 text-xs text-gray-500 space-y-2">
-                    <p className="font-semibold text-gray-600">알림 수신 여부</p>
-                    <p className="text-sm text-gray-700">
-                      {profile.receive_notifications ? '서비스 알림을 받는 중입니다.' : '서비스 알림을 받고 있지 않습니다.'}
-                    </p>
-                    <div className="flex flex-wrap gap-2 text-[11px] text-gray-500">
-                      <span className={`rounded-full px-2.5 py-1 border ${profile.agree_terms ? 'border-emerald-300 bg-emerald-50 text-emerald-600' : 'border-gray-200 bg-gray-50 text-gray-500'}`}>
-                        이용약관 동의 {profile.agree_terms ? '완료' : '미동의'}
-                      </span>
-                      <span className={`rounded-full px-2.5 py-1 border ${profile.agree_privacy ? 'border-emerald-300 bg-emerald-50 text-emerald-600' : 'border-gray-200 bg-gray-50 text-gray-500'}`}>
-                        개인정보 처리방침 동의 {profile.agree_privacy ? '완료' : '미동의'}
-                      </span>
-                      <span className={`rounded-full px-2.5 py-1 border ${profile.agree_marketing ? 'border-blue-200 bg-blue-50 text-blue-600' : 'border-gray-200 bg-gray-50 text-gray-500'}`}>
-                        마케팅 정보 수신 {profile.agree_marketing ? '동의' : '거부'}
-                      </span>
-                    </div>
-                  </section>
+                    </section>
+                  </div>
                 </div>
               )}
             </div>
 
-            <footer className="flex items-center justify-end gap-2 px-7 py-5 border-t border-gray-100 bg-[#f9fbfe]">
+            <footer className="flex items-center justify-end gap-2 px-7 py-3 border-t border-gray-100 bg-[#f9fbfe]">
                 {/* ⭐ 관리자만 표시되는 버튼 */}
                 {isAdmin && (
                   <button
