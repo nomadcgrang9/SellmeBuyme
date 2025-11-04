@@ -41,6 +41,8 @@ export interface CrawlerGenerationOptions {
   boardUrl: string;
   boardName: string;
   analysis: BoardAnalysisResult;
+  region?: string; // 지역명 (예: "성남", "경기도")
+  isLocalGovernment?: boolean; // 기초자치단체 여부 (true=기초, false=광역)
 }
 
 export interface CrawlerCodeResult {
@@ -77,6 +79,8 @@ export interface GenerationAttempt {
 export interface CrawlerGenerationState {
   boardUrl: string;
   boardName: string;
+  region?: string;
+  isLocalGovernment?: boolean;
   attempt: number;
   maxAttempts: number;
 

@@ -2832,8 +2832,18 @@ client_payload: {
 }
 ```
 
-#### **Phase 6-5: AI 크롤러 생성 템플릿 수정** ⭐ 가장 중요
+#### **Phase 6-5: AI 크롤러 생성 템플릿 수정** ⭐ 가장 중요 ✅ 완료 (2025-11-04)
 [codeGenerator.ts](crawler/ai-generator/agents/codeGenerator.ts) 프롬프트에 분기 로직 추가:
+
+**완료 내용**:
+- `generateCrawlerCode()` 함수에 `region`, `isLocalGovernment` 파라미터 추가
+- AI 프롬프트에 "### 6. Location 필드 처리" 섹션 추가
+- 기초자치단체: location 하드코딩 예시 제공
+- 광역자치단체: location 생략 가이드 제공
+- namyangju.js를 패턴 B 템플릿으로 추가 (location 하드코딩 예시)
+- 타입 정의 업데이트: `CrawlerGenerationOptions`, `CrawlerGenerationState`
+
+**원래 계획**:
 
 ```javascript
 // 기초자치단체 → location 하드코딩
