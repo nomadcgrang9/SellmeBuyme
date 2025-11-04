@@ -180,7 +180,7 @@ async function main() {
       logStep('ai-crawler', 'DB에서 크롤러 코드 로드 중...', { boardId });
       const { data: board, error: boardError } = await supabase
         .from('crawl_boards')
-        .select('id, name, board_url, crawler_source_code, crawl_batch_size')
+        .select('id, name, board_url, crawler_source_code, crawl_batch_size, region, is_local_government')
         .eq('id', boardId)
         .single();
       
@@ -306,7 +306,16 @@ async function main() {
           // Vision 데이터 우선, 없으면 normalized, 없으면 fallback
           const finalOrganization = visionData?.school_name || normalized?.organization || job.organization || board.name;
           const finalTitle = visionData?.job_title || normalized?.title || job.title;
-          const finalLocation = visionData?.location || normalized?.location || job.location || '지역 미상';
+
+          // Location: 기초/광역 자치단체 구분
+          let finalLocation;
+          if (board.is_local_government) {
+            // 기초자치단체: board.region 하드코딩 최우선
+            finalLocation = board.region || '지역 미상';
+          } else {
+            // 광역자치단체: AI 분석 결과 우선
+            finalLocation = visionData?.location || normalized?.location || job.location || board.region || '지역 미상';
+          }
           const finalDeadline = visionData?.deadline || normalized?.deadline || null;
           const finalCompensation = visionData?.compensation || normalized?.compensation || '협의';
           const finalTags = visionData?.subjects || normalized?.tags || [];
@@ -548,7 +557,23 @@ async function main() {
         // 6-6-1. LLM Fallback: school_level이 없을 때만 호출 (가장 중요)
         let finalSchoolLevel = derivedJobAttributes.schoolLevel;
         let finalSubject = derivedJobAttributes.subject;
-        let finalLocation = rawJob.location || validation.corrected_data.location || config.region;
+
+        // Location 처리: 기초/광역 자치단체 구분 ⭐
+        let finalLocation;
+        if (config.isLocalGovernment) {
+          // 기초자치단체: config.region 하드코딩 최우선 (크롤러에서 이미 설정했을 수도 있음)
+          finalLocation = config.region;
+          logDebug('pipeline', '기초자치단체 location 하드코딩', { region: config.region });
+        } else {
+          // 광역자치단체: 크롤러 추출 > AI 분석 > fallback
+          finalLocation = rawJob.location || validation.corrected_data.location || config.region || '미상';
+          logDebug('pipeline', '광역자치단체 location AI 추출', {
+            rawLocation: rawJob.location,
+            aiLocation: validation.corrected_data.location,
+            fallback: config.region,
+            final: finalLocation
+          });
+        }
 
         // 디버깅: 규칙 파싱 결과 로그
         logDebug('pipeline', '규칙 파싱 완료', {
@@ -579,13 +604,18 @@ async function main() {
           if (llmResult.inferred) {
             finalSchoolLevel = llmResult.school_level;
             finalSubject = llmResult.subject || finalSubject; // subject는 선택적 업데이트
-            finalLocation = llmResult.location || finalLocation; // location도 선택적 업데이트
-            
+
+            // Location은 기초자치단체가 아닐 때만 LLM 결과 반영
+            if (!config.isLocalGovernment) {
+              finalLocation = llmResult.location || finalLocation;
+            }
+
             logInfo('pipeline', 'LLM Fallback 완료', {
               title: rawJob.title,
               school_level: finalSchoolLevel,
               subject: finalSubject,
               location: finalLocation,
+              location_source: config.isLocalGovernment ? 'hardcoded' : 'llm',
               confidence: llmResult.confidence
             });
           } else {

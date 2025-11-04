@@ -2868,7 +2868,19 @@ else {
 }
 ```
 
-#### **Phase 6-6: 크롤링 실행 로직 수정** ⭐ 우선순위 변경
+#### **Phase 6-6: 크롤링 실행 로직 수정** ⭐ 우선순위 변경 ✅ 완료 (2025-11-04)
+
+**완료 내용**:
+- **수동 크롤러 브랜치** (index.js:552-567): config.isLocalGovernment로 분기 처리
+  - 기초자치단체: config.region 하드코딩 (AI 분석 무시)
+  - 광역자치단체: rawJob.location > AI 분석 > config.region fallback
+- **AI 크롤러 브랜치** (index.js:310-318): board.is_local_government로 분기 처리
+  - 기초자치단체: board.region 하드코딩
+  - 광역자치단체: AI Vision > normalized > job.location 우선순위
+- **LLM Fallback** (index.js:599-602): 기초자치단체는 location 덮어쓰기 방지
+- **DB 로드** (index.js:183): region, is_local_government 필드 추가 select
+
+**원래 계획**:
 [index.js:547](crawler/index.js#L547):
 ```javascript
 // 변경 전
