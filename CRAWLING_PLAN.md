@@ -2695,7 +2695,308 @@ async function handleApproveWithAI() {
 
 ---
 
-**최종 업데이트**: 2025-10-29
+## 📍 Phase 6: 지역명 정확성 개선 계획 (2025-11-04)
+
+### 🚨 **현재 문제 상황**
+
+크롤링된 공고 카드의 대부분이 **"미상"**으로 표시되는 문제가 발견되었습니다.
+
+#### **문제 원인 분석**
+
+1. **기존 수동 크롤러**: 지역명을 전혀 추출하지 않음
+   - [uijeongbu.js:140](crawler/sources/uijeongbu.js#L140): `location` 필드 없음
+   - [seongnam.js:83](crawler/sources/seongnam.js#L83): `location` 필드 없음
+   - [namyangju.js:140](crawler/sources/namyangju.js#L140): ✅ "경기도 남양주시" 하드코딩 (유일하게 올바른 구현)
+
+2. **Gemini Vision API**: 지역명 추출 로직 없음
+   - [gemini.js:234](crawler/lib/gemini.js#L234): 프롬프트에 `location` 필드 요구사항 없음
+
+3. **normalizeJobData (텍스트 기반 AI)**: 본문에서 추출 시도하지만 대부분 실패
+   - [gemini.js:173](crawler/lib/gemini.js#L173): 본문에 주소가 명시되지 않으면 "미상" 처리
+
+4. **최종 병합 로직**: fallback도 작동하지 않음
+   - [index.js:547](crawler/index.js#L547): `config.region` 필드가 sources.json에 없음
+
+#### **데이터 흐름 문제**
+```
+개발자노트 (지역명 입력 ❌)
+    ↓
+dev_board_submissions (region 컬럼 ❌)
+    ↓
+관리자 페이지 (지역명 표시 ❌)
+    ↓
+Edge Function (region 전달 ❌)
+    ↓
+AI 크롤러 생성 (location 하드코딩 ❌)
+    ↓
+크롤링 실행 (사용자 입력 우선순위 ❌)
+    ↓
+DB 저장 (location = "미상" ❌)
+    ↓
+프론트엔드 카드 (미상 표시 ❌)
+```
+
+---
+
+### 🎯 **핵심 요구사항**
+
+#### **1. 사용자 입력 지역명 최우선**
+- 개발자노트에서 게시판 제출 시 **"지역명" 직접 입력 필드** 제공
+- Gemini Vision 분석 결과보다 **사용자 입력이 항상 우선**
+- 우선순위: **사용자 입력 > 크롤러 추출 > AI 분석 > 기본값**
+
+#### **2. 광역/기초 자치단체 구분 ⭐ 매우 중요!**
+
+**기초자치단체 게시판** (의정부, 성남, 파주 등):
+- 관할 지역이 단일 시/군
+- 사용자 입력: "의정부"
+- 처리 방식: **location 하드코딩** → 모든 공고에 "의정부" 표시
+- Gemini 분석 결과 **무시**
+- ✅ 100% 정확성 보장
+
+**광역자치단체 게시판** (경기도, 전라남도 등):
+- 관할 지역이 여러 시/군 (예: 경기도 = 31개 시/군)
+- 사용자 입력: "경기도" (게시판 이름, 참고용)
+- 처리 방식: **location 하드코딩 안 함** → Gemini로 각 공고마다 지역 추출
+- 결과:
+  - 포천초등학교 공고 → "포천" 표시
+  - 연천중학교 공고 → "연천" 표시
+  - 수원고등학교 공고 → "수원" 표시
+- ✅ 공고별로 정확한 지역 표시
+
+**문제 시나리오 (광역지자체를 하드코딩하면 안 되는 이유):**
+```
+게시판: 경기도교육청 구인구직
+사용자 입력: "경기도"
+
+만약 하드코딩하면:
+- 포천초등학교 공고 → "경기도" ❌ (부정확!)
+- 연천중학교 공고 → "경기도" ❌ (부정확!)
+- 수원고등학교 공고 → "경기도" ❌ (부정확!)
+
+올바른 방식 (AI 분석):
+- 포천초등학교 공고 → "포천" ✅
+- 연천중학교 공고 → "연천" ✅
+- 수원고등학교 공고 → "수원" ✅
+```
+
+---
+
+### 🔧 **구현 계획**
+
+#### **Phase 6-1: 데이터베이스 스키마 수정**
+```sql
+-- dev_board_submissions 테이블
+ALTER TABLE dev_board_submissions ADD COLUMN region VARCHAR(50);
+ALTER TABLE dev_board_submissions ADD COLUMN is_local_government BOOLEAN DEFAULT true;
+
+-- crawl_boards 테이블
+ALTER TABLE crawl_boards ADD COLUMN region VARCHAR(50);
+ALTER TABLE crawl_boards ADD COLUMN is_local_government BOOLEAN DEFAULT true;
+```
+
+#### **Phase 6-2: 개발자노트 UI 수정**
+[DeveloperPage.tsx](src/pages/DeveloperPage.tsx)에 추가:
+```typescript
+// 지역 구분 선택
+<select value={governmentType} onChange={(e) => setGovernmentType(e.target.value)}>
+  <option value="local">기초자치단체 (의정부, 성남, 파주 등)</option>
+  <option value="regional">광역자치단체 (경기도, 전라남도 등)</option>
+</select>
+
+// 지역명 입력 (필수)
+<input
+  type="text"
+  placeholder={governmentType === 'local' ? '지역명 (예: 의정부)' : '광역명 (예: 경기도)'}
+  value={region}
+  required
+/>
+```
+
+#### **Phase 6-3: 관리자 페이지 UI 수정**
+[AdminPage.tsx](src/pages/AdminPage.tsx) 크롤링 관리 탭:
+- 제출 목록에 "지역" 컬럼 추가
+- "광역/기초" 구분 표시
+- AI 크롤러 생성 버튼 클릭 시 `region` + `is_local_government` 전달
+
+#### **Phase 6-4: Edge Function 수정**
+[generate-crawler/index.ts](supabase/functions/generate-crawler/index.ts):
+```typescript
+client_payload: {
+  submission_id: payload.submissionId,
+  board_name: payload.boardName,
+  board_url: payload.boardUrl,
+  region: payload.region,  // ← 추가
+  is_local_government: payload.isLocalGovernment,  // ← 추가
+  admin_user_id: payload.adminUserId,
+}
+```
+
+#### **Phase 6-5: AI 크롤러 생성 템플릿 수정** ⭐ 가장 중요
+[codeGenerator.ts](crawler/ai-generator/agents/codeGenerator.ts) 프롬프트에 분기 로직 추가:
+
+```javascript
+// 기초자치단체 → location 하드코딩
+if (isLocalGovernment) {
+  jobs.push({
+    title: title,
+    date: date,
+    link: absoluteLink,
+    location: config.region || '${region}',  // ← 하드코딩
+    detailContent: detailData.content,
+  });
+}
+// 광역자치단체 → location 추출 로직
+else {
+  jobs.push({
+    title: title,
+    date: date,
+    link: absoluteLink,
+    location: null,  // ← AI 분석에 맡김
+    detailContent: detailData.content,
+  });
+}
+```
+
+#### **Phase 6-6: 크롤링 실행 로직 수정** ⭐ 우선순위 변경
+[index.js:547](crawler/index.js#L547):
+```javascript
+// 변경 전
+let finalLocation = rawJob.location || validation.corrected_data.location || config.region;
+
+// 변경 후 (분기 처리)
+if (config.isLocalGovernment) {
+  // 기초지자체: 사용자 입력값 최우선 (하드코딩)
+  finalLocation = config.region;
+  // Gemini 분석 결과 무시!
+}
+else {
+  // 광역지자체: AI 분석 결과 사용
+  finalLocation = visionData?.location
+                  || normalized?.location
+                  || config.region  // fallback
+                  || '미상';
+}
+```
+
+#### **Phase 6-7: Gemini Vision API 프롬프트 개선** (광역용)
+[gemini.js:234](crawler/lib/gemini.js#L234):
+```javascript
+{
+  "school_name": "학교명",
+  "location": "학교 주소 (예: 포천시, 성남 분당구)",  // ← 추가
+  "job_title": "직무명",
+  // ...
+}
+```
+
+#### **Phase 6-8: crawl_boards에 region 저장**
+[approve-submission-and-update-db.ts](scripts/approve-submission-and-update-db.ts):
+```typescript
+await supabase
+  .from('crawl_boards')
+  .update({
+    region: submission.region,
+    is_local_government: submission.is_local_government,
+    crawler_source_code: generatedCode,
+    status: 'active'
+  })
+```
+
+#### **Phase 6-9: 기존 수동 크롤러 수정** (선택적)
+- [uijeongbu.js](crawler/sources/uijeongbu.js): `location: '의정부'` 추가
+- [seongnam.js](crawler/sources/seongnam.js): `location: '성남'` 추가
+- [namyangju.js](crawler/sources/namyangju.js): ✅ 이미 구현됨
+
+---
+
+### 📊 **최종 데이터 흐름**
+
+#### **기초자치단체 (의정부) - 하드코딩 방식**
+```
+개발자노트: "의정부" + 기초 선택
+    ↓
+dev_board_submissions: region="의정부", is_local_government=true
+    ↓
+관리자 페이지: "의정부 (기초)" 표시
+    ↓
+AI 크롤러 생성: location: '의정부' 하드코딩
+    ↓
+크롤링 실행: finalLocation = config.region = "의정부"
+    ↓
+DB 저장: location = "의정부"
+    ↓
+프론트엔드 카드: "의정부" 표시 ✅ (100% 정확)
+```
+
+#### **광역자치단체 (경기도) - AI 분석 방식**
+```
+개발자노트: "경기도" + 광역 선택
+    ↓
+dev_board_submissions: region="경기도", is_local_government=false
+    ↓
+관리자 페이지: "경기도 (광역)" 표시
+    ↓
+AI 크롤러 생성: location: null (하드코딩 안 함)
+    ↓
+크롤링 실행:
+  - 포천초 공고 → Vision API: "포천시" 추출
+  - 연천중 공고 → Vision API: "연천군" 추출
+  - 수원고 공고 → Vision API: "수원시" 추출
+    ↓
+DB 저장: 각 공고마다 다른 지역명
+    ↓
+프론트엔드 카드: "포천", "연천", "수원" 표시 ✅ (공고별 정확)
+```
+
+---
+
+### 🎯 **핵심 포인트 요약**
+
+1. **사용자 입력 = 절대 진리** (기초지자체)
+   - 사용자가 "의정부" 입력 → 카드에 "의정부" 표시 (100% 정확)
+   - Gemini 분석 결과 무시
+
+2. **AI 분석 = 필수** (광역지자체)
+   - 각 공고마다 본문/학교명에서 지역 추출
+   - 포천초 → "포천", 연천중 → "연천"
+
+3. **자동 추출 금지**
+   - 게시판 이름에서 지역명 자동 추출 ❌
+   - 오류 가능성 높음 (예: "구인구직" 추출 위험)
+   - 사용자 직접 입력 = 가장 안전
+
+4. **전체 파이프라인 연결**
+   - 개발자노트 → DB → 관리자 → AI 생성 → 크롤링 → 저장 → 프론트엔드
+   - 모든 단계에서 region + is_local_government 전달
+
+---
+
+### ✅ **구현 체크리스트**
+
+- [ ] Phase 6-1: DB 스키마 수정 (region, is_local_government 컬럼)
+- [ ] Phase 6-2: 개발자노트 UI (광역/기초 선택 + 지역명 입력)
+- [ ] Phase 6-3: 관리자 페이지 UI (지역 구분 표시)
+- [ ] Phase 6-4: Edge Function 수정 (region 전달)
+- [ ] Phase 6-5: AI 크롤러 생성 템플릿 (분기 로직)
+- [ ] Phase 6-6: 크롤링 실행 로직 (우선순위 변경)
+- [ ] Phase 6-7: Gemini Vision API (location 필드 추가)
+- [ ] Phase 6-8: approve-submission 스크립트 (region 저장)
+- [ ] Phase 6-9: 기존 수동 크롤러 수정 (선택적)
+- [ ] CLI 테스트 (기존 게시판 크롤링)
+- [ ] 사용자 직접 테스트 (새 게시판 등록 → AI 크롤러 생성 → 크롤링)
+
+---
+
+### 🚀 **테스트 계획**
+
+1. **CLI 테스트**: 기존 게시판 크롤링으로 로직 검증
+2. **사용자 테스트**: 개발자노트에서 새 게시판 제출 → AI 크롤러 생성 → 크롤링 실행
+3. **결과 확인**: 프론트엔드 카드에 정확한 지역명 표시 확인
+
+---
+
+**최종 업데이트**: 2025-11-04
 **작성자**: Claude (AI Assistant)
-**현재 상태**: Phase 5 계획 완료, 구현 준비 완료
-**다음 작업**: Phase 5 구현 시작
+**현재 상태**: Phase 6 계획 완료, 구현 대기 중
+**다음 작업**: Phase 6 구현 시작 (사용자 승인 대기)

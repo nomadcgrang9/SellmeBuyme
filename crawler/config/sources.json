@@ -13,6 +13,7 @@
       "attachment": "a[href*='.hwp'], a[href*='download']"
     },
     "region": "성남",
+    "isLocalGovernment": true,
     "active": true
   },
   "gyeonggi": {
@@ -39,6 +40,7 @@
       "srchSchlSe": ""
     },
     "region": "경기",
+    "isLocalGovernment": false,
     "active": true
   },
   "uijeongbu": {
@@ -55,6 +57,7 @@
       "attachment": "a[href*='.hwp'], a[href*='download']"
     },
     "region": "의정부",
+    "isLocalGovernment": true,
     "active": true
   },
   "남양주교육지원청구인구직테스트": {

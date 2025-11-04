@@ -5,6 +5,7 @@ import { getOrCreateCrawlSource, saveJobPosting, updateCrawlSuccess, incrementEr
 import { crawlSeongnam } from './sources/seongnam.js';
 import { crawlGyeonggi } from './sources/gyeonggi.js';
 import { crawlUijeongbu } from './sources/uijeongbu.js';
+import { crawlNamyangju } from './sources/namyangju.js';
 import { getTokenUsage, resetTokenUsage } from './lib/gemini.js';
 import { parseJobField, deriveJobAttributes } from './lib/jobFieldParser.js';
 import dotenv from 'dotenv';
@@ -405,6 +406,9 @@ async function main() {
     } else if (targetSource === 'uijeongbu') {
       logStep('crawler', '의정부교육지원청 크롤링 호출');
       rawJobs = await crawlUijeongbu(page, config);
+    } else if (targetSource === 'namyangju') {
+      logStep('crawler', '구리남양주교육지원청 크롤링 호출');
+      rawJobs = await crawlNamyangju(page, config);
     } else {
       throw new Error(`지원하지 않는 소스: ${targetSource}`);
     }

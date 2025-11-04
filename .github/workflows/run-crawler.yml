@@ -66,6 +66,9 @@ jobs:
           elif [ "$BOARD_ID" = "55d09cac-71aa-48d5-a8b8-bbd9181970bb" ]; then
             echo "source=uijeongbu" >> $GITHUB_OUTPUT
             exit 0
+          elif [ "$BOARD_ID" = "5d7799d9-5d8d-47a2-b0df-6dd4f39449bd" ]; then
+            echo "source=namyangju" >> $GITHUB_OUTPUT
+            exit 0
           fi
           
           # 새로운 AI 생성 크롤러는 기본 source 사용
@@ -116,6 +119,9 @@ jobs:
               ;;
             "uijeongbu")
               node index.js --source=uijeongbu
+              ;;
+            "namyangju")
+              node index.js --source=namyangju
               ;;
             "ai-generated")
               echo "🤖 Running AI-generated crawler for board: $BOARD_ID"
@@ -209,6 +215,9 @@ jobs:
           - board_id: '55d09cac-71aa-48d5-a8b8-bbd9181970bb'
             source: 'uijeongbu'
             name: '의정부교육지원청 구인'
+          - board_id: '5d7799d9-5d8d-47a2-b0df-6dd4f39449bd'
+            source: 'namyangju'
+            name: '구리남양주교육지원청 인력풀'
 
     steps:
       - name: Checkout code
@@ -254,6 +263,9 @@ jobs:
               ;;
             "uijeongbu")
               node index.js --source=uijeongbu
+              ;;
+            "namyangju")
+              node index.js --source=namyangju
               ;;
             *)
               echo "⚠️  Unknown crawler source: $CRAWLER_SOURCE"
