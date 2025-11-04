@@ -16,6 +16,7 @@ type SlideKey =
   | 'field'
   | 'phone'
   | 'review'
+  | 'card-registration'
   | 'done'
 
 const order: SlideKey[] = [
@@ -32,6 +33,7 @@ const order: SlideKey[] = [
   'field',
   'phone',
   'review',
+  'card-registration',
   'done'
 ]
 
@@ -85,6 +87,7 @@ export default function Landing() {
   const [regions, setRegions] = useState<string[]>([])
   const [fields, setFields] = useState<string[]>([])
   const [phone, setPhone] = useState('')
+  const [cardRegistration, setCardRegistration] = useState<string | null>(null)
 
   const regionsList = useMemo(() => [
     '서울',
@@ -147,6 +150,7 @@ export default function Landing() {
     if (step === 'name') return name.trim().length === 0
     if (step === 'role') return role == null
     if (step === 'phone') return !isValidPhone(phone)
+    if (step === 'card-registration') return cardRegistration == null
     return false
   }
 
@@ -199,7 +203,7 @@ export default function Landing() {
         {/* Slide 6 - easy */}
         {step === 'easy' && (
           <motion.section initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="slide">
-            <SlideTitle text="어렵지 않습니다." />
+            <SlideTitle text="어렵지 않습니다" />
           </motion.section>
         )}
 
@@ -307,10 +311,25 @@ export default function Landing() {
           </motion.section>
         )}
 
-        {/* Slide 14 - done (static) */}
+        {/* Slide 14 - card-registration */}
+        {step === 'card-registration' && (
+          <motion.section initial={{ x: 50, opacity: 0 }} animate={{ x: 0, opacity: 1 }} className="slide">
+            <SlideTitle text="입력하신 정보를 바탕으로 관심있는 분야의 학생 또는 성인대상 강사 또는 인력으로 카드를 등록해보시겠습니까?" />
+            <motion.div className="center-sub" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }}>
+              해당 기회가 오면 선생님을 다른 학교와 자원들에게 적극 추천해보겠습니다
+            </motion.div>
+            <motion.div className="floating-panel" initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: 0.3 }}>
+              {['관심있음', '안해도 괜찮습니다'].map(opt => (
+                <button key={opt} className={`chip large ${cardRegistration === opt ? 'selected' : ''}`} onClick={() => setCardRegistration(opt)} style={{ margin: 8 }}>{opt}</button>
+              ))}
+            </motion.div>
+          </motion.section>
+        )}
+
+        {/* Slide 15 - done (static) */}
         {step === 'done' && (
           <motion.section initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="slide">
-            <SlideTitle text="감사합니다 — 바로 메인으로 이동합니다." />
+            <SlideTitle text="이제 메인페이지로 이동합니다" />
             <div className="loader">연결 중…</div>
             {/* Removed per-slide navigation */}
           </motion.section>
