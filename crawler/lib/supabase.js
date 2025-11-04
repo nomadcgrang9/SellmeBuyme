@@ -70,7 +70,7 @@ export async function saveJobPosting(jobData, crawlSourceId, hasContentImages = 
 
   const payload = {
     source: 'crawled',
-    crawl_source_id: crawlSourceId,
+    crawl_board_id: crawlSourceId,  // 수정: crawl_source_id → crawl_board_id (DB 스키마와 일치)
     organization: jobData.organization,
     title: jobData.title,
     job_type: jobData.job_type,

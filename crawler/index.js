@@ -572,6 +572,18 @@ async function main() {
             configRegion: config.region,
             final: finalLocation
           });
+
+          // 최후방어선: '미상'이면 게시판 이름에서 지역 추출
+          if (finalLocation === '미상' || !finalLocation) {
+            const match = config.name.match(/^([가-힣]+)(교육|교육지원청)/);
+            if (match) {
+              finalLocation = match[1];
+              logDebug('pipeline', '게시판 이름에서 지역 추출 (최후방어선)', {
+                boardName: config.name,
+                extractedLocation: finalLocation
+              });
+            }
+          }
         } else {
           // 광역자치단체: 크롤러 추출 > AI 분석 > fallback
           finalLocation = rawJob.location || validation.corrected_data.location || config.region || '미상';
