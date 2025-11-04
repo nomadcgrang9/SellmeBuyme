@@ -15,6 +15,8 @@ interface GenerateCrawlerRequest {
   boardName: string
   boardUrl: string
   adminUserId: string
+  region?: string
+  isLocalGovernment?: boolean
 }
 
 interface GenerateCrawlerResponse {
@@ -68,6 +70,8 @@ Deno.serve(async (req) => {
       boardName: payload.boardName,
       boardUrl: payload.boardUrl,
       adminUserId: payload.adminUserId,
+      region: payload.region,
+      isLocalGovernment: payload.isLocalGovernment,
     })
 
     // 1. Submission 승인 처리
@@ -119,6 +123,8 @@ Deno.serve(async (req) => {
             board_name: payload.boardName,
             board_url: payload.boardUrl,
             admin_user_id: payload.adminUserId,
+            region: payload.region || null,
+            is_local_government: payload.isLocalGovernment || false,
           },
         }),
       }

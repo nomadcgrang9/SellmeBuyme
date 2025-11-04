@@ -249,6 +249,10 @@ function generateCrawlerCode(config: CrawlerConfig): string {
     .replace(/\s+/g, '-')
     .replace(/[^a-z0-9가-힣-]/g, '');
 
+  // 지역 및 기초자치단체 정보 (전달받은 값 사용)
+  const regionParam = (config as any).region || null;
+  const isLocalGovParam = (config as any).isLocalGovernment || false;
+
   const code = `import { loadPage, getTextBySelectors, getAttributeBySelectors, resolveUrl } from './lib/playwright.js';
 
 /**
@@ -524,7 +528,7 @@ export async function crawl${functionName}(page, config) {
           title: title || '제목 없음',
           date: date || '날짜 없음',
           link: absoluteLink,
-          location: aiLocation || null,
+          location: ${regionParam && isLocalGovParam ? `'${regionParam}'` : '(aiLocation || null)'},
           detail_content: content || '',
           attachment_url: resolvedAttachmentUrl || null,
           screenshot_base64: screenshotBase64
@@ -589,20 +593,25 @@ async function main() {
 
   if (args.length < 2) {
     console.error(`
-사용법: npx tsx scripts/generate-crawler-ai.ts <URL> <게시판명>
+사용법: npx tsx scripts/generate-crawler-ai.ts <URL> <게시판명> [지역명] [기초자치단체여부]
 
 예시:
-  npx tsx scripts/generate-crawler-ai.ts "https://www.goegn.kr/goegn/na/ntt/selectNttList.do?mi=14084&bbsId=8656" "남양주교육지원청 구인구직"
+  npx tsx scripts/generate-crawler-ai.ts "https://www.goegp.kr/..." "가평교육지원청" "가평" "true"
+  npx tsx scripts/generate-crawler-ai.ts "https://www.goegn.kr/..." "남양주교육지원청" "구리남양주" "true"
     `);
     process.exit(1);
   }
 
   const url = args[0];
   const boardName = args[1];
+  const region = args[2] || null;
+  const isLocalGovernment = args[3] === 'true';
 
   console.log('🚀 AI 크롤러 생성 시작');
   console.log(`   URL: ${url}`);
   console.log(`   게시판명: ${boardName}`);
+  console.log(`   지역: ${region || '미지정'}`);
+  console.log(`   기초자치단체: ${isLocalGovernment ? '예' : '아니오'}`);
 
   try {
     // 1. 페이지 분석
@@ -621,10 +630,12 @@ async function main() {
     }
 
     // 4. 크롤러 코드 생성
-    const config: CrawlerConfig = {
+    const config: CrawlerConfig & { region?: string | null; isLocalGovernment?: boolean } = {
       name: boardName,
       baseUrl: url,
-      selectors
+      selectors,
+      region,
+      isLocalGovernment
     };
 
     const code = generateCrawlerCode(config);

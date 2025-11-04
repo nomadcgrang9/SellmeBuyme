@@ -84,7 +84,9 @@ export default function BoardApprovalModal({
         submissionId: submission.id,
         boardName: submission.boardName,
         boardUrl: submission.boardUrl,
-        adminUserId: user.id
+        adminUserId: user.id,
+        region: submission.region,
+        isLocalGovernment: submission.isLocalGovernment
       });
 
       // Edge Function을 통해 안전하게 크롤러 생성 및 GitHub Actions 트리거
@@ -94,6 +96,8 @@ export default function BoardApprovalModal({
           boardName: submission.boardName,
           boardUrl: submission.boardUrl,
           adminUserId: user.id,
+          region: submission.region,
+          isLocalGovernment: submission.isLocalGovernment,
         },
       });
 
