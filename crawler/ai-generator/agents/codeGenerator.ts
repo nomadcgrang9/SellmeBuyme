@@ -44,6 +44,11 @@ async function loadCrawlerTemplates(): Promise<CrawlerTemplate[]> {
       code: await readFile(join(templatesDir, 'seongnam.js'), 'utf-8')
     },
     {
+      name: 'namyangju',
+      pattern: 'B',
+      code: await readFile(join(templatesDir, 'namyangju.js'), 'utf-8')
+    },
+    {
       name: 'uijeongbu',
       pattern: 'C',
       code: await readFile(join(templatesDir, 'uijeongbu.js'), 'utf-8')
@@ -75,7 +80,9 @@ function sanitizeBoardName(boardName: string): string {
 export async function generateCrawlerCode(
   analysis: BoardAnalysisResult,
   boardName: string,
-  errorContext: string = '' // 이전 오류 정보 (Self-Correction용)
+  errorContext: string = '', // 이전 오류 정보 (Self-Correction용)
+  region?: string, // 지역명 (예: "성남", "경기도")
+  isLocalGovernment?: boolean // 기초자치단체 여부
 ): Promise<CrawlerCodeResult> {
   console.log('\n🤖 [Phase 5-2] 크롤러 코드 생성 시작');
   console.log(`   게시판: ${boardName}`);
@@ -88,13 +95,23 @@ export async function generateCrawlerCode(
   try {
     // 1. 기존 크롤러 템플릿 로드
     const templates = await loadCrawlerTemplates();
-    const selectedTemplate = templates.find(t => t.pattern === analysis.mostSimilarPattern);
+
+    // 패턴에 맞는 템플릿 선택 (기초자치단체면 namyangju 우선)
+    let selectedTemplate = templates.find(t =>
+      t.pattern === analysis.mostSimilarPattern &&
+      (isLocalGovernment ? t.name === 'namyangju' : t.name !== 'namyangju')
+    );
+
+    // 못 찾으면 패턴만 일치하는 것 선택
+    if (!selectedTemplate) {
+      selectedTemplate = templates.find(t => t.pattern === analysis.mostSimilarPattern);
+    }
 
     if (!selectedTemplate) {
       throw new Error(`패턴 ${analysis.mostSimilarPattern}에 해당하는 템플릿을 찾을 수 없습니다`);
     }
 
-    console.log(`   템플릿: ${selectedTemplate.name} (패턴 ${selectedTemplate.pattern})`);
+    console.log(`   템플릿: ${selectedTemplate.name} (패턴 ${selectedTemplate.pattern})${isLocalGovernment !== undefined ? ` [${isLocalGovernment ? '기초' : '광역'}자치단체]` : ''}`);
 
     // 2. 함수명 생성
     const functionName = sanitizeBoardName(boardName);
@@ -128,7 +145,8 @@ ${JSON.stringify({
 }, null, 2)}
 \`\`\`
 
-## 템플릿 소스 코드 (${selectedTemplate.pattern} 패턴):
+## 템플릿 소스 코드 (${selectedTemplate.pattern} 패턴 - ${selectedTemplate.name}):
+${selectedTemplate.name === 'namyangju' ? '**참고**: 이 템플릿은 기초자치단체 예시로, location 필드가 하드코딩되어 있습니다.' : ''}
 \`\`\`javascript
 ${selectedTemplate.code}
 \`\`\`
@@ -168,6 +186,43 @@ ${selectedTemplate.code}
 - 스크린샷 캡처 (screenshotBase64)
 - 목록 페이지로 돌아가기
 - 에러 발생 시 continue
+
+### 6. Location 필드 처리 ⭐ 매우 중요!
+${region ? `
+**지역 정보**: "${region}"
+**자치단체 유형**: ${isLocalGovernment ? '기초자치단체 (단일 시/군)' : '광역자치단체 (여러 시/군)'}
+
+${isLocalGovernment ? `
+**기초자치단체 처리 방식 (하드코딩)**:
+이 게시판은 "${region}" 단일 지역만 담당하므로, 모든 공고에 location을 하드코딩합니다.
+
+jobs.push({
+  title: title,
+  date: date,
+  link: absoluteLink,
+  location: '${region}',  // ← 기초자치단체 하드코딩
+  detailContent: detailData.content,
+  attachmentUrl: detailData.attachmentUrl,
+  // ... 나머지 필드
+});
+` : `
+**광역자치단체 처리 방식 (AI 추출)**:
+이 게시판은 여러 시/군의 공고를 포함하므로, location 필드를 생성하지 마세요.
+크롤러는 location 없이 데이터를 반환하고, 이후 Gemini Vision API가 각 공고마다 지역을 추출합니다.
+
+jobs.push({
+  title: title,
+  date: date,
+  link: absoluteLink,
+  // location 필드 생성 안 함 ← 광역자치단체는 location 생략
+  detailContent: detailData.content,
+  attachmentUrl: detailData.attachmentUrl,
+  // ... 나머지 필드
+});
+`}
+` : `
+**location 정보 없음**: 사용자가 지역 정보를 제공하지 않았으므로 location 필드를 생성하지 마세요.
+`}
 
 ## 출력 형식:
 - 완전한 JavaScript 파일 코드만 출력
