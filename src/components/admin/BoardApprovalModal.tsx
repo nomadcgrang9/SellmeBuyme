@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { X, Check, Ban, MapPin, GraduationCap, ExternalLink } from 'lucide-react';
 import type { DevBoardSubmission } from '@/types/developer';
 import { getBoardSubmissions } from '@/lib/supabase/developer';
-import { buildRegionDisplayName } from '@/lib/supabase/regions';
+import { buildRegionDisplayName, fetchRegionByCode } from '@/lib/supabase/regions';
 import { approveBoardSubmissionAndCreateCrawlBoard, rejectBoardSubmission } from '@/lib/supabase/developer';
 import { supabase } from '@/lib/supabase/client';
 
@@ -80,12 +80,26 @@ export default function BoardApprovalModal({
         throw new Error('로그인이 필요합니다');
       }
 
+      // Extract region name from regionCode/subregionCode
+      let regionName: string | null = null;
+      if (submission.isLocalGovernment && submission.subregionCode) {
+        // 기초자치단체: 하위 지역명만 사용 (예: "가평", "성남")
+        const city = await fetchRegionByCode(submission.subregionCode);
+        regionName = city?.name.replace(/(시|군|구)$/, '') || null;
+      } else if (submission.regionCode) {
+        // 광역자치단체: 상위 지역명 사용 (예: "경기도")
+        const province = await fetchRegionByCode(submission.regionCode);
+        regionName = province?.name.replace(/(도|시)$/, '') || null;
+      }
+
       console.log('[BoardApprovalModal] Edge Function 호출 시작:', {
         submissionId: submission.id,
         boardName: submission.boardName,
         boardUrl: submission.boardUrl,
         adminUserId: user.id,
-        region: submission.region,
+        regionCode: submission.regionCode,
+        subregionCode: submission.subregionCode,
+        regionName: regionName,
         isLocalGovernment: submission.isLocalGovernment
       });
 
@@ -96,7 +110,7 @@ export default function BoardApprovalModal({
           boardName: submission.boardName,
           boardUrl: submission.boardUrl,
           adminUserId: user.id,
-          region: submission.region,
+          region: regionName,
           isLocalGovernment: submission.isLocalGovernment,
         },
       });
