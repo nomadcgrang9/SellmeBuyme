@@ -236,6 +236,8 @@ async function main() {
         name: board.name,
         url: board.board_url,
         crawlBatchSize: board.crawl_batch_size || 10,
+        region: board.region,
+        isLocalGovernment: board.is_local_government,
       });
       
       logStep('ai-crawler', '크롤링 완료', { jobCount: jobs.length });
@@ -387,11 +389,13 @@ async function main() {
     const crawlSourceInfo = await getOrCreateCrawlSource(config.name, config.baseUrl);
     const crawlSourceId = crawlSourceInfo.id;
     const crawlBatchSize = crawlSourceInfo.crawlBatchSize || 10;
-    
+
     logStep('main', '크롤링 소스 정보 확보', { crawlSourceId, crawlBatchSize });
-    
-    // config에 crawlBatchSize 추가
+
+    // config에 추가 정보 설정
     config.crawlBatchSize = crawlBatchSize;
+    config.region = crawlSourceInfo.region;
+    config.isLocalGovernment = crawlSourceInfo.isLocalGovernment;
     
     // 4. 브라우저 시작
     logStep('browser', 'Playwright 브라우저 생성 시작');
