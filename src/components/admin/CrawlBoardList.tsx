@@ -119,8 +119,6 @@ export default function CrawlBoardList({ onCreate, onEdit, onLogs, refreshToken,
     setSavingBoardId(board.id);
     try {
       await unapproveCrawlBoard(board.id);
-      // 승인 취소 후 필터 해제 (승인 대기 상태 보이도록)
-      setFilterApproved(null);
       await loadBoards();
     } catch (err) {
       console.error(err);

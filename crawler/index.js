@@ -565,9 +565,13 @@ async function main() {
         // Location 처리: 기초/광역 자치단체 구분 ⭐
         let finalLocation;
         if (config.isLocalGovernment) {
-          // 기초자치단체: config.region 하드코딩 최우선 (크롤러에서 이미 설정했을 수도 있음)
-          finalLocation = config.region;
-          logDebug('pipeline', '기초자치단체 location 하드코딩', { region: config.region });
+          // 기초자치단체: 크롤러 하드코딩(rawJob.location) > DB(config.region) 순서
+          finalLocation = rawJob.location || config.region || '미상';
+          logDebug('pipeline', '기초자치단체 location 하드코딩', {
+            rawLocation: rawJob.location,
+            configRegion: config.region,
+            final: finalLocation
+          });
         } else {
           // 광역자치단체: 크롤러 추출 > AI 분석 > fallback
           finalLocation = rawJob.location || validation.corrected_data.location || config.region || '미상';
