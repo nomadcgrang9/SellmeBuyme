@@ -128,7 +128,7 @@ export default defineConfig({
         short_name: '개발자노트',
         description: '셀미바이미 개발팀 협업 도구 - 아이디어 수집 및 게시판 등록',
         start_url: '/note',
-        scope: '/note',
+        scope: '/',
         display: 'standalone',
         theme_color: '#a8c5e0',
         background_color: '#f9fafb',
