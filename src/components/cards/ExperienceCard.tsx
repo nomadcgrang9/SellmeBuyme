@@ -1,6 +1,7 @@
 import { ExperienceCard as ExperienceCardType } from '@/types';
 import { IconMapPin, IconCategory, IconSchool, IconUsers, IconPhone, IconAt } from '@tabler/icons-react';
 import { useAuthStore } from '@/stores/authStore';
+import { getExperienceImage, handleImageError } from '@/lib/utils/cardImages';
 
 interface ExperienceCardProps {
   card: ExperienceCardType;
@@ -30,6 +31,9 @@ export default function ExperienceCard({ card, onEditClick, onCardClick }: Exper
   const displayTitle = card.programTitle || '[제목 없음 - 데이터 확인 필요]';
   const displayIntro = card.introduction || '[소개 없음 - 데이터 확인 필요]';
   const displayLocation = card.locationSummary || '[지역 없음]';
+
+  // categories 기반 이미지 경로 결정
+  const imageUrl = getExperienceImage(card.categories);
 
   return (
     <article
@@ -110,19 +114,15 @@ export default function ExperienceCard({ card, onEditClick, onCardClick }: Exper
           )}
         </div>
 
-        {/* 우측: 동그란 프로필 이미지 - 테스트용: "인성교육"만 표시 */}
-        {displayTitle.includes('인성교육') && (
-          <div className="flex-shrink-0">
-            <img
-              src="/picture/experiences/sports.webp"
-              alt={`${displayTitle} 이미지`}
-              className="w-20 h-20 rounded-full object-cover shadow-md"
-              onError={(e) => {
-                e.currentTarget.style.display = 'none';
-              }}
-            />
-          </div>
-        )}
+        {/* 우측: 동그란 프로그램 이미지 (categories 기반 자동 매핑) */}
+        <div className="flex-shrink-0">
+          <img
+            src={imageUrl}
+            alt={`${displayTitle} 이미지`}
+            className="w-20 h-20 rounded-full object-cover shadow-md"
+            onError={(e) => handleImageError(e, 'experience')}
+          />
+        </div>
       </div>
     </article>
   );
