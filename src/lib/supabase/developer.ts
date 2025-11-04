@@ -387,12 +387,16 @@ export async function getBoardSubmissionById(
  * URL 중복 체크
  * @param url - 체크할 URL
  * @returns 중복 여부
+ *
+ * 주의: 승인된(approved) 제출만 중복으로 간주합니다.
+ * pending 상태 또는 삭제된 제출은 재등록이 가능합니다.
  */
 export async function checkBoardUrlDuplicate(url: string): Promise<boolean> {
   const { data, error } = await supabase
     .from('dev_board_submissions')
     .select('id')
     .eq('board_url', url)
+    .eq('status', 'approved')  // 승인된 제출만 중복으로 간주
     .limit(1);
 
   if (error) {

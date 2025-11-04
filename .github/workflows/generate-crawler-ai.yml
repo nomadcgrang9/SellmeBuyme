@@ -41,8 +41,10 @@ jobs:
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
           BOARD_NAME: ${{ github.event.client_payload.board_name || inputs.board_name }}
           BOARD_URL: ${{ github.event.client_payload.board_url || inputs.board_url }}
+          REGION: ${{ github.event.client_payload.region || '' }}
+          IS_LOCAL_GOVERNMENT: ${{ github.event.client_payload.is_local_government || 'false' }}
         run: |
-          npx tsx scripts/generate-crawler-ai.ts "$BOARD_URL" "$BOARD_NAME"
+          npx tsx scripts/generate-crawler-ai.ts "$BOARD_URL" "$BOARD_NAME" "$REGION" "$IS_LOCAL_GOVERNMENT"
 
       - name: Approve submission and update DB
         env:
