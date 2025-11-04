@@ -116,10 +116,10 @@ export default function AIRecommendations({
             {/* 공고 등록 */}
             <button
               onClick={() => setActiveSection(activeSection === 'job' ? null : 'job')}
-              className={`h-[50px] rounded-xl px-3 transition-all duration-200 flex items-center justify-center gap-1.5 font-semibold text-base ${
+              className={`h-[50px] rounded-xl px-3 transition-all duration-200 flex items-center justify-center gap-1.5 font-semibold text-base border ${
                 activeSection === 'job'
-                  ? 'bg-gradient-to-r from-[#9DD2FF] to-[#68B2FF] text-white shadow-md'
-                  : 'text-gray-900 hover:opacity-80'
+                  ? 'bg-gradient-to-r from-[#9DD2FF] to-[#68B2FF] text-white shadow-md border-gray-300'
+                  : 'text-gray-900 hover:opacity-80 border-gray-300'
               }`}
             >
               <img src="/icon/noti.ico" alt="공고" className="w-[29px] h-[29px]" />
@@ -129,10 +129,10 @@ export default function AIRecommendations({
             {/* 인력 등록 */}
             <button
               onClick={() => setActiveSection(activeSection === 'talent' ? null : 'talent')}
-              className={`h-[50px] rounded-xl px-3 transition-all duration-200 flex items-center justify-center gap-1.5 font-semibold text-base ${
+              className={`h-[50px] rounded-xl px-3 transition-all duration-200 flex items-center justify-center gap-1.5 font-semibold text-base border ${
                 activeSection === 'talent'
-                  ? 'bg-gradient-to-r from-[#7db8a3] to-[#6fb59b] text-white shadow-md'
-                  : 'text-gray-900 hover:opacity-80'
+                  ? 'bg-gradient-to-r from-[#7db8a3] to-[#6fb59b] text-white shadow-md border-gray-300'
+                  : 'text-gray-900 hover:opacity-80 border-gray-300'
               }`}
             >
               <img src="/icon/people.ico" alt="인력" className="w-[29px] h-[29px]" />
@@ -142,10 +142,10 @@ export default function AIRecommendations({
             {/* 체험 등록 */}
             <button
               onClick={() => setActiveSection(activeSection === 'experience' ? null : 'experience')}
-              className={`h-[50px] rounded-xl px-3 transition-all duration-200 flex items-center justify-center gap-1.5 font-semibold text-base ${
+              className={`h-[50px] rounded-xl px-3 transition-all duration-200 flex items-center justify-center gap-1.5 font-semibold text-base border ${
                 activeSection === 'experience'
-                  ? 'bg-gradient-to-r from-[#ffd98e] to-[#f4c96b] text-gray-900 shadow-md'
-                  : 'text-gray-900 hover:opacity-80'
+                  ? 'bg-gradient-to-r from-[#ffd98e] to-[#f4c96b] text-gray-900 shadow-md border-gray-300'
+                  : 'text-gray-900 hover:opacity-80 border-gray-300'
               }`}
             >
               <img src="/icon/play.ico" alt="체험" className="w-[29px] h-[29px]" />
