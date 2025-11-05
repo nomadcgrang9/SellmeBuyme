@@ -760,13 +760,14 @@ async function main() {
   console.log('');
 
   if (successCount === 0) {
-    logWarn('summary', '저장된 공고 없음', {
+    logWarn('summary', '저장된 공고 없음 (신규 공고 없음 또는 모두 중복)', {
       targetSource,
       skippedCount,
       failCount,
       rawTotal: rawJobs.length
     });
-    process.exit(2);
+    // Exit code 0: 신규 공고가 없는 것은 정상 상황 (워크플로우 실패로 처리하지 않음)
+    process.exit(0);
   }
   
   logInfo('main', '크롤링 완료', {
