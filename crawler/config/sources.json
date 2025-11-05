@@ -71,15 +71,21 @@
       "link": "td.ta_l a"
     }
   },
-  "남양주교육지원청구인구직": {
-    "name": "남양주교육지원청 구인구직",
+  "namyangju": {
+    "name": "구리남양주교육지원청 인력풀",
     "baseUrl": "https://www.goegn.kr/goegn/na/ntt/selectNttList.do?mi=14084&bbsId=8656",
+    "detailUrlTemplate": "https://www.goegn.kr/goegn/na/ntt/selectNttInfo.do?mi=14084&bbsId=8656&nttSn=",
+    "parserType": "html",
     "selectors": {
-      "listContainer": "table",
+      "listContainer": "table.board-list, .board_list, .tbl_list",
       "rows": "tbody tr",
-      "title": "td.ta_l a",
-      "date": "td:nth-child(5)",
-      "link": "td.ta_l a"
-    }
+      "title": "td.ta_l a, .nttInfoBtn",
+      "date": "td:nth-child(3)",
+      "link": ".nttInfoBtn",
+      "attachment": "a[href*='.hwp'], a[href*='download']"
+    },
+    "region": "구리남양주",
+    "isLocalGovernment": true,
+    "active": true
   }
 }
