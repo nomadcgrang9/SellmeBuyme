@@ -204,6 +204,7 @@ jobs:
     timeout-minutes: 30
 
     strategy:
+      fail-fast: false
       matrix:
         board:
           - board_id: 'f4c852f1-f49a-42c5-8823-0edd346f99bb'
@@ -218,6 +219,12 @@ jobs:
           - board_id: '5d7799d9-5d8d-47a2-b0df-6dd4f39449bd'
             source: 'namyangju'
             name: '구리남양주교육지원청 인력풀'
+          - board_id: 'ce968fdd-6fe4-4fb7-8ec8-60d491932c6c'
+            source: 'ai-generated'
+            name: '남양주교육지원청-구인구직'
+          - board_id: 'de02eada-6569-45df-9f4d-45a4fcc51879'
+            source: 'ai-generated'
+            name: '가평교육지원청 기간제교원 구인구직'
 
     steps:
       - name: Checkout code
@@ -266,6 +273,10 @@ jobs:
               ;;
             "namyangju")
               node index.js --source=namyangju
+              ;;
+            "ai-generated")
+              echo "🤖 Running AI-generated crawler for board: $BOARD_ID"
+              node index.js --board-id="$BOARD_ID" --mode="$CRAWL_MODE"
               ;;
             *)
               echo "⚠️  Unknown crawler source: $CRAWLER_SOURCE"
