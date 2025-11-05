@@ -123,7 +123,7 @@ export default function ProfileViewModal({ isOpen, onClose, userId, userEmail, o
           onClick={onClose}
         >
           <motion.div
-            className="relative w-full max-w-lg mx-4 rounded-3xl bg-white shadow-2xl font-esamanru"
+            className="relative w-full max-w-lg mx-4 rounded-3xl bg-white shadow-2xl font-esamanru overflow-hidden"
             initial={{ y: 32, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 32, opacity: 0 }}
