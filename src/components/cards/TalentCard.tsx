@@ -6,9 +6,10 @@ import { getTalentImage, handleImageError } from '@/lib/utils/cardImages';
 interface TalentCardProps {
   talent: TalentCardType;
   onEditClick?: (card: TalentCardType) => void;
+  isHighlight?: boolean;
 }
 
-export default function TalentCard({ talent, onEditClick }: TalentCardProps) {
+export default function TalentCard({ talent, onEditClick, isHighlight }: TalentCardProps) {
   const { user } = useAuthStore((s) => ({ user: s.user }));
   const isOwner = Boolean(user && talent.user_id && user.id === talent.user_id);
 
@@ -16,9 +17,16 @@ export default function TalentCard({ talent, onEditClick }: TalentCardProps) {
   const imageUrl = getTalentImage(talent.specialty);
 
   return (
-    <article className="card-interactive bg-white border border-gray-200 rounded-lg shadow-md animate-slide-up overflow-hidden flex flex-col h-full" style={{ minHeight: '240px', maxHeight: '240px' }}>
+    <article
+      className={`card-interactive bg-white border rounded-lg shadow-md animate-slide-up overflow-hidden flex flex-col h-full transition-all duration-300 ${
+        isHighlight
+          ? 'border-[#2f855a] ring-4 ring-[#7db8a3] ring-opacity-50 animate-pulse shadow-xl'
+          : 'border-gray-200'
+      }`}
+      style={{ minHeight: '240px', maxHeight: '240px' }}
+    >
       {/* 상단 컬러 바 (인력=그린) */}
-      <div className="h-1 bg-gradient-to-r from-[#7db8a3] to-[#6fb59b] flex-shrink-0" />
+      <div className={`h-1 bg-gradient-to-r from-[#7db8a3] to-[#6fb59b] flex-shrink-0 ${isHighlight ? 'h-2' : ''}`} />
 
       <div className="flex flex-1 p-4 gap-3">
         {/* 좌측: 텍스트 정보 */}

@@ -1,15 +1,16 @@
 import { ExperienceCard as ExperienceCardType } from '@/types';
-import { IconMapPin, IconCategory, IconSchool, IconUsers, IconPhone, IconAt } from '@tabler/icons-react';
+import { IconMapPin, IconCategory, IconSchool, IconUsers, IconPhone, IconAt, IconEdit, IconTrash } from '@tabler/icons-react';
 import { useAuthStore } from '@/stores/authStore';
 import { getExperienceImage, handleImageError } from '@/lib/utils/cardImages';
 
 interface ExperienceCardProps {
   card: ExperienceCardType;
   onEditClick?: (card: ExperienceCardType) => void;
+  onDeleteClick?: (card: ExperienceCardType) => void;
   onCardClick?: () => void;
 }
 
-export default function ExperienceCard({ card, onEditClick, onCardClick }: ExperienceCardProps) {
+export default function ExperienceCard({ card, onEditClick, onDeleteClick, onCardClick }: ExperienceCardProps) {
   console.log('[ExperienceCard] 렌더링:', {
     id: card.id,
     programTitle: card.programTitle,
@@ -47,9 +48,35 @@ export default function ExperienceCard({ card, onEditClick, onCardClick }: Exper
       <div className="flex p-4 flex-1 gap-3">
         {/* 좌측: 텍스트 정보 */}
         <div className="flex flex-col flex-1 min-w-0">
-          {/* 헤더 */}
-          <div className="flex items-center justify-between mb-2">
+          {/* 헤더 - "체험" 텍스트와 소유자 액션 */}
+          <div className="flex items-center gap-2 mb-2">
             <span className="text-sm font-bold text-[#f4c96b]">체험</span>
+            {isOwner && (
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onEditClick?.(card);
+                  }}
+                  className="p-0.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded transition-colors"
+                  title="수정하기"
+                >
+                  <IconEdit size={16} />
+                </button>
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onDeleteClick?.(card);
+                  }}
+                  className="p-0.5 text-red-500 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                  title="삭제하기"
+                >
+                  <IconTrash size={16} />
+                </button>
+              </div>
+            )}
           </div>
 
           {/* 제목 */}
@@ -74,7 +101,7 @@ export default function ExperienceCard({ card, onEditClick, onCardClick }: Exper
           )}
 
           {/* 핵심 정보 4개만 */}
-          <div className="space-y-1.5 text-sm text-gray-700 mt-auto">
+          <div className="mt-4 space-y-1.5 text-sm text-gray-700">
           {/* 지역 */}
           <div className="flex items-center gap-2">
             <IconMapPin size={16} stroke={1.5} className="text-gray-500 flex-shrink-0" />
@@ -98,20 +125,6 @@ export default function ExperienceCard({ card, onEditClick, onCardClick }: Exper
           )}
           </div>
 
-          {isOwner && onEditClick && (
-            <div className="pt-3">
-              <button
-                type="button"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onEditClick(card);
-                }}
-                className="w-full inline-flex items-center justify-center rounded-lg bg-white border border-gray-300 text-gray-700 px-3 py-1.5 hover:bg-gray-50 transition-colors text-sm font-semibold"
-              >
-                수정하기
-              </button>
-            </div>
-          )}
         </div>
 
         {/* 우측: 동그란 프로그램 이미지 (categories 기반 자동 매핑) */}

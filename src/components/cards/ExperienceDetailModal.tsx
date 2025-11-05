@@ -23,13 +23,15 @@ interface ExperienceDetailModalProps {
   isOpen: boolean;
   onClose: () => void;
   onEditClick?: (experience: ExperienceCardType) => void;
+  onDeleteClick?: (experience: ExperienceCardType) => void;
 }
 
 export default function ExperienceDetailModal({
   experience,
   isOpen,
   onClose,
-  onEditClick
+  onEditClick,
+  onDeleteClick
 }: ExperienceDetailModalProps) {
   const { user } = useAuthStore((state) => ({ user: state.user }));
 
@@ -161,18 +163,33 @@ export default function ExperienceDetailModal({
           </div>
 
           {/* 하단 버튼 */}
-          <div className="flex justify-end gap-2 pt-2">
-            {isOwner && onEditClick && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onEditClick(experience);
-                }}
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors font-semibold"
-              >
-                <IconEdit size={18} />
-                <span>수정하기</span>
-              </button>
+          <div className="flex justify-between gap-2 pt-2">
+            {isOwner && (
+              <div className="flex gap-2">
+                {onDeleteClick && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDeleteClick(experience);
+                    }}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-white border border-red-200 text-red-600 hover:bg-red-50 transition-colors font-semibold"
+                  >
+                    <span>삭제하기</span>
+                  </button>
+                )}
+                {onEditClick && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onEditClick(experience);
+                    }}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors font-semibold"
+                  >
+                    <IconEdit size={18} />
+                    <span>수정하기</span>
+                  </button>
+                )}
+              </div>
             )}
             <button
               onClick={onClose}

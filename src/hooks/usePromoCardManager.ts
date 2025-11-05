@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { fetchPromoCards, createPromoCard, deletePromoCard, swapCardOrder } from '@/lib/supabase/queries';
+import { fetchPromoCards, createPromoCard, deletePromoCard, swapCardOrder, normalizeCardOrder } from '@/lib/supabase/queries';
 import { supabase } from '@/lib/supabase/client';
 import type { PromoCardSettings } from '@/types';
 
@@ -13,6 +13,7 @@ interface UsePromoCardManagerResult {
   deleteCard: (cardId: string) => Promise<void>;
   moveUp: (cardId: string) => Promise<void>;
   moveDown: (cardId: string) => Promise<void>;
+  normalizeOrder: () => Promise<void>;
 }
 
 export function usePromoCardManager(): UsePromoCardManagerResult {
@@ -152,6 +153,28 @@ export function usePromoCardManager(): UsePromoCardManagerResult {
     }
   }, [cards, fetchCards]);
 
+  // order_index 정규화
+  const normalizeOrder = useCallback(async () => {
+    if (!collectionId) {
+      setError('컬렉션 ID가 없습니다.');
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      await normalizeCardOrder(collectionId);
+      await fetchCards();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'order_index 정규화 중 오류가 발생했습니다.';
+      setError(message);
+      console.error('order_index 정규화 실패:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [collectionId, fetchCards]);
+
   // 초기 로드
   useEffect(() => {
     void fetchCards();
@@ -166,6 +189,7 @@ export function usePromoCardManager(): UsePromoCardManagerResult {
     createCard,
     deleteCard,
     moveUp,
-    moveDown
+    moveDown,
+    normalizeOrder
   };
 }
