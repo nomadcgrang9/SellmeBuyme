@@ -75,10 +75,10 @@ jobs:
             echo "source=uijeongbu" >> $GITHUB_OUTPUT
             exit 0
           elif [ "$BOARD_ID" = "5d7799d9-5d8d-47a2-b0df-6dd4f39449bd" ]; then
-            echo "source=namyangju" >> $GITHUB_OUTPUT
+            echo "source=ai-generated" >> $GITHUB_OUTPUT
             exit 0
           fi
-          
+
           # 새로운 AI 생성 크롤러는 기본 source 사용
           echo "source=ai-generated" >> $GITHUB_OUTPUT
 
@@ -127,9 +127,6 @@ jobs:
               ;;
             "uijeongbu")
               node index.js --source=uijeongbu
-              ;;
-            "namyangju")
-              node index.js --source=namyangju
               ;;
             "ai-generated")
               echo "🤖 Running AI-generated crawler for board: $BOARD_ID"
@@ -225,8 +222,8 @@ jobs:
             source: 'uijeongbu'
             name: '의정부교육지원청 구인'
           - board_id: '5d7799d9-5d8d-47a2-b0df-6dd4f39449bd'
-            source: 'namyangju'
-            name: '구리남양주교육지원청 인력풀'
+            source: 'ai-generated'
+            name: '구리남양주 기간제교사'
           - board_id: 'ce968fdd-6fe4-4fb7-8ec8-60d491932c6c'
             source: 'ai-generated'
             name: '남양주교육지원청-구인구직'
@@ -286,9 +283,6 @@ jobs:
               ;;
             "uijeongbu")
               node index.js --source=uijeongbu
-              ;;
-            "namyangju")
-              node index.js --source=namyangju
               ;;
             "ai-generated")
               echo "🤖 Running AI-generated crawler for board: $BOARD_ID"
