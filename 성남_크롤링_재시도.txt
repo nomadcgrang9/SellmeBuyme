@@ -1,0 +1,853 @@
+🔑 Gemini API Key 로딩 상태:
+  - 키 존재: true
+  - 키 길이: 39
+  - 키 앞 10자: AIzaSyCF8k
+✅ Gemini 2.0 Flash 모델 초기화 완료
+
+[2025-11-05T08:49:50.265Z][INFO][main] 셀미바이미 크롤러 시작
+[2025-11-05T08:49:50.266Z][DEBUG][main] 실행 설정 로드 {"argv":["--source=seongnam"]}
+[2025-11-05T08:49:50.824Z][STEP][main] 크롤링 소스 정보 확보 {"crawlSourceId":"5a94f47d-5feb-4821-99af-f8805cc3d619","crawlBatchSize":10}
+[2025-11-05T08:49:50.824Z][STEP][browser] Playwright 브라우저 생성 시작
+[2025-11-05T08:49:50.989Z][STEP][browser] 새 페이지 생성 완료
+[2025-11-05T08:49:50.991Z][STEP][crawler] 성남교육지원청 크롤링 호출
+
+📍 성남교육지원청 구인 크롤링 시작
+[2025-11-05T08:49:50.991Z][STEP][playwright.loadPage] 페이지 로딩 시작 {"url":"https://www.goesn.kr/goesn/na/ntt/selectNttList.do?mi=23603&bbsId=17872","waitForSelector":"table.board-list, .board_list, .tbl_list"}
+[2025-11-05T08:49:57.073Z][STEP][playwright.loadPage] networkidle 대기 완료 {"url":"https://www.goesn.kr/goesn/na/ntt/selectNttList.do?mi=23603&bbsId=17872"}
+[2025-11-05T08:50:07.077Z][WARN][playwright.loadPage] 선택자 대기 실패 {"url":"https://www.goesn.kr/goesn/na/ntt/selectNttList.do?mi=23603&bbsId=17872","waitForSelector":"table.board-list, .board_list, .tbl_list","error":"page.waitForSelector: Timeout 10000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('table.board-list, .board_list, .tbl_list') to be visible\u001b[22m\n"}
+[2025-11-05T08:50:09.081Z][STEP][playwright.loadPage] 페이지 로딩 완료 {"url":"https://www.goesn.kr/goesn/na/ntt/selectNttList.do?mi=23603&bbsId=17872"}
+📄 페이지 제목: 구인<채용정보 | 경기도성남교육지원청
+📋 발견된 공고 수: 10개
+
+  🔍 행 1 디버깅:
+     title: "2025 위례한빛초병설유치원 겨울방학 중 방과후 과정 운영 인력 채용 공고
+											
+												
+												새로운 글" (길이: 84)
+     date: "2025/11/12"
+     dataId: "1883695"
+  📄 1. 2025 위례한빛초병설유치원 겨울방학 중 방과후 과정 운영 인력 채용 공고
+											
+												
+												새로운 글
+     상세 페이지 접속 중...
+     ⏬ 동적 첨부파일 탐색 시도...
+     📋 첨부 관련 요소 발견 (6개): [
+  {
+    "type": "container",
+    "tag": "DIV",
+    "className": "ly_uploadfile",
+    "id": "",
+    "text": "파일 이름전송 용량전송 상태"
+  },
+  {
+    "type": "container",
+    "tag": "DIV",
+    "className": "uploadfile_h",
+    "id": "",
+    "text": "파일 이름전송 용량전송 상태"
+  },
+  {
+    "type": "container",
+    "tag": "DIV",
+    "className": "uploadfile_lst dext5_ko-kr",
+    "id": "DEXT_fiVe_UP_uploadfile_lst",
+    "text": ""
+  },
+  {
+    "type": "file-row",
+    "tag": "TR",
+    "text": "첨부파일 미리보기\n\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t3. 2025 방학 중 방과후 과정 운영 인력 지원 서류 (지원서, 자기소개서)-겨울.hwp\n\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n",
+    "ondblclick": null,
+    "onclick": null,
+    "className": "",
+    "id": "",
+    "html": "\n\t\t\t\t\t\t\t\t\t<th><span>첨부파일 미리보기</span></th>\n\t\t\t\t\t\t\t\t\t<td>\n\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t<div class=\"prvw\">\n\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t<span>3. 2025 방학 중 방과후 과정 운영 인력 지원 서류 (지원서, 자기소개서)-겨울.hwp</span>\n\t\t\t\t\t\t\t\t\t\t\t\t\t<div class=\"prvw_btns\">\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t<!-- 바로보기 버튼 -->\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t<a href=\"javascript:void(0);\" onclick=\"previewAjax('https://www.goesn.kr/upload/goesn/na/bbs_17872/2025/11/469838E3-04EA-13DC-6957-F265207D9525.hwp','3. 2025 방학 중 방과후 과정 운영 인력 지원 서류 (지원서, 자기소개서)-겨울.hwp')\" title=\"바로보기(새창열림)\">\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t<i class=\"xi-eye\" aria-hidden=\"true\"></i><em>미리보기</em>\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t</a>\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t<!-- 바로듣기 버튼 -->\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t<a href=\"javascript:void(0);\" onclick=\"preListen('https://www.goesn.kr/upload/goesn/na/bb"
+  },
+  {
+    "type": "prvw-link",
+    "tag": "A",
+    "text": "미리보기",
+    "onclick": "previewAjax('https://www.goesn.kr/upload/goesn/na/bbs_17872/2025/11/469838E3-04EA-13DC-6957-F265207D9525.hwp','3. 2025 방학 중 방과후 과정 운영 인력 지원 서류 (지원서, 자기소개서)-겨울.hwp')",
+    "href": "javascript:void(0);",
+    "className": ""
+  },
+  {
+    "type": "prvw-link",
+    "tag": "A",
+    "text": "바로듣기",
+    "onclick": "preListen('https://www.goesn.kr/upload/goesn/na/bbs_17872/2025/11/469838E3-04EA-13DC-6957-F265207D9525.hwp','3. 2025 방학 중 방과후 과정 운영 인력 지원 서류 (지원서, 자기소개서)-겨울.hwp')",
+    "href": "javascript:void(0);",
+    "className": ""
+  }
+]
+     ✅ 첨부파일 URL 추출 성공: https://www.goesn.kr/upload/goesn/na/bbs_17872/2025/11/469838E3-04EA-13DC-6957-F265207D9525.hwp
+     📄 파일명: 3. 2025 방학 중 방과후 과정 운영 인력 지원 서류 (지원서, 자기소개서)-겨울.hwp
+     🖼️ 본문 이미지 확인 중...
+     본문 이미지: 있음
+     📸 스크린샷 캡처 중...
+     본문 길이: 312자
+     첨부파일: 있음
+     스크린샷: 1091KB
+  ✅ 1. 완료
+     목록으로 돌아가는 중...
+
+  🔍 행 2 디버깅:
+     title: "2025학년도 중탑초등학교  늘봄학교 자원봉사자 모집 공고
+											
+												
+												새로운 글" (길이: 75)
+     date: "2025/11/11"
+     dataId: "1883688"
+  📄 2. 2025학년도 중탑초등학교  늘봄학교 자원봉사자 모집 공고
+											
+												
+												새로운 글
+     상세 페이지 접속 중...
+     ⏬ 동적 첨부파일 탐색 시도...
+     📋 첨부 관련 요소 발견 (6개): [
+  {
+    "type": "container",
+    "tag": "DIV",
+    "className": "ly_uploadfile",
+    "id": "",
+    "text": "파일 이름전송 용량전송 상태"
+  },
+  {
+    "type": "container",
+    "tag": "DIV",
+    "className": "uploadfile_h",
+    "id": "",
+    "text": "파일 이름전송 용량전송 상태"
+  },
+  {
+    "type": "container",
+    "tag": "DIV",
+    "className": "uploadfile_lst dext5_ko-kr",
+    "id": "DEXT_fiVe_UP_uploadfile_lst",
+    "text": ""
+  },
+  {
+    "type": "file-row",
+    "tag": "TR",
+    "text": "첨부파일 미리보기\n\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t2025학년도 중탑초 늘봄학교 자원봉사자 모집 공고문.hwp\n\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t",
+    "ondblclick": null,
+    "onclick": null,
+    "className": "",
+    "id": "",
+    "html": "\n\t\t\t\t\t\t\t\t\t<th><span>첨부파일 미리보기</span></th>\n\t\t\t\t\t\t\t\t\t<td>\n\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t<div class=\"prvw\">\n\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t<span>2025학년도 중탑초 늘봄학교 자원봉사자 모집 공고문.hwp</span>\n\t\t\t\t\t\t\t\t\t\t\t\t\t<div class=\"prvw_btns\">\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t<!-- 바로보기 버튼 -->\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t<a href=\"javascript:void(0);\" onclick=\"previewAjax('https://www.goesn.kr/upload/goesn/na/bbs_17872/2025/11/5E382637-38DB-6CA5-ECA0-1A5983F05B9B.hwp','2025학년도 중탑초 늘봄학교 자원봉사자 모집 공고문.hwp')\" title=\"바로보기(새창열림)\">\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t<i class=\"xi-eye\" aria-hidden=\"true\"></i><em>미리보기</em>\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t</a>\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t<!-- 바로듣기 버튼 -->\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t<a href=\"javascript:void(0);\" onclick=\"preListen('https://www.goesn.kr/upload/goesn/na/bbs_17872/2025/11/5E382637-38DB-6CA5-E"
+  },
+  {
+    "type": "prvw-link",
+    "tag": "A",
+    "text": "미리보기",
+    "onclick": "previewAjax('https://www.goesn.kr/upload/goesn/na/bbs_17872/2025/11/5E382637-38DB-6CA5-ECA0-1A5983F05B9B.hwp','2025학년도 중탑초 늘봄학교 자원봉사자 모집 공고문.hwp')",
+    "href": "javascript:void(0);",
+    "className": ""
+  },
+  {
+    "type": "prvw-link",
+    "tag": "A",
+    "text": "바로듣기",
+    "onclick": "preListen('https://www.goesn.kr/upload/goesn/na/bbs_17872/2025/11/5E382637-38DB-6CA5-ECA0-1A5983F05B9B.hwp','2025학년도 중탑초 늘봄학교 자원봉사자 모집 공고문.hwp')",
+    "href": "javascript:void(0);",
+    "className": ""
+  }
+]
+     ✅ 첨부파일 URL 추출 성공: https://www.goesn.kr/upload/goesn/na/bbs_17872/2025/11/5E382637-38DB-6CA5-ECA0-1A5983F05B9B.hwp
+     📄 파일명: 2025학년도 중탑초 늘봄학교 자원봉사자 모집 공고문.hwp
+     🖼️ 본문 이미지 확인 중...
+     본문 이미지: 있음
+     📸 스크린샷 캡처 중...
+     본문 길이: 1959자
+     첨부파일: 있음
+     스크린샷: 667KB
+  ✅ 2. 완료
+     목록으로 돌아가는 중...
+
+  🔍 행 3 디버깅:
+     title: "2025학년도 위례푸른초등학교병설유치원 겨울방학 중 방과후 과정 운영인력 채용 공고
+											
+												
+												새로운 글" (길이: 89)
+     date: "2025/11/12"
+     dataId: "1883657"
+  📄 3. 2025학년도 위례푸른초등학교병설유치원 겨울방학 중 방과후 과정 운영인력 채용 공고
+											
+												
+												새로운 글
+     상세 페이지 접속 중...
+     ⏬ 동적 첨부파일 탐색 시도...
+     📋 첨부 관련 요소 발견 (6개): [
+  {
+    "type": "container",
+    "tag": "DIV",
+    "className": "ly_uploadfile",
+    "id": "",
+    "text": "파일 이름전송 용량전송 상태"
+  },
+  {
+    "type": "container",
+    "tag": "DIV",
+    "className": "uploadfile_h",
+    "id": "",
+    "text": "파일 이름전송 용량전송 상태"
+  },
+  {
+    "type": "container",
+    "tag": "DIV",
+    "className": "uploadfile_lst dext5_ko-kr",
+    "id": "DEXT_fiVe_UP_uploadfile_lst",
+    "text": ""
+  },
+  {
+    "type": "file-row",
+    "tag": "TR",
+    "text": "첨부파일 미리보기\n\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t2025학년도 유치원 겨울방학 중 방과후 과정 운영인력 채용 공고 (2차).hwp\n\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t",
+    "ondblclick": null,
+    "onclick": null,
+    "className": "",
+    "id": "",
+    "html": "\n\t\t\t\t\t\t\t\t\t<th><span>첨부파일 미리보기</span></th>\n\t\t\t\t\t\t\t\t\t<td>\n\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t<div class=\"prvw\">\n\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t<span>2025학년도 유치원 겨울방학 중 방과후 과정 운영인력 채용 공고 (2차).hwp</span>\n\t\t\t\t\t\t\t\t\t\t\t\t\t<div class=\"prvw_btns\">\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t<!-- 바로보기 버튼 -->\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t<a href=\"javascript:void(0);\" onclick=\"previewAjax('https://www.goesn.kr/upload/goesn/na/bbs_17872/2025/11/1A73B232-E0F8-2398-DF85-C03053F62ACB.hwp','2025학년도 유치원 겨울방학 중 방과후 과정 운영인력 채용 공고 (2차).hwp')\" title=\"바로보기(새창열림)\">\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t<i class=\"xi-eye\" aria-hidden=\"true\"></i><em>미리보기</em>\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t</a>\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t<!-- 바로듣기 버튼 -->\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t<a href=\"javascript:void(0);\" onclick=\"preListen('https://www.goesn.kr/upload/goesn/na/bbs_17872/2025"
+  },
+  {
+    "type": "prvw-link",
+    "tag": "A",
+    "text": "미리보기",
+    "onclick": "previewAjax('https://www.goesn.kr/upload/goesn/na/bbs_17872/2025/11/1A73B232-E0F8-2398-DF85-C03053F62ACB.hwp','2025학년도 유치원 겨울방학 중 방과후 과정 운영인력 채용 공고 (2차).hwp')",
+    "href": "javascript:void(0);",
+    "className": ""
+  },
+  {
+    "type": "prvw-link",
+    "tag": "A",
+    "text": "바로듣기",
+    "onclick": "preListen('https://www.goesn.kr/upload/goesn/na/bbs_17872/2025/11/1A73B232-E0F8-2398-DF85-C03053F62ACB.hwp','2025학년도 유치원 겨울방학 중 방과후 과정 운영인력 채용 공고 (2차).hwp')",
+    "href": "javascript:void(0);",
+    "className": ""
+  }
+]
+     ✅ 첨부파일 URL 추출 성공: https://www.goesn.kr/upload/goesn/na/bbs_17872/2025/11/1A73B232-E0F8-2398-DF85-C03053F62ACB.hwp
+     📄 파일명: 2025학년도 유치원 겨울방학 중 방과후 과정 운영인력 채용 공고 (2차).hwp
+     🖼️ 본문 이미지 확인 중...
+     본문 이미지: 있음
+     📸 스크린샷 캡처 중...
+     본문 길이: 2907자
+     첨부파일: 있음
+     스크린샷: 713KB
+  ✅ 3. 완료
+     목록으로 돌아가는 중...
+
+  🔍 행 4 디버깅:
+     title: "복정고 계약제교원(시간강사) 채용공고 (지구과학)
+											
+												
+												새로운 글" (길이: 70)
+     date: "2025/11/06"
+     dataId: "1883620"
+  📄 4. 복정고 계약제교원(시간강사) 채용공고 (지구과학)
+											
+												
+												새로운 글
+     상세 페이지 접속 중...
+     ⏬ 동적 첨부파일 탐색 시도...
+     📋 첨부 관련 요소 발견 (6개): [
+  {
+    "type": "container",
+    "tag": "DIV",
+    "className": "ly_uploadfile",
+    "id": "",
+    "text": "파일 이름전송 용량전송 상태"
+  },
+  {
+    "type": "container",
+    "tag": "DIV",
+    "className": "uploadfile_h",
+    "id": "",
+    "text": "파일 이름전송 용량전송 상태"
+  },
+  {
+    "type": "container",
+    "tag": "DIV",
+    "className": "uploadfile_lst dext5_ko-kr",
+    "id": "DEXT_fiVe_UP_uploadfile_lst",
+    "text": ""
+  },
+  {
+    "type": "file-row",
+    "tag": "TR",
+    "text": "첨부파일 미리보기\n\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t2025학년도 계약제교원(시간강사) 채용 공고문_11월 지구과학공고.hwp\n\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t",
+    "ondblclick": null,
+    "onclick": null,
+    "className": "",
+    "id": "",
+    "html": "\n\t\t\t\t\t\t\t\t\t<th><span>첨부파일 미리보기</span></th>\n\t\t\t\t\t\t\t\t\t<td>\n\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t<div class=\"prvw\">\n\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t<span>2025학년도 계약제교원(시간강사) 채용 공고문_11월 지구과학공고.hwp</span>\n\t\t\t\t\t\t\t\t\t\t\t\t\t<div class=\"prvw_btns\">\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t<!-- 바로보기 버튼 -->\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t<a href=\"javascript:void(0);\" onclick=\"previewAjax('https://www.goesn.kr/upload/goesn/na/bbs_17872/2025/11/689F4E4B-D499-7114-CB99-3370A9F345FA.hwp','2025학년도 계약제교원(시간강사) 채용 공고문_11월 지구과학공고.hwp')\" title=\"바로보기(새창열림)\">\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t<i class=\"xi-eye\" aria-hidden=\"true\"></i><em>미리보기</em>\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t</a>\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t<!-- 바로듣기 버튼 -->\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t<a href=\"javascript:void(0);\" onclick=\"preListen('https://www.goesn.kr/upload/goesn/na/bbs_17872/2025/11/689F"
+  },
+  {
+    "type": "prvw-link",
+    "tag": "A",
+    "text": "미리보기",
+    "onclick": "previewAjax('https://www.goesn.kr/upload/goesn/na/bbs_17872/2025/11/689F4E4B-D499-7114-CB99-3370A9F345FA.hwp','2025학년도 계약제교원(시간강사) 채용 공고문_11월 지구과학공고.hwp')",
+    "href": "javascript:void(0);",
+    "className": ""
+  },
+  {
+    "type": "prvw-link",
+    "tag": "A",
+    "text": "바로듣기",
+    "onclick": "preListen('https://www.goesn.kr/upload/goesn/na/bbs_17872/2025/11/689F4E4B-D499-7114-CB99-3370A9F345FA.hwp','2025학년도 계약제교원(시간강사) 채용 공고문_11월 지구과학공고.hwp')",
+    "href": "javascript:void(0);",
+    "className": ""
+  }
+]
+     ✅ 첨부파일 URL 추출 성공: https://www.goesn.kr/upload/goesn/na/bbs_17872/2025/11/689F4E4B-D499-7114-CB99-3370A9F345FA.hwp
+     📄 파일명: 2025학년도 계약제교원(시간강사) 채용 공고문_11월 지구과학공고.hwp
+     🖼️ 본문 이미지 확인 중...
+     본문 이미지: 있음
+     📸 스크린샷 캡처 중...
+     본문 길이: 3640자
+     첨부파일: 있음
+     스크린샷: 616KB
+  ✅ 4. 완료
+     목록으로 돌아가는 중...
+
+  🔍 행 5 디버깅:
+     title: "분당중앙고등학교 교육공무직원(조리실무사) 대체 채용 공고(2차)
+											
+												
+												새로운 글" (길이: 78)
+     date: "2025/11/12"
+     dataId: "1883528"
+  📄 5. 분당중앙고등학교 교육공무직원(조리실무사) 대체 채용 공고(2차)
+											
+												
+												새로운 글
+     상세 페이지 접속 중...
+     ⏬ 동적 첨부파일 탐색 시도...
+     📋 첨부 관련 요소 발견 (6개): [
+  {
+    "type": "container",
+    "tag": "DIV",
+    "className": "ly_uploadfile",
+    "id": "",
+    "text": "파일 이름전송 용량전송 상태"
+  },
+  {
+    "type": "container",
+    "tag": "DIV",
+    "className": "uploadfile_h",
+    "id": "",
+    "text": "파일 이름전송 용량전송 상태"
+  },
+  {
+    "type": "container",
+    "tag": "DIV",
+    "className": "uploadfile_lst dext5_ko-kr",
+    "id": "DEXT_fiVe_UP_uploadfile_lst",
+    "text": ""
+  },
+  {
+    "type": "file-row",
+    "tag": "TR",
+    "text": "첨부파일 미리보기\n\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t대체근로자채용공고(분당중앙고퇴직_조리실무사결원2차).hwp\n\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t",
+    "ondblclick": null,
+    "onclick": null,
+    "className": "",
+    "id": "",
+    "html": "\n\t\t\t\t\t\t\t\t\t<th><span>첨부파일 미리보기</span></th>\n\t\t\t\t\t\t\t\t\t<td>\n\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t<div class=\"prvw\">\n\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t<span>대체근로자채용공고(분당중앙고퇴직_조리실무사결원2차).hwp</span>\n\t\t\t\t\t\t\t\t\t\t\t\t\t<div class=\"prvw_btns\">\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t<!-- 바로보기 버튼 -->\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t<a href=\"javascript:void(0);\" onclick=\"previewAjax('https://www.goesn.kr/upload/goesn/na/bbs_17872/2025/11/7BDBB54E-DE2E-2371-A931-1109198EC0AA.hwp','대체근로자채용공고(분당중앙고퇴직_조리실무사결원2차).hwp')\" title=\"바로보기(새창열림)\">\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t<i class=\"xi-eye\" aria-hidden=\"true\"></i><em>미리보기</em>\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t</a>\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t<!-- 바로듣기 버튼 -->\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t<a href=\"javascript:void(0);\" onclick=\"preListen('https://www.goesn.kr/upload/goesn/na/bbs_17872/2025/11/7BDBB54E-DE2E-2371-A93"
+  },
+  {
+    "type": "prvw-link",
+    "tag": "A",
+    "text": "미리보기",
+    "onclick": "previewAjax('https://www.goesn.kr/upload/goesn/na/bbs_17872/2025/11/7BDBB54E-DE2E-2371-A931-1109198EC0AA.hwp','대체근로자채용공고(분당중앙고퇴직_조리실무사결원2차).hwp')",
+    "href": "javascript:void(0);",
+    "className": ""
+  },
+  {
+    "type": "prvw-link",
+    "tag": "A",
+    "text": "바로듣기",
+    "onclick": "preListen('https://www.goesn.kr/upload/goesn/na/bbs_17872/2025/11/7BDBB54E-DE2E-2371-A931-1109198EC0AA.hwp','대체근로자채용공고(분당중앙고퇴직_조리실무사결원2차).hwp')",
+    "href": "javascript:void(0);",
+    "className": ""
+  }
+]
+     ✅ 첨부파일 URL 추출 성공: https://www.goesn.kr/upload/goesn/na/bbs_17872/2025/11/7BDBB54E-DE2E-2371-A931-1109198EC0AA.hwp
+     📄 파일명: 대체근로자채용공고(분당중앙고퇴직_조리실무사결원2차).hwp
+     🖼️ 본문 이미지 확인 중...
+     본문 이미지: 있음
+     📸 스크린샷 캡처 중...
+     본문 길이: 489자
+     첨부파일: 있음
+     스크린샷: 487KB
+  ✅ 5. 완료
+     목록으로 돌아가는 중...
+
+  🔍 행 6 디버깅:
+     title: "성남문원중학교 계약제교사(시간강사) 채용 재공고
+											
+												
+												새로운 글" (길이: 69)
+     date: "2025/11/11"
+     dataId: "1883510"
+  📄 6. 성남문원중학교 계약제교사(시간강사) 채용 재공고
+											
+												
+												새로운 글
+     상세 페이지 접속 중...
+     ⏬ 동적 첨부파일 탐색 시도...
+     📋 첨부 관련 요소 발견 (6개): [
+  {
+    "type": "container",
+    "tag": "DIV",
+    "className": "ly_uploadfile",
+    "id": "",
+    "text": "파일 이름전송 용량전송 상태"
+  },
+  {
+    "type": "container",
+    "tag": "DIV",
+    "className": "uploadfile_h",
+    "id": "",
+    "text": "파일 이름전송 용량전송 상태"
+  },
+  {
+    "type": "container",
+    "tag": "DIV",
+    "className": "uploadfile_lst dext5_ko-kr",
+    "id": "DEXT_fiVe_UP_uploadfile_lst",
+    "text": ""
+  },
+  {
+    "type": "file-row",
+    "tag": "TR",
+    "text": "첨부파일 미리보기\n\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t2025학년 성남문원중학교 시간강사 채용 재공고문(체육)_11.05.hwpx\n\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t",
+    "ondblclick": null,
+    "onclick": null,
+    "className": "",
+    "id": "",
+    "html": "\n\t\t\t\t\t\t\t\t\t<th><span>첨부파일 미리보기</span></th>\n\t\t\t\t\t\t\t\t\t<td>\n\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t<div class=\"prvw\">\n\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t<span>2025학년 성남문원중학교 시간강사 채용 재공고문(체육)_11.05.hwpx</span>\n\t\t\t\t\t\t\t\t\t\t\t\t\t<div class=\"prvw_btns\">\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t<!-- 바로보기 버튼 -->\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t<a href=\"javascript:void(0);\" onclick=\"previewAjax('https://www.goesn.kr/upload/goesn/na/bbs_17872/2025/11/8CB59F55-80F3-32CB-9F9F-F07BBF12FAD8.hwpx','2025학년 성남문원중학교 시간강사 채용 재공고문(체육)_11.05.hwpx')\" title=\"바로보기(새창열림)\">\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t<i class=\"xi-eye\" aria-hidden=\"true\"></i><em>미리보기</em>\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t</a>\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t<!-- 바로듣기 버튼 -->\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t<a href=\"javascript:void(0);\" onclick=\"preListen('https://www.goesn.kr/upload/goesn/na/bbs_17872/2025/11/8"
+  },
+  {
+    "type": "prvw-link",
+    "tag": "A",
+    "text": "미리보기",
+    "onclick": "previewAjax('https://www.goesn.kr/upload/goesn/na/bbs_17872/2025/11/8CB59F55-80F3-32CB-9F9F-F07BBF12FAD8.hwpx','2025학년 성남문원중학교 시간강사 채용 재공고문(체육)_11.05.hwpx')",
+    "href": "javascript:void(0);",
+    "className": ""
+  },
+  {
+    "type": "prvw-link",
+    "tag": "A",
+    "text": "바로듣기",
+    "onclick": "preListen('https://www.goesn.kr/upload/goesn/na/bbs_17872/2025/11/8CB59F55-80F3-32CB-9F9F-F07BBF12FAD8.hwpx','2025학년 성남문원중학교 시간강사 채용 재공고문(체육)_11.05.hwpx')",
+    "href": "javascript:void(0);",
+    "className": ""
+  }
+]
+     ✅ 첨부파일 URL 추출 성공: https://www.goesn.kr/upload/goesn/na/bbs_17872/2025/11/8CB59F55-80F3-32CB-9F9F-F07BBF12FAD8.hwpx
+     📄 파일명: 2025학년 성남문원중학교 시간강사 채용 재공고문(체육)_11.05.hwpx
+     🖼️ 본문 이미지 확인 중...
+     본문 이미지: 있음
+     📸 스크린샷 캡처 중...
+     본문 길이: 548자
+     첨부파일: 있음
+     스크린샷: 493KB
+  ✅ 6. 완료
+     목록으로 돌아가는 중...
+
+  🔍 행 7 디버깅:
+     title: "운중초등학교 병설유치원 겨울방학 중 방과후과정 운영인력 채용" (길이: 33)
+     date: "2025/11/11"
+     dataId: "1883447"
+  📄 7. 운중초등학교 병설유치원 겨울방학 중 방과후과정 운영인력 채용
+     상세 페이지 접속 중...
+     ⏬ 동적 첨부파일 탐색 시도...
+     📋 첨부 관련 요소 발견 (6개): [
+  {
+    "type": "container",
+    "tag": "DIV",
+    "className": "ly_uploadfile",
+    "id": "",
+    "text": "파일 이름전송 용량전송 상태"
+  },
+  {
+    "type": "container",
+    "tag": "DIV",
+    "className": "uploadfile_h",
+    "id": "",
+    "text": "파일 이름전송 용량전송 상태"
+  },
+  {
+    "type": "container",
+    "tag": "DIV",
+    "className": "uploadfile_lst dext5_ko-kr",
+    "id": "DEXT_fiVe_UP_uploadfile_lst",
+    "text": ""
+  },
+  {
+    "type": "file-row",
+    "tag": "TR",
+    "text": "첨부파일 미리보기\n\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t2025 겨울방학 중 방과후 과정 운영인력 채용 공고문.hwp\n\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t",
+    "ondblclick": null,
+    "onclick": null,
+    "className": "",
+    "id": "",
+    "html": "\n\t\t\t\t\t\t\t\t\t<th><span>첨부파일 미리보기</span></th>\n\t\t\t\t\t\t\t\t\t<td>\n\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t<div class=\"prvw\">\n\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t<span>2025 겨울방학 중 방과후 과정 운영인력 채용 공고문.hwp</span>\n\t\t\t\t\t\t\t\t\t\t\t\t\t<div class=\"prvw_btns\">\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t<!-- 바로보기 버튼 -->\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t<a href=\"javascript:void(0);\" onclick=\"previewAjax('https://www.goesn.kr/upload/goesn/na/bbs_17872/2025/11/15C3A027-9804-738E-5736-2D45F0C95DB5.hwp','2025 겨울방학 중 방과후 과정 운영인력 채용 공고문.hwp')\" title=\"바로보기(새창열림)\">\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t<i class=\"xi-eye\" aria-hidden=\"true\"></i><em>미리보기</em>\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t</a>\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t<!-- 바로듣기 버튼 -->\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t<a href=\"javascript:void(0);\" onclick=\"preListen('https://www.goesn.kr/upload/goesn/na/bbs_17872/2025/11/15C3A027-9804-738E"
+  },
+  {
+    "type": "prvw-link",
+    "tag": "A",
+    "text": "미리보기",
+    "onclick": "previewAjax('https://www.goesn.kr/upload/goesn/na/bbs_17872/2025/11/15C3A027-9804-738E-5736-2D45F0C95DB5.hwp','2025 겨울방학 중 방과후 과정 운영인력 채용 공고문.hwp')",
+    "href": "javascript:void(0);",
+    "className": ""
+  },
+  {
+    "type": "prvw-link",
+    "tag": "A",
+    "text": "바로듣기",
+    "onclick": "preListen('https://www.goesn.kr/upload/goesn/na/bbs_17872/2025/11/15C3A027-9804-738E-5736-2D45F0C95DB5.hwp','2025 겨울방학 중 방과후 과정 운영인력 채용 공고문.hwp')",
+    "href": "javascript:void(0);",
+    "className": ""
+  }
+]
+     ✅ 첨부파일 URL 추출 성공: https://www.goesn.kr/upload/goesn/na/bbs_17872/2025/11/15C3A027-9804-738E-5736-2D45F0C95DB5.hwp
+     📄 파일명: 2025 겨울방학 중 방과후 과정 운영인력 채용 공고문.hwp
+     🖼️ 본문 이미지 확인 중...
+     본문 이미지: 있음
+     📸 스크린샷 캡처 중...
+     본문 길이: 1338자
+     첨부파일: 있음
+     스크린샷: 558KB
+  ✅ 7. 완료
+     목록으로 돌아가는 중...
+
+  🔍 행 8 디버깅:
+     title: "위례새초롱유치원 겨울방학중방과후과정 지원인력 채용 공고" (길이: 30)
+     date: "2025/11/07"
+     dataId: "1883439"
+  📄 8. 위례새초롱유치원 겨울방학중방과후과정 지원인력 채용 공고
+     상세 페이지 접속 중...
+     ⏬ 동적 첨부파일 탐색 시도...
+     📋 첨부 관련 요소 발견 (6개): [
+  {
+    "type": "container",
+    "tag": "DIV",
+    "className": "ly_uploadfile",
+    "id": "",
+    "text": "파일 이름전송 용량전송 상태"
+  },
+  {
+    "type": "container",
+    "tag": "DIV",
+    "className": "uploadfile_h",
+    "id": "",
+    "text": "파일 이름전송 용량전송 상태"
+  },
+  {
+    "type": "container",
+    "tag": "DIV",
+    "className": "uploadfile_lst dext5_ko-kr",
+    "id": "DEXT_fiVe_UP_uploadfile_lst",
+    "text": ""
+  },
+  {
+    "type": "file-row",
+    "tag": "TR",
+    "text": "첨부파일 미리보기\n\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t2025 겨울방학 중 방과후과정 지원인력 채용 공고(위례새초롱유치원).hwp\n\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t",
+    "ondblclick": null,
+    "onclick": null,
+    "className": "",
+    "id": "",
+    "html": "\n\t\t\t\t\t\t\t\t\t<th><span>첨부파일 미리보기</span></th>\n\t\t\t\t\t\t\t\t\t<td>\n\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t<div class=\"prvw\">\n\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t<span>2025 겨울방학 중 방과후과정 지원인력 채용 공고(위례새초롱유치원).hwp</span>\n\t\t\t\t\t\t\t\t\t\t\t\t\t<div class=\"prvw_btns\">\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t<!-- 바로보기 버튼 -->\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t<a href=\"javascript:void(0);\" onclick=\"previewAjax('https://www.goesn.kr/upload/goesn/na/bbs_17872/2025/11/5CDEA103-F180-3EA0-9AF9-7A4F81065C9D.hwp','2025 겨울방학 중 방과후과정 지원인력 채용 공고(위례새초롱유치원).hwp')\" title=\"바로보기(새창열림)\">\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t<i class=\"xi-eye\" aria-hidden=\"true\"></i><em>미리보기</em>\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t</a>\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t<!-- 바로듣기 버튼 -->\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t<a href=\"javascript:void(0);\" onclick=\"preListen('https://www.goesn.kr/upload/goesn/na/bbs_17872/2025/11/5C"
+  },
+  {
+    "type": "prvw-link",
+    "tag": "A",
+    "text": "미리보기",
+    "onclick": "previewAjax('https://www.goesn.kr/upload/goesn/na/bbs_17872/2025/11/5CDEA103-F180-3EA0-9AF9-7A4F81065C9D.hwp','2025 겨울방학 중 방과후과정 지원인력 채용 공고(위례새초롱유치원).hwp')",
+    "href": "javascript:void(0);",
+    "className": ""
+  },
+  {
+    "type": "prvw-link",
+    "tag": "A",
+    "text": "바로듣기",
+    "onclick": "preListen('https://www.goesn.kr/upload/goesn/na/bbs_17872/2025/11/5CDEA103-F180-3EA0-9AF9-7A4F81065C9D.hwp','2025 겨울방학 중 방과후과정 지원인력 채용 공고(위례새초롱유치원).hwp')",
+    "href": "javascript:void(0);",
+    "className": ""
+  }
+]
+     ✅ 첨부파일 URL 추출 성공: https://www.goesn.kr/upload/goesn/na/bbs_17872/2025/11/5CDEA103-F180-3EA0-9AF9-7A4F81065C9D.hwp
+     📄 파일명: 2025 겨울방학 중 방과후과정 지원인력 채용 공고(위례새초롱유치원).hwp
+     🖼️ 본문 이미지 확인 중...
+     본문 이미지: 있음
+     📸 스크린샷 캡처 중...
+     본문 길이: 2287자
+     첨부파일: 있음
+     스크린샷: 593KB
+  ✅ 8. 완료
+     목록으로 돌아가는 중...
+
+  🔍 행 9 디버깅:
+     title: "방과후학교 개인위탁 외부강사 공모" (길이: 18)
+     date: "2025/11/10"
+     dataId: "1883406"
+  📄 9. 방과후학교 개인위탁 외부강사 공모
+     상세 페이지 접속 중...
+     ⏬ 동적 첨부파일 탐색 시도...
+     📋 첨부 관련 요소 발견 (6개): [
+  {
+    "type": "container",
+    "tag": "DIV",
+    "className": "ly_uploadfile",
+    "id": "",
+    "text": "파일 이름전송 용량전송 상태"
+  },
+  {
+    "type": "container",
+    "tag": "DIV",
+    "className": "uploadfile_h",
+    "id": "",
+    "text": "파일 이름전송 용량전송 상태"
+  },
+  {
+    "type": "container",
+    "tag": "DIV",
+    "className": "uploadfile_lst dext5_ko-kr",
+    "id": "DEXT_fiVe_UP_uploadfile_lst",
+    "text": ""
+  },
+  {
+    "type": "file-row",
+    "tag": "TR",
+    "text": "첨부파일 미리보기\n\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t2026학년도 태평초 방과후학교 강사모집 공고(5개 부서).hwp\n\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n",
+    "ondblclick": null,
+    "onclick": null,
+    "className": "",
+    "id": "",
+    "html": "\n\t\t\t\t\t\t\t\t\t<th><span>첨부파일 미리보기</span></th>\n\t\t\t\t\t\t\t\t\t<td>\n\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t<div class=\"prvw\">\n\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t<span>2026학년도 태평초 방과후학교 강사모집 공고(5개 부서).hwp</span>\n\t\t\t\t\t\t\t\t\t\t\t\t\t<div class=\"prvw_btns\">\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t<!-- 바로보기 버튼 -->\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t<a href=\"javascript:void(0);\" onclick=\"previewAjax('https://www.goesn.kr/upload/goesn/na/bbs_17872/2025/11/34634446-C232-05F1-684E-9A6630A3E1A4.hwp','2026학년도 태평초 방과후학교 강사모집 공고(5개 부서).hwp')\" title=\"바로보기(새창열림)\">\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t<i class=\"xi-eye\" aria-hidden=\"true\"></i><em>미리보기</em>\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t</a>\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t<!-- 바로듣기 버튼 -->\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t<a href=\"javascript:void(0);\" onclick=\"preListen('https://www.goesn.kr/upload/goesn/na/bbs_17872/2025/11/34634446-C232-"
+  },
+  {
+    "type": "prvw-link",
+    "tag": "A",
+    "text": "미리보기",
+    "onclick": "previewAjax('https://www.goesn.kr/upload/goesn/na/bbs_17872/2025/11/34634446-C232-05F1-684E-9A6630A3E1A4.hwp','2026학년도 태평초 방과후학교 강사모집 공고(5개 부서).hwp')",
+    "href": "javascript:void(0);",
+    "className": ""
+  },
+  {
+    "type": "prvw-link",
+    "tag": "A",
+    "text": "바로듣기",
+    "onclick": "preListen('https://www.goesn.kr/upload/goesn/na/bbs_17872/2025/11/34634446-C232-05F1-684E-9A6630A3E1A4.hwp','2026학년도 태평초 방과후학교 강사모집 공고(5개 부서).hwp')",
+    "href": "javascript:void(0);",
+    "className": ""
+  }
+]
+     ✅ 첨부파일 URL 추출 성공: https://www.goesn.kr/upload/goesn/na/bbs_17872/2025/11/34634446-C232-05F1-684E-9A6630A3E1A4.hwp
+     📄 파일명: 2026학년도 태평초 방과후학교 강사모집 공고(5개 부서).hwp
+     🖼️ 본문 이미지 확인 중...
+     본문 이미지: 있음
+     📸 스크린샷 캡처 중...
+     본문 길이: 2747자
+     첨부파일: 있음
+     스크린샷: 548KB
+  ✅ 9. 완료
+     목록으로 돌아가는 중...
+
+  🔍 행 10 디버깅:
+     title: "고등나래유치원 겨울방학 중 특수교육종일반 운영인력 채용공고" (길이: 32)
+     date: "2025/11/07"
+     dataId: "1883399"
+  📄 10. 고등나래유치원 겨울방학 중 특수교육종일반 운영인력 채용공고
+     상세 페이지 접속 중...
+     ⏬ 동적 첨부파일 탐색 시도...
+     📋 첨부 관련 요소 발견 (6개): [
+  {
+    "type": "container",
+    "tag": "DIV",
+    "className": "ly_uploadfile",
+    "id": "",
+    "text": "파일 이름전송 용량전송 상태"
+  },
+  {
+    "type": "container",
+    "tag": "DIV",
+    "className": "uploadfile_h",
+    "id": "",
+    "text": "파일 이름전송 용량전송 상태"
+  },
+  {
+    "type": "container",
+    "tag": "DIV",
+    "className": "uploadfile_lst dext5_ko-kr",
+    "id": "DEXT_fiVe_UP_uploadfile_lst",
+    "text": ""
+  },
+  {
+    "type": "file-row",
+    "tag": "TR",
+    "text": "첨부파일 미리보기\n\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t2025학년도 겨울방학 중 특수교육종일반 운영인력 채용 공고.hwpx\n\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t",
+    "ondblclick": null,
+    "onclick": null,
+    "className": "",
+    "id": "",
+    "html": "\n\t\t\t\t\t\t\t\t\t<th><span>첨부파일 미리보기</span></th>\n\t\t\t\t\t\t\t\t\t<td>\n\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t<div class=\"prvw\">\n\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t<span>2025학년도 겨울방학 중 특수교육종일반 운영인력 채용 공고.hwpx</span>\n\t\t\t\t\t\t\t\t\t\t\t\t\t<div class=\"prvw_btns\">\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t<!-- 바로보기 버튼 -->\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t<a href=\"javascript:void(0);\" onclick=\"previewAjax('https://www.goesn.kr/upload/goesn/na/bbs_17872/2025/11/BD40B431-5D42-1FE7-35C0-2ACD39A54FC3.hwpx','2025학년도 겨울방학 중 특수교육종일반 운영인력 채용 공고.hwpx')\" title=\"바로보기(새창열림)\">\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t<i class=\"xi-eye\" aria-hidden=\"true\"></i><em>미리보기</em>\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t</a>\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t<!-- 바로듣기 버튼 -->\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t<a href=\"javascript:void(0);\" onclick=\"preListen('https://www.goesn.kr/upload/goesn/na/bbs_17872/2025/11/BD40B431-"
+  },
+  {
+    "type": "prvw-link",
+    "tag": "A",
+    "text": "미리보기",
+    "onclick": "previewAjax('https://www.goesn.kr/upload/goesn/na/bbs_17872/2025/11/BD40B431-5D42-1FE7-35C0-2ACD39A54FC3.hwpx','2025학년도 겨울방학 중 특수교육종일반 운영인력 채용 공고.hwpx')",
+    "href": "javascript:void(0);",
+    "className": ""
+  },
+  {
+    "type": "prvw-link",
+    "tag": "A",
+    "text": "바로듣기",
+    "onclick": "preListen('https://www.goesn.kr/upload/goesn/na/bbs_17872/2025/11/BD40B431-5D42-1FE7-35C0-2ACD39A54FC3.hwpx','2025학년도 겨울방학 중 특수교육종일반 운영인력 채용 공고.hwpx')",
+    "href": "javascript:void(0);",
+    "className": ""
+  }
+]
+     ✅ 첨부파일 URL 추출 성공: https://www.goesn.kr/upload/goesn/na/bbs_17872/2025/11/BD40B431-5D42-1FE7-35C0-2ACD39A54FC3.hwpx
+     📄 파일명: 2025학년도 겨울방학 중 특수교육종일반 운영인력 채용 공고.hwpx
+     🖼️ 본문 이미지 확인 중...
+     본문 이미지: 있음
+     📸 스크린샷 캡처 중...
+     본문 길이: 2815자
+     첨부파일: 있음
+     스크린샷: 656KB
+  ✅ 10. 완료
+✅ 성남교육지원청 구인 크롤링 완료: 10개 수집
+
+[2025-11-05T08:51:14.194Z][STEP][pipeline] 중복 체크 및 AI 정규화 시작 {"jobCount":10}
+[2025-11-05T08:51:14.194Z][DEBUG][pipeline] 중복 여부 확인 {"link":"https://www.goesn.kr/goesn/na/ntt/selectNttInfo.do?mi=23603&bbsId=17872&nttSn=1883695"}
+[2025-11-05T08:51:14.323Z][STEP][pipeline] Gemini Vision 분석 시작 {"title":"2025 위례한빛초병설유치원 겨울방학 중 방과후 과정 운영 인력 채용 공고\n\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t새로운 글"}
+❌ 이미지 분석 실패: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash-lite:generateContent: [403 Forbidden] Your API key was reported as leaked. Please use another API key.
+[2025-11-05T08:51:14.935Z][DEBUG][pipeline] Gemini Vision 분석 완료 {"title":"2025 위례한빛초병설유치원 겨울방학 중 방과후 과정 운영 인력 채용 공고\n\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t새로운 글","visionData":null}
+❌ AI 정규화 실패: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash-lite:generateContent: [403 Forbidden] Your API key was reported as leaked. Please use another API key.
+   전체 에러: GoogleGenerativeAIError: [403 Forbidden] Your API key was reported as leaked. Please use another API key.
+    at makeRequest (file:///C:/PRODUCT/sellmebuyme/crawler/node_modules/@google/generative-ai/dist/index.mjs:210:19)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async generateContent (file:///C:/PRODUCT/sellmebuyme/crawler/node_modules/@google/generative-ai/dist/index.mjs:534:22)
+    at async normalizeJobData (file:///C:/PRODUCT/sellmebuyme/crawler/lib/gemini.js:200:20)
+    at async main (file:///C:/PRODUCT/sellmebuyme/crawler/index.js:484:28)
+[2025-11-05T08:51:15.075Z][DEBUG][pipeline] 중복 여부 확인 {"link":"https://www.goesn.kr/goesn/na/ntt/selectNttInfo.do?mi=23603&bbsId=17872&nttSn=1883688"}
+[2025-11-05T08:51:15.235Z][STEP][pipeline] Gemini Vision 분석 시작 {"title":"2025학년도 중탑초등학교  늘봄학교 자원봉사자 모집 공고\n\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t새로운 글"}
+❌ 이미지 분석 실패: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash-lite:generateContent: [403 Forbidden] Your API key was reported as leaked. Please use another API key.
+[2025-11-05T08:51:15.646Z][DEBUG][pipeline] Gemini Vision 분석 완료 {"title":"2025학년도 중탑초등학교  늘봄학교 자원봉사자 모집 공고\n\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t새로운 글","visionData":null}
+❌ AI 정규화 실패: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash-lite:generateContent: [403 Forbidden] Your API key was reported as leaked. Please use another API key.
+   전체 에러: GoogleGenerativeAIError: [403 Forbidden] Your API key was reported as leaked. Please use another API key.
+    at makeRequest (file:///C:/PRODUCT/sellmebuyme/crawler/node_modules/@google/generative-ai/dist/index.mjs:210:19)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async generateContent (file:///C:/PRODUCT/sellmebuyme/crawler/node_modules/@google/generative-ai/dist/index.mjs:534:22)
+    at async normalizeJobData (file:///C:/PRODUCT/sellmebuyme/crawler/lib/gemini.js:200:20)
+    at async main (file:///C:/PRODUCT/sellmebuyme/crawler/index.js:484:28)
+[2025-11-05T08:51:15.850Z][DEBUG][pipeline] 중복 여부 확인 {"link":"https://www.goesn.kr/goesn/na/ntt/selectNttInfo.do?mi=23603&bbsId=17872&nttSn=1883657"}
+[2025-11-05T08:51:15.951Z][STEP][pipeline] Gemini Vision 분석 시작 {"title":"2025학년도 위례푸른초등학교병설유치원 겨울방학 중 방과후 과정 운영인력 채용 공고\n\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t새로운 글"}
+❌ 이미지 분석 실패: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash-lite:generateContent: [403 Forbidden] Your API key was reported as leaked. Please use another API key.
+[2025-11-05T08:51:16.251Z][DEBUG][pipeline] Gemini Vision 분석 완료 {"title":"2025학년도 위례푸른초등학교병설유치원 겨울방학 중 방과후 과정 운영인력 채용 공고\n\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t새로운 글","visionData":null}
+❌ AI 정규화 실패: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash-lite:generateContent: [403 Forbidden] Your API key was reported as leaked. Please use another API key.
+   전체 에러: GoogleGenerativeAIError: [403 Forbidden] Your API key was reported as leaked. Please use another API key.
+    at makeRequest (file:///C:/PRODUCT/sellmebuyme/crawler/node_modules/@google/generative-ai/dist/index.mjs:210:19)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async generateContent (file:///C:/PRODUCT/sellmebuyme/crawler/node_modules/@google/generative-ai/dist/index.mjs:534:22)
+    at async normalizeJobData (file:///C:/PRODUCT/sellmebuyme/crawler/lib/gemini.js:200:20)
+    at async main (file:///C:/PRODUCT/sellmebuyme/crawler/index.js:484:28)
+[2025-11-05T08:51:16.466Z][DEBUG][pipeline] 중복 여부 확인 {"link":"https://www.goesn.kr/goesn/na/ntt/selectNttInfo.do?mi=23603&bbsId=17872&nttSn=1883620"}
+[2025-11-05T08:51:16.568Z][STEP][pipeline] Gemini Vision 분석 시작 {"title":"복정고 계약제교원(시간강사) 채용공고 (지구과학)\n\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t새로운 글"}
+❌ 이미지 분석 실패: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash-lite:generateContent: [403 Forbidden] Your API key was reported as leaked. Please use another API key.
+[2025-11-05T08:51:16.976Z][DEBUG][pipeline] Gemini Vision 분석 완료 {"title":"복정고 계약제교원(시간강사) 채용공고 (지구과학)\n\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t새로운 글","visionData":null}
+❌ AI 정규화 실패: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash-lite:generateContent: [403 Forbidden] Your API key was reported as leaked. Please use another API key.
+   전체 에러: GoogleGenerativeAIError: [403 Forbidden] Your API key was reported as leaked. Please use another API key.
+    at makeRequest (file:///C:/PRODUCT/sellmebuyme/crawler/node_modules/@google/generative-ai/dist/index.mjs:210:19)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async generateContent (file:///C:/PRODUCT/sellmebuyme/crawler/node_modules/@google/generative-ai/dist/index.mjs:534:22)
+    at async normalizeJobData (file:///C:/PRODUCT/sellmebuyme/crawler/lib/gemini.js:200:20)
+    at async main (file:///C:/PRODUCT/sellmebuyme/crawler/index.js:484:28)
+[2025-11-05T08:51:17.117Z][DEBUG][pipeline] 중복 여부 확인 {"link":"https://www.goesn.kr/goesn/na/ntt/selectNttInfo.do?mi=23603&bbsId=17872&nttSn=1883528"}
+[2025-11-05T08:51:17.190Z][STEP][pipeline] Gemini Vision 분석 시작 {"title":"분당중앙고등학교 교육공무직원(조리실무사) 대체 채용 공고(2차)\n\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t새로운 글"}
+❌ 이미지 분석 실패: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash-lite:generateContent: [403 Forbidden] Your API key was reported as leaked. Please use another API key.
+[2025-11-05T08:51:17.507Z][DEBUG][pipeline] Gemini Vision 분석 완료 {"title":"분당중앙고등학교 교육공무직원(조리실무사) 대체 채용 공고(2차)\n\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t새로운 글","visionData":null}
+❌ AI 정규화 실패: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash-lite:generateContent: [403 Forbidden] Your API key was reported as leaked. Please use another API key.
+   전체 에러: GoogleGenerativeAIError: [403 Forbidden] Your API key was reported as leaked. Please use another API key.
+    at makeRequest (file:///C:/PRODUCT/sellmebuyme/crawler/node_modules/@google/generative-ai/dist/index.mjs:210:19)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async generateContent (file:///C:/PRODUCT/sellmebuyme/crawler/node_modules/@google/generative-ai/dist/index.mjs:534:22)
+    at async normalizeJobData (file:///C:/PRODUCT/sellmebuyme/crawler/lib/gemini.js:200:20)
+    at async main (file:///C:/PRODUCT/sellmebuyme/crawler/index.js:484:28)
+[2025-11-05T08:51:17.624Z][DEBUG][pipeline] 중복 여부 확인 {"link":"https://www.goesn.kr/goesn/na/ntt/selectNttInfo.do?mi=23603&bbsId=17872&nttSn=1883510"}
+[2025-11-05T08:51:17.713Z][STEP][pipeline] Gemini Vision 분석 시작 {"title":"성남문원중학교 계약제교사(시간강사) 채용 재공고\n\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t새로운 글"}
+❌ 이미지 분석 실패: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash-lite:generateContent: [403 Forbidden] Your API key was reported as leaked. Please use another API key.
+[2025-11-05T08:51:18.040Z][DEBUG][pipeline] Gemini Vision 분석 완료 {"title":"성남문원중학교 계약제교사(시간강사) 채용 재공고\n\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t새로운 글","visionData":null}
+❌ AI 정규화 실패: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash-lite:generateContent: [403 Forbidden] Your API key was reported as leaked. Please use another API key.
+   전체 에러: GoogleGenerativeAIError: [403 Forbidden] Your API key was reported as leaked. Please use another API key.
+    at makeRequest (file:///C:/PRODUCT/sellmebuyme/crawler/node_modules/@google/generative-ai/dist/index.mjs:210:19)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async generateContent (file:///C:/PRODUCT/sellmebuyme/crawler/node_modules/@google/generative-ai/dist/index.mjs:534:22)
+    at async normalizeJobData (file:///C:/PRODUCT/sellmebuyme/crawler/lib/gemini.js:200:20)
+    at async main (file:///C:/PRODUCT/sellmebuyme/crawler/index.js:484:28)
+[2025-11-05T08:51:18.179Z][DEBUG][pipeline] 중복 여부 확인 {"link":"https://www.goesn.kr/goesn/na/ntt/selectNttInfo.do?mi=23603&bbsId=17872&nttSn=1883447"}
+[2025-11-05T08:51:18.249Z][STEP][pipeline] 기존 공고 재처리 (첨부파일 갱신) {"title":"운중초등학교 병설유치원 겨울방학 중 방과후과정 운영인력 채용","link":"https://www.goesn.kr/goesn/na/ntt/selectNttInfo.do?mi=23603&bbsId=17872&nttSn=1883447","previousAttachmentUrl":"https://www.goesn.kr/upload/goesn/na/bbs_17872/2025/11/15C3A027-9804-738E-5736-2D45F0C95DB5.hwp"}
+[2025-11-05T08:51:18.249Z][STEP][pipeline] Gemini Vision 분석 시작 {"title":"운중초등학교 병설유치원 겨울방학 중 방과후과정 운영인력 채용"}
+❌ 이미지 분석 실패: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash-lite:generateContent: [403 Forbidden] Your API key was reported as leaked. Please use another API key.
+[2025-11-05T08:51:18.563Z][DEBUG][pipeline] Gemini Vision 분석 완료 {"title":"운중초등학교 병설유치원 겨울방학 중 방과후과정 운영인력 채용","visionData":null}
+❌ AI 정규화 실패: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash-lite:generateContent: [403 Forbidden] Your API key was reported as leaked. Please use another API key.
+   전체 에러: GoogleGenerativeAIError: [403 Forbidden] Your API key was reported as leaked. Please use another API key.
+    at makeRequest (file:///C:/PRODUCT/sellmebuyme/crawler/node_modules/@google/generative-ai/dist/index.mjs:210:19)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async generateContent (file:///C:/PRODUCT/sellmebuyme/crawler/node_modules/@google/generative-ai/dist/index.mjs:534:22)
+    at async normalizeJobData (file:///C:/PRODUCT/sellmebuyme/crawler/lib/gemini.js:200:20)
+    at async main (file:///C:/PRODUCT/sellmebuyme/crawler/index.js:484:28)
+[2025-11-05T08:51:18.690Z][DEBUG][pipeline] 중복 여부 확인 {"link":"https://www.goesn.kr/goesn/na/ntt/selectNttInfo.do?mi=23603&bbsId=17872&nttSn=1883439"}
+[2025-11-05T08:51:18.741Z][STEP][pipeline] 기존 공고 재처리 (첨부파일 갱신) {"title":"위례새초롱유치원 겨울방학중방과후과정 지원인력 채용 공고","link":"https://www.goesn.kr/goesn/na/ntt/selectNttInfo.do?mi=23603&bbsId=17872&nttSn=1883439","previousAttachmentUrl":"https://www.goesn.kr/upload/goesn/na/bbs_17872/2025/11/5CDEA103-F180-3EA0-9AF9-7A4F81065C9D.hwp"}
+[2025-11-05T08:51:18.741Z][STEP][pipeline] Gemini Vision 분석 시작 {"title":"위례새초롱유치원 겨울방학중방과후과정 지원인력 채용 공고"}
+❌ 이미지 분석 실패: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash-lite:generateContent: [403 Forbidden] Your API key was reported as leaked. Please use another API key.
+[2025-11-05T08:51:19.066Z][DEBUG][pipeline] Gemini Vision 분석 완료 {"title":"위례새초롱유치원 겨울방학중방과후과정 지원인력 채용 공고","visionData":null}
+❌ AI 정규화 실패: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash-lite:generateContent: [403 Forbidden] Your API key was reported as leaked. Please use another API key.
+   전체 에러: GoogleGenerativeAIError: [403 Forbidden] Your API key was reported as leaked. Please use another API key.
+    at makeRequest (file:///C:/PRODUCT/sellmebuyme/crawler/node_modules/@google/generative-ai/dist/index.mjs:210:19)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async generateContent (file:///C:/PRODUCT/sellmebuyme/crawler/node_modules/@google/generative-ai/dist/index.mjs:534:22)
+    at async normalizeJobData (file:///C:/PRODUCT/sellmebuyme/crawler/lib/gemini.js:200:20)
+    at async main (file:///C:/PRODUCT/sellmebuyme/crawler/index.js:484:28)
+[2025-11-05T08:51:19.190Z][DEBUG][pipeline] 중복 여부 확인 {"link":"https://www.goesn.kr/goesn/na/ntt/selectNttInfo.do?mi=23603&bbsId=17872&nttSn=1883406"}
+[2025-11-05T08:51:19.241Z][STEP][pipeline] 기존 공고 재처리 (첨부파일 갱신) {"title":"방과후학교 개인위탁 외부강사 공모","link":"https://www.goesn.kr/goesn/na/ntt/selectNttInfo.do?mi=23603&bbsId=17872&nttSn=1883406","previousAttachmentUrl":"https://www.goesn.kr/upload/goesn/na/bbs_17872/2025/11/34634446-C232-05F1-684E-9A6630A3E1A4.hwp"}
+[2025-11-05T08:51:19.241Z][STEP][pipeline] Gemini Vision 분석 시작 {"title":"방과후학교 개인위탁 외부강사 공모"}
+❌ 이미지 분석 실패: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash-lite:generateContent: [403 Forbidden] Your API key was reported as leaked. Please use another API key.
+[2025-11-05T08:51:19.557Z][DEBUG][pipeline] Gemini Vision 분석 완료 {"title":"방과후학교 개인위탁 외부강사 공모","visionData":null}
+❌ AI 정규화 실패: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash-lite:generateContent: [403 Forbidden] Your API key was reported as leaked. Please use another API key.
+   전체 에러: GoogleGenerativeAIError: [403 Forbidden] Your API key was reported as leaked. Please use another API key.
+    at makeRequest (file:///C:/PRODUCT/sellmebuyme/crawler/node_modules/@google/generative-ai/dist/index.mjs:210:19)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async generateContent (file:///C:/PRODUCT/sellmebuyme/crawler/node_modules/@google/generative-ai/dist/index.mjs:534:22)
+    at async normalizeJobData (file:///C:/PRODUCT/sellmebuyme/crawler/lib/gemini.js:200:20)
+    at async main (file:///C:/PRODUCT/sellmebuyme/crawler/index.js:484:28)
+[2025-11-05T08:51:19.685Z][DEBUG][pipeline] 중복 여부 확인 {"link":"https://www.goesn.kr/goesn/na/ntt/selectNttInfo.do?mi=23603&bbsId=17872&nttSn=1883399"}
+[2025-11-05T08:51:19.763Z][STEP][pipeline] 기존 공고 재처리 (첨부파일 갱신) {"title":"고등나래유치원 겨울방학 중 특수교육종일반 운영인력 채용공고","link":"https://www.goesn.kr/goesn/na/ntt/selectNttInfo.do?mi=23603&bbsId=17872&nttSn=1883399","previousAttachmentUrl":"https://www.goesn.kr/upload/goesn/na/bbs_17872/2025/11/BD40B431-5D42-1FE7-35C0-2ACD39A54FC3.hwpx"}
+[2025-11-05T08:51:19.763Z][STEP][pipeline] Gemini Vision 분석 시작 {"title":"고등나래유치원 겨울방학 중 특수교육종일반 운영인력 채용공고"}
+❌ 이미지 분석 실패: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash-lite:generateContent: [403 Forbidden] Your API key was reported as leaked. Please use another API key.
+[2025-11-05T08:51:20.107Z][DEBUG][pipeline] Gemini Vision 분석 완료 {"title":"고등나래유치원 겨울방학 중 특수교육종일반 운영인력 채용공고","visionData":null}
+❌ AI 정규화 실패: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash-lite:generateContent: [403 Forbidden] Your API key was reported as leaked. Please use another API key.
+   전체 에러: GoogleGenerativeAIError: [403 Forbidden] Your API key was reported as leaked. Please use another API key.
+    at makeRequest (file:///C:/PRODUCT/sellmebuyme/crawler/node_modules/@google/generative-ai/dist/index.mjs:210:19)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async generateContent (file:///C:/PRODUCT/sellmebuyme/crawler/node_modules/@google/generative-ai/dist/index.mjs:534:22)
+    at async normalizeJobData (file:///C:/PRODUCT/sellmebuyme/crawler/lib/gemini.js:200:20)
+    at async main (file:///C:/PRODUCT/sellmebuyme/crawler/index.js:484:28)
+[2025-11-05T08:51:20.234Z][STEP][supabase] 크롤링 성공 시간 업데이트 {"crawlSourceId":"5a94f47d-5feb-4821-99af-f8805cc3d619"}
+[2025-11-05T08:51:20.284Z][STEP][browser] 브라우저 종료
+[2025-11-05T08:51:20.322Z][STEP][summary] 크롤링 결과 요약 {"total":10,"successCount":0,"skippedCount":0,"failCount":10,"processedCount":10,"efficiency":0}
+
+🧠 AI 토큰 사용량:
+  - API 호출 횟수: 0회
+  - 입력 토큰: 0개
+  - 출력 토큰: 0개
+  - 총 토큰: 0개
+
+[2025-11-05T08:51:20.334Z][WARN][summary] 저장된 공고 없음 (신규 공고 없음 또는 모두 중복) {"targetSource":"seongnam","skippedCount":0,"failCount":10,"rawTotal":10}

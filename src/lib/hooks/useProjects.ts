@@ -38,7 +38,8 @@ export function useProjects(): UseProjectsResult {
     try {
       setLoading(true);
       setError(null);
-      const data = await getProjects(1000, 0);
+      // 최근 30개만 가져옴 (PWA 캐시 최적화)
+      const data = await getProjects(30, 0);
       setAllProjects(data);
       setPage(1);
     } catch (err) {

@@ -40,8 +40,8 @@ export function useFilteredIdeas(): UseFilteredIdeasResult {
     try {
       setLoading(true);
       setError(null);
-      // 모든 아이디어를 한 번에 가져옴 (필터링은 클라이언트에서)
-      const data = await getIdeas(1000, 0);
+      // 최근 30개만 가져옴 (PWA 캐시 최적화)
+      const data = await getIdeas(30, 0);
       setAllIdeas(data);
       setPage(1);
     } catch (err) {

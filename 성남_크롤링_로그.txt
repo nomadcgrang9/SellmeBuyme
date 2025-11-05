@@ -1,0 +1,12 @@
+🔑 Gemini API Key 로딩 상태:
+  - 키 존재: true
+  - 키 길이: 39
+  - 키 앞 10자: AIzaSyCF8k
+✅ Gemini 2.0 Flash 모델 초기화 완료
+
+[2025-11-05T08:33:16.885Z][INFO][main] 셀미바이미 크롤러 시작
+[2025-11-05T08:33:16.886Z][DEBUG][main] 실행 설정 로드 {"argv":["--board-id=5a94f47d-5feb-4821-99af-f8805cc3d619"]}
+[2025-11-05T08:33:16.886Z][STEP][main] AI 생성 크롤러 실행 {"boardId":"5a94f47d-5feb-4821-99af-f8805cc3d619"}
+[2025-11-05T08:33:16.886Z][STEP][ai-crawler] DB에서 크롤러 코드 로드 중... {"boardId":"5a94f47d-5feb-4821-99af-f8805cc3d619"}
+[2025-11-05T08:33:17.695Z][ERROR][ai-crawler] crawler_source_code가 null입니다 {"boardId":"5a94f47d-5feb-4821-99af-f8805cc3d619","boardName":"성남교육지원청 구인","error":null}
+Assertion failed: !(handle->flags & UV_HANDLE_CLOSING), file src\win\async.c, line 76

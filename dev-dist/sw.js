@@ -67,7 +67,7 @@ if (!self.define) {
     });
   };
 }
-define(['./workbox-47da91e0'], (function (workbox) { 'use strict';
+define(['./workbox-ce4f0d5f'], (function (workbox) { 'use strict';
 
   self.skipWaiting();
   workbox.clientsClaim();
@@ -82,7 +82,7 @@ define(['./workbox-47da91e0'], (function (workbox) { 'use strict';
     "revision": "3ca0b8505b4bec776b69afdba2768812"
   }, {
     "url": "index.html",
-    "revision": "0.j5ngpofdqao"
+    "revision": "0.a6ov5i7m7k8"
   }], {});
   workbox.cleanupOutdatedCaches();
   workbox.registerRoute(new workbox.NavigationRoute(workbox.createHandlerBoundToURL("index.html"), {
@@ -106,12 +106,13 @@ define(['./workbox-47da91e0'], (function (workbox) { 'use strict';
       statuses: [0, 200]
     })]
   }), 'GET');
-  workbox.registerRoute(/^https:\/\/.*\.supabase\.co\/.*/i, new workbox.NetworkFirst({
+  workbox.registerRoute(/^https:\/\/.*\.supabase\.co\/.*/i, new workbox.CacheFirst({
     "cacheName": "supabase-cache",
-    "networkTimeoutSeconds": 10,
     plugins: [new workbox.ExpirationPlugin({
       maxEntries: 50,
-      maxAgeSeconds: 300
+      maxAgeSeconds: 1800
+    }), new workbox.CacheableResponsePlugin({
+      statuses: [0, 200]
     })]
   }), 'GET');
 

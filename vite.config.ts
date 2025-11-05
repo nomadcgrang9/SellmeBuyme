@@ -188,8 +188,23 @@ export default defineConfig({
             options: {
               cacheName: 'supabase-cache',
               expiration: {
+                maxEntries: 200, // 50 → 200으로 증가 (DeveloperPage 4개 동시 쿼리 대응)
+                maxAgeSeconds: 60 * 30
+              },
+              cacheableResponse: {
+                statuses: [0, 200]
+              }
+            }
+          },
+          {
+            // GitHub API 캐싱 (배포 정보)
+            urlPattern: /^https:\/\/api\.github\.com\/.*/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'github-api-cache',
+              expiration: {
                 maxEntries: 50,
-                maxAgeSeconds: 60 * 30 // 30분으로 연장
+                maxAgeSeconds: 60 * 60 // 1시간
               },
               cacheableResponse: {
                 statuses: [0, 200]

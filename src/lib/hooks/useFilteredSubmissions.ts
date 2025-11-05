@@ -35,7 +35,8 @@ export function useFilteredSubmissions(): UseFilteredSubmissionsResult {
     try {
       setLoading(true);
       setError(null);
-      const data = await getBoardSubmissions(1000, 0);
+      // 최근 30개만 가져옴 (PWA 캐시 최적화)
+      const data = await getBoardSubmissions(30, 0);
       setAllSubmissions(data);
       setPage(1);
     } catch (err) {
