@@ -71,9 +71,8 @@ export default function SocialSignupModal({
     login: '연결된 계정으로 로그인하면 내 정보를 불러옵니다.'
   } as const;
 
-  const availableProviderConfigs = mode === 'login'
-    ? providerConfigs.filter(({ id }) => id === 'google')
-    : providerConfigs;
+  // 모든 모드(가입/로그인)에서 구글과 카카오 모두 표시
+  const availableProviderConfigs = providerConfigs;
 
   return (
     <AnimatePresence>
