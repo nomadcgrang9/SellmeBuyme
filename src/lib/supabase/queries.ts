@@ -2054,12 +2054,47 @@ export async function uploadPromoImage(file: File): Promise<string> {
   return data.publicUrl;
 }
 
-// 두 카드의 순서 교환
+// order_index 정규화 (연속된 번호로 재정렬)
+export async function normalizeCardOrder(collectionId: string): Promise<void> {
+  const timestamp = new Date().toISOString();
+
+  try {
+    // 현재 order_index 순서대로 카드 조회
+    const { data: cards, error: fetchError } = await supabase
+      .from('promo_cards')
+      .select('id')
+      .eq('collection_id', collectionId)
+      .order('order_index', { ascending: true });
+
+    if (fetchError || !cards) {
+      throw fetchError || new Error('카드 조회 실패');
+    }
+
+    // 1부터 시작하는 연속된 order_index 할당
+    for (let i = 0; i < cards.length; i++) {
+      const { error: updateError } = await supabase
+        .from('promo_cards')
+        .update({ order_index: i + 1, updated_at: timestamp })
+        .eq('id', cards[i].id);
+
+      if (updateError) {
+        throw updateError;
+      }
+    }
+
+    console.log(`[normalizeCardOrder] ${cards.length}개 카드 정규화 완료`);
+  } catch (error) {
+    console.error('[normalizeCardOrder] 정규화 실패:', { collectionId, error });
+    throw error;
+  }
+}
+
+// 두 카드의 순서 교환 (UNIQUE 제약조건 회피를 위해 임시값 사용)
 export async function swapCardOrder(cardId1: string, cardId2: string): Promise<void> {
   // 두 카드 정보 조회
   const { data: cards, error: fetchError } = await supabase
     .from('promo_cards')
-    .select('id, order_index')
+    .select('id, order_index, collection_id')
     .in('id', [cardId1, cardId2]);
 
   if (fetchError || !cards || cards.length !== 2) {
@@ -2073,25 +2108,49 @@ export async function swapCardOrder(cardId1: string, cardId2: string): Promise<v
     throw new Error('카드를 찾을 수 없습니다');
   }
 
-  // order_index 교환
+  // order_index 교환 (임시값을 사용하여 UNIQUE 제약조건 회피)
   const timestamp = new Date().toISOString();
+  const tempIndex = -999; // 임시값 (음수로 충돌 방지)
 
-  const { error: update1Error } = await supabase
-    .from('promo_cards')
-    .update({ order_index: card2.order_index, updated_at: timestamp })
-    .eq('id', cardId1);
+  try {
+    // Step 1: card1을 임시값으로 변경
+    const { error: update1Error } = await supabase
+      .from('promo_cards')
+      .update({ order_index: tempIndex, updated_at: timestamp })
+      .eq('id', cardId1);
 
-  if (update1Error) {
-    throw update1Error;
-  }
+    if (update1Error) {
+      throw update1Error;
+    }
 
-  const { error: update2Error } = await supabase
-    .from('promo_cards')
-    .update({ order_index: card1.order_index, updated_at: timestamp })
-    .eq('id', cardId2);
+    // Step 2: card2를 card1의 원래 값으로 변경
+    const { error: update2Error } = await supabase
+      .from('promo_cards')
+      .update({ order_index: card1.order_index, updated_at: timestamp })
+      .eq('id', cardId2);
 
-  if (update2Error) {
-    throw update2Error;
+    if (update2Error) {
+      throw update2Error;
+    }
+
+    // Step 3: card1을 card2의 원래 값으로 변경
+    const { error: update3Error } = await supabase
+      .from('promo_cards')
+      .update({ order_index: card2.order_index, updated_at: timestamp })
+      .eq('id', cardId1);
+
+    if (update3Error) {
+      throw update3Error;
+    }
+  } catch (error) {
+    console.error('[swapCardOrder] 순서 교환 실패:', {
+      cardId1,
+      cardId2,
+      card1Order: card1.order_index,
+      card2Order: card2.order_index,
+      error
+    });
+    throw error;
   }
 }
 

@@ -19,7 +19,8 @@ export default function PromoCardListManager({ userId }: PromoCardListManagerPro
     createCard,
     deleteCard,
     moveUp,
-    moveDown
+    moveDown,
+    normalizeOrder
   } = usePromoCardManager();
 
   const [editingCard, setEditingCard] = useState<PromoCardSettings | null>(null);
@@ -93,14 +94,24 @@ export default function PromoCardListManager({ userId }: PromoCardListManagerPro
             메인 페이지 추천 섹션에 표시될 프로모 카드를 관리합니다.
           </p>
         </div>
-        <button
-          onClick={handleCreate}
-          disabled={loading}
-          className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-lg disabled:opacity-50 transition-colors"
-        >
-          <IconPlus size={18} />
-          새 카드 추가
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={normalizeOrder}
+            disabled={loading || cards.length === 0}
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg disabled:opacity-50 transition-colors"
+            title="순서가 엉망일 때 1부터 시작하는 연속된 번호로 정렬합니다"
+          >
+            순서 정규화
+          </button>
+          <button
+            onClick={handleCreate}
+            disabled={loading}
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-lg disabled:opacity-50 transition-colors"
+          >
+            <IconPlus size={18} />
+            새 카드 추가
+          </button>
+        </div>
       </div>
 
       {/* 카드 목록 */}

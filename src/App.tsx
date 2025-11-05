@@ -21,6 +21,7 @@ import { useSearchStore } from '@/stores/searchStore';
 import { useAuthStore } from '@/stores/authStore';
 import { supabase } from '@/lib/supabase/client';
 import type { Card, PromoCardSettings, JobPostingCard, ExperienceCard } from '@/types';
+import { getRegisteredTalentFromLocalStorage, clearRegisteredTalentFromLocalStorage } from '@/lib/utils/landingTransform';
 
 /**
  * 마감 지난 공고 필터링 함수
@@ -113,6 +114,7 @@ export default function App() {
   const [editingExperience, setEditingExperience] = useState<ExperienceCard | null>(null);
   const [isExperienceEditOpen, setIsExperienceEditOpen] = useState(false);
   const [selectedExperience, setSelectedExperience] = useState<ExperienceCard | null>(null);
+  const [highlightTalentId, setHighlightTalentId] = useState<string | null>(null);
 
   // AI 추천 카드 클릭 시 전체 데이터 조회
   const handleCardClick = async (card: Card) => {
@@ -207,6 +209,36 @@ export default function App() {
       cancelled = true;
     };
   }, [status, user?.id]);
+
+  // 랜딩페이지에서 등록한 인력카드 하이라이트
+  useEffect(() => {
+    const registeredInfo = getRegisteredTalentFromLocalStorage();
+
+    if (!registeredInfo) return;
+
+    const { id, registered_at } = registeredInfo;
+    const registeredTime = new Date(registered_at).getTime();
+    const now = Date.now();
+
+    // 10분 이내 등록이면 하이라이트
+    if (now - registeredTime < 10 * 60 * 1000) {
+      setHighlightTalentId(id);
+
+      // 인력카드 토글을 talent로 자동 전환
+      useSearchStore.setState({ viewType: 'talent' });
+
+      // 5초 후 하이라이트 제거
+      const timeout = setTimeout(() => {
+        setHighlightTalentId(null);
+        clearRegisteredTalentFromLocalStorage();
+      }, 5000);
+
+      return () => clearTimeout(timeout);
+    } else {
+      // 10분 초과 시 LocalStorage 정리
+      clearRegisteredTalentFromLocalStorage();
+    }
+  }, []);
 
   const handleProfileClose = () => {
     console.log('[DEBUG] handleProfileClose 호출됨');
@@ -342,6 +374,17 @@ export default function App() {
     // 목록에서 제거
     setCards((prev) => prev.filter((c) => !(c.type === 'experience' && c.id === experienceId)));
     handleExperienceEditClose();
+  };
+
+  const handleExperienceDeleteClick = (card: Card) => {
+    if (card.type !== 'experience') return;
+    if (!confirm('정말로 삭제하시겠어요? 삭제 후 복구할 수 없습니다.')) {
+      return;
+    }
+    // ExperienceEditModal의 handleDelete와 동일한 로직
+    setEditingExperience(card as ExperienceCard);
+    setIsExperienceEditOpen(true);
+    // 모달에서 삭제 버튼 클릭 시 처리됨
   };
 
   const normalizeProfileForEdit = (data: UserProfileRow | null | undefined) => {
@@ -670,6 +713,8 @@ export default function App() {
                 onCardClick={handleCardClick}
                 onJobEditClick={handleJobEditClick}
                 onExperienceEditClick={handleExperienceEditClick}
+                onExperienceDeleteClick={handleExperienceDeleteClick}
+                highlightTalentId={highlightTalentId}
               />
 
               <div ref={sentinelRef} className="h-1" aria-hidden />
@@ -769,6 +814,7 @@ export default function App() {
           isOpen={!!selectedExperience}
           onClose={() => setSelectedExperience(null)}
           onEditClick={handleExperienceEditClick}
+          onDeleteClick={handleExperienceDeleteClick}
         />
       )}
 

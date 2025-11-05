@@ -1,6 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import '../styles/landing.css'
 import { motion } from 'motion/react'
+import TalentCard from '@/components/cards/TalentCard'
+import { transformLandingToTalentCard, transformLandingToInsertData, hashPhone, saveRegisteredTalentToLocalStorage, type LandingUserInput } from '@/lib/utils/landingTransform'
+import { supabase } from '@/lib/supabase/client'
 
 type SlideKey =
   | 'greeting'
@@ -15,6 +18,7 @@ type SlideKey =
   | 'region'
   | 'field'
   | 'phone'
+  | 'experience'
   | 'review'
   | 'card-registration'
   | 'done'
@@ -32,6 +36,7 @@ const order: SlideKey[] = [
   'region',
   'field',
   'phone',
+  'experience',
   'review',
   'card-registration',
   'done'
@@ -87,7 +92,8 @@ export default function Landing() {
   const [regions, setRegions] = useState<string[]>([])
   const [fields, setFields] = useState<string[]>([])
   const [phone, setPhone] = useState('')
-  const [cardRegistration, setCardRegistration] = useState<string | null>(null)
+  const [experience, setExperience] = useState<string | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const regionsList = useMemo(() => [
     '서울',
@@ -150,8 +156,53 @@ export default function Landing() {
     if (step === 'name') return name.trim().length === 0
     if (step === 'role') return role == null
     if (step === 'phone') return !isValidPhone(phone)
-    if (step === 'card-registration') return cardRegistration == null
+    if (step === 'experience') return experience == null
     return false
+  }
+
+  async function handleInterested() {
+    if (isSubmitting) return
+    setIsSubmitting(true)
+
+    try {
+      const userInput: LandingUserInput = {
+        name,
+        role: role!,
+        regions,
+        fields,
+        phone,
+        experience,
+      }
+
+      const talentData = transformLandingToInsertData(userInput)
+      const tempId = hashPhone(phone)
+
+      const { data, error } = await supabase
+        .from('talents')
+        .insert({
+          ...talentData,
+          temp_identifier: tempId,
+        })
+        .select()
+        .single()
+
+      if (error) throw error
+
+      // LocalStorage 저장
+      saveRegisteredTalentToLocalStorage(data.id, userInput)
+
+      setStep('done')
+    } catch (error) {
+      console.error('등록 실패:', error)
+      alert('등록 중 오류가 발생했습니다. 다시 시도해주세요.')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  function handleSkip() {
+    // DB 저장 없이 바로 메인페이지로
+    window.location.href = '/'
   }
 
   useEffect(() => {
@@ -225,12 +276,12 @@ export default function Landing() {
           </motion.section>
         )}
 
-        {/* Slide 9 - role selection (5 options) */}
+        {/* Slide 9 - role selection (7 options) */}
         {step === 'role' && (
           <motion.section initial={{ x: 50, opacity: 0 }} animate={{ x: 0, opacity: 1 }} className="slide">
             <SlideTitle text="선생님은 어떤 역할이십니까?" />
             <motion.div className="floating-panel" initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: 0.15 }}>
-              {['교사', '강사', '교사이자 강사', '행정인력', '업체'].map(opt => (
+              {['교사', '기간제 교사', '강사', '교사이자 강사', '행정인력', '기간제 행정인력', '업체'].map(opt => (
                 <button key={opt} className={`chip large ${role === opt ? 'selected' : ''}`} onClick={() => setRole(opt)} style={{ margin: 8 }}>{opt}</button>
               ))}
             </motion.div>
@@ -240,12 +291,16 @@ export default function Landing() {
                 <p className="role-desc-text">
                   {role === '교사'
                     ? '교사는 공고등록, 인력구하거나 협력강사 구하는 업무를 맡은, 또는 다양한 인력자원을 활용해서 교육과정을 풍성히 구성하는 사람입니다.'
+                    : role === '기간제 교사'
+                    ? '기간제 교사는 본인의 전문성을 활용하여 계약된 기간동안 근무하는 교사입니다.'
                     : role === '강사'
                     ? '강사는 방과후 또는 돌봄, 정규수업시간 협력수업 또는 교직원 및 학부모 대상 성인 수업도 가능한 사람입니다.'
                     : role === '교사이자 강사'
                     ? '교사이자 강사는 정규교원이면서도 강사로서 전문분야가 있어 교직원 및 학부모 대상 연수가 가능한 사람입니다.'
                     : role === '행정인력'
                     ? '행정인력은 조리사, 행정실무, 자원봉사자 등 학교 교육을 지원하는 사람입니다.'
+                    : role === '기간제 행정인력'
+                    ? '기간제 행정인력은 본인의 전문성을 활용하여 계약된 기간동안 근무하는 행정인력입니다.'
                     : '업체는 각종 프로그램을 운영하고 교육과정을 풍성하게 만드는 조직에 소속된 사람입니다.'}
                 </p>
               </div>
@@ -311,22 +366,133 @@ export default function Landing() {
           </motion.section>
         )}
 
-        {/* Slide 14 - card-registration */}
+        {/* Slide 14 - card-registration with preview */}
         {step === 'card-registration' && (
+          <motion.section initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="slide">
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '24px', width: '100%', maxWidth: '600px' }}>
+              <div style={{ textAlign: 'center' }}>
+                <h2 style={{
+                  fontSize: '28px',
+                  fontWeight: 700,
+                  marginBottom: '24px',
+                  background: 'linear-gradient(90deg, #60A5FA, #3730A3)',
+                  WebkitBackgroundClip: 'text',
+                  backgroundClip: 'text',
+                  color: 'transparent',
+                  WebkitTextFillColor: 'transparent',
+                  lineHeight: '1.5'
+                }}>
+                  인력풀로 한번 등록해 보세요, 저희가 학교에 적극 추천해드리겠습니다
+                </h2>
+              </div>
+
+              {/* 인력카드 미리보기 */}
+              <motion.div
+                initial={{ scale: 0.95, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ delay: 0.2 }}
+                style={{ width: '100%', maxWidth: '400px' }}
+              >
+                <TalentCard
+                  talent={transformLandingToTalentCard({
+                    name,
+                    role: role!,
+                    regions,
+                    fields,
+                    phone,
+                    experience,
+                  })}
+                />
+              </motion.div>
+
+              {/* 버튼 그룹 - 가로 배치 */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.4 }}
+                style={{ display: 'flex', flexDirection: 'row', gap: '12px', width: '100%', justifyContent: 'center' }}
+              >
+                <button
+                  onClick={handleInterested}
+                  disabled={isSubmitting}
+                  style={{
+                    flex: '0 0 auto',
+                    minWidth: '140px',
+                    background: isSubmitting ? '#9CA3AF' : 'linear-gradient(120deg, #BBD8FF, #82B4FF)',
+                    color: 'white',
+                    border: 'none',
+                    padding: '16px 24px',
+                    borderRadius: '12px',
+                    fontSize: '18px',
+                    fontWeight: 700,
+                    cursor: isSubmitting ? 'not-allowed' : 'pointer',
+                    boxShadow: isSubmitting ? 'none' : '0 12px 24px rgba(59,130,246,0.2)',
+                    transition: 'all 0.2s',
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!isSubmitting) {
+                      e.currentTarget.style.transform = 'translateY(-2px)';
+                      e.currentTarget.style.boxShadow = '0 18px 32px rgba(59,130,246,0.24)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isSubmitting) {
+                      e.currentTarget.style.transform = 'translateY(0)';
+                      e.currentTarget.style.boxShadow = '0 12px 24px rgba(59,130,246,0.2)';
+                    }
+                  }}
+                >
+                  {isSubmitting ? '등록 중...' : '관심있음'}
+                </button>
+                <button
+                  onClick={handleSkip}
+                  disabled={isSubmitting}
+                  style={{
+                    flex: '0 0 auto',
+                    minWidth: '180px',
+                    background: 'rgba(255,255,255,0.85)',
+                    color: '#6B7280',
+                    border: '1px solid #E5E7EB',
+                    padding: '12px 24px',
+                    borderRadius: '12px',
+                    fontSize: '16px',
+                    fontWeight: 600,
+                    cursor: isSubmitting ? 'not-allowed' : 'pointer',
+                    transition: 'all 0.2s',
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!isSubmitting) {
+                      e.currentTarget.style.background = 'rgba(255,255,255,1)';
+                      e.currentTarget.style.borderColor = '#93C5FD';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isSubmitting) {
+                      e.currentTarget.style.background = 'rgba(255,255,255,0.85)';
+                      e.currentTarget.style.borderColor = '#E5E7EB';
+                    }
+                  }}
+                >
+                  안해도 괜찮습니다
+                </button>
+              </motion.div>
+            </div>
+          </motion.section>
+        )}
+
+        {/* Slide 15 - experience */}
+        {step === 'experience' && (
           <motion.section initial={{ x: 50, opacity: 0 }} animate={{ x: 0, opacity: 1 }} className="slide">
-            <SlideTitle text="입력하신 정보를 바탕으로 관심있는 분야의 학생 또는 성인대상 강사 또는 인력으로 카드를 등록해보시겠습니까?" />
-            <motion.div className="center-sub" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }}>
-              해당 기회가 오면 선생님을 다른 학교와 자원들에게 적극 추천해보겠습니다
-            </motion.div>
-            <motion.div className="floating-panel" initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: 0.3 }}>
-              {['관심있음', '안해도 괜찮습니다'].map(opt => (
-                <button key={opt} className={`chip large ${cardRegistration === opt ? 'selected' : ''}`} onClick={() => setCardRegistration(opt)} style={{ margin: 8 }}>{opt}</button>
+            <SlideTitle text="선생님의 경력은 어느 정도이십니까?" />
+            <motion.div className="floating-panel" initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: 0.15 }}>
+              {['신규', '1~3년', '3~5년', '5년 이상'].map(opt => (
+                <button key={opt} className={`chip large ${experience === opt ? 'selected' : ''}`} onClick={() => setExperience(opt)} style={{ margin: 8 }}>{opt}</button>
               ))}
             </motion.div>
           </motion.section>
         )}
 
-        {/* Slide 15 - done (static) */}
+        {/* Slide 16 - done (static) */}
         {step === 'done' && (
           <motion.section initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="slide">
             <SlideTitle text="이제 메인페이지로 이동합니다" />
@@ -334,13 +500,26 @@ export default function Landing() {
             {/* Removed per-slide navigation */}
           </motion.section>
         )}
-        {/* global bottom nav */}
-        <div className="global-nav">
-          <button className="btn-prev" onClick={goPrev} disabled={idxOf(step) === 0}>
-            이전
+        {/* side navigation buttons */}
+        <div className="side-nav left">
+          <button
+            className="side-nav-btn"
+            onClick={goPrev}
+            disabled={idxOf(step) === 0}
+            aria-label="이전"
+          >
+            &lt;
           </button>
-          <button className="btn-next" onClick={goNext} disabled={isNextDisabled() || step === 'done'}>
-            다음
+        </div>
+
+        <div className="side-nav right">
+          <button
+            className="side-nav-btn"
+            onClick={goNext}
+            disabled={isNextDisabled() || step === 'done'}
+            aria-label="다음"
+          >
+            &gt;
           </button>
         </div>
       </main>

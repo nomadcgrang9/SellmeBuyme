@@ -82,7 +82,7 @@ define(['./workbox-ce4f0d5f'], (function (workbox) { 'use strict';
     "revision": "3ca0b8505b4bec776b69afdba2768812"
   }, {
     "url": "index.html",
-    "revision": "0.a6ov5i7m7k8"
+    "revision": "0.uue8l7tvubo"
   }], {});
   workbox.cleanupOutdatedCaches();
   workbox.registerRoute(new workbox.NavigationRoute(workbox.createHandlerBoundToURL("index.html"), {
@@ -109,8 +109,17 @@ define(['./workbox-ce4f0d5f'], (function (workbox) { 'use strict';
   workbox.registerRoute(/^https:\/\/.*\.supabase\.co\/.*/i, new workbox.CacheFirst({
     "cacheName": "supabase-cache",
     plugins: [new workbox.ExpirationPlugin({
-      maxEntries: 50,
+      maxEntries: 200,
       maxAgeSeconds: 1800
+    }), new workbox.CacheableResponsePlugin({
+      statuses: [0, 200]
+    })]
+  }), 'GET');
+  workbox.registerRoute(/^https:\/\/api\.github\.com\/.*/i, new workbox.CacheFirst({
+    "cacheName": "github-api-cache",
+    plugins: [new workbox.ExpirationPlugin({
+      maxEntries: 50,
+      maxAgeSeconds: 3600
     }), new workbox.CacheableResponsePlugin({
       statuses: [0, 200]
     })]
