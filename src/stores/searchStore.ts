@@ -28,7 +28,17 @@ export const useSearchStore = create<SearchStoreState>((set, get) => ({
   lastUpdatedAt: Date.now(),
   hasActiveSearch: () => {
     const state = get();
-    return state.searchQuery.trim().length > 0;
+
+    // 검색창에 텍스트 입력
+    if (state.searchQuery.trim().length > 0) return true;
+
+    // 지역 필터 수동 변경 (기본값: '서울 전체')
+    if (state.filters.region !== DEFAULT_REGION) return true;
+
+    // 카테고리 필터 수동 변경 (기본값: '전분야')
+    if (state.filters.category !== DEFAULT_CATEGORY) return true;
+
+    return false;  // 완전히 "자연스러운" 상태
   },
   setSearchQuery: (value) =>
     set({ searchQuery: value, offset: 0, lastUpdatedAt: Date.now() }),

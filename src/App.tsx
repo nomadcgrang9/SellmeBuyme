@@ -22,6 +22,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { supabase } from '@/lib/supabase/client';
 import type { Card, PromoCardSettings, JobPostingCard, ExperienceCard } from '@/types';
 import { getRegisteredTalentFromLocalStorage, clearRegisteredTalentFromLocalStorage } from '@/lib/utils/landingTransform';
+import { useGeolocation } from '@/lib/hooks/useGeolocation';
 
 /**
  * 마감 지난 공고 필터링 함수
@@ -49,6 +50,96 @@ function filterExpiredJobs(cards: Card[]): Card[] {
   });
 }
 
+/**
+ * 위치 기반 카드 정렬 함수
+ * @param cards - 정렬할 카드 배열
+ * @param userLocation - 사용자 위치 정보
+ * @returns 거리 순으로 정렬된 카드 배열 (가까운 순)
+ */
+function sortCardsByLocation(
+  cards: Card[],
+  userLocation: { city: string; district: string } | null
+): Card[] {
+  if (!userLocation) return cards;
+
+  // 도시 이름 정규화 (공백 제거, "시", "구" 제거)
+  const normalizeCity = (city: string): string => {
+    return city
+      .replace(/\s+/g, '')
+      .replace(/시$/, '')
+      .replace(/구$/, '')
+      .trim();
+  };
+
+  const userCity = normalizeCity(userLocation.city);
+  const userDistrict = normalizeCity(userLocation.district);
+
+  console.log('📍 [카드 정렬] 위치 기반 정렬 시작');
+  console.log('  - 사용자 도시:', userCity);
+  console.log('  - 사용자 구:', userDistrict);
+
+  // 인접 지역 정의 (성남 기준 예시)
+  const adjacentCities: Record<string, string[]> = {
+    '성남': ['광주', '하남', '용인', '수원'],
+    '수원': ['용인', '화성', '오산', '성남'],
+    '용인': ['성남', '수원', '화성', '광주'],
+    // 필요시 다른 도시도 추가
+  };
+
+  const getLocationScore = (card: Card): number => {
+    let location = '';
+
+    if (card.type === 'job') {
+      location = (card as JobPostingCard).location || '';
+    } else if (card.type === 'talent') {
+      location = (card as any).location || '';
+    }
+
+    const normalizedLocation = normalizeCity(location);
+
+    // 1순위: 같은 구 (예: 분당)
+    if (userDistrict && normalizedLocation.includes(userDistrict)) {
+      return 1000;
+    }
+
+    // 2순위: 같은 시 (예: 성남)
+    if (normalizedLocation.includes(userCity)) {
+      return 900;
+    }
+
+    // 3순위: 인접 도시 (예: 광주, 하남, 용인, 수원)
+    const adjacentList = adjacentCities[userCity] || [];
+    for (let i = 0; i < adjacentList.length; i++) {
+      if (normalizedLocation.includes(adjacentList[i])) {
+        return 800 - (i * 10); // 순서대로 점수 감소
+      }
+    }
+
+    // 4순위: 경기도 (기타 지역)
+    if (normalizedLocation.includes('경기') || normalizedLocation.length > 0) {
+      return 100;
+    }
+
+    // 5순위: 기타 (location 정보 없음)
+    return 0;
+  };
+
+  const sortedCards = [...cards].sort((a, b) => {
+    const scoreA = getLocationScore(a);
+    const scoreB = getLocationScore(b);
+    return scoreB - scoreA; // 높은 점수 우선
+  });
+
+  console.log('✅ [카드 정렬] 완료');
+  console.log('  - 정렬된 카드 샘플 (처음 5개):', sortedCards.slice(0, 5).map(c => ({
+    type: c.type,
+    location: c.type === 'job' ? (c as any).location : (c as any).location,
+    score: getLocationScore(c)
+  })));
+
+  return sortedCards;
+}
+
 export default function App() {
   const {
     searchQuery,
@@ -58,7 +149,8 @@ export default function App() {
     offset,
     lastUpdatedAt,
     loadMore,
-    hasActiveSearch
+    hasActiveSearch,
+    setFilters
   } = useSearchStore((state) => ({
     searchQuery: state.searchQuery,
     filters: state.filters,
@@ -67,7 +159,8 @@ export default function App() {
     offset: state.offset,
     lastUpdatedAt: state.lastUpdatedAt,
     loadMore: state.loadMore,
-    hasActiveSearch: state.hasActiveSearch()
+    hasActiveSearch: state.hasActiveSearch(),
+    setFilters: state.setFilters
   }));
 
   const { initialize, status, user } = useAuthStore((state) => ({
@@ -75,6 +168,10 @@ export default function App() {
     status: state.status,
     user: state.user
   }));
+
+  // 위치 기반 자동 추천 (익명 사용자용)
+  const { address, loading: locationLoading, permissionDenied } = useGeolocation();
+  const [userLocation, setUserLocation] = useState<{ city: string; district: string } | null>(null);
 
   const [cards, setCards] = useState<Card[]>([]);
   const [totalCount, setTotalCount] = useState(0);
@@ -165,6 +262,91 @@ export default function App() {
   useEffect(() => {
     void initialize();
   }, [initialize]);
+
+  // 주소 정규화 함수 (캐시된 데이터도 처리)
+  const normalizeAddress = (addr: { city: string; district: string }) => {
+    // "성남시 분당구" → "성남" 형태로 변환
+    // 1. 먼저 "시", "구" 제거
+    // 2. 그 다음 공백 제거
+    // 3. 첫 번째 단어만 추출 (예: "성남시 분당구" → "성남")
+    const cityParts = addr.city.replace(/시/g, '').replace(/구/g, '').trim().split(/\s+/);
+    const city = cityParts[0] || '';
+
+    const districtParts = addr.district.replace(/시/g, '').replace(/구/g, '').trim().split(/\s+/);
+    const district = districtParts[0] || '';
+
+    return { city, district };
+  };
+
+  // 위치 기반 정렬을 위한 사용자 위치 저장
+  // - 익명 사용자: 브라우저 geolocation 사용
+  // - 로그인 사용자: 프로필 interest_regions 사용
+  useEffect(() => {
+    console.log('🔍 [위치 기반 정렬] useEffect 실행');
+    console.log('  - user:', user);
+    console.log('  - userProfile:', userProfile);
+    console.log('  - permissionDenied:', permissionDenied);
+    console.log('  - hasActiveSearch:', hasActiveSearch);
+    console.log('  - address (브라우저):', address);
+
+    // 사용자가 수동으로 필터를 설정한 경우 자동 적용 안 함
+    if (hasActiveSearch) {
+      console.log('  ⏭️ 수동 검색/필터 활성화 - 위치정렬 비활성화');
+      setUserLocation(null);
+      return;
+    }
+
+    // 로그인 사용자: 프로필의 interest_regions 사용
+    if (user && userProfile) {
+      const profileRegion = userProfile.interest_regions?.[0];
+      if (profileRegion) {
+        console.log('  ✅ 로그인 사용자 - 프로필 지역 사용:', profileRegion);
+        // 프로필 지역도 정규화 (혹시 "성남시" 형태로 저장되었을 수 있음)
+        const normalized = {
+          city: profileRegion.replace(/시$/, ''),
+          district: ''  // 프로필에는 시/군 단위만 저장
+        };
+        console.log('  - 정규화된 지역:', normalized);
+        setUserLocation(normalized);
+        console.log(`📍 [정렬 모드] 프로필 선호 지역(${normalized.city})을 기준으로 카드를 정렬합니다.`);
+        return;
+      } else {
+        console.log('  ⏭️ 로그인 사용자 - 프로필에 선호 지역 없음');
+        setUserLocation(null);
+        return;
+      }
+    }
+
+    // 익명 사용자: 브라우저 geolocation 사용
+    if (!user) {
+      // 위치 권한 거부 시 전체 공고 표시
+      if (permissionDenied) {
+        console.log('  ⏭️ 익명 사용자 - 위치 권한 거부');
+        setUserLocation(null);
+        return;
+      }
+
+      // 위치 정보 획득 성공 시 userLocation state 업데이트
+      if (address && address.city) {
+        console.log('  ✅ 익명 사용자 - 브라우저 위치 사용');
+        console.log('  - 감지된 도시 (원본):', address.city);
+        console.log('  - 감지된 구 (원본):', address.district);
+
+        // 중요: 캐시된 데이터도 정규화 처리
+        const normalized = normalizeAddress(address);
+        console.log('  - 정규화된 도시:', normalized.city);
+        console.log('  - 정규화된 구:', normalized.district);
+
+        setUserLocation(normalized);
+
+        console.log(`📍 [정렬 모드] 현재 위치(${normalized.city})를 기준으로 카드를 정렬합니다.`);
+        console.log('✅ 모든 지역 카드를 표시하되, 가까운 지역 우선 정렬합니다!');
+      } else {
+        console.log('  ⏭️ 익명 사용자 - 위치 정보 없음');
+        setUserLocation(null);
+      }
+    }
+  }, [address, user, userProfile, permissionDenied, hasActiveSearch]);
 
   useEffect(() => {
     if (status !== 'authenticated') {
@@ -558,6 +740,13 @@ export default function App() {
       }
       setError(null);
 
+      console.log('🔍 [카드 검색] searchCards 호출');
+      console.log('  - searchQuery:', searchQuery);
+      console.log('  - filters:', filters);
+      console.log('  - viewType:', viewType);
+      console.log('  - limit:', limit);
+      console.log('  - offset:', offset);
+
       try {
         const { cards: nextCards, totalCount: nextTotalCount } = await searchCards({
           searchQuery,
@@ -567,17 +756,35 @@ export default function App() {
           offset
         });
 
+        console.log('✅ [카드 검색 결과]');
+        console.log('  - 반환된 카드 수:', nextCards.length);
+        console.log('  - 전체 개수:', nextTotalCount);
+        console.log('  - 카드 샘플 (처음 3개):', nextCards.slice(0, 3).map(c => ({
+          id: c.id,
+          type: c.type,
+          title: c.type === 'job' ? (c as any).title : c.type === 'talent' ? (c as any).name : (c as any).programTitle,
+          location: c.type === 'job' ? (c as any).location : c.type === 'talent' ? (c as any).location : undefined
+        })));
+
         if (!active) return;
 
+        // 위치 기반 정렬 (첫 페이지만)
+        // - 익명 사용자: 브라우저 geolocation 기반
+        // - 로그인 사용자: 프로필 interest_regions 기반
+        let sortedCards = nextCards;
+        if (userLocation && offset === 0) {
+          sortedCards = sortCardsByLocation(nextCards, userLocation);
+        }
+
         // 추천 ID 우선 정렬: 상단 추천과 동일 카드가 하단에서도 위로 오도록
-        const promote = (arr: typeof nextCards) => {
+        const promote = (arr: typeof sortedCards) => {
           if (!recommendedIds || recommendedIds.size === 0) return arr;
           const withScore = arr.map((c) => ({ c, s: recommendedIds.has(c.id) ? 1 : 0 }));
           withScore.sort((a, b) => b.s - a.s);
           return withScore.map((x) => x.c);
         };
 
-        const promoted = promote(nextCards);
+        const promoted = promote(sortedCards);
         setCards((prev) => (offset === 0 ? promoted : [...prev, ...promoted]));
         setTotalCount(nextTotalCount);
       } catch (fetchError) {
@@ -599,7 +806,7 @@ export default function App() {
     return () => {
       active = false;
     };
-  }, [searchQuery, filters, viewType, limit, offset, lastUpdatedAt]);
+  }, [searchQuery, filters, viewType, limit, offset, lastUpdatedAt, userLocation, user]);
 
   const searchSummary = useMemo(() => {
     if (!searchQuery.trim()) {
@@ -679,6 +886,47 @@ export default function App() {
       {/* 메인 콘텐츠 */}
       <main className="bg-white pb-20 md:pb-10">
         <div className="max-w-container mx-auto px-6 pt-4">
+          {/* 위치 기반 정렬 안내 */}
+          {userLocation && !hasActiveSearch && (
+            <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-4 rounded-r-lg">
+              <div className="flex items-start justify-between">
+                <div className="flex items-start space-x-3">
+                  <span className="text-2xl">📍</span>
+                  <div>
+                    <p className="text-sm font-semibold text-blue-900 mb-1">
+                      {user ? '프로필 기반 위치 정렬' : '현재 위치 기반 정렬'}
+                    </p>
+                    <p className="text-sm text-blue-700">
+                      {userLocation.city} {userLocation.district && `${userLocation.district} `}지역을 중심으로 가까운 순서로 정렬하고 있습니다
+                      {user && ' (프로필 선호 지역 기준)'}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    setUserLocation(null);
+                    localStorage.removeItem('user_location');
+                  }}
+                  className="ml-4 text-sm text-blue-600 hover:text-blue-800 underline whitespace-nowrap"
+                >
+                  정렬 해제
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* 위치 확인 중 로딩 (익명 사용자만) */}
+          {!user && locationLoading && !hasActiveSearch && (
+            <div className="bg-gray-50 border border-gray-200 p-4 mb-4 rounded-lg">
+              <div className="flex items-center space-x-3">
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+                <p className="text-sm text-gray-600">
+                  📍 현재 위치를 확인하고 있습니다...
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* AI 검색 결과 메시지 */}
           <AIInsightBox
             resultCount={totalCount}

@@ -9,7 +9,7 @@ export interface LandingUserInput {
   regions: string[];  // ["서울", "경기"]
   fields: string[];  // ["수업·강의", "멘토링"]
   phone: string;
-  experience?: string;  // "신규", "1~3년", "3~5년", "5년 이상"
+  experience?: string | null;  // "신규", "1~3년", "3~5년", "5년 이상"
 }
 
 /**
@@ -130,7 +130,7 @@ function formatLocationDisplay(input: LandingUserInput): string {
 /**
  * 경력 문자열 → experience_years 변환 (DB 저장용)
  */
-function parseExperienceYears(exp?: string): number {
+function parseExperienceYears(exp?: string | null): number {
   if (!exp || exp === '신규') return 0;
   if (exp === '1~3년') return 2;
   if (exp === '3~5년') return 4;
@@ -141,7 +141,7 @@ function parseExperienceYears(exp?: string): number {
 /**
  * 경력 표시 문자열 생성 (TalentCard 표시용)
  */
-function formatExperienceDisplay(exp?: string): string {
+function formatExperienceDisplay(exp?: string | null): string {
   if (!exp || exp === '신규') return '신규';
   if (exp === '1~3년') return '경력 2년';
   if (exp === '3~5년') return '경력 4년';
