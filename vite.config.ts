@@ -184,13 +184,15 @@ export default defineConfig({
           },
           {
             urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
-            handler: 'NetworkFirst',
+            handler: 'CacheFirst',
             options: {
               cacheName: 'supabase-cache',
-              networkTimeoutSeconds: 10,
               expiration: {
                 maxEntries: 50,
-                maxAgeSeconds: 60 * 5 // 5분
+                maxAgeSeconds: 60 * 30 // 30분으로 연장
+              },
+              cacheableResponse: {
+                statuses: [0, 200]
               }
             }
           }
