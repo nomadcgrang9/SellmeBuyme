@@ -60,17 +60,6 @@
     "isLocalGovernment": true,
     "active": true
   },
-  "남양주교육지원청구인구직테스트": {
-    "name": "남양주교육지원청 구인구직 테스트",
-    "baseUrl": "https://www.goegn.kr/goegn/na/ntt/selectNttList.do?mi=14084&bbsId=8656",
-    "selectors": {
-      "listContainer": "table",
-      "rows": "tbody tr",
-      "title": "td.ta_l a",
-      "date": "td:nth-child(5)",
-      "link": "td.ta_l a"
-    }
-  },
   "namyangju": {
     "name": "구리남양주교육지원청 인력풀",
     "baseUrl": "https://www.goegn.kr/goegn/na/ntt/selectNttList.do?mi=14084&bbsId=8656",
