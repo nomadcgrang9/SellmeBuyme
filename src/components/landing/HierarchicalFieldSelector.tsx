@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { IconChevronDown, IconChevronUp, IconArrowLeft, IconCheck, IconBook, IconPalette, IconHeadphones, IconBriefcase, IconGlobe, IconStar } from '@tabler/icons-react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { IconArrowLeft } from '@tabler/icons-react';
 import { HIERARCHICAL_FIELDS } from '@/lib/constants/hierarchicalFields';
 
 interface HierarchicalFieldSelectorProps {
@@ -9,149 +9,148 @@ interface HierarchicalFieldSelectorProps {
 }
 
 export default function HierarchicalFieldSelector({ value, onChange }: HierarchicalFieldSelectorProps) {
-  const [isOpen, setIsOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [hoveredCategory, setHoveredCategory] = useState<string | null>(null);
   const [customInput, setCustomInput] = useState<string>('');
   const [editingSubcategory, setEditingSubcategory] = useState<string | null>(null);
 
   const currentCategory = HIERARCHICAL_FIELDS.find(c => c.id === selectedCategory);
 
-  const getDisplayText = () => {
-    if (value.length === 0) return '관심분야 선택';
-    if (value.length === 1) return value[0];
-    return `${value[0]} 외 ${value.length - 1}개`;
-  };
-
-  const getIconComponent = (iconName?: string) => {
-    const iconProps = { size: 20, className: 'text-gray-700' };
-    switch (iconName) {
-      case 'book':
-        return <IconBook {...iconProps} />;
-      case 'palette':
-        return <IconPalette {...iconProps} />;
-      case 'headphones':
-        return <IconHeadphones {...iconProps} />;
-      case 'briefcase':
-        return <IconBriefcase {...iconProps} />;
-      case 'globe':
-        return <IconGlobe {...iconProps} />;
-      case 'star':
-        return <IconStar {...iconProps} />;
-      default:
-        return null;
-    }
+  const findSelectionIndex = (label: string) => {
+    return value.findIndex(item => item === label || item.startsWith(`${label}(`));
   };
 
   const handleCategoryClick = (categoryId: string) => {
     setSelectedCategory(categoryId);
+    setHoveredCategory(null);
+    setEditingSubcategory(null);
+    setCustomInput('');
   };
 
   const handleBackClick = () => {
     setSelectedCategory(null);
+    setHoveredCategory(null);
+    setEditingSubcategory(null);
+    setCustomInput('');
   };
 
   const handleSubcategoryToggle = (label: string) => {
-    if (value.includes(label)) {
-      onChange(value.filter(v => v !== label));
+    const matchedIndex = findSelectionIndex(label);
+
+    if (matchedIndex !== -1) {
+      const updated = [...value];
+      updated.splice(matchedIndex, 1);
+      onChange(updated);
     } else {
       onChange([...value, label]);
     }
   };
 
-  const handleComplete = () => {
-    setIsOpen(false);
-    setSelectedCategory(null);
+  const handleSelectionRemove = (label: string) => {
+    const matchedIndex = findSelectionIndex(label);
+    if (matchedIndex !== -1) {
+      const updated = [...value];
+      updated.splice(matchedIndex, 1);
+      onChange(updated);
+    }
   };
 
   return (
-    <div className="w-full">
-      {/* 상태 1: 버튼만 보임 */}
-      <AnimatePresence>
-        {!isOpen && (
-          <motion.button
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            onClick={() => setIsOpen(true)}
-            className="w-full px-4 py-3 text-left bg-white border-2 border-gray-300 rounded-lg hover:border-blue-400 transition-colors flex items-center justify-between"
-          >
-            <span className={`text-[15px] ${value.length > 0 ? 'text-gray-900 font-medium' : 'text-gray-500'}`}>
-              {getDisplayText()}
-            </span>
-            <div className="text-gray-400">
-              <IconChevronDown size={20} />
-            </div>
-          </motion.button>
-        )}
-      </AnimatePresence>
-
-      {/* 상태 2: 대분류만 보임 (버튼 사라짐) */}
-      <AnimatePresence>
-        {isOpen && !selectedCategory && (
+    <div className="w-full space-y-5">
+      <AnimatePresence mode="wait">
+        {!selectedCategory ? (
           <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
+            key="category"
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 8 }}
             transition={{ duration: 0.2 }}
             className="bg-white rounded-2xl border border-gray-200 p-6"
           >
-            {/* 대분류 - 좌우 균등 배치 */}
-            <div className="grid grid-cols-3 gap-3 mb-6 justify-items-stretch">
-              {HIERARCHICAL_FIELDS.map(category => (
-                <button
-                  key={category.id}
-                  onClick={() => handleCategoryClick(category.id)}
-                  className="px-5 py-2.5 text-[15px] font-medium text-gray-900 bg-white border border-gray-300 rounded-full hover:bg-blue-50 hover:border-blue-400 hover:text-blue-600 transition-all"
-                >
-                  {category.label}
-                </button>
-              ))}
-            </div>
+            <h3 className="text-[16px] font-semibold text-gray-900 mb-4">관심분야를 선택하세요</h3>
+            <div
+              className="grid grid-cols-2 md:grid-cols-3 gap-3"
+              onMouseLeave={() => setHoveredCategory(null)}
+            >
+              {HIERARCHICAL_FIELDS.map(category => {
+                const isHovered = hoveredCategory === category.id;
+                return (
+                  <div
+                    key={category.id}
+                    className="relative"
+                    onMouseEnter={() => setHoveredCategory(category.id)}
+                    onFocus={() => setHoveredCategory(category.id)}
+                    onMouseLeave={() => {
+                      setHoveredCategory(prev => (prev === category.id ? null : prev));
+                    }}
+                    onBlur={() => setHoveredCategory(null)}
+                  >
+                    <button
+                      onClick={() => handleCategoryClick(category.id)}
+                      className={`px-5 py-2.5 text-[15px] font-medium rounded-full transition-all border ${
+                        isHovered
+                          ? 'bg-blue-50 text-blue-600 border-blue-400'
+                          : 'bg-white text-gray-900 border-gray-300 hover:bg-blue-50 hover:border-blue-400 hover:text-blue-600'
+                      }`}
+                    >
+                      {category.label}
+                    </button>
 
-            {/* 하단 버튼 */}
-            <div className="border-t border-gray-200 pt-4 flex gap-3">
-              <button
-                onClick={() => setIsOpen(false)}
-                className="flex-1 px-4 py-2.5 text-[14px] font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                닫기
-              </button>
-              <button
-                onClick={handleComplete}
-                className="flex-1 px-4 py-2.5 text-[14px] font-medium text-white bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg hover:from-blue-600 hover:to-blue-700 transition-colors shadow-sm"
-              >
-                완료 ({value.length})
-              </button>
+                    <AnimatePresence>
+                      {isHovered && (
+                        <motion.div
+                          key={`${category.id}-preview`}
+                          initial={{ opacity: 0, y: -4, scale: 0.98 }}
+                          animate={{ opacity: 1, y: 8, scale: 1 }}
+                          exit={{ opacity: 0, y: -4, scale: 0.96 }}
+                          transition={{ duration: 0.18 }}
+                          className="absolute left-1/2 top-full z-10 mt-2 w-max max-w-[260px] -translate-x-1/2 rounded-2xl border border-blue-200 bg-white/95 shadow-lg ring-1 ring-blue-100/60 backdrop-blur-sm"
+                        >
+                          <div className="px-4 pt-3 pb-4">
+                            <div className="text-[13px] font-semibold text-blue-600 mb-2">{category.label}</div>
+                            <div className="grid grid-cols-2 gap-2">
+                              {category.subcategories.map(sub => (
+                                <span
+                                  key={sub.id}
+                                  className="px-3 py-1.5 text-[12px] font-medium text-gray-700 bg-blue-50 rounded-full border border-blue-100"
+                                >
+                                  {sub.label}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                );
+              })}
             </div>
           </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* 상태 3: 소분류만 보임 (대분류 사라짐) */}
-      <AnimatePresence>
-        {isOpen && selectedCategory && currentCategory && (
+        ) : currentCategory ? (
           <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
+            key="subcategory"
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 8 }}
             transition={{ duration: 0.2 }}
             className="bg-white rounded-2xl border border-gray-200 p-6"
           >
-            {/* 헤더 */}
-            <div className="mb-4 pb-4 border-b border-gray-200">
+            <div className="mb-4 pb-4 border-b border-gray-200 flex items-center justify-between">
               <button
                 onClick={handleBackClick}
                 className="text-[14px] font-medium text-blue-600 hover:text-blue-700 flex items-center gap-1"
               >
                 <IconArrowLeft size={18} /> 돌아가기
               </button>
-              <h3 className="text-[16px] font-bold text-gray-900 mt-2">{currentCategory.label}</h3>
+              <h3 className="text-[16px] font-bold text-gray-900">{currentCategory.label}</h3>
+              <div className="w-12" />
             </div>
-            {/* 소분류 - 좌우 균등 배치 */}
-            <div className="grid grid-cols-2 gap-3 mb-6 max-h-[350px] overflow-y-auto">
+
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4 max-h-[360px] overflow-y-auto pr-1">
               {currentCategory.subcategories.map(subcategory => {
-                const isSelected = value.includes(subcategory.label);
+                const matchedIndex = findSelectionIndex(subcategory.label);
+                const isSelected = matchedIndex !== -1;
                 const isCustomInput = subcategory.id === 'elementary' || subcategory.id === 'middle';
                 const isEditing = editingSubcategory === subcategory.id;
 
@@ -162,6 +161,11 @@ export default function HierarchicalFieldSelector({ value, onChange }: Hierarchi
                         handleSubcategoryToggle(subcategory.label);
                         if (isCustomInput && !isSelected) {
                           setEditingSubcategory(subcategory.id);
+                          setCustomInput('');
+                        }
+                        if (isSelected) {
+                          setEditingSubcategory(null);
+                          setCustomInput('');
                         }
                       }}
                       className={`w-full px-5 py-2.5 text-[15px] font-medium rounded-full transition-all ${
@@ -170,10 +174,11 @@ export default function HierarchicalFieldSelector({ value, onChange }: Hierarchi
                           : 'bg-white text-gray-900 border border-gray-300 hover:bg-blue-50 hover:border-blue-400'
                       }`}
                     >
-                      {subcategory.label}
+                      {isSelected && value[matchedIndex].includes('(')
+                        ? value[matchedIndex].split('(')[0]
+                        : subcategory.label}
                     </button>
 
-                    {/* 초등/중등교과 직접 입력 필드 */}
                     {isCustomInput && isSelected && isEditing && (
                       <div className="mt-2 mb-2">
                         <input
@@ -183,14 +188,18 @@ export default function HierarchicalFieldSelector({ value, onChange }: Hierarchi
                           onChange={(e) => setCustomInput(e.target.value)}
                           onBlur={() => {
                             if (customInput.trim()) {
-                              onChange([...value.filter(v => v !== subcategory.label), `${subcategory.label}(${customInput})`]);
+                              const updated = [...value];
+                              updated[matchedIndex] = `${subcategory.label}(${customInput})`;
+                              onChange(updated);
                               setCustomInput('');
                               setEditingSubcategory(null);
                             }
                           }}
                           onKeyDown={(e) => {
                             if (e.key === 'Enter' && customInput.trim()) {
-                              onChange([...value.filter(v => v !== subcategory.label), `${subcategory.label}(${customInput})`]);
+                              const updated = [...value];
+                              updated[matchedIndex] = `${subcategory.label}(${customInput})`;
+                              onChange(updated);
                               setCustomInput('');
                               setEditingSubcategory(null);
                             }
@@ -205,24 +214,33 @@ export default function HierarchicalFieldSelector({ value, onChange }: Hierarchi
               })}
             </div>
 
-            {/* 하단 버튼 */}
-            <div className="border-t border-gray-200 pt-4 flex gap-3">
-              <button
-                onClick={() => setIsOpen(false)}
-                className="flex-1 px-4 py-2.5 text-[14px] font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                닫기
-              </button>
-              <button
-                onClick={handleComplete}
-                className="flex-1 px-4 py-2.5 text-[14px] font-medium text-white bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg hover:from-blue-600 hover:to-blue-700 transition-colors shadow-sm"
-              >
-                완료 ({value.length})
-              </button>
-            </div>
+            {currentCategory.subcategories.some(sub => sub.description) && (
+              <p className="text-[13px] text-gray-500">필요한 항목을 모두 선택한 후 상단 돌아가기를 눌러 대분류 목록으로 이동하세요.</p>
+            )}
           </motion.div>
-        )}
+        ) : null}
       </AnimatePresence>
+
+      {value.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: -6 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-white rounded-2xl border border-gray-200 p-5"
+        >
+          <h4 className="text-[15px] font-semibold text-gray-900 mb-3">선택한 관심분야</h4>
+          <div className="flex flex-wrap gap-2">
+            {value.map(selection => (
+              <button
+                key={selection}
+                onClick={() => handleSelectionRemove(selection.includes('(') ? selection.split('(')[0] : selection)}
+                className="px-4 py-2 text-[14px] font-medium rounded-full border border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors"
+              >
+                {selection}
+              </button>
+            ))}
+          </div>
+        </motion.div>
+      )}
     </div>
   );
 }
