@@ -6,6 +6,7 @@ import CrawlLogViewer from '@/components/admin/CrawlLogViewer';
 import PromoTabManager from '@/components/admin/PromoTabManager';
 import BoardSubmissionList from '@/components/admin/BoardSubmissionList';
 import BoardApprovalModal from '@/components/admin/BoardApprovalModal';
+import DashboardOverview from '@/components/admin/dashboard/DashboardOverview';
 import { CollapsibleSection } from '@/components/developer/CollapsibleSection';
 import type { CrawlBoard, CreateCrawlBoardInput } from '@/types';
 import { createCrawlBoard, updateCrawlBoard } from '@/lib/supabase/queries';
@@ -170,12 +171,7 @@ export default function AdminPageWithHamburger() {
   const renderTabContent = () => {
     switch (activeTab) {
       case 'overview':
-        return (
-          <div className="flex h-full flex-col items-center justify-center rounded-lg border border-dashed border-slate-300 bg-white p-10 text-center text-sm text-slate-500">
-            <h3 className="text-lg font-medium text-slate-700">대시보드</h3>
-            <p className="mt-2 text-xs text-slate-400">향후 관리자 기능이 추가될 예정입니다.</p>
-          </div>
-        );
+        return <DashboardOverview />;
       case 'crawl':
         return (
           <Fragment>
