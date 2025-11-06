@@ -899,17 +899,7 @@ export default function App() {
         popularKeywords={['수원', '중등', '기간제', '방과후']}
       /> */}
 
-      {/* 프로모 배너 (PC 전용, DB 연동) - 모바일에서는 IntegratedHeaderPromo에 통합됨 */}
-      {promoCards.length > 0 && (
-        <section className="hidden md:block bg-white py-3 border-b border-gray-200">
-          <div className="max-w-container mx-auto px-6">
-            <PromoCardStack
-              cards={promoCards}
-              className="w-full h-[227px]"
-            />
-          </div>
-        </section>
-      )}
+      {/* 프로모 배너: AIRecommendations 컴포넌트 내부에서 처리 (중복 제거) */}
 
       {/* 메인 콘텐츠 */}
       <main className="bg-white pb-20 md:pb-10">

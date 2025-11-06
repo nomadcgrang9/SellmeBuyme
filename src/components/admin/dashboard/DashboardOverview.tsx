@@ -3,6 +3,7 @@ import StatCard from './StatCard';
 import LineChart from './LineChart';
 import StatsTable from './StatsTable';
 import PieChart from './PieChart';
+import { fetchDashboardData, type DashboardData } from '@/lib/supabase/dashboard';
 
 // 임시 Mock 데이터 (나중에 실제 API로 교체)
 const MOCK_DATA = {
@@ -56,23 +57,59 @@ const MOCK_DATA = {
     { rank: 4, label: '부산', value: 99 },
     { rank: 5, label: '대구', value: 86 },
   ],
+  menuClicks: {
+    jobToggle: 456,
+    talentToggle: 389,
+    experienceToggle: 234,
+    search: 678,
+    filter: 234,
+    register: 123,
+  },
 };
 
 export default function DashboardOverview() {
   const [loading, setLoading] = useState(true);
-  const [data, setData] = useState(MOCK_DATA);
+  const [data, setData] = useState<DashboardData>(MOCK_DATA);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // 임시 로딩 시뮬레이션
-    const timer = setTimeout(() => {
-      setLoading(false);
-    }, 500);
+    async function loadDashboardData() {
+      try {
+        setLoading(true);
+        setError(null);
+        const dashboardData = await fetchDashboardData();
+        setData(dashboardData);
+      } catch (err) {
+        console.error('대시보드 데이터 로딩 실패:', err);
+        setError('데이터를 불러오는 중 오류가 발생했습니다.');
+        // 에러 시 Mock 데이터 사용
+        setData(MOCK_DATA);
+      } finally {
+        setLoading(false);
+      }
+    }
 
-    return () => clearTimeout(timer);
+    loadDashboardData();
+
+    // 5분마다 자동 새로고침
+    const interval = setInterval(loadDashboardData, 5 * 60 * 1000);
+
+    return () => clearInterval(interval);
   }, []);
 
   return (
     <div className="space-y-6">
+      {/* 에러 알림 */}
+      {error && (
+        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+          <div className="flex items-center gap-2">
+            <span className="text-lg">⚠️</span>
+            <span>{error}</span>
+          </div>
+          <p className="mt-1 text-xs text-red-600">Mock 데이터를 표시합니다.</p>
+        </div>
+      )}
+
       {/* 핵심 지표 */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
@@ -142,32 +179,55 @@ export default function DashboardOverview() {
         <h3 className="text-lg font-semibold text-slate-900 mb-4">
           🖱️ 메뉴 클릭 통계 (오늘)
         </h3>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-          <div className="p-4 rounded-lg bg-slate-50">
-            <div className="text-sm text-slate-600 mb-1">공고 토글</div>
-            <div className="text-2xl font-bold text-slate-900">456회</div>
+        {loading ? (
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 animate-pulse">
+            {[...Array(6)].map((_, i) => (
+              <div key={i} className="p-4 rounded-lg bg-slate-50">
+                <div className="h-4 w-20 bg-slate-200 rounded mb-2" />
+                <div className="h-8 w-16 bg-slate-200 rounded" />
+              </div>
+            ))}
           </div>
-          <div className="p-4 rounded-lg bg-slate-50">
-            <div className="text-sm text-slate-600 mb-1">인력 토글</div>
-            <div className="text-2xl font-bold text-slate-900">389회</div>
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            <div className="p-4 rounded-lg bg-slate-50">
+              <div className="text-sm text-slate-600 mb-1">공고 토글</div>
+              <div className="text-2xl font-bold text-slate-900">
+                {data.menuClicks.jobToggle.toLocaleString()}회
+              </div>
+            </div>
+            <div className="p-4 rounded-lg bg-slate-50">
+              <div className="text-sm text-slate-600 mb-1">인력 토글</div>
+              <div className="text-2xl font-bold text-slate-900">
+                {data.menuClicks.talentToggle.toLocaleString()}회
+              </div>
+            </div>
+            <div className="p-4 rounded-lg bg-slate-50">
+              <div className="text-sm text-slate-600 mb-1">체험 토글</div>
+              <div className="text-2xl font-bold text-slate-900">
+                {data.menuClicks.experienceToggle.toLocaleString()}회
+              </div>
+            </div>
+            <div className="p-4 rounded-lg bg-slate-50">
+              <div className="text-sm text-slate-600 mb-1">검색 사용</div>
+              <div className="text-2xl font-bold text-slate-900">
+                {data.menuClicks.search.toLocaleString()}회
+              </div>
+            </div>
+            <div className="p-4 rounded-lg bg-slate-50">
+              <div className="text-sm text-slate-600 mb-1">필터 사용</div>
+              <div className="text-2xl font-bold text-slate-900">
+                {data.menuClicks.filter.toLocaleString()}회
+              </div>
+            </div>
+            <div className="p-4 rounded-lg bg-slate-50">
+              <div className="text-sm text-slate-600 mb-1">등록 버튼</div>
+              <div className="text-2xl font-bold text-slate-900">
+                {data.menuClicks.register.toLocaleString()}회
+              </div>
+            </div>
           </div>
-          <div className="p-4 rounded-lg bg-slate-50">
-            <div className="text-sm text-slate-600 mb-1">체험 토글</div>
-            <div className="text-2xl font-bold text-slate-900">234회</div>
-          </div>
-          <div className="p-4 rounded-lg bg-slate-50">
-            <div className="text-sm text-slate-600 mb-1">검색 사용</div>
-            <div className="text-2xl font-bold text-slate-900">678회</div>
-          </div>
-          <div className="p-4 rounded-lg bg-slate-50">
-            <div className="text-sm text-slate-600 mb-1">필터 사용</div>
-            <div className="text-2xl font-bold text-slate-900">234회</div>
-          </div>
-          <div className="p-4 rounded-lg bg-slate-50">
-            <div className="text-sm text-slate-600 mb-1">등록 버튼</div>
-            <div className="text-2xl font-bold text-slate-900">123회</div>
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );

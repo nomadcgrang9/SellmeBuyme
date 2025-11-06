@@ -106,7 +106,7 @@ export default function AIRecommendations({
     : headlineOverride ?? '맞춤 추천을 준비했어요';
 
   return (
-    <section className="bg-white pt-6 pb-4">
+    <section className="bg-white pt-0 md:pt-6 pb-4">
       <div className="max-w-container mx-auto px-6">
         {/* 3단 그리드: 등록버튼 | AI코멘트+카드 | 프로모 */}
         <div className="flex flex-col gap-4 lg:flex-row lg:h-[280px]">
