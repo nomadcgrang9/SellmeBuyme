@@ -70,7 +70,7 @@ export default function MobileAuthPage({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-white md:hidden flex flex-col animate-slide-in-right">
+    <div className="fixed inset-0 z-50 bg-white md:hidden flex flex-col animate-fade-in">
       {/* 상단 네비 - 고정 */}
       <header className="flex items-center justify-between px-4 h-14 border-b border-gray-200 bg-white flex-shrink-0">
         <h1 className="text-lg font-bold text-gray-900">{titleByMode[mode]}</h1>
