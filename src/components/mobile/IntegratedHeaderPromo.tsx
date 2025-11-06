@@ -9,6 +9,7 @@ interface IntegratedHeaderPromoProps {
   onNotificationClick: () => void;
   onBookmarkClick: () => void;
   notificationCount?: number;
+  isHomePage?: boolean; // 홈 페이지 여부 (스크롤 감지 활성화)
 }
 
 const DEFAULT_BADGE_GRADIENT: readonly [string, string] = ['#f97316', '#facc15'];
@@ -21,7 +22,8 @@ export default function IntegratedHeaderPromo({
   onSearchClick,
   onNotificationClick,
   onBookmarkClick,
-  notificationCount = 0
+  notificationCount = 0,
+  isHomePage = true
 }: IntegratedHeaderPromoProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isTransitioning, setIsTransitioning] = useState(false);
@@ -37,8 +39,15 @@ export default function IntegratedHeaderPromo({
   const hasPromoCards = activeCards.length > 0;
   const currentCard = hasPromoCards ? activeCards[currentIndex] : null;
 
-  // 스크롤 감지 (프로모 섹션 높이 기준)
+  // 스크롤 감지 (프로모 섹션 높이 기준) - 홈 페이지에서만 활성화
   useEffect(() => {
+    // 홈이 아닌 경우: 항상 스크롤된 상태로 고정 (작은 로고 + 그라데이션)
+    if (!isHomePage) {
+      setIsScrolled(true);
+      return;
+    }
+
+    // 홈인 경우: 스크롤 감지 활성화
     const handleScroll = () => {
       if (!promoSectionRef.current) return;
 
@@ -53,7 +62,7 @@ export default function IntegratedHeaderPromo({
     handleScroll(); // 초기 체크
 
     return () => window.removeEventListener('scroll', handleScroll);
-  }, [hasPromoCards]); // 프로모 카드 유무가 변경되면 재계산
+  }, [hasPromoCards, isHomePage]); // isHomePage 추가
 
   // 자동 재생 타이머
   useEffect(() => {
