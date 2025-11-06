@@ -1,5 +1,5 @@
 import { IconSearch, IconBell, IconHeart, IconSparkles } from '@tabler/icons-react';
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { createBadgeGradient, normalizeHex } from '@/lib/colorUtils';
 import type { PromoCardSettings } from '@/types';
 
@@ -25,6 +25,8 @@ export default function IntegratedHeaderPromo({
 }: IntegratedHeaderPromoProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
+  const promoSectionRef = useRef<HTMLDivElement>(null);
 
   // 활성화된 카드만 필터링
   const activeCards = useMemo(
@@ -34,6 +36,24 @@ export default function IntegratedHeaderPromo({
 
   const hasPromoCards = activeCards.length > 0;
   const currentCard = hasPromoCards ? activeCards[currentIndex] : null;
+
+  // 스크롤 감지 (프로모 섹션 높이 기준)
+  useEffect(() => {
+    const handleScroll = () => {
+      if (!promoSectionRef.current) return;
+
+      const promoHeight = promoSectionRef.current.offsetHeight;
+      const scrollY = window.scrollY;
+
+      // 프로모 섹션 높이 이상 스크롤되면 헤더 색상 변경
+      setIsScrolled(scrollY >= promoHeight);
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    handleScroll(); // 초기 체크
+
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [hasPromoCards]); // 프로모 카드 유무가 변경되면 재계산
 
   // 자동 재생 타이머
   useEffect(() => {
@@ -116,14 +136,50 @@ export default function IntegratedHeaderPromo({
     console.log('  - currentCard:', currentCard?.headline || 'null');
   }, [promoCards, activeCards.length, hasPromoCards, currentCard]);
 
+  // 헤더 배경 스타일 (스크롤 상태에 따라 변경)
+  const headerBgStyle = isScrolled
+    ? { backgroundColor: 'rgb(255, 255, 255)' }
+    : currentCard && currentCard.backgroundColorMode === 'gradient'
+    ? {
+        backgroundImage: `linear-gradient(135deg, ${pickGradientValue(
+          currentCard.backgroundGradientStart,
+          '#6366f1'
+        )} 0%, ${pickGradientValue(
+          currentCard.backgroundGradientEnd,
+          '#22d3ee'
+        )} 100%)`
+      }
+    : currentCard ? { backgroundColor: currentCard.backgroundColor } : {
+        backgroundImage: 'linear-gradient(to bottom right, #9DD2FF, #68B2FF)'
+      };
+
+  // 아이콘 색상 클래스 (스크롤 상태에 따라 변경)
+  const iconColorClass = isScrolled ? 'text-gray-800' : 'text-white';
+  const hoverClass = isScrolled
+    ? 'hover:bg-gray-100 active:bg-gray-200'
+    : 'hover:bg-white/10 active:bg-white/20';
+
+  // 로고 스타일 (스크롤 전: 흰색, 스크롤 후: 그라데이션)
+  const logoStyle = isScrolled
+    ? 'text-lg font-bold bg-gradient-to-r from-[#4facfe] to-[#00f2fe] bg-clip-text text-transparent transition-all duration-300'
+    : 'text-lg font-bold text-white transition-all duration-300';
+
   return (
     <section
+      ref={promoSectionRef}
       className="relative w-full min-h-[56px]"
       style={backgroundStyle}
     >
-      {/* 헤더 */}
-      <div className="relative z-10 flex items-center justify-between h-14 px-4 bg-gradient-to-r from-blue-500 to-cyan-400">
-        <h1 className="text-lg font-bold text-white" style={{ letterSpacing: '-0.5px' }}>
+      {/* 헤더 - Sticky */}
+      <header
+        className="sticky top-0 z-50 w-full h-14 px-4 flex items-center justify-between transition-colors duration-300"
+        style={{ ...headerBgStyle, opacity: 1 }}
+      >
+        {/* 로고 - 스크롤 전: 흰색, 스크롤 후: 그라데이션 */}
+        <h1
+          className={logoStyle}
+          style={{ letterSpacing: '-0.5px' }}
+        >
           셀미바이미
         </h1>
 
@@ -131,19 +187,19 @@ export default function IntegratedHeaderPromo({
           {/* 검색 아이콘 */}
           <button
             onClick={onSearchClick}
-            className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-white/10 active:bg-white/20 transition-colors"
+            className={`w-9 h-9 flex items-center justify-center rounded-full transition-colors ${hoverClass}`}
             aria-label="검색"
           >
-            <IconSearch size={22} stroke={1.5} className="text-white" />
+            <IconSearch size={22} stroke={1.5} className={iconColorClass} />
           </button>
 
           {/* 알림 아이콘 */}
           <button
             onClick={onNotificationClick}
-            className="relative w-9 h-9 flex items-center justify-center rounded-full hover:bg-white/10 active:bg-white/20 transition-colors"
+            className={`relative w-9 h-9 flex items-center justify-center rounded-full transition-colors ${hoverClass}`}
             aria-label="알림"
           >
-            <IconBell size={22} stroke={1.5} className="text-white" />
+            <IconBell size={22} stroke={1.5} className={iconColorClass} />
             {notificationCount > 0 && (
               <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
                 {notificationCount > 9 ? '9+' : notificationCount}
@@ -154,83 +210,55 @@ export default function IntegratedHeaderPromo({
           {/* 북마크 아이콘 */}
           <button
             onClick={onBookmarkClick}
-            className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-white/10 active:bg-white/20 transition-colors"
+            className={`w-9 h-9 flex items-center justify-center rounded-full transition-colors ${hoverClass}`}
             aria-label="북마크"
           >
-            <IconHeart size={22} stroke={1.5} className="text-white" />
+            <IconHeart size={22} stroke={1.5} className={iconColorClass} />
           </button>
         </div>
-      </div>
+      </header>
 
-      {/* 프로모카드 (있을 경우) */}
+      {/* 프로모카드 내용 - 일반 요소 */}
       {hasPromoCards && currentCard && (
-        <div
-          onClick={handleNext}
-          className="w-full cursor-pointer px-4 pb-4"
-        >
-          {/* 배지 바 */}
-          <div className="w-full h-1.5 rounded-t-lg" style={badgeBarStyle} />
-
-          {/* 카드 내용 */}
           <div
-            className="flex flex-col items-center justify-center gap-3 px-4 pt-6 pb-4 text-center bg-white/10 backdrop-blur-sm rounded-b-lg border border-white/20 shadow-lg transition-opacity duration-300"
-            style={{
-              opacity: isTransitioning ? 0 : 1
-            }}
+            onClick={handleNext}
+            className="w-full cursor-pointer px-4 pb-4 pt-2"
           >
-            <h3
-              className="font-bold leading-tight whitespace-pre-line"
-              style={headlineStyle}
-            >
-              {currentCard.headline}
-            </h3>
+            {/* 카드 내용 - 배경 투명, 이미지 먼저 */}
             <div
-              className="flex w-full items-center justify-center"
-              style={imageWrapperStyle}
+              className="flex flex-col items-center justify-center gap-4 px-4 py-4 text-center transition-opacity duration-300"
+              style={{
+                opacity: isTransitioning ? 0 : 1
+              }}
             >
-              {currentCard.imageUrl ? (
-                <div className="flex h-full w-full items-center justify-center rounded-xl bg-white/70 p-2">
-                  <img
-                    src={currentCard.imageUrl}
-                    alt={currentCard.headline}
-                    className="w-auto object-contain drop-shadow"
-                    style={imageStyle}
-                    draggable={false}
-                  />
-                </div>
-              ) : (
-                <div
-                  className="flex w-full flex-col items-center justify-center rounded-xl border border-dashed border-white/30 text-white/60"
-                  style={imageStyle}
-                >
-                  <IconSparkles size={24} stroke={1.8} />
-                  <p className="mt-1 text-xs">이미지 없음</p>
-                </div>
-              )}
+              {/* 이미지 - 동그란 흰색 배경 */}
+              <div className="flex items-center justify-center w-48 h-48">
+                {currentCard.imageUrl ? (
+                  <div className="flex items-center justify-center rounded-full bg-white p-4 w-full h-full shadow-lg">
+                    <img
+                      src={currentCard.imageUrl}
+                      alt={currentCard.headline}
+                      className="w-full h-full object-contain"
+                      draggable={false}
+                    />
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center rounded-full bg-white/90 w-full h-full">
+                    <IconSparkles size={48} stroke={1.8} className="text-gray-400" />
+                    <p className="mt-2 text-sm text-gray-500">이미지 없음</p>
+                  </div>
+                )}
+              </div>
+
+              {/* 글귀 - 이미지 아래 (최소 높이 고정) */}
+              <h3
+                className="font-bold leading-tight whitespace-pre-line min-h-[50px] flex items-center justify-center"
+                style={headlineStyle}
+              >
+                {currentCard.headline}
+              </h3>
             </div>
           </div>
-
-          {/* 인디케이터 (하단 점) */}
-          {activeCards.length > 1 && (
-            <div className="flex justify-center gap-1.5 mt-3">
-              {activeCards.map((_, idx) => (
-                <div
-                  key={idx}
-                  className={`h-1.5 rounded-full transition-all duration-300 ${
-                    idx === currentIndex
-                      ? 'bg-white w-4'
-                      : 'bg-white/50 w-1.5'
-                  }`}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* 프로모카드 없을 때 최소 높이 확보 */}
-      {!hasPromoCards && (
-        <div className="h-12" />
       )}
     </section>
   );
