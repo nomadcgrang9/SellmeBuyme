@@ -17,6 +17,7 @@ type SlideKey =
   | 'role'
   | 'region'
   | 'field'
+  | 'field-title'
   | 'phone'
   | 'experience'
   | 'review'
@@ -34,6 +35,7 @@ const order: SlideKey[] = [
   'name',
   'role',
   'region',
+  'field-title',
   'field',
   'phone',
   'experience',
@@ -66,21 +68,29 @@ function interpolateColor(start: string, end: string, ratio: number) {
 
 const SlideTitle = ({ text, highlight = false }: { text: string; highlight?: boolean }) => {
   const [start, end] = highlight ? ['#A78BFA', '#EC4899'] : ['#60A5FA', '#3730A3']
-  const chars = Array.from(text)
-  const count = chars.filter(ch => ch.trim().length > 0).length
-  let painted = -1
-
+  const lines = text.split('\n')
+  
   return (
     <motion.h2 className="title" initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.55 }}>
-      {chars.map((char, idx) => {
-        const isSpace = char.trim().length === 0
-        if (!isSpace) painted += 1
-        const ratio = count <= 1 ? 0 : painted / (count - 1)
-        const color = isSpace ? (highlight ? '#EC4899' : '#3730A3') : interpolateColor(start, end, ratio)
+      {lines.map((line, lineIdx) => {
+        const chars = Array.from(line)
+        const count = chars.filter(ch => ch.trim().length > 0).length
+        let painted = -1
+        
         return (
-          <span key={`${char}-${idx}`} style={{ color, display: 'inline-block' }}>
-            {isSpace ? '\u00A0' : char}
-          </span>
+          <div key={lineIdx}>
+            {chars.map((char, idx) => {
+              const isSpace = char.trim().length === 0
+              if (!isSpace) painted += 1
+              const ratio = count <= 1 ? 0 : painted / (count - 1)
+              const color = isSpace ? (highlight ? '#EC4899' : '#3730A3') : interpolateColor(start, end, ratio)
+              return (
+                <span key={`${char}-${idx}`} style={{ color, display: 'inline-block' }}>
+                  {isSpace ? '\u00A0' : char}
+                </span>
+              )
+            })}
+          </div>
         )
       })}
     </motion.h2>
@@ -121,7 +131,6 @@ export default function Landing() {
   ], [])
   const fieldsList = useMemo(
     () => [
-      '수업·강의',
       '멘토링',
       '방과후·돌봄',
       '교육자료 제작',
@@ -129,6 +138,46 @@ export default function Landing() {
       '행정업무 보조',
       '공고 등록',
       '대체인력 구함',
+      '성인대상 각종 체험프로그램 운영',
+      '초등교과',
+      '중등교과',
+      '요리',
+      '코딩',
+      '음악',
+      '체육',
+      'AI교육',
+      '심리상담',
+      '교권보호',
+      '유아놀이',
+      '미술교육',
+      '독서코칭',
+      '기초학력',
+      '다문화 교육',
+      '한국어 교육',
+      '생태환경',
+      '지속가능발전교육(ESD)',
+      '창의융합교육',
+      'STEAM 교육',
+      '에듀테크',
+      '프로그래밍 교육',
+      '메이커 교육',
+      '인성교육',
+      '안전교육',
+      '응급처치',
+      '보건교육',
+      '성교육',
+      '인권교육',
+      '문화예술교육',
+      '연극·뮤지컬',
+      '무용교육',
+      '영상제작',
+      '진로교육',
+      '특수교육',
+      '장애학생 지원',
+      '통합교육',
+      '학부모 교육',
+      '교직원 연수',
+      '영재교육',
       '기타'
     ],
     []
@@ -275,7 +324,8 @@ export default function Landing() {
         {/* Slide 1 - greeting */}
         {step === 'greeting' && (
           <motion.section initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="slide hero-slide">
-            <SlideTitle text="안녕하세요, 셀미바이미 입니다" />
+            <SlideTitle text={`안녕하세요,
+셀미바이미 입니다`} />
             {showHint && (
               <motion.div
                 initial={{ opacity: 0 }}
@@ -303,7 +353,8 @@ export default function Landing() {
             animate={{ opacity: 1, y: 0 }} 
             className="slide"
           >
-            <SlideTitle text="셀바는 학교가 중심이 되는 인력자원 매칭 플랫폼 입니다" />
+            <SlideTitle text={`셀바는 학교가 중심이 되는
+인력매칭 플래폼 입니다`} />
           </motion.section>
         )}
 
@@ -314,7 +365,9 @@ export default function Landing() {
             animate={{ opacity: 1, y: 0 }} 
             className="slide"
           >
-            <SlideTitle text="그간 발 동동구르면서 사람 구해왔던 것을" />
+            <SlideTitle text={`학교에서는 사람 구하느라
+애타고 힘들었던 적
+분명 있으실 거에요`} />
           </motion.section>
         )}
 
@@ -325,7 +378,8 @@ export default function Landing() {
             animate={{ opacity: 1, y: 0 }} 
             className="slide"
           >
-            <SlideTitle text="전국 17개 모든 교육청 구인 게시판을 연결하고" />
+            <SlideTitle text={`전국 17개 모든 교육청
+구인게시판을 연결하고`} />
           </motion.section>
         )}
 
@@ -336,7 +390,9 @@ export default function Landing() {
             animate={{ opacity: 1, y: 0 }} 
             className="slide"
           >
-            <SlideTitle text="1회성 등록에 그쳤던 인력풀도 체계적으로 구조화하고자 합니다" />
+            <SlideTitle text={`1회성에 그친 인력풀등록도
+구조적으로 체계화
+하고자 합니다`} />
           </motion.section>
         )}
 
@@ -358,7 +414,8 @@ export default function Landing() {
             animate={{ opacity: 1, y: 0 }} 
             className="slide"
           >
-            <SlideTitle text="선생님의 시간을 저희에게 1분만 주세요" highlight />
+            <SlideTitle text={`선생님의 시간을 저희에게
+1분만 주세요`} highlight />
           </motion.section>
         )}
         
@@ -433,10 +490,17 @@ export default function Landing() {
           </motion.section>
         )}
 
-        {/* Slide 11 - field */}
+        {/* Slide 11 - field-title */}
+        {step === 'field-title' && (
+          <motion.section initial={{ x: 50, opacity: 0 }} animate={{ x: 0, opacity: 1 }} className="slide">
+            <SlideTitle text={`어떤 분야에\n관심이 있으십니까?`} />
+          </motion.section>
+        )}
+
+        {/* Slide 12 - field */}
         {step === 'field' && (
           <motion.section initial={{ x: 50, opacity: 0 }} animate={{ x: 0, opacity: 1 }} className="slide">
-            <SlideTitle text="어떤 분야에 관심이 있으십니까?" />
+            <SlideTitle text="관심분야 선택" />
             <motion.div className="floating-panel multi" initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }}>
               {fieldsList.map(f => (
                 <button key={f} className={`chip ${fields.includes(f) ? 'selected' : ''}`} onClick={() => toggleMulti(f, fields, setFields)}>{f}</button>
@@ -492,9 +556,12 @@ export default function Landing() {
                   backgroundClip: 'text',
                   color: 'transparent',
                   WebkitTextFillColor: 'transparent',
-                  lineHeight: '1.5'
+                  lineHeight: '1.5',
+                  whiteSpace: 'pre-line'
                 }}>
-                  인력풀로 한번 등록해 보세요, 저희가 학교에 적극 추천해드리겠습니다
+                  {`인력풀로 한번 등록해 보세요
+저희가 학교에
+적극 추천해드리겠습니다`}
                 </h2>
               </div>
 
