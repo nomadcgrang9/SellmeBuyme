@@ -214,50 +214,50 @@ export function useComments(targetType: CommentTargetType, targetId: string): Us
         return;
       }
 
+      // ✨ Optimistic Update: 즉시 로컬 상태에 추가 (임시 ID)
+      const now = new Date().toISOString();
+      const tempId = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const optimisticComment: StoredComment = {
+        id: tempId,
+        parentId: parentId ?? null,
+        targetType,
+        targetId,
+        authorName: trimmedName,
+        content: trimmedContent,
+        createdAt: now,
+        updatedAt: now,
+      };
+
+      setAuthorName(trimmedName);
+      setFlatComments((prev) => [...prev, optimisticComment]);
+
       try {
-        setAuthorName(trimmedName);
-        await createCommentAPI(targetType, targetId, trimmedContent, trimmedName, parentId);
-        await load();
-      } catch (error: any) {
-        console.warn('Supabase unavailable, saving to localStorage:', error?.message);
-        // Supabase 실패 시 로컬 스토리지에 저장
-        const now = new Date().toISOString();
-        const comment: StoredComment = {
-          id: crypto.randomUUID(),
-          parentId: parentId ?? null,
-          targetType,
-          targetId,
-          authorName: trimmedName,
-          content: trimmedContent,
-          createdAt: now,
-          updatedAt: now,
-        };
-        setAuthorName(trimmedName);
+        // 백그라운드에서 Supabase에 저장
+        const saved = await createCommentAPI(targetType, targetId, trimmedContent, trimmedName, parentId);
+
+        // 성공 시 임시 ID를 실제 ID로 교체
         setFlatComments((prev) => {
-          const next = [...prev, comment];
+          const next = prev.map((comment) =>
+            comment.id === tempId
+              ? {
+                  ...comment,
+                  id: saved.id,
+                  createdAt: saved.created_at,
+                  updatedAt: saved.updated_at,
+                }
+              : comment
+          );
           writeComments(targetKey, next);
           return next;
         });
-      }
-    },
-    [targetId, targetType, targetKey, setAuthorName, load]
-  );
-
-  const updateComment = useCallback(
-    async (commentId: string, content: string) => {
-      const trimmed = content.trim();
-      if (!trimmed) return;
-
-      try {
-        await updateCommentAPI(commentId, trimmed);
-        await load();
       } catch (error: any) {
-        console.warn('Supabase unavailable, updating localStorage:', error?.message);
-        // Supabase 실패 시 로컬 스토리지에서 업데이트
+        console.warn('Supabase unavailable, keeping optimistic update:', error?.message);
+        // Supabase 실패해도 optimistic update는 유지
+        // 단, localStorage에는 영구 ID로 저장
         setFlatComments((prev) => {
           const next = prev.map((comment) =>
-            comment.id === commentId
-              ? { ...comment, content: trimmed, updatedAt: new Date().toISOString() }
+            comment.id === tempId
+              ? { ...comment, id: crypto.randomUUID() }
               : comment
           );
           writeComments(targetKey, next);
@@ -265,26 +265,60 @@ export function useComments(targetType: CommentTargetType, targetId: string): Us
         });
       }
     },
-    [load, targetKey]
+    [targetId, targetType, targetKey, setAuthorName]
+  );
+
+  const updateComment = useCallback(
+    async (commentId: string, content: string) => {
+      const trimmed = content.trim();
+      if (!trimmed) return;
+
+      // ✨ Optimistic Update: 즉시 로컬 상태 수정
+      const now = new Date().toISOString();
+      const previousComments = flatComments;
+
+      setFlatComments((prev) => {
+        const next = prev.map((comment) =>
+          comment.id === commentId
+            ? { ...comment, content: trimmed, updatedAt: now }
+            : comment
+        );
+        writeComments(targetKey, next);
+        return next;
+      });
+
+      try {
+        // 백그라운드에서 Supabase 업데이트
+        await updateCommentAPI(commentId, trimmed);
+      } catch (error: any) {
+        console.warn('Supabase update failed, optimistic update preserved:', error?.message);
+        // 실패해도 optimistic update는 유지 (이미 localStorage에 저장됨)
+      }
+    },
+    [flatComments, targetKey]
   );
 
   const deleteComment = useCallback(
     async (commentId: string) => {
+      // ✨ Optimistic Update: 즉시 로컬 상태에서 삭제
+      const previousComments = flatComments;
+
+      setFlatComments((prev) => {
+        const toRemove = collectDescendants(prev, commentId);
+        const next = prev.filter((comment) => !toRemove.has(comment.id));
+        writeComments(targetKey, next);
+        return next;
+      });
+
       try {
+        // 백그라운드에서 Supabase 삭제
         await deleteCommentAPI(commentId);
-        await load();
       } catch (error: any) {
-        console.warn('Supabase unavailable, deleting from localStorage:', error?.message);
-        // Supabase 실패 시 로컬 스토리지에서 삭제
-        setFlatComments((prev) => {
-          const toRemove = collectDescendants(prev, commentId);
-          const next = prev.filter((comment) => !toRemove.has(comment.id));
-          writeComments(targetKey, next);
-          return next;
-        });
+        console.warn('Supabase delete failed, optimistic delete preserved:', error?.message);
+        // 실패해도 optimistic delete는 유지 (이미 localStorage에서 삭제됨)
       }
     },
-    [load, targetKey]
+    [flatComments, targetKey]
   );
 
   const reload = useCallback(() => {
