@@ -857,7 +857,7 @@ export default function App() {
       <ToastContainer />
 
       {/* 모바일: 통합 헤더-프로모카드 */}
-      <div className="md:hidden">
+      <div className="md:hidden fixed top-0 left-0 right-0 z-50">
         <IntegratedHeaderPromo
           promoCards={promoCards}
           onSearchClick={() => setIsSearchModalOpen(true)}
@@ -878,8 +878,9 @@ export default function App() {
       </div>
 
       {/* AI 추천 섹션 - 검색 중이 아닐 때만 표시 */}
-      {!hasActiveSearch && (
-        <AIRecommendations
+      <div className={!hasActiveSearch ? "mt-[56px] md:mt-0" : ""}>
+        {!hasActiveSearch && (
+          <AIRecommendations
           cards={recommendationCards}
           userName={user?.user_metadata?.full_name ?? userEmail ?? undefined}
           loading={recommendationLoading}
@@ -889,7 +890,8 @@ export default function App() {
           profile={userProfile}
           onCardClick={handleCardClick}
         />
-      )}
+        )}
+      </div>
 
       {/* 통계 배너 - 모바일에서는 표시 안 함 */}
       {/* <StatisticsBanner

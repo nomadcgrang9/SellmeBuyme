@@ -118,11 +118,11 @@ export default function IntegratedHeaderPromo({
 
   return (
     <section
-      className="relative w-full min-h-[56px] z-20"
+      className="relative w-full min-h-[56px]"
       style={backgroundStyle}
     >
       {/* 헤더 */}
-      <div className="flex items-center justify-between h-14 px-4">
+      <div className="relative z-10 flex items-center justify-between h-14 px-4 bg-gradient-to-r from-blue-500 to-cyan-400">
         <h1 className="text-lg font-bold text-white" style={{ letterSpacing: '-0.5px' }}>
           셀미바이미
         </h1>

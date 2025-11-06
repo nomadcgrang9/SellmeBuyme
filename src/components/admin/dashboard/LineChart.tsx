@@ -1,3 +1,16 @@
+'use client';
+
+import {
+  LineChart as RechartsLineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from 'recharts';
+
 interface DataPoint {
   label: string;
   value: number;
@@ -15,7 +28,7 @@ export default function LineChart({ title, data, loading = false }: LineChartPro
       <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
         <div className="animate-pulse">
           <div className="h-6 w-40 bg-slate-200 rounded mb-4" />
-          <div className="h-48 bg-slate-200 rounded" />
+          <div className="h-64 bg-slate-200 rounded" />
         </div>
       </div>
     );
@@ -25,111 +38,84 @@ export default function LineChart({ title, data, loading = false }: LineChartPro
     return (
       <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
         <h3 className="text-lg font-semibold text-slate-900 mb-4">{title}</h3>
-        <div className="flex items-center justify-center h-48 text-slate-400">
+        <div className="flex items-center justify-center h-64 text-slate-400">
           데이터가 없습니다
         </div>
       </div>
     );
   }
 
+  // Recharts 형식으로 데이터 변환
+  const chartData = data.map((point) => ({
+    name: point.label,
+    value: point.value,
+  }));
+
   const maxValue = Math.max(...data.map((d) => d.value));
   const minValue = Math.min(...data.map((d) => d.value));
-  const range = maxValue - minValue || 1;
-
-  // SVG 차트 크기
-  const width = 100; // 퍼센트
-  const height = 200; // px
-  const padding = 20;
-
-  // 포인트 계산
-  const points = data.map((point, index) => {
-    const x = (index / (data.length - 1)) * 100;
-    const y = ((maxValue - point.value) / range) * (height - padding * 2) + padding;
-    return { x, y, value: point.value, label: point.label };
-  });
-
-  // SVG path 생성
-  const pathD = points
-    .map((point, index) => {
-      if (index === 0) {
-        return `M ${point.x} ${point.y}`;
-      }
-      return `L ${point.x} ${point.y}`;
-    })
-    .join(' ');
-
-  // 영역 채우기 path
-  const areaD = `${pathD} L ${points[points.length - 1].x} ${height} L 0 ${height} Z`;
+  const avgValue = Math.round(data.reduce((sum, d) => sum + d.value, 0) / data.length);
 
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
       <h3 className="text-lg font-semibold text-slate-900 mb-4">{title}</h3>
 
-      {/* SVG 차트 */}
-      <div className="relative" style={{ height: `${height}px` }}>
-        <svg
-          viewBox={`0 0 100 ${height}`}
-          preserveAspectRatio="none"
-          className="w-full h-full"
+      {/* Recharts 라인 차트 */}
+      <ResponsiveContainer width="100%" height={300}>
+        <RechartsLineChart
+          data={chartData}
+          margin={{ top: 5, right: 30, left: 0, bottom: 5 }}
         >
-          {/* 배경 그리드 */}
-          <line
-            x1="0"
-            y1={height / 2}
-            x2="100"
-            y2={height / 2}
-            stroke="#E2E8F0"
-            strokeWidth="0.5"
+          <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
+          <XAxis
+            dataKey="name"
+            stroke="#94A3B8"
+            style={{ fontSize: '12px' }}
           />
-
-          {/* 영역 채우기 */}
-          <path d={areaD} fill="url(#gradient)" opacity="0.2" />
-
-          {/* 선 */}
-          <path d={pathD} fill="none" stroke="#68B2FF" strokeWidth="2" />
-
-          {/* 포인트 */}
-          {points.map((point, index) => (
-            <g key={index}>
-              <circle cx={point.x} cy={point.y} r="3" fill="#68B2FF" />
-              <circle cx={point.x} cy={point.y} r="1.5" fill="white" />
-            </g>
-          ))}
-
-          {/* 그라디언트 정의 */}
-          <defs>
-            <linearGradient id="gradient" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stopColor="#68B2FF" stopOpacity="0.5" />
-              <stop offset="100%" stopColor="#68B2FF" stopOpacity="0" />
-            </linearGradient>
-          </defs>
-        </svg>
-
-        {/* 호버 툴팁 (간단 버전) */}
-        <div className="absolute bottom-0 left-0 right-0 flex justify-between px-2 text-xs text-slate-500">
-          {data.map((point, index) => (
-            <div key={index} className="text-center">
-              <div className="font-medium">{point.label}</div>
-            </div>
-          ))}
-        </div>
-      </div>
+          <YAxis
+            stroke="#94A3B8"
+            style={{ fontSize: '12px' }}
+          />
+          <Tooltip
+            contentStyle={{
+              backgroundColor: '#1E293B',
+              border: 'none',
+              borderRadius: '8px',
+              boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+            }}
+            labelStyle={{ color: '#F1F5F9' }}
+            formatter={(value: number) => [value.toLocaleString(), '방문자']}
+            cursor={{ stroke: '#68B2FF', strokeWidth: 2 }}
+          />
+          <Legend
+            wrapperStyle={{ paddingTop: '20px' }}
+            formatter={() => '방문자 수'}
+          />
+          <Line
+            type="monotone"
+            dataKey="value"
+            stroke="#68B2FF"
+            strokeWidth={3}
+            dot={{ fill: '#68B2FF', r: 5 }}
+            activeDot={{ r: 7 }}
+            isAnimationActive={true}
+            animationDuration={800}
+          />
+        </RechartsLineChart>
+      </ResponsiveContainer>
 
       {/* 통계 요약 */}
-      <div className="mt-4 pt-4 border-t border-slate-100 flex justify-between text-sm">
-        <div>
-          <span className="text-slate-500">최대: </span>
-          <span className="font-semibold text-slate-900">{maxValue}</span>
+      <div className="mt-6 pt-4 border-t border-slate-100 grid grid-cols-3 gap-4">
+        <div className="text-center">
+          <div className="text-sm text-slate-500 mb-1">최대</div>
+          <div className="text-2xl font-bold text-slate-900">{maxValue}</div>
         </div>
-        <div>
-          <span className="text-slate-500">최소: </span>
-          <span className="font-semibold text-slate-900">{minValue}</span>
+        <div className="text-center">
+          <div className="text-sm text-slate-500 mb-1">평균</div>
+          <div className="text-2xl font-bold text-slate-900">{avgValue}</div>
         </div>
-        <div>
-          <span className="text-slate-500">평균: </span>
-          <span className="font-semibold text-slate-900">
-            {Math.round(data.reduce((sum, d) => sum + d.value, 0) / data.length)}
-          </span>
+        <div className="text-center">
+          <div className="text-sm text-slate-500 mb-1">최소</div>
+          <div className="text-2xl font-bold text-slate-900">{minValue}</div>
         </div>
       </div>
     </div>
