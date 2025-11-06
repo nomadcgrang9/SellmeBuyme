@@ -128,7 +128,7 @@ export default defineConfig({
         short_name: '개발자노트',
         description: '셀미바이미 개발팀 협업 도구 - 아이디어 수집 및 게시판 등록',
         start_url: '/note',
-        scope: '/',
+        scope: '/note',  // ✅ scope를 '/note'로 변경하여 메인 페이지와 충돌 방지
         display: 'standalone',
         theme_color: '#a8c5e0',
         background_color: '#f9fafb',
@@ -149,6 +149,11 @@ export default defineConfig({
         ]
       },
       workbox: {
+        // ✅ 오래된 캐시 자동 정리 활성화
+        cleanupOutdatedCaches: true,
+        // ✅ /note 경로로의 네비게이션 폴백 설정
+        navigateFallback: '/note',
+        navigateFallbackDenylist: [/^\/api/, /^\/admin/, /^\/$/, /^\/landing/],  // API, 관리자, 메인, 랜딩 제외
         // 기본 캐싱 전략: 앱 셸만 캐싱 (폰트는 제외 - 런타임 캐싱으로 처리)
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
         globIgnores: ['**/fonts/**'],

@@ -40,9 +40,6 @@ class StorageManager {
         screen_size: report.screenSize,
         network_type: report.networkType,
         environment: report.environment,
-        breadcrumbs: report.breadcrumbs,
-        network_logs: report.networkLogs,
-        performance_metrics: report.performanceMetrics,
       });
 
       if (!error) {
