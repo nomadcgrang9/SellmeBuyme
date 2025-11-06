@@ -78,21 +78,14 @@ export default function PromoCardStack({ cards, className = '' }: PromoCardStack
       }
     : { backgroundImage: createBadgeGradient(currentCard.badgeColor) };
 
-  // 배경 스타일
-  const backgroundStyle = currentCard.backgroundColorMode === 'gradient'
-    ? {
-        backgroundImage: `linear-gradient(135deg, ${pickGradientValue(
-          currentCard.backgroundGradientStart,
-          '#6366f1'
-        )} 0%, ${pickGradientValue(
-          currentCard.backgroundGradientEnd,
-          '#22d3ee'
-        )} 100%)`
-      }
-    : { backgroundColor: currentCard.backgroundColor };
+  // 배경 스타일 - 데스크톱은 항상 흰색 배경
+  const backgroundStyle = {
+    backgroundColor: '#ffffff'
+  };
 
+  // 텍스트 스타일 - 데스크톱은 항상 검은색
   const headlineStyle = {
-    color: currentCard.fontColor,
+    color: '#1f2937',  // 다크 그레이
     fontSize: `${currentCard.fontSize}px`
   };
 
@@ -135,15 +128,13 @@ export default function PromoCardStack({ cards, className = '' }: PromoCardStack
             style={imageWrapperStyle}
           >
             {currentCard.imageUrl ? (
-              <div className="flex h-full w-full items-center justify-center rounded-xl bg-white/70 p-2">
-                <img
-                  src={currentCard.imageUrl}
-                  alt={currentCard.headline}
-                  className="w-auto object-contain drop-shadow"
-                  style={imageStyle}
-                  draggable={false}
-                />
-              </div>
+              <img
+                src={currentCard.imageUrl}
+                alt={currentCard.headline}
+                className="w-auto object-contain"
+                style={imageStyle}
+                draggable={false}
+              />
             ) : (
               <div
                 className="flex w-full flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 text-slate-400"
@@ -157,21 +148,7 @@ export default function PromoCardStack({ cards, className = '' }: PromoCardStack
         </div>
       </article>
 
-      {/* 인디케이터 (하단 점) */}
-      {activeCards.length > 1 && (
-        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5 pointer-events-none">
-          {activeCards.map((_, idx) => (
-            <div
-              key={idx}
-              className={`h-1.5 rounded-full transition-all duration-300 ${
-                idx === currentIndex
-                  ? 'bg-white w-4'
-                  : 'bg-white/50 w-1.5'
-              }`}
-            />
-          ))}
-        </div>
-      )}
+      {/* 인디케이터 제거 - 데스크톱에서는 표시 안 함 */}
     </div>
   );
 }
