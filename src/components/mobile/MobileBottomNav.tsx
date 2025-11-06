@@ -1,11 +1,11 @@
 import { useState } from 'react';
-import { Home, ArrowLeftRight, Plus, Search, User } from 'lucide-react';
+import { Home, ArrowLeftRight, Plus, MessageCircle, User } from 'lucide-react';
 import { useSearchStore } from '@/stores/searchStore';
 
 interface MobileBottomNavProps {
-  currentTab: 'home' | 'search' | 'profile' | null;
-  onTabChange: (tab: 'home' | 'search' | 'profile' | null) => void;
-  onSearchClick: () => void;
+  currentTab: 'home' | 'chat' | 'profile' | null;
+  onTabChange: (tab: 'home' | 'chat' | 'profile' | null) => void;
+  onChatClick: () => void;
   onProfileClick: () => void;
   onRegisterClick: () => void;
 }
@@ -13,7 +13,7 @@ interface MobileBottomNavProps {
 export default function MobileBottomNav({
   currentTab,
   onTabChange,
-  onSearchClick,
+  onChatClick,
   onProfileClick,
   onRegisterClick
 }: MobileBottomNavProps) {
@@ -98,19 +98,19 @@ export default function MobileBottomNav({
           />
         </button>
 
-        {/* 4. 검색 버튼 */}
+        {/* 4. 채팅 버튼 */}
         <button
           onClick={() => {
-            onTabChange('search');
-            onSearchClick();
+            onTabChange('chat');
+            onChatClick();
           }}
           className="flex items-center justify-center transition-colors"
-          aria-label="검색"
+          aria-label="채팅"
         >
-          <Search
+          <MessageCircle
             size={28}
             strokeWidth={1.5}
-            className={currentTab === 'search' ? 'text-[#4facfe]' : 'text-gray-400'}
+            className={currentTab === 'chat' ? 'text-[#4facfe]' : 'text-gray-400'}
           />
         </button>
 
