@@ -19,6 +19,8 @@ import MobileHeader from '@/components/mobile/MobileHeader';
 import MobilePromoSection from '@/components/mobile/MobilePromoSection';
 import MobileBottomNav from '@/components/mobile/MobileBottomNav';
 import RegisterBottomSheet from '@/components/mobile/RegisterBottomSheet';
+import MobileProfilePage from '@/components/mobile/MobileProfilePage';
+import MobileAuthPage from '@/components/mobile/MobileAuthPage';
 import { searchCards, fetchRecommendationsCache, isCacheValid, hasProfileChanged, shouldInvalidateCache, fetchPromoCards, selectRecommendationCards, filterByTeacherLevel, filterByJobType, calculateSubjectScore, filterByExperience, generateRecommendations, fetchFreshJobs } from '@/lib/supabase/queries';
 import { fetchUserProfile, type UserProfileRow } from '@/lib/supabase/profiles';
 import { useSearchStore } from '@/stores/searchStore';
@@ -1072,17 +1074,19 @@ export default function App() {
         mode={isEditMode ? 'edit' : 'create'}
         key={`${isEditMode ? 'edit' : 'create'}-${isProfileModalOpen}`}
       />
-      <ProfileViewModal
-        isOpen={isProfileViewOpen}
-        onClose={handleProfileViewClose}
-        userId={user?.id}
-        userEmail={user?.email}
-        onRequestEdit={(profileData) => {
-          if (!user?.id) {
-            return;
-          }
+      {/* PC: 프로필 모달 */}
+      <div className="hidden md:block">
+        <ProfileViewModal
+          isOpen={isProfileViewOpen}
+          onClose={handleProfileViewClose}
+          userId={user?.id}
+          userEmail={user?.email}
+          onRequestEdit={(profileData) => {
+            if (!user?.id) {
+              return;
+            }
 
-          console.log('[App] onRequestEdit 호출됨:', {
+            console.log('[App] onRequestEdit 호출됨:', {
             hasProfileData: !!profileData,
             currentEditMode: isEditMode,
             currentProfileModalOpen: isProfileModalOpen
@@ -1107,6 +1111,35 @@ export default function App() {
             setProfileViewOpen(false);
             setProfileModalOpen(true);
             console.log('[App] setProfileModalOpen(true) 완료 (비동기)');
+          });
+        }}
+        />
+      </div>
+
+      {/* 모바일: 프로필 전체 화면 */}
+      <MobileProfilePage
+        isOpen={isProfileViewOpen}
+        onClose={handleProfileViewClose}
+        userId={user?.id}
+        userEmail={user?.email}
+        onRequestEdit={(profileData) => {
+          if (!user?.id) {
+            return;
+          }
+
+          if (profileData) {
+            normalizeProfileForEdit(profileData);
+            setEditMode(true);
+            setProfileViewOpen(false);
+            setProfileModalOpen(true);
+            return;
+          }
+
+          void fetchUserProfile(user.id).then(({ data }) => {
+            normalizeProfileForEdit(data ?? null);
+            setEditMode(true);
+            setProfileViewOpen(false);
+            setProfileModalOpen(true);
           });
         }}
       />
@@ -1154,8 +1187,23 @@ export default function App() {
         />
       )}
 
-      {/* 소셜 로그인/회원가입 모달 */}
-      <SocialSignupModal
+      {/* PC: 소셜 로그인/회원가입 모달 */}
+      <div className="hidden md:block">
+        <SocialSignupModal
+          isOpen={isAuthModalOpen}
+          onClose={() => {
+            if (!loadingProvider) {
+              setIsAuthModalOpen(false);
+            }
+          }}
+          onSelectProvider={handleSelectProvider}
+          loadingProvider={loadingProvider}
+          mode={authModalMode}
+        />
+      </div>
+
+      {/* 모바일: 소셜 로그인/회원가입 전체 화면 */}
+      <MobileAuthPage
         isOpen={isAuthModalOpen}
         onClose={() => {
           if (!loadingProvider) {
