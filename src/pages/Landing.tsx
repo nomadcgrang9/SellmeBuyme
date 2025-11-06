@@ -242,6 +242,7 @@ export default function Landing() {
         .insert({
           ...talentData,
           temp_identifier: tempId,
+          user_id: null,  // 게스트 등록
         })
         .select()
         .single()
@@ -354,7 +355,7 @@ export default function Landing() {
             className="slide"
           >
             <SlideTitle text={`셀바는 학교가 중심이 되는
-인력매칭 플래폼 입니다`} />
+인력매칭 플랫폼 입니다`} />
           </motion.section>
         )}
 
