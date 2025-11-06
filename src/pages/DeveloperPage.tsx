@@ -1,7 +1,7 @@
 // Developer Page - 셀바 개발자노트
 // Mobile-first design with max-width 640px
 import { useState, useEffect } from 'react';
-import { Lightbulb, Globe, Rocket, Home, FolderOpen, ExternalLink } from 'lucide-react';
+import { Lightbulb, Globe, Rocket, Home, FolderOpen, ExternalLink, Shield } from 'lucide-react';
 import DeploymentList from '@/components/developer/DeploymentList';
 import IdeaForm from '@/components/developer/IdeaForm';
 import BoardSubmissionForm from '@/components/developer/BoardSubmissionForm';
@@ -14,6 +14,7 @@ import IdeaCard from '@/components/developer/IdeaCard';
 import BoardSubmissionCard from '@/components/developer/BoardSubmissionCard';
 import ProjectCard from '@/components/developer/ProjectCard';
 import ProjectFormModal from '@/components/developer/ProjectFormModal';
+import ErrorLogSection from '@/components/developer/ErrorLogSection';
 import { useDeployments } from '@/lib/hooks/useDeployments';
 import { useFilteredIdeas } from '@/lib/hooks/useFilteredIdeas';
 import { useFilteredSubmissions } from '@/lib/hooks/useFilteredSubmissions';
@@ -364,6 +365,15 @@ export default function DeveloperPage() {
                 </div>
               </div>
             </div>
+          </CollapsibleSection>
+
+          {/* 모바일 오류기록 */}
+          <CollapsibleSection
+            title="모바일 오류기록"
+            icon={<Shield className="w-5 h-5" />}
+            defaultOpen={false}
+          >
+            <ErrorLogSection />
           </CollapsibleSection>
         </div>
       </main>

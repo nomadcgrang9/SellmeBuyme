@@ -42,6 +42,8 @@ const order: SlideKey[] = [
   'done'
 ]
 
+const hoverLabelSteps: SlideKey[] = ['greeting', 'platform', 'pain']
+
 function hexToRgb(hex: string) {
   const cleaned = hex.replace('#', '')
   const bigint = parseInt(cleaned, 16)
@@ -94,6 +96,9 @@ export default function Landing() {
   const [phone, setPhone] = useState('')
   const [experience, setExperience] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [showHint, setShowHint] = useState(true)
+  const [hoveredSide, setHoveredSide] = useState<'left' | 'right' | null>(null)
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0 })
 
   const regionsList = useMemo(() => [
     '서울',
@@ -144,11 +149,17 @@ export default function Landing() {
 
   function goNext() {
     const i = idxOf(step)
-    if (i < order.length - 1) setStep(order[i + 1])
+    if (i < order.length - 1) {
+      setShowHint(false)
+      setStep(order[i + 1])
+    }
   }
   function goPrev() {
     const i = idxOf(step)
-    if (i > 0) setStep(order[i - 1])
+    if (i > 0) {
+      setShowHint(false)
+      setStep(order[i - 1])
+    }
   }
 
   // validation for enabling next
@@ -213,56 +224,157 @@ export default function Landing() {
     return () => clearTimeout(timer)
   }, [step])
 
+  const handleMainClick = (e: React.MouseEvent) => {
+    // 선택 메뉴 제외 (chip, button, input 등)
+    const target = e.target as HTMLElement
+    if (target.closest('.chip') || target.closest('button') || target.closest('input') || target.closest('.floating-panel')) {
+      return
+    }
+
+    // 화면 절반 기준으로 클릭 처리
+    if (e.clientX < window.innerWidth / 2) {
+      goPrev()
+    } else {
+      goNext()
+    }
+  }
+
+  const handleMainMouseMove = (e: React.MouseEvent) => {
+    // 선택 메뉴 위에서는 호버 표시 안 함
+    const target = e.target as HTMLElement
+    if (target.closest('.chip') || target.closest('button') || target.closest('input') || target.closest('.floating-panel')) {
+      setHoveredSide(null)
+      return
+    }
+
+    if (!hoverLabelSteps.includes(step)) {
+      setHoveredSide(null)
+      return
+    }
+
+    setMousePos({ x: e.clientX, y: e.clientY })
+    if (e.clientX < window.innerWidth / 2) {
+      setHoveredSide('left')
+    } else {
+      setHoveredSide('right')
+    }
+  }
+
+  const handleMainMouseLeave = () => {
+    setHoveredSide(null)
+  }
+
   return (
     <div className="landing-root">
-      <main className="slides-wrapper">
+      <main 
+        className="slides-wrapper"
+        onClick={handleMainClick}
+        onMouseMove={handleMainMouseMove}
+        onMouseLeave={handleMainMouseLeave}
+      >
         {/* Slide 1 - greeting */}
         {step === 'greeting' && (
           <motion.section initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="slide hero-slide">
             <SlideTitle text="안녕하세요, 셀미바이미 입니다" />
+            {showHint && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.8, duration: 0.6 }}
+                className="onboarding-hint"
+                onClick={goNext}
+                style={{ cursor: 'pointer' }}
+              >
+                <motion.span
+                  animate={{ opacity: [0.4, 1, 0.4] }}
+                  transition={{ duration: 1.8, repeat: Infinity }}
+                >
+                  클릭하거나 터치하면 다음화면으로 넘어가요
+                </motion.span>
+              </motion.div>
+            )}
           </motion.section>
         )}
 
         {/* Slide 2 - platform */}
         {step === 'platform' && (
-          <motion.section initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="slide">
+          <motion.section 
+            initial={{ opacity: 0, y: 20 }} 
+            animate={{ opacity: 1, y: 0 }} 
+            className="slide"
+          >
             <SlideTitle text="셀바는 학교가 중심이 되는 인력자원 매칭 플랫폼 입니다" />
           </motion.section>
         )}
 
         {/* Slide 3 - pain */}
         {step === 'pain' && (
-          <motion.section initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="slide">
+          <motion.section 
+            initial={{ opacity: 0, y: 20 }} 
+            animate={{ opacity: 1, y: 0 }} 
+            className="slide"
+          >
             <SlideTitle text="그간 발 동동구르면서 사람 구해왔던 것을" />
           </motion.section>
         )}
 
         {/* Slide 4 - connect */}
         {step === 'connect' && (
-          <motion.section initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="slide">
+          <motion.section 
+            initial={{ opacity: 0, y: 20 }} 
+            animate={{ opacity: 1, y: 0 }} 
+            className="slide"
+          >
             <SlideTitle text="전국 17개 모든 교육청 구인 게시판을 연결하고" />
           </motion.section>
         )}
 
         {/* Slide 5 - structure */}
         {step === 'structure' && (
-          <motion.section initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="slide">
+          <motion.section 
+            initial={{ opacity: 0, y: 20 }} 
+            animate={{ opacity: 1, y: 0 }} 
+            className="slide"
+          >
             <SlideTitle text="1회성 등록에 그쳤던 인력풀도 체계적으로 구조화하고자 합니다" />
           </motion.section>
         )}
 
         {/* Slide 6 - easy */}
         {step === 'easy' && (
-          <motion.section initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="slide">
+          <motion.section 
+            initial={{ opacity: 0, y: 20 }} 
+            animate={{ opacity: 1, y: 0 }} 
+            className="slide"
+          >
             <SlideTitle text="어렵지 않습니다" />
           </motion.section>
         )}
 
         {/* Slide 7 - ask1min */}
         {step === 'ask1min' && (
-          <motion.section initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="slide">
+          <motion.section 
+            initial={{ opacity: 0, y: 20 }} 
+            animate={{ opacity: 1, y: 0 }} 
+            className="slide"
+          >
             <SlideTitle text="선생님의 시간을 저희에게 1분만 주세요" highlight />
           </motion.section>
+        )}
+        
+        {/* Hover label - global */}
+        {hoveredSide && hoverLabelSteps.includes(step) && (
+          <div 
+            className="hover-label"
+            style={{ 
+              position: 'fixed',
+              left: hoveredSide === 'left' ? mousePos.x - 40 : mousePos.x + 10,
+              top: mousePos.y - 10,
+              pointerEvents: 'none'
+            }}
+          >
+            {hoveredSide === 'left' ? '이전' : '다음'}
+          </div>
         )}
 
         {/* Slide 8 - name input */}
@@ -500,28 +612,7 @@ export default function Landing() {
             {/* Removed per-slide navigation */}
           </motion.section>
         )}
-        {/* side navigation buttons */}
-        <div className="side-nav left">
-          <button
-            className="side-nav-btn"
-            onClick={goPrev}
-            disabled={idxOf(step) === 0}
-            aria-label="이전"
-          >
-            &lt;
-          </button>
-        </div>
-
-        <div className="side-nav right">
-          <button
-            className="side-nav-btn"
-            onClick={goNext}
-            disabled={isNextDisabled() || step === 'done'}
-            aria-label="다음"
-          >
-            &gt;
-          </button>
-        </div>
+        {/* side navigation buttons - hidden */}
       </main>
 
     </div>

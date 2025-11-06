@@ -6,6 +6,13 @@ import DeveloperPage from './pages/DeveloperPage'
 import AuthCallback from './pages/AuthCallback'
 import './index.css'
 import Landing from './pages/Landing'
+import { errorReporter } from './lib/utils/errorReporter'
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 에러 리포터 초기화 (모바일 디버깅)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+errorReporter.initialize();
+errorReporter.setupGlobalHandlers();
 
 const pathname = window.location.pathname
 
