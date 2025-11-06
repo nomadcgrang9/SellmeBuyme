@@ -11,6 +11,7 @@ interface HierarchicalFieldSelectorProps {
 export default function HierarchicalFieldSelector({ value, onChange }: HierarchicalFieldSelectorProps) {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [hoveredCategory, setHoveredCategory] = useState<string | null>(null);
+  const [previewSlideIndex, setPreviewSlideIndex] = useState(0);
   const [customInput, setCustomInput] = useState<string>('');
   const [editingSubcategory, setEditingSubcategory] = useState<string | null>(null);
 
@@ -30,8 +31,18 @@ export default function HierarchicalFieldSelector({ value, onChange }: Hierarchi
   const handleBackClick = () => {
     setSelectedCategory(null);
     setHoveredCategory(null);
+    setPreviewSlideIndex(0);
     setEditingSubcategory(null);
     setCustomInput('');
+  };
+
+  const getPreviewSlides = (category: any) => {
+    const itemsPerSlide = 4;
+    const slides = [];
+    for (let i = 0; i < category.subcategories.length; i += itemsPerSlide) {
+      slides.push(category.subcategories.slice(i, i + itemsPerSlide));
+    }
+    return slides.length > 0 ? slides : [[]];
   };
 
   const handleSubcategoryToggle = (label: string) => {
@@ -78,12 +89,22 @@ export default function HierarchicalFieldSelector({ value, onChange }: Hierarchi
                   <div
                     key={category.id}
                     className="relative"
-                    onMouseEnter={() => setHoveredCategory(category.id)}
-                    onFocus={() => setHoveredCategory(category.id)}
+                    onMouseEnter={() => {
+                      setHoveredCategory(category.id);
+                      setPreviewSlideIndex(0);
+                    }}
+                    onFocus={() => {
+                      setHoveredCategory(category.id);
+                      setPreviewSlideIndex(0);
+                    }}
                     onMouseLeave={() => {
                       setHoveredCategory(prev => (prev === category.id ? null : prev));
+                      setPreviewSlideIndex(0);
                     }}
-                    onBlur={() => setHoveredCategory(null)}
+                    onBlur={() => {
+                      setHoveredCategory(null);
+                      setPreviewSlideIndex(0);
+                    }}
                   >
                     <button
                       onClick={() => handleCategoryClick(category.id)}
@@ -97,30 +118,82 @@ export default function HierarchicalFieldSelector({ value, onChange }: Hierarchi
                     </button>
 
                     <AnimatePresence>
-                      {isHovered && (
-                        <motion.div
-                          key={`${category.id}-preview`}
-                          initial={{ opacity: 0, y: -4, scale: 0.98 }}
-                          animate={{ opacity: 1, y: 6, scale: 1 }}
-                          exit={{ opacity: 0, y: -4, scale: 0.96 }}
-                          transition={{ duration: 0.16 }}
-                          className="absolute left-1/2 top-full z-10 mt-2 -translate-x-1/2 rounded-2xl border border-blue-200 bg-white shadow-sm"
-                        >
-                          <div className="px-4 py-3">
-                            <div className="text-[12px] font-semibold text-blue-600 mb-2">{category.label}</div>
-                            <div className="flex flex-wrap gap-1.5 max-w-[260px]">
-                              {category.subcategories.map(sub => (
-                                <span
-                                  key={sub.id}
-                                  className="px-3 py-1 text-[12px] font-medium text-gray-700 bg-blue-50 rounded-full border border-blue-100"
+                      {isHovered && (() => {
+                        const slides = getPreviewSlides(category);
+                        const canGoPrev = previewSlideIndex > 0;
+                        const canGoNext = previewSlideIndex < slides.length - 1;
+                        const currentSlide = slides[previewSlideIndex] || [];
+
+                        return (
+                          <motion.div
+                            key={`${category.id}-preview`}
+                            initial={{ opacity: 0, y: -4, scale: 0.98 }}
+                            animate={{ opacity: 1, y: 6, scale: 1 }}
+                            exit={{ opacity: 0, y: -4, scale: 0.96 }}
+                            transition={{ duration: 0.16 }}
+                            className="absolute left-1/2 top-full z-10 mt-2 -translate-x-1/2 rounded-2xl border border-blue-200 bg-white shadow-sm"
+                          >
+                            <div className="px-4 py-3 min-w-[280px]">
+                              <div className="text-[12px] font-semibold text-blue-600 mb-3">{category.label}</div>
+                              
+                              {/* 슬라이드 콘텐츠 */}
+                              <div className="flex gap-2 items-center">
+                                {/* 좌측 버튼 */}
+                                <button
+                                  onClick={() => setPreviewSlideIndex(Math.max(0, previewSlideIndex - 1))}
+                                  disabled={!canGoPrev}
+                                  className={`flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-xs ${
+                                    canGoPrev
+                                      ? 'bg-blue-100 text-blue-600 hover:bg-blue-200 cursor-pointer'
+                                      : 'bg-gray-100 text-gray-300 cursor-not-allowed'
+                                  }`}
                                 >
-                                  {sub.label}
-                                </span>
-                              ))}
+                                  ←
+                                </button>
+
+                                {/* 슬라이드 아이템 */}
+                                <div className="flex-1 grid grid-cols-2 gap-1.5">
+                                  {currentSlide.map((sub: { id: string; label: string }) => (
+                                    <span
+                                      key={sub.id}
+                                      className="px-2 py-1 text-[11px] font-medium text-gray-700 bg-blue-50 rounded-full border border-blue-100 text-center"
+                                    >
+                                      {sub.label}
+                                    </span>
+                                  ))}
+                                </div>
+
+                                {/* 우측 버튼 */}
+                                <button
+                                  onClick={() => setPreviewSlideIndex(Math.min(slides.length - 1, previewSlideIndex + 1))}
+                                  disabled={!canGoNext}
+                                  className={`flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-xs ${
+                                    canGoNext
+                                      ? 'bg-blue-100 text-blue-600 hover:bg-blue-200 cursor-pointer'
+                                      : 'bg-gray-100 text-gray-300 cursor-not-allowed'
+                                  }`}
+                                >
+                                  →
+                                </button>
+                              </div>
+
+                              {/* 슬라이드 인디케이터 */}
+                              {slides.length > 1 && (
+                                <div className="flex justify-center gap-1 mt-2">
+                                  {slides.map((_, idx) => (
+                                    <div
+                                      key={idx}
+                                      className={`w-1 h-1 rounded-full ${
+                                        idx === previewSlideIndex ? 'bg-blue-500' : 'bg-blue-200'
+                                      }`}
+                                    />
+                                  ))}
+                                </div>
+                              )}
                             </div>
-                          </div>
-                        </motion.div>
-                      )}
+                          </motion.div>
+                        );
+                      })()}
                     </AnimatePresence>
                   </div>
                 );

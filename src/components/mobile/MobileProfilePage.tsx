@@ -111,7 +111,7 @@ export default function MobileProfilePage({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-gray-50 md:hidden flex flex-col animate-fade-in">
+    <div className="fixed inset-0 bottom-16 z-40 bg-gray-50 md:hidden flex flex-col animate-fade-in">
       {/* 상단 네비 - 고정 */}
       <header className="flex items-center gap-3 px-4 h-14 border-b border-gray-200 bg-white flex-shrink-0">
         <button
@@ -126,7 +126,7 @@ export default function MobileProfilePage({
       </header>
 
       {/* 스크롤 가능한 콘텐츠 영역 */}
-      <div className="flex-1 overflow-y-auto pb-20">
+      <div className="flex-1 overflow-y-auto">
         {loadState === 'loading' && (
           <div className="flex flex-col items-center justify-center gap-3 py-20 text-sm text-gray-500">
             <span className="animate-spin text-2xl">⏳</span>
@@ -263,57 +263,57 @@ export default function MobileProfilePage({
                 </div>
               </div>
             </div>
+
+            {/* 하단 버튼 영역 - 스크롤 영역 내부 */}
+            <div className="flex gap-2 px-4 py-3 border-t border-gray-200 bg-white">
+              {isAdmin ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => onRequestEdit?.(profile)}
+                    className="flex-1 rounded-lg border border-gray-300 px-3 py-2.5 text-sm font-medium text-gray-700 bg-white active:bg-gray-50"
+                  >
+                    수정
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleAdminLogin}
+                    className="flex-1 rounded-lg border border-gray-300 px-3 py-2.5 text-sm font-medium text-gray-700 bg-gray-50 active:bg-gray-100"
+                  >
+                    관리자
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    disabled={loggingOut}
+                    className="flex-1 rounded-lg border border-gray-300 px-3 py-2.5 text-sm font-medium text-red-600 bg-white active:bg-red-50 disabled:opacity-60"
+                  >
+                    {loggingOut ? '...' : '로그아웃'}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => onRequestEdit?.(profile)}
+                    className="flex-1 rounded-lg border border-gray-300 px-3 py-2.5 text-sm font-medium text-gray-700 bg-white active:bg-gray-50"
+                  >
+                    프로필 수정
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    disabled={loggingOut}
+                    className="flex-1 rounded-lg border border-gray-300 px-3 py-2.5 text-sm font-medium text-red-600 bg-white active:bg-red-50 disabled:opacity-60"
+                  >
+                    {loggingOut ? '로그아웃 중...' : '로그아웃'}
+                  </button>
+                </>
+              )}
+            </div>
           </div>
         )}
       </div>
-
-      {/* 하단 버튼 영역 - 고정 (하단 네비 위에 표시) */}
-      <footer className="flex gap-2 px-4 py-3 border-t border-gray-200 bg-white flex-shrink-0">
-        {isAdmin ? (
-          <>
-            <button
-              type="button"
-              onClick={() => onRequestEdit?.(profile)}
-              className="flex-1 rounded-lg border border-gray-300 px-3 py-2.5 text-sm font-medium text-gray-700 bg-white active:bg-gray-50"
-            >
-              수정
-            </button>
-            <button
-              type="button"
-              onClick={handleAdminLogin}
-              className="flex-1 rounded-lg border border-gray-300 px-3 py-2.5 text-sm font-medium text-gray-700 bg-gray-50 active:bg-gray-100"
-            >
-              관리자
-            </button>
-            <button
-              type="button"
-              onClick={handleLogout}
-              disabled={loggingOut}
-              className="flex-1 rounded-lg border border-gray-300 px-3 py-2.5 text-sm font-medium text-red-600 bg-white active:bg-red-50 disabled:opacity-60"
-            >
-              {loggingOut ? '...' : '로그아웃'}
-            </button>
-          </>
-        ) : (
-          <>
-            <button
-              type="button"
-              onClick={() => onRequestEdit?.(profile)}
-              className="flex-1 rounded-lg border border-gray-300 px-3 py-2.5 text-sm font-medium text-gray-700 bg-white active:bg-gray-50"
-            >
-              프로필 수정
-            </button>
-            <button
-              type="button"
-              onClick={handleLogout}
-              disabled={loggingOut}
-              className="flex-1 rounded-lg border border-gray-300 px-3 py-2.5 text-sm font-medium text-red-600 bg-white active:bg-red-50 disabled:opacity-60"
-            >
-              {loggingOut ? '로그아웃 중...' : '로그아웃'}
-            </button>
-          </>
-        )}
-      </footer>
     </div>
   );
 }
