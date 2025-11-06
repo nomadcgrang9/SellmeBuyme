@@ -1,4 +1,4 @@
-import { IconX, IconBriefcase, IconUsers, IconSparkles } from '@tabler/icons-react';
+import { X, Briefcase, Users, Sparkles } from 'lucide-react';
 
 interface RegisterBottomSheetProps {
   isOpen: boolean;
@@ -36,7 +36,7 @@ export default function RegisterBottomSheet({
             className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 active:bg-gray-200 transition-colors"
             aria-label="닫기"
           >
-            <IconX size={20} stroke={1.5} className="text-gray-600" />
+            <X size={20} strokeWidth={1.5} className="text-gray-600" />
           </button>
         </div>
 
@@ -51,7 +51,7 @@ export default function RegisterBottomSheet({
             className="w-full flex items-center gap-4 p-4 rounded-2xl border-2 border-gray-200 hover:border-[#a8c5e0] active:bg-gray-50 transition-all"
           >
             <div className="flex-shrink-0 w-12 h-12 rounded-full bg-[#a8c5e0]/20 flex items-center justify-center">
-              <IconBriefcase size={24} stroke={1.5} className="text-[#7aa3cc]" />
+              <Briefcase size={24} strokeWidth={1.5} className="text-[#7aa3cc]" />
             </div>
             <div className="flex-1 text-left">
               <h4 className="text-base font-bold text-gray-900">공고 등록</h4>
@@ -68,7 +68,7 @@ export default function RegisterBottomSheet({
             className="w-full flex items-center gap-4 p-4 rounded-2xl border-2 border-gray-200 hover:border-[#c5e3d8] active:bg-gray-50 transition-all"
           >
             <div className="flex-shrink-0 w-12 h-12 rounded-full bg-[#c5e3d8]/20 flex items-center justify-center">
-              <IconUsers size={24} stroke={1.5} className="text-[#7db8a3]" />
+              <Users size={24} strokeWidth={1.5} className="text-[#7db8a3]" />
             </div>
             <div className="flex-1 text-left">
               <h4 className="text-base font-bold text-gray-900">인력 등록</h4>
@@ -85,7 +85,7 @@ export default function RegisterBottomSheet({
             className="w-full flex items-center gap-4 p-4 rounded-2xl border-2 border-gray-200 hover:border-[#ffd98e] active:bg-gray-50 transition-all"
           >
             <div className="flex-shrink-0 w-12 h-12 rounded-full bg-[#ffd98e]/20 flex items-center justify-center">
-              <IconSparkles size={24} stroke={1.5} className="text-[#f4c96b]" />
+              <Sparkles size={24} strokeWidth={1.5} className="text-[#f4c96b]" />
             </div>
             <div className="flex-1 text-left">
               <h4 className="text-base font-bold text-gray-900">체험 등록</h4>

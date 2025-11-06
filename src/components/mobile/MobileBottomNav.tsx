@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { IconHome, IconSwitchHorizontal, IconPlus, IconSearch, IconUser } from '@tabler/icons-react';
+import { Home, ArrowLeftRight, Plus, Search, User } from 'lucide-react';
 import { useSearchStore } from '@/stores/searchStore';
 
 interface MobileBottomNavProps {
@@ -22,8 +22,9 @@ export default function MobileBottomNav({
   // 토글 버튼 클릭 핸들러
   const handleToggleView = () => {
     const viewOrder: Array<'job' | 'talent' | 'experience'> = ['job', 'talent', 'experience'];
-    const currentIndex = viewOrder.indexOf(viewType);
-    const nextIndex = (currentIndex + 1) % viewOrder.length;
+    const currentIndex = viewOrder.indexOf(viewType as 'job' | 'talent' | 'experience');
+    // viewType이 'all'이면 -1을 반환하므로, 첫 번째 항목(job)으로 시작
+    const nextIndex = currentIndex === -1 ? 0 : (currentIndex + 1) % viewOrder.length;
     setViewType(viewOrder[nextIndex]);
   };
 
@@ -64,9 +65,9 @@ export default function MobileBottomNav({
           className="flex items-center justify-center transition-colors"
           aria-label="홈"
         >
-          <IconHome
+          <Home
             size={28}
-            stroke={1.5}
+            strokeWidth={1.5}
             className={currentTab === 'home' ? 'text-[#4facfe]' : 'text-gray-400'}
           />
         </button>
@@ -77,9 +78,9 @@ export default function MobileBottomNav({
           className="flex items-center justify-center transition-colors"
           aria-label="카드 타입 전환"
         >
-          <IconSwitchHorizontal
+          <ArrowLeftRight
             size={28}
-            stroke={1.5}
+            strokeWidth={1.5}
             style={{ color: getToggleColor() }}
           />
         </button>
@@ -90,9 +91,9 @@ export default function MobileBottomNav({
           className="flex items-center justify-center transition-colors"
           aria-label="등록"
         >
-          <IconPlus
+          <Plus
             size={28}
-            stroke={1.5}
+            strokeWidth={1.5}
             className="text-gray-400"
           />
         </button>
@@ -106,9 +107,9 @@ export default function MobileBottomNav({
           className="flex items-center justify-center transition-colors"
           aria-label="검색"
         >
-          <IconSearch
+          <Search
             size={28}
-            stroke={1.5}
+            strokeWidth={1.5}
             className={currentTab === 'search' ? 'text-[#4facfe]' : 'text-gray-400'}
           />
         </button>
@@ -122,9 +123,9 @@ export default function MobileBottomNav({
           className="flex items-center justify-center transition-colors"
           aria-label="프로필"
         >
-          <IconUser
+          <User
             size={28}
-            stroke={1.5}
+            strokeWidth={1.5}
             className={currentTab === 'profile' ? 'text-[#4facfe]' : 'text-gray-400'}
           />
         </button>
