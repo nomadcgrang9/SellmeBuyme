@@ -979,46 +979,6 @@ export default function App() {
         {/* 메인 콘텐츠 */}
         <main className="bg-white pb-20 md:pb-10">
         <div className="max-w-container mx-auto px-6 pt-4">
-          {/* 위치 기반 정렬 안내 */}
-          {userLocation && !hasActiveSearch && (
-            <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-4 rounded-r-lg">
-              <div className="flex items-start justify-between">
-                <div className="flex items-start space-x-3">
-                  <span className="text-2xl">📍</span>
-                  <div>
-                    <p className="text-sm font-semibold text-blue-900 mb-1">
-                      {user ? '프로필 기반 위치 정렬' : '현재 위치 기반 정렬'}
-                    </p>
-                    <p className="text-sm text-blue-700">
-                      {userLocation.city} {userLocation.district && `${userLocation.district} `}지역을 중심으로 가까운 순서로 정렬하고 있습니다
-                      {user && ' (프로필 선호 지역 기준)'}
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => {
-                    setUserLocation(null);
-                    localStorage.removeItem('user_location');
-                  }}
-                  className="ml-4 text-sm text-blue-600 hover:text-blue-800 underline whitespace-nowrap"
-                >
-                  정렬 해제
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* 위치 확인 중 로딩 (익명 사용자만) */}
-          {!user && locationLoading && !hasActiveSearch && (
-            <div className="bg-gray-50 border border-gray-200 p-4 mb-4 rounded-lg">
-              <div className="flex items-center space-x-3">
-                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
-                <p className="text-sm text-gray-600">
-                  📍 현재 위치를 확인하고 있습니다...
-                </p>
-              </div>
-            </div>
-          )}
 
           {/* AI 검색 결과 메시지 - 모바일에서는 숨김 */}
           <div className="hidden md:block">
