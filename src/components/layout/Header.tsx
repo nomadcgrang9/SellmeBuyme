@@ -153,6 +153,7 @@ export default function Header({ onProfileClick }: HeaderProps) {
     }
   };
 
+
   return (
     <header className="sticky top-0 z-50 bg-white border-b border-gray-200 font-esamanru">
       {/* PC: 1줄 레이아웃 (로고 + 토글 + 검색 + 버튼) */}

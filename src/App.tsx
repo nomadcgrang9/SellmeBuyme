@@ -15,6 +15,7 @@ import RegisterButtonsSection from '@/components/mobile/RegisterButtonsSection';
 import StatisticsBanner from '@/components/mobile/StatisticsBanner';
 import BottomNav from '@/components/mobile/BottomNav';
 import PromoCardStack from '@/components/promo/PromoCardStack';
+import IntegratedHeaderPromo from '@/components/mobile/IntegratedHeaderPromo';
 import { searchCards, fetchRecommendationsCache, isCacheValid, hasProfileChanged, shouldInvalidateCache, fetchPromoCards, selectRecommendationCards, filterByTeacherLevel, filterByJobType, calculateSubjectScore, filterByExperience, generateRecommendations, fetchFreshJobs } from '@/lib/supabase/queries';
 import { fetchUserProfile, type UserProfileRow } from '@/lib/supabase/profiles';
 import { useSearchStore } from '@/stores/searchStore';
@@ -212,6 +213,7 @@ export default function App() {
   const [isExperienceEditOpen, setIsExperienceEditOpen] = useState(false);
   const [selectedExperience, setSelectedExperience] = useState<ExperienceCard | null>(null);
   const [highlightTalentId, setHighlightTalentId] = useState<string | null>(null);
+  const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
 
   // AI 추천 카드 클릭 시 전체 데이터 조회
   const handleCardClick = async (card: Card) => {
@@ -817,6 +819,16 @@ export default function App() {
 
   const canLoadMore = cards.length < totalCount;
 
+  // 디버깅: 화면 너비 및 모바일/PC 렌더링 확인
+  useEffect(() => {
+    console.log('[App] 화면 정보:');
+    console.log('  - window.innerWidth:', window.innerWidth);
+    console.log('  - md 브레이크포인트 (768px) 이상:', window.innerWidth >= 768);
+    console.log('  - IntegratedHeaderPromo 렌더링 (md:hidden):', window.innerWidth < 768);
+    console.log('  - 기존 Header 렌더링 (hidden md:block):', window.innerWidth >= 768);
+    console.log('  - promoCards 개수:', promoCards.length);
+  }, [promoCards.length]);
+
   useEffect(() => {
     const sentinel = sentinelRef.current;
 
@@ -843,11 +855,27 @@ export default function App() {
   return (
     <div className="min-h-screen bg-gray-50 pb-20 md:pb-0">
       <ToastContainer />
-      {/* 헤더 (sticky 검색창 포함) */}
-      <Header onProfileClick={handleOpenProfileView} />
 
-      {/* 등록 버튼 섹션 (모바일) */}
-      <RegisterButtonsSection />
+      {/* 모바일: 통합 헤더-프로모카드 */}
+      <div className="md:hidden">
+        <IntegratedHeaderPromo
+          promoCards={promoCards}
+          onSearchClick={() => setIsSearchModalOpen(true)}
+          onNotificationClick={() => alert('알림 기능 준비 중입니다')}
+          onBookmarkClick={() => alert('북마크 기능 준비 중입니다')}
+          notificationCount={0}
+        />
+      </div>
+
+      {/* PC: 기존 헤더 */}
+      <div className="hidden md:block">
+        <Header onProfileClick={handleOpenProfileView} />
+      </div>
+
+      {/* 등록 버튼 섹션 (모바일) - PC에서만 표시 (추후 플로팅 메뉴로 대체 예정) */}
+      <div className="hidden md:block">
+        <RegisterButtonsSection />
+      </div>
 
       {/* AI 추천 섹션 - 검색 중이 아닐 때만 표시 */}
       {!hasActiveSearch && (
@@ -871,9 +899,9 @@ export default function App() {
         popularKeywords={['수원', '중등', '기간제', '방과후']}
       /> */}
 
-      {/* 프로모 배너 (모바일 전용, DB 연동) */}
+      {/* 프로모 배너 (PC 전용, DB 연동) - 모바일에서는 IntegratedHeaderPromo에 통합됨 */}
       {promoCards.length > 0 && (
-        <section className="md:hidden bg-white py-3 border-b border-gray-200">
+        <section className="hidden md:block bg-white py-3 border-b border-gray-200">
           <div className="max-w-container mx-auto px-6">
             <PromoCardStack
               cards={promoCards}
@@ -927,12 +955,14 @@ export default function App() {
             </div>
           )}
 
-          {/* AI 검색 결과 메시지 */}
-          <AIInsightBox
-            resultCount={totalCount}
-            searchQuery={searchSummary}
-            topResultIndex={1}
-          />
+          {/* AI 검색 결과 메시지 - 모바일에서는 숨김 */}
+          <div className="hidden md:block">
+            <AIInsightBox
+              resultCount={totalCount}
+              searchQuery={searchSummary}
+              topResultIndex={1}
+            />
+          </div>
 
           {/* 로딩 상태 */}
           {loading ? (
