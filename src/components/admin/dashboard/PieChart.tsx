@@ -1,3 +1,14 @@
+'use client';
+
+import {
+  PieChart as RechartsPieChart,
+  Pie,
+  Cell,
+  Legend,
+  Tooltip,
+  ResponsiveContainer,
+} from 'recharts';
+
 interface PieDataPoint {
   label: string;
   value: number;
@@ -26,9 +37,7 @@ export default function PieChart({ title, data, loading = false }: PieChartProps
       <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
         <div className="animate-pulse">
           <div className="h-6 w-40 bg-slate-200 rounded mb-4" />
-          <div className="flex items-center justify-center">
-            <div className="w-32 h-32 rounded-full bg-slate-200" />
-          </div>
+          <div className="h-64 bg-slate-200 rounded" />
         </div>
       </div>
     );
@@ -38,7 +47,7 @@ export default function PieChart({ title, data, loading = false }: PieChartProps
     return (
       <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
         <h3 className="text-lg font-semibold text-slate-900 mb-4">{title}</h3>
-        <div className="flex items-center justify-center h-48 text-slate-400">
+        <div className="flex items-center justify-center h-64 text-slate-400">
           데이터가 없습니다
         </div>
       </div>
@@ -46,90 +55,55 @@ export default function PieChart({ title, data, loading = false }: PieChartProps
   }
 
   // 색상 할당
-  const dataWithColors = data.map((item, index) => ({
-    ...item,
-    color: item.color || DEFAULT_COLORS[index % DEFAULT_COLORS.length],
+  const chartData = data.map((item, index) => ({
+    name: item.label,
+    value: item.value,
+    percentage: item.percentage,
+    fill: item.color || DEFAULT_COLORS[index % DEFAULT_COLORS.length],
   }));
-
-  // SVG 파이 차트 계산
-  const radius = 60;
-  const centerX = 70;
-  const centerY = 70;
-  let currentAngle = -90; // 12시 방향부터 시작
-
-  const slices = dataWithColors.map((item) => {
-    const angle = (item.percentage / 100) * 360;
-    const startAngle = currentAngle;
-    const endAngle = currentAngle + angle;
-
-    // 라디안 변환
-    const startRad = (startAngle * Math.PI) / 180;
-    const endRad = (endAngle * Math.PI) / 180;
-
-    // 좌표 계산
-    const x1 = centerX + radius * Math.cos(startRad);
-    const y1 = centerY + radius * Math.sin(startRad);
-    const x2 = centerX + radius * Math.cos(endRad);
-    const y2 = centerY + radius * Math.sin(endRad);
-
-    // 큰 호 플래그
-    const largeArc = angle > 180 ? 1 : 0;
-
-    const path = `M ${centerX} ${centerY} L ${x1} ${y1} A ${radius} ${radius} 0 ${largeArc} 1 ${x2} ${y2} Z`;
-
-    currentAngle = endAngle;
-
-    return {
-      ...item,
-      path,
-    };
-  });
 
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
       <h3 className="text-lg font-semibold text-slate-900 mb-4">{title}</h3>
 
-      <div className="flex flex-col md:flex-row items-center gap-6">
-        {/* 파이 차트 */}
-        <div className="flex-shrink-0">
-          <svg width="140" height="140" viewBox="0 0 140 140">
-            {slices.map((slice, index) => (
-              <g key={index}>
-                <path
-                  d={slice.path}
-                  fill={slice.color}
-                  className="hover:opacity-80 transition-opacity cursor-pointer"
-                />
-              </g>
+      {/* Recharts 파이 차트 */}
+      <ResponsiveContainer width="100%" height={300}>
+        <RechartsPieChart>
+          <Pie
+            data={chartData}
+            cx="50%"
+            cy="50%"
+            innerRadius={60}
+            outerRadius={100}
+            paddingAngle={2}
+            dataKey="value"
+            label={({ percentage }) => `${percentage}%`}
+            labelLine={false}
+          >
+            {chartData.map((entry, index) => (
+              <Cell key={`cell-${index}`} fill={entry.fill} />
             ))}
-            {/* 중앙 흰색 원 (도넛 차트 효과) */}
-            <circle cx={centerX} cy={centerY} r="30" fill="white" />
-          </svg>
-        </div>
-
-        {/* 범례 */}
-        <div className="flex-1 space-y-2">
-          {dataWithColors.map((item, index) => (
-            <div key={index} className="flex items-center justify-between py-1">
-              <div className="flex items-center gap-2">
-                <div
-                  className="w-3 h-3 rounded-sm"
-                  style={{ backgroundColor: item.color }}
-                />
-                <span className="text-sm text-slate-700">{item.label}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-semibold text-slate-900">
-                  {item.percentage}%
-                </span>
-                <span className="text-xs text-slate-400">
-                  ({item.value.toLocaleString()}명)
-                </span>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
+          </Pie>
+          <Tooltip
+            contentStyle={{
+              backgroundColor: '#1E293B',
+              border: 'none',
+              borderRadius: '8px',
+              boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+            }}
+            labelStyle={{ color: '#F1F5F9' }}
+            formatter={(value: number) => [value.toLocaleString() + '명', '인원']}
+          />
+          <Legend
+            verticalAlign="bottom"
+            height={36}
+            formatter={(value, entry) => {
+              const item = chartData.find((d) => d.name === value);
+              return `${value} (${item?.percentage}%)`;
+            }}
+          />
+        </RechartsPieChart>
+      </ResponsiveContainer>
     </div>
   );
 }
