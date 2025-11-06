@@ -218,7 +218,7 @@ export default function App() {
   const [highlightTalentId, setHighlightTalentId] = useState<string | null>(null);
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
-  const [currentBottomTab, setCurrentBottomTab] = useState<'home' | 'search' | 'profile' | null>('home');
+  const [currentBottomTab, setCurrentBottomTab] = useState<'home' | 'chat' | 'profile' | null>('home');
   const [isRegisterBottomSheetOpen, setIsRegisterBottomSheetOpen] = useState(false);
   const [registerType, setRegisterType] = useState<'job' | 'talent' | 'experience' | null>(null);
 
@@ -464,6 +464,21 @@ export default function App() {
       return;
     }
     setProfileViewOpen(true);
+  };
+
+  // 모바일 하단 네비: 프로필 버튼 클릭 (로그인 분기)
+  const handleProfileButtonClick = () => {
+    if (status === 'authenticated' && user?.id) {
+      setProfileViewOpen(true);
+    } else {
+      setAuthModalMode('login');
+      setIsAuthModalOpen(true);
+    }
+  };
+
+  // 모바일 하단 네비: 채팅 버튼 클릭
+  const handleChatClick = () => {
+    alert('채팅 기능은 준비 중입니다.');
   };
 
   const handleLoginClick = () => {
@@ -1156,8 +1171,8 @@ export default function App() {
       <MobileBottomNav
         currentTab={currentBottomTab}
         onTabChange={setCurrentBottomTab}
-        onSearchClick={() => setIsSearchModalOpen(true)}
-        onProfileClick={handleOpenProfileView}
+        onChatClick={handleChatClick}
+        onProfileClick={handleProfileButtonClick}
         onRegisterClick={() => setIsRegisterBottomSheetOpen(true)}
       />
 
