@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import '../styles/landing.css'
 import { motion } from 'motion/react'
 import TalentCard from '@/components/cards/TalentCard'
+import HierarchicalFieldSelector from '@/components/landing/HierarchicalFieldSelector'
 import { transformLandingToTalentCard, transformLandingToInsertData, hashPhone, saveRegisteredTalentToLocalStorage, type LandingUserInput } from '@/lib/utils/landingTransform'
 import { supabase } from '@/lib/supabase/client'
 
@@ -502,10 +503,8 @@ export default function Landing() {
         {step === 'field' && (
           <motion.section initial={{ x: 50, opacity: 0 }} animate={{ x: 0, opacity: 1 }} className="slide">
             <SlideTitle text="관심분야 선택" />
-            <motion.div className="floating-panel multi" initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }}>
-              {fieldsList.map(f => (
-                <button key={f} className={`chip ${fields.includes(f) ? 'selected' : ''}`} onClick={() => toggleMulti(f, fields, setFields)}>{f}</button>
-              ))}
+            <motion.div className="floating-panel" initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} style={{ maxWidth: '500px', margin: '0 auto' }}>
+              <HierarchicalFieldSelector value={fields} onChange={setFields} />
             </motion.div>
             {/* Removed per-slide navigation */}
           </motion.section>

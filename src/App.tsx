@@ -13,9 +13,12 @@ import SocialSignupModal, { type AuthProvider } from '@/components/auth/SocialSi
 import ToastContainer from '@/components/common/ToastContainer';
 import RegisterButtonsSection from '@/components/mobile/RegisterButtonsSection';
 import StatisticsBanner from '@/components/mobile/StatisticsBanner';
-import BottomNav from '@/components/mobile/BottomNav';
 import PromoCardStack from '@/components/promo/PromoCardStack';
 import IntegratedHeaderPromo from '@/components/mobile/IntegratedHeaderPromo';
+import MobileHeader from '@/components/mobile/MobileHeader';
+import MobilePromoSection from '@/components/mobile/MobilePromoSection';
+import MobileBottomNav from '@/components/mobile/MobileBottomNav';
+import RegisterBottomSheet from '@/components/mobile/RegisterBottomSheet';
 import { searchCards, fetchRecommendationsCache, isCacheValid, hasProfileChanged, shouldInvalidateCache, fetchPromoCards, selectRecommendationCards, filterByTeacherLevel, filterByJobType, calculateSubjectScore, filterByExperience, generateRecommendations, fetchFreshJobs } from '@/lib/supabase/queries';
 import { fetchUserProfile, type UserProfileRow } from '@/lib/supabase/profiles';
 import { useSearchStore } from '@/stores/searchStore';
@@ -214,6 +217,10 @@ export default function App() {
   const [selectedExperience, setSelectedExperience] = useState<ExperienceCard | null>(null);
   const [highlightTalentId, setHighlightTalentId] = useState<string | null>(null);
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
+  const [currentBottomTab, setCurrentBottomTab] = useState<'home' | 'search' | 'profile' | null>('home');
+  const [isRegisterBottomSheetOpen, setIsRegisterBottomSheetOpen] = useState(false);
+  const [registerType, setRegisterType] = useState<'job' | 'talent' | 'experience' | null>(null);
 
   // AI 추천 카드 클릭 시 전체 데이터 조회
   const handleCardClick = async (card: Card) => {
@@ -829,6 +836,22 @@ export default function App() {
     console.log('  - promoCards 개수:', promoCards.length);
   }, [promoCards.length]);
 
+  // 스크롤 감지 - 프로모 섹션이 가려지는지 확인
+  useEffect(() => {
+    const handleScroll = () => {
+      // 스크롤이 일정 높이 이상이면 isScrolled를 true로
+      const scrollY = window.scrollY;
+      const threshold = 240; // 240px (프로모 높이) 이상 스크롤하면 헤더 배경 변경
+
+      setIsScrolled(scrollY > threshold);
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    handleScroll(); // 초기 체크
+
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
   useEffect(() => {
     const sentinel = sentinelRef.current;
 
@@ -852,20 +875,68 @@ export default function App() {
     };
   }, [canLoadMore, loading, loadingMore, loadMore]);
 
+  // 프로모카드 배경 스타일 계산
+  const promoBackgroundStyle = useMemo(() => {
+    const activeCard = promoCards.find((card) => card.isActive);
+    if (!activeCard) {
+      return {
+        backgroundImage: 'linear-gradient(to bottom right, #9DD2FF, #68B2FF)'
+      };
+    }
+
+    if (activeCard.backgroundColorMode === 'gradient') {
+      const pickGradientValue = (candidate: string | null | undefined, fallback: string): string => {
+        // 간단한 hex 정규화
+        const normalized = candidate?.trim().toLowerCase();
+        return normalized && /^#[0-9a-f]{6}$/i.test(normalized) ? normalized : fallback;
+      };
+
+      return {
+        backgroundImage: `linear-gradient(135deg, ${pickGradientValue(
+          activeCard.backgroundGradientStart,
+          '#6366f1'
+        )} 0%, ${pickGradientValue(
+          activeCard.backgroundGradientEnd,
+          '#22d3ee'
+        )} 100%)`
+      };
+    }
+
+    return { backgroundColor: activeCard.backgroundColor };
+  }, [promoCards]);
+
   return (
     <div className="min-h-screen bg-gray-50 pb-20 md:pb-0">
       <ToastContainer />
 
-      {/* 모바일: 통합 헤더-프로모카드 */}
-      <div className="md:hidden">
-        <IntegratedHeaderPromo
-          promoCards={promoCards}
+      {/* 모바일: 1. 배경 레이어 (z-0, 296px, 통합 그라데이션) */}
+      <div
+        className="md:hidden fixed top-0 left-0 right-0 z-0"
+        style={{
+          height: '296px',
+          ...promoBackgroundStyle
+        }}
+      />
+
+      {/* 모바일: 2. 헤더 (z-50, 최상위, 투명→흰색 전환) */}
+      <div className="md:hidden fixed top-0 left-0 right-0 z-50">
+        <MobileHeader
           onSearchClick={() => setIsSearchModalOpen(true)}
           onNotificationClick={() => alert('알림 기능 준비 중입니다')}
           onBookmarkClick={() => alert('북마크 기능 준비 중입니다')}
           notificationCount={0}
+          isScrolled={isScrolled}
+          promoCards={promoCards}
         />
       </div>
+
+      {/* 모바일: 3. 프로모 콘텐츠 (z-10, 투명 배경) */}
+      <div className="md:hidden fixed left-0 right-0 z-10" style={{ top: '56px' }}>
+        <MobilePromoSection promoCards={promoCards} />
+      </div>
+
+      {/* 스페이서 - 헤더+프로모 섹션 높이만큼 공간 확보 (모바일만) */}
+      <div className="md:hidden" style={{ height: '296px' }} />
 
       {/* PC: 기존 헤더 */}
       <div className="hidden md:block">
@@ -877,34 +948,36 @@ export default function App() {
         <RegisterButtonsSection />
       </div>
 
-      {/* AI 추천 섹션 - 검색 중이 아닐 때만 표시 */}
-      <div>
-        {!hasActiveSearch && (
-          <AIRecommendations
-          cards={recommendationCards}
-          userName={user?.user_metadata?.full_name ?? userEmail ?? undefined}
-          loading={recommendationLoading}
-          headlineOverride={recommendationHeadline}
-          descriptionOverride={recommendationDescription}
-          promoCards={promoCards}
-          profile={userProfile}
-          onCardClick={handleCardClick}
-        />
-        )}
-      </div>
+      {/* 4. 하단 콘텐츠 래퍼 (z-20, 불투명 배경, 스크롤 시 프로모 가림) */}
+      <div className="relative z-20 bg-white md:bg-transparent rounded-t-[24px] md:rounded-none -mt-8 md:mt-0 pt-8 md:pt-0">
+        {/* AI 추천 섹션 - 검색 중이 아닐 때만 표시 */}
+        <div>
+          {!hasActiveSearch && (
+            <AIRecommendations
+            cards={recommendationCards}
+            userName={user?.user_metadata?.full_name ?? userEmail ?? undefined}
+            loading={recommendationLoading}
+            headlineOverride={recommendationHeadline}
+            descriptionOverride={recommendationDescription}
+            promoCards={promoCards}
+            profile={userProfile}
+            onCardClick={handleCardClick}
+          />
+          )}
+        </div>
 
-      {/* 통계 배너 - 모바일에서는 표시 안 함 */}
-      {/* <StatisticsBanner
-        newJobsCount={15}
-        urgentJobsCount={8}
-        newTalentsCount={23}
-        popularKeywords={['수원', '중등', '기간제', '방과후']}
-      /> */}
+        {/* 통계 배너 - 모바일에서는 표시 안 함 */}
+        {/* <StatisticsBanner
+          newJobsCount={15}
+          urgentJobsCount={8}
+          newTalentsCount={23}
+          popularKeywords={['수원', '중등', '기간제', '방과후']}
+        /> */}
 
-      {/* 프로모 배너: AIRecommendations 컴포넌트 내부에서 처리 (중복 제거) */}
+        {/* 프로모 배너: AIRecommendations 컴포넌트 내부에서 처리 (중복 제거) */}
 
-      {/* 메인 콘텐츠 */}
-      <main className="bg-white pb-20 md:pb-10">
+        {/* 메인 콘텐츠 */}
+        <main className="bg-white pb-20 md:pb-10">
         <div className="max-w-container mx-auto px-6 pt-4">
           {/* 위치 기반 정렬 안내 */}
           {userLocation && !hasActiveSearch && (
@@ -1005,19 +1078,15 @@ export default function App() {
         </div>
       </main>
 
-      {/* 푸터 */}
-      <footer className="bg-white border-t border-gray-200 py-6">
-        <div className="max-w-container mx-auto px-6 text-center text-gray-500 text-xs">
-          <p>© 2025 셀미바이미. All rights reserved.</p>
-          <p className="mt-1">교육 인력 매칭 플랫폼</p>
-        </div>
-      </footer>
+        {/* 푸터 */}
+        <footer className="bg-white border-t border-gray-200 py-6">
+          <div className="max-w-container mx-auto px-6 text-center text-gray-500 text-xs">
+            <p>© 2025 셀미바이미. All rights reserved.</p>
+            <p className="mt-1">교육 인력 매칭 플랫폼</p>
+          </div>
+        </footer>
+      </div>
 
-      {/* 모바일 하단 네비게이션 */}
-      <BottomNav
-        onProfileClick={handleOpenProfileView}
-        onLoginClick={handleLoginClick}
-      />
 
       <ProfileSetupModal
         isOpen={isProfileModalOpen}
@@ -1121,6 +1190,26 @@ export default function App() {
         onSelectProvider={handleSelectProvider}
         loadingProvider={loadingProvider}
         mode={authModalMode}
+      />
+
+      {/* 모바일 하단 네비게이션 */}
+      <MobileBottomNav
+        currentTab={currentBottomTab}
+        onTabChange={setCurrentBottomTab}
+        onSearchClick={() => setIsSearchModalOpen(true)}
+        onProfileClick={handleOpenProfileView}
+        onRegisterClick={() => setIsRegisterBottomSheetOpen(true)}
+      />
+
+      {/* 등록 바텀시트 */}
+      <RegisterBottomSheet
+        isOpen={isRegisterBottomSheetOpen}
+        onClose={() => setIsRegisterBottomSheetOpen(false)}
+        onSelectType={(type) => {
+          setRegisterType(type);
+          // TODO: 등록 폼 모달 오픈 로직 추가
+          alert(`${type === 'job' ? '공고' : type === 'talent' ? '인력' : '체험'} 등록 준비 중`);
+        }}
       />
     </div>
   );
