@@ -101,18 +101,18 @@ export default function HierarchicalFieldSelector({ value, onChange }: Hierarchi
                         <motion.div
                           key={`${category.id}-preview`}
                           initial={{ opacity: 0, y: -4, scale: 0.98 }}
-                          animate={{ opacity: 1, y: 8, scale: 1 }}
+                          animate={{ opacity: 1, y: 6, scale: 1 }}
                           exit={{ opacity: 0, y: -4, scale: 0.96 }}
-                          transition={{ duration: 0.18 }}
-                          className="absolute left-1/2 top-full z-10 mt-2 w-max max-w-[260px] -translate-x-1/2 rounded-2xl border border-blue-200 bg-white/95 shadow-lg ring-1 ring-blue-100/60 backdrop-blur-sm"
+                          transition={{ duration: 0.16 }}
+                          className="absolute left-1/2 top-full z-10 mt-2 -translate-x-1/2 rounded-2xl border border-blue-200 bg-white shadow-sm"
                         >
-                          <div className="px-4 pt-3 pb-4">
-                            <div className="text-[13px] font-semibold text-blue-600 mb-2">{category.label}</div>
-                            <div className="grid grid-cols-2 gap-2">
+                          <div className="px-4 py-3">
+                            <div className="text-[12px] font-semibold text-blue-600 mb-2">{category.label}</div>
+                            <div className="flex flex-wrap gap-1.5 max-w-[260px]">
                               {category.subcategories.map(sub => (
                                 <span
                                   key={sub.id}
-                                  className="px-3 py-1.5 text-[12px] font-medium text-gray-700 bg-blue-50 rounded-full border border-blue-100"
+                                  className="px-3 py-1 text-[12px] font-medium text-gray-700 bg-blue-50 rounded-full border border-blue-100"
                                 >
                                   {sub.label}
                                 </span>
