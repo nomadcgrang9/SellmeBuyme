@@ -111,22 +111,7 @@ export default function MobileProfilePage({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bottom-16 z-40 bg-gray-50 md:hidden flex flex-col animate-fade-in">
-      {/* 상단 네비 - 고정 */}
-      <header className="flex items-center gap-3 px-4 h-14 border-b border-gray-200 bg-white flex-shrink-0">
-        <button
-          type="button"
-          onClick={onClose}
-          className="inline-flex items-center justify-center text-gray-700"
-          aria-label="뒤로가기"
-        >
-          <ChevronLeft size={24} />
-        </button>
-        <h1 className="text-base font-semibold text-gray-900">내 프로필</h1>
-      </header>
-
-      {/* 스크롤 가능한 콘텐츠 영역 */}
-      <div className="flex-1 overflow-y-auto">
+    <div className="fixed inset-0 top-14 bottom-16 z-40 bg-gray-50 md:hidden overflow-y-auto animate-fade-in">
         {loadState === 'loading' && (
           <div className="flex flex-col items-center justify-center gap-3 py-20 text-sm text-gray-500">
             <span className="animate-spin text-2xl">⏳</span>
@@ -313,7 +298,6 @@ export default function MobileProfilePage({
             </div>
           </div>
         )}
-      </div>
     </div>
   );
 }

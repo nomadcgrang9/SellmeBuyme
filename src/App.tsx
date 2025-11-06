@@ -483,6 +483,19 @@ export default function App() {
     alert('채팅 기능은 준비 중입니다.');
   };
 
+  const handleHomeClick = () => {
+    // 프로필 페이지가 열려있으면 닫기
+    if (isProfileViewOpen) {
+      setProfileViewOpen(false);
+      setCurrentBottomTab('home');
+    }
+    // 로그인/회원가입 페이지가 열려있으면 닫기
+    if (isAuthModalOpen) {
+      setIsAuthModalOpen(false);
+      setCurrentBottomTab('home');
+    }
+  };
+
   const handleLoginClick = () => {
     setAuthModalMode('login');
     setIsAuthModalOpen(true);
@@ -1222,6 +1235,7 @@ export default function App() {
         onChatClick={handleChatClick}
         onProfileClick={handleProfileButtonClick}
         onRegisterClick={() => setIsRegisterBottomSheetOpen(true)}
+        onHomeClick={handleHomeClick}
       />
 
       {/* 등록 바텀시트 */}
