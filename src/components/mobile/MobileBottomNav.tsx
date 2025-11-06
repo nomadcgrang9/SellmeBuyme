@@ -8,6 +8,7 @@ interface MobileBottomNavProps {
   onChatClick: () => void;
   onProfileClick: () => void;
   onRegisterClick: () => void;
+  onHomeClick: () => void;
 }
 
 export default function MobileBottomNav({
@@ -15,7 +16,8 @@ export default function MobileBottomNav({
   onTabChange,
   onChatClick,
   onProfileClick,
-  onRegisterClick
+  onRegisterClick,
+  onHomeClick
 }: MobileBottomNavProps) {
   const { viewType, setViewType } = useSearchStore();
 
@@ -61,7 +63,10 @@ export default function MobileBottomNav({
       <div className="flex items-center justify-around h-16 px-2">
         {/* 1. 홈 버튼 */}
         <button
-          onClick={() => onTabChange(currentTab === 'home' ? null : 'home')}
+          onClick={() => {
+            onTabChange('home');
+            onHomeClick();
+          }}
           className="flex items-center justify-center transition-colors"
           aria-label="홈"
         >
