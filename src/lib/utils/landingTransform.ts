@@ -21,14 +21,9 @@ export interface TalentInsertData {
   tags: string[];
   location: string[];
   experience_years: number;
-  phone: string;
-  email: string | null;
-  license: string | null;
-  introduction: string | null;
   temp_identifier: string;
   is_guest_registered: boolean;
   registered_via: string;
-  form_payload: LandingUserInput;
 }
 
 /**
@@ -64,13 +59,8 @@ export function transformLandingToInsertData(input: LandingUserInput): Omit<Tale
     tags: generateTags(input),
     location: formatLocationArray(input),
     experience_years: parseExperienceYears(input.experience),
-    phone: input.phone,
-    email: null,
-    license: null,
-    introduction: null,
     is_guest_registered: true,
     registered_via: 'landing',
-    form_payload: input,
   };
 }
 

@@ -33,13 +33,13 @@ class StorageManager {
       const { error } = await supabase.from('error_logs').insert({
         error_type: report.errorType,
         error_message: report.errorMessage,
-        error_stack: report.errorStack,
+        stack_trace: report.errorStack,
         url: report.url,
         user_agent: report.userAgent,
-        device_type: report.deviceType,
-        screen_size: report.screenSize,
-        network_type: report.networkType,
-        environment: report.environment,
+        device_info: {
+          deviceType: report.deviceType,
+          screenSize: report.screenSize,
+        },
       });
 
       if (!error) {
