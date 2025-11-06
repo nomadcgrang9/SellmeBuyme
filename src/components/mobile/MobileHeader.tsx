@@ -10,6 +10,7 @@ interface MobileHeaderProps {
   notificationCount?: number;
   isScrolled?: boolean;
   promoCards?: PromoCardSettings[];
+  isHomePage?: boolean; // 홈 페이지 여부 (false면 항상 스크롤된 상태로 고정)
 }
 
 const pickGradientValue = (candidate: string | null | undefined, fallback: string): string =>
@@ -21,26 +22,31 @@ export default function MobileHeader({
   onBookmarkClick,
   notificationCount = 0,
   isScrolled = false,
-  promoCards = []
+  promoCards = [],
+  isHomePage = true
 }: MobileHeaderProps) {
   // 활성화된 첫 번째 프로모카드 찾기
   const activeCard = useMemo(
     () => promoCards.find((card) => card.isActive),
     [promoCards]
   );
+
+  // 홈이 아닌 경우 항상 스크롤된 상태로 고정
+  const effectiveIsScrolled = isHomePage ? isScrolled : true;
+
   // 아이콘 색상 클래스 (스크롤 상태에 따라 변경)
-  const iconColorClass = isScrolled ? 'text-gray-800' : 'text-white';
-  const hoverClass = isScrolled
+  const iconColorClass = effectiveIsScrolled ? 'text-gray-800' : 'text-white';
+  const hoverClass = effectiveIsScrolled
     ? 'hover:bg-gray-100 active:bg-gray-200'
     : 'hover:bg-white/10 active:bg-white/20';
 
   // 로고 스타일 (스크롤 전: 흰색, 스크롤 후: 그라데이션)
-  const logoStyle = isScrolled
+  const logoStyle = effectiveIsScrolled
     ? 'text-lg font-bold bg-gradient-to-r from-[#4facfe] to-[#00f2fe] bg-clip-text text-transparent transition-all duration-300'
     : 'text-lg font-bold text-white transition-all duration-300';
 
   // 헤더 배경 스타일 - 스크롤 시에만 흰색, 아니면 투명 (부모 배경 사용)
-  const headerBgStyle = isScrolled
+  const headerBgStyle = effectiveIsScrolled
     ? { backgroundColor: 'rgb(255, 255, 255)' }
     : { backgroundColor: 'transparent' };
 

@@ -957,6 +957,7 @@ export default function App() {
           notificationCount={0}
           isScrolled={isScrolled}
           promoCards={promoCards}
+          isHomePage={!isProfileViewOpen && !isAuthModalOpen}
         />
       </div>
 
