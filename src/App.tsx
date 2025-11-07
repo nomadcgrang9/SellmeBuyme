@@ -951,7 +951,7 @@ export default function App() {
       {/* 모바일: 2. 헤더 (z-50, 최상위, 투명→흰색 전환) */}
       <div className="md:hidden fixed top-0 left-0 right-0 z-50">
         <MobileHeader
-          onSearchClick={() => setIsSearchModalOpen(true)}
+          onSearchClick={() => window.location.href = '/search'}
           onNotificationClick={() => alert('알림 기능 준비 중입니다')}
           onBookmarkClick={() => alert('북마크 기능 준비 중입니다')}
           notificationCount={0}
@@ -1235,7 +1235,7 @@ export default function App() {
         onTabChange={setCurrentBottomTab}
         onChatClick={handleChatClick}
         onProfileClick={handleProfileButtonClick}
-        onRegisterClick={() => setIsRegisterBottomSheetOpen(true)}
+        onRegisterClick={() => window.location.href = '/register'}
         onHomeClick={handleHomeClick}
       />
 

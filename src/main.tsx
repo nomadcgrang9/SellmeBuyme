@@ -4,6 +4,8 @@ import App from './App'
 import AdminPage from './pages/AdminPage'
 import DeveloperPage from './pages/DeveloperPage'
 import AuthCallback from './pages/AuthCallback'
+import MobileSearch from './pages/MobileSearch'
+import MobileRegister from './pages/MobileRegister'
 import './index.css'
 import Landing from './pages/Landing'
 import { errorReporter } from './lib/utils/errorReporter'
@@ -45,6 +47,14 @@ else if (pathname.match(/^\/[a-z0-9\-]{20,}/i)) {
 }
 else if (pathname.startsWith('/auth/callback')) {
   rootComponent = <AuthCallback />
+}
+// 모바일 검색 페이지
+else if (pathname.startsWith('/search')) {
+  rootComponent = <MobileSearch />
+}
+// 모바일 등록 페이지
+else if (pathname.startsWith('/register')) {
+  rootComponent = <MobileRegister />
 }
 // 데모/시연용 랜딩 페이지
 else if (pathname.startsWith('/landing')) {

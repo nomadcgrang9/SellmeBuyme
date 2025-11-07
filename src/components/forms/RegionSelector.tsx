@@ -40,9 +40,13 @@ export default function RegionSelector({ value, onChange, error }: RegionSelecto
 
   const handleSelectAllRegion = (region: 'seoul' | 'gyeonggi') => {
     const allDistricts = region === 'seoul' ? SEOUL_DISTRICTS : GYEONGGI_CITIES;
+    const currentList = value[region] || [];
+    const isAllSelected = currentList.length === allDistricts.length;
+
+    // 이미 전체 선택되어 있으면 전체 해제, 아니면 전체 선택
     onChange({
       ...value,
-      [region]: allDistricts
+      [region]: isAllSelected ? [] : allDistricts
     });
     setIsOpen(false);
   };
@@ -135,7 +139,7 @@ export default function RegionSelector({ value, onChange, error }: RegionSelecto
                 onClick={() => handleSelectAllRegion('seoul')}
                 className="w-full px-2 py-1.5 text-[12px] font-medium text-white bg-blue-500 hover:bg-blue-600 rounded transition-colors"
               >
-                서울 전체 선택
+                {seoulCount === SEOUL_DISTRICTS.length ? '서울 전체 해제' : '서울 전체 선택'}
               </button>
               <div className="grid grid-cols-3 gap-1 max-h-36 overflow-y-auto">
                 {SEOUL_DISTRICTS.map((district) => (
@@ -160,7 +164,7 @@ export default function RegionSelector({ value, onChange, error }: RegionSelecto
                 onClick={() => handleSelectAllRegion('gyeonggi')}
                 className="w-full px-2 py-1.5 text-[12px] font-medium text-white bg-blue-500 hover:bg-blue-600 rounded transition-colors"
               >
-                경기 전체 선택
+                {gyeonggiCount === GYEONGGI_CITIES.length ? '경기 전체 해제' : '경기 전체 선택'}
               </button>
               <div className="grid grid-cols-3 gap-1 max-h-36 overflow-y-auto">
                 {GYEONGGI_CITIES.map((city) => (
