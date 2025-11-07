@@ -716,15 +716,15 @@ function sortExperiencesByRelevance(cards: ExperienceCard[], tokens: string[], f
 
 export async function createExperience(data: ExperienceRegistrationFormData): Promise<ExperienceCard> {
   console.log('[DEBUG] createExperience 시작:', data);
-  
-  const { data: userRes, error: userErr } = await supabase.auth.getUser();
-  if (userErr) throw new Error('사용자 정보를 확인할 수 없습니다. 다시 로그인해 주세요.');
-  const user = userRes.user;
-  if (!user) throw new Error('로그인이 필요합니다. 다시 로그인해 주세요.');
 
-  console.log('[DEBUG] 사용자 ID:', user.id);
+  const { data: userRes } = await supabase.auth.getUser();
+  const user = userRes?.user;
 
-  await ensureUserRow(user);
+  console.log('[DEBUG] 사용자 ID:', user?.id || 'null (비인증)');
+
+  if (user) {
+    await ensureUserRow(user);
+  }
 
   const categories = normalizeStringArray(data.category);
   const targetLevels = normalizeStringArray(data.targetSchoolLevel);
@@ -753,7 +753,7 @@ export async function createExperience(data: ExperienceRegistrationFormData): Pr
   };
 
   const insertPayload = {
-    user_id: user.id,
+    user_id: user?.id || null,
     program_title: data.programTitle.trim(),
     categories,
     target_school_levels: targetLevels,
@@ -916,10 +916,8 @@ export async function fetchExperienceById(id: string): Promise<any | null> {
 }
 
 export async function createTalent(data: TalentRegistrationFormData): Promise<TalentCard> {
-  const { data: userRes, error: userErr } = await supabase.auth.getUser();
-  if (userErr) throw new Error('사용자 정보를 확인할 수 없습니다. 다시 로그인해 주세요.');
-  const user = userRes.user;
-  if (!user) throw new Error('로그인이 필요합니다.');
+  const { data: userRes } = await supabase.auth.getUser();
+  const user = userRes?.user;
 
   const { summary, tags } = summarizeTalentSpecialty(data.specialty);
   const experienceYears = mapExperienceToYears(data.experience);
@@ -940,18 +938,12 @@ export async function createTalent(data: TalentRegistrationFormData): Promise<Ta
   }
 
   const insertPayload: any = {
-    user_id: user.id,
+    user_id: user?.id || null,
     name: data.name,
     specialty: summary,
     tags,
     location: locations,
     experience_years: experienceYears,
-    // 참고: phone, email, license, introduction 컬럼은 talents 테이블에 없음
-    // form_payload에 모든 데이터 보관
-    // phone: data.phone ?? null,
-    // email: data.email ?? null,
-    // license: data.license ?? null,
-    // introduction: data.introduction ?? null,
   };
 
   const { data: inserted, error } = await supabase
@@ -3134,8 +3126,8 @@ async function executeAllSearch({
   limit,
   offset,
 }: AllSearchArgs): Promise<SearchResponse> {
-  // job과 talent를 병렬로 검색
-  const [jobResponse, talentResponse] = await Promise.all([
+  // job, talent, experience를 병렬로 검색
+  const [jobResponse, talentResponse, experienceResponse] = await Promise.all([
     executeJobSearch({
       searchQuery,
       tokens,
@@ -3152,23 +3144,35 @@ async function executeAllSearch({
       limit: 1000,
       offset: 0,
     }),
+    executeExperienceSearch({
+      searchQuery,
+      tokens,
+      tokenGroups,
+      filters,
+      limit: 1000,
+      offset: 0,
+    }),
   ]);
 
   // 모든 카드 합치기
-  const allCards = [...jobResponse.cards, ...talentResponse.cards];
-  const totalCount = jobResponse.totalCount + talentResponse.totalCount;
+  const allCards = [...jobResponse.cards, ...talentResponse.cards, ...experienceResponse.cards];
+  const totalCount = jobResponse.totalCount + talentResponse.totalCount + experienceResponse.totalCount;
 
   // 정렬 적용
   let sortedCards = allCards;
   if (filters.sort === '추천순' && (tokens.length > 0 || searchQuery.trim().length > 0)) {
     // 검색 관련성 기준 정렬
     sortedCards = [...allCards].sort((a, b) => {
-      const scoreA = a.type === 'job' 
+      const scoreA = a.type === 'job'
         ? calculateJobRelevance(a, tokens, searchQuery)
-        : calculateTalentRelevance(a, tokens, searchQuery);
+        : a.type === 'talent'
+        ? calculateTalentRelevance(a, tokens, searchQuery)
+        : calculateExperienceRelevance(a, tokens, searchQuery);
       const scoreB = b.type === 'job'
         ? calculateJobRelevance(b, tokens, searchQuery)
-        : calculateTalentRelevance(b, tokens, searchQuery);
+        : b.type === 'talent'
+        ? calculateTalentRelevance(b, tokens, searchQuery)
+        : calculateExperienceRelevance(b, tokens, searchQuery);
       return scoreB - scoreA;
     });
   } else if (filters.sort === '최신순') {
