@@ -54,7 +54,7 @@ export default function SchoolLevelSelector({ value, onChange, error }: SchoolLe
 
   return (
     <div className="space-y-0.5 relative">
-      <label className="text-[12px] font-semibold text-gray-700 block mb-0.5">
+      <label className="text-sm font-medium text-gray-700 block mb-1.5">
         학교급 <span className="text-red-500">*</span>
       </label>
 
@@ -62,12 +62,12 @@ export default function SchoolLevelSelector({ value, onChange, error }: SchoolLe
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full h-7 px-2 text-[12px] border border-gray-300 rounded bg-white hover:border-gray-400 transition-colors flex items-center justify-between"
+        className="w-full h-11 px-4 text-base border border-gray-300 rounded-lg bg-white hover:border-gray-400 transition-colors flex items-center justify-between"
       >
         <span className={value && Object.values(value).some(v => v) ? 'text-gray-900' : 'text-gray-400'}>
           {getDisplayText()}
         </span>
-        <IconChevronDown size={14} className={`transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+        <IconChevronDown size={20} className={`transition-transform ${isOpen ? 'rotate-180' : ''}`} />
       </button>
 
       {/* 드롭다운 패널 */}

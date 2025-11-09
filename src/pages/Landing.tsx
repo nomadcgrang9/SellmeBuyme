@@ -12,6 +12,7 @@ type SlideKey =
   | 'pain'
   | 'connect'
   | 'structure'
+  | 'platform-demo'
   | 'easy'
   | 'ask1min'
   | 'name'
@@ -31,6 +32,7 @@ const order: SlideKey[] = [
   'pain',
   'connect',
   'structure',
+  'platform-demo',
   'easy',
   'ask1min',
   'name',
@@ -387,9 +389,9 @@ export default function Landing() {
 
         {/* Slide 5 - structure */}
         {step === 'structure' && (
-          <motion.section 
-            initial={{ opacity: 0, y: 20 }} 
-            animate={{ opacity: 1, y: 0 }} 
+          <motion.section
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
             className="slide"
           >
             <SlideTitle text={`1회성에 그친 인력풀등록도
@@ -398,11 +400,49 @@ export default function Landing() {
           </motion.section>
         )}
 
+        {/* Slide 5.5 - platform-demo */}
+        {step === 'platform-demo' && (
+          <motion.section
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="slide"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '40px 20px'
+            }}
+          >
+            {/* Monitor Image */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              style={{
+                width: '90%',
+                maxWidth: '960px',
+                textAlign: 'center'
+              }}
+            >
+              <img
+                src="/picture/monitor.png"
+                alt="데스크톱 환경"
+                style={{
+                  width: '100%',
+                  height: 'auto',
+                  borderRadius: '8px',
+                  boxShadow: '0 4px 20px rgba(0,0,0,0.1)'
+                }}
+              />
+            </motion.div>
+          </motion.section>
+        )}
+
         {/* Slide 6 - easy */}
         {step === 'easy' && (
-          <motion.section 
-            initial={{ opacity: 0, y: 20 }} 
-            animate={{ opacity: 1, y: 0 }} 
+          <motion.section
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
             className="slide"
           >
             <SlideTitle text="어렵지 않습니다" />
@@ -482,7 +522,7 @@ export default function Landing() {
         {/* Slide 10 - region */}
         {step === 'region' && (
           <motion.section initial={{ x: 50, opacity: 0 }} animate={{ x: 0, opacity: 1 }} className="slide">
-            <SlideTitle text="선생님께서는 어떤 지역에서 주로 활동하십니까?" />
+            <SlideTitle text={'선생님께서는 어떤 지역에서\n주로 활동하십니까?'} />
             <motion.div className="floating-panel multi" initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }}>
               {regionsList.map(r => (
                 <button key={r} className={`chip ${regions.includes(r) ? 'selected' : ''}`} onClick={() => toggleMulti(r, regions, setRegions)}>{r}</button>
