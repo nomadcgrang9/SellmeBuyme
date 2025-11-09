@@ -106,7 +106,7 @@ export default function AIRecommendations({
     : headlineOverride ?? '맞춤 추천을 준비했어요';
 
   return (
-    <section className="bg-white pt-0 md:pt-6 pb-4">
+    <section className="bg-white pt-0 md:pt-6 pb-2">
       <div className="max-w-container mx-auto px-6">
         {/* 3단 그리드: 등록버튼 | AI코멘트+카드 | 프로모 */}
         <div className="flex flex-col gap-4 lg:flex-row lg:h-[280px]">
@@ -221,7 +221,7 @@ export default function AIRecommendations({
                 </div>
 
                 {/* 카드 캐러셀 */}
-                <div className="relative flex-1 min-h-[180px]">
+                <div className="relative flex-1 min-h-[235px]">
                   {/* 좌측 버튼 */}
                   <button
                     onClick={handlePrev}
@@ -239,7 +239,7 @@ export default function AIRecommendations({
                   {/* 카드 그리드 */}
                   <div
                     ref={scrollRef}
-                    className="overflow-hidden h-full"
+                    className="overflow-hidden h-full px-1"
                   >
                     <div
                       className="flex h-full gap-2.5 transition-transform duration-300 ease-in-out"
@@ -250,9 +250,9 @@ export default function AIRecommendations({
                       {carouselItems.map((card) => (
                         <div
                           key={card.id}
-                          className="flex-shrink-0"
+                          className="flex-shrink-0 min-h-[235px]"
                           style={{
-                            width: `calc((100% - ${(visibleCount - 1) * 10}px) / ${visibleCount})`,
+                            width: `calc((100% - ${(visibleCount - 1) * 10}px - 8px) / ${visibleCount})`,
                             height: '100%'
                           }}
                         >
@@ -266,10 +266,26 @@ export default function AIRecommendations({
                               talent={card}
                               onClick={() => onCardClick?.(card)}
                             />
-                          ) : (
-                            <article className="card-interactive bg-white border border-gray-200 rounded-lg animate-slide-up overflow-hidden h-full flex items-center justify-center p-4 text-center shadow-sm">
+                          ) : card.id === 'anonymous-info-card' ? (
+                            <article className="card-interactive bg-white border border-gray-200 rounded-lg animate-slide-up overflow-hidden h-full min-h-[235px] flex items-center justify-center p-6 text-center shadow-sm">
                               <p className="text-sm text-gray-500 leading-relaxed">
-                                프로필 정보를 저장하면 맞춤 추천이 여기에 표시됩니다.
+                                위치기반으로만<br/>
+                                추천중,<br/>
+                                로그인 하면<br/>
+                                선생님 상황에 맞는<br/>
+                                카드로만 골라서<br/>
+                                추천해드립니다
+                              </p>
+                            </article>
+                          ) : (
+                            <article className="card-interactive bg-white border border-gray-200 rounded-lg animate-slide-up overflow-hidden h-full min-h-[235px] flex items-center justify-center p-4 text-center shadow-sm">
+                              <p className="text-sm text-gray-500 leading-relaxed">
+                                위치기반으로만<br/>
+                                추천중,<br/>
+                                로그인 하면<br/>
+                                선생님 상황에 맞는<br/>
+                                카드로만 골라서<br/>
+                                추천해드립니다
                               </p>
                             </article>
                           )}

@@ -9,7 +9,7 @@ interface CompactJobCardProps {
 export default function CompactJobCard({ job, onClick }: CompactJobCardProps) {
   return (
     <article
-      className="card-interactive bg-white border border-gray-200 rounded-lg animate-slide-up overflow-hidden h-full cursor-pointer shadow-sm hover:shadow-lg transition-shadow"
+      className="card-interactive bg-white border border-gray-200 rounded-lg animate-slide-up overflow-hidden h-full min-h-[235px] cursor-pointer shadow-sm hover:shadow-lg transition-shadow"
       onClick={onClick}
     >
 
@@ -35,7 +35,7 @@ export default function CompactJobCard({ job, onClick }: CompactJobCardProps) {
         </p>
 
         {/* 태그 (최대 2개) */}
-        <div className="mb-3 flex flex-wrap gap-1.5">
+        <div className="mb-2 flex flex-wrap gap-1.5">
           {job.tags.slice(0, 2).map((tag, index) => {
             const tagColors = [
               'bg-[#e8f1f8] text-[#5a8ab8]',
@@ -53,7 +53,7 @@ export default function CompactJobCard({ job, onClick }: CompactJobCardProps) {
         </div>
 
         {/* 정보 */}
-        <div className="mt-auto space-y-1 text-xs text-gray-700">
+        <div className="mt-3 space-y-1 text-xs text-gray-700">
           <div className="flex items-center gap-1.5">
             <IconMapPin size={14} stroke={1.5} className="text-[#7aa3cc] flex-shrink-0" />
             <span className="font-medium truncate">{job.location}</span>
