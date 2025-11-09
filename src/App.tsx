@@ -21,6 +21,7 @@ import MobileBottomNav from '@/components/mobile/MobileBottomNav';
 import RegisterBottomSheet from '@/components/mobile/RegisterBottomSheet';
 import MobileProfilePage from '@/components/mobile/MobileProfilePage';
 import MobileAuthPage from '@/components/mobile/MobileAuthPage';
+import WelcomeTourModal from '@/components/tour/WelcomeTourModal';
 import { searchCards, fetchRecommendationsCache, isCacheValid, hasProfileChanged, shouldInvalidateCache, fetchPromoCards, selectRecommendationCards, filterByTeacherLevel, filterByJobType, calculateSubjectScore, filterByExperience, generateRecommendations, fetchFreshJobs } from '@/lib/supabase/queries';
 import { fetchUserProfile, type UserProfileRow } from '@/lib/supabase/profiles';
 import { useSearchStore } from '@/stores/searchStore';
@@ -1306,6 +1307,9 @@ export default function App() {
           alert(`${type === 'job' ? '공고' : type === 'talent' ? '인력' : '체험'} 등록 준비 중`);
         }}
       />
+
+      {/* 최초 방문자용 투어 모달 */}
+      <WelcomeTourModal />
     </div>
   );
 }
