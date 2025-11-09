@@ -19,14 +19,32 @@ import SchoolLevelSelector from '@/components/forms/SchoolLevelSelector';
 import FileUploadField from '@/components/forms/FileUploadField';
 import { createJobPosting, createTalent, createExperience } from '@/lib/supabase/queries';
 import type { CreateJobPostingInput } from '@/lib/supabase/queries';
+import MobileBottomNav from '@/components/mobile/MobileBottomNav';
 
 type RegistrationType = 'job' | 'talent' | 'experience';
 
 export default function MobileRegister() {
   const [registrationType, setRegistrationType] = useState<RegistrationType>('job');
+  const [currentBottomTab, setCurrentBottomTab] = useState<'home' | 'chat' | 'profile' | null>(null);
 
   const handleBack = () => {
     window.history.back();
+  };
+
+  const handleHomeClick = () => {
+    window.location.href = '/';
+  };
+
+  const handleChatClick = () => {
+    alert('채팅 기능은 준비 중입니다.');
+  };
+
+  const handleProfileClick = () => {
+    window.location.href = '/';
+  };
+
+  const handleRegisterClick = () => {
+    // 이미 등록 페이지에 있으므로 아무것도 하지 않음
   };
 
   return (
@@ -57,12 +75,16 @@ export default function MobileRegister() {
             <select
               value={registrationType}
               onChange={(e) => setRegistrationType(e.target.value as RegistrationType)}
-              className="w-full h-12 px-4 pr-10 text-base border border-gray-300 rounded-lg bg-white text-gray-900 appearance-none focus:outline-none focus:ring-2 focus:ring-[#68B2FF] focus:border-transparent transition-all"
-              style={{ fontWeight: 400 }}
+              className="w-full h-12 px-4 pr-10 text-base border border-gray-300 rounded-lg bg-white text-gray-900 appearance-none focus:outline-none focus:ring-2 focus:ring-[#68B2FF] focus:border-transparent transition-all !font-light font-synthesis-none"
+              style={{
+                fontFamily: "'esamanru-light', 'esamanru', -apple-system, BlinkMacSystemFont, system-ui, sans-serif",
+                fontWeight: 300,
+                letterSpacing: '0.02em'
+              }}
             >
-              <option value="job" style={{ fontWeight: 400 }}>공고 등록</option>
-              <option value="talent" style={{ fontWeight: 400 }}>인력 등록</option>
-              <option value="experience" style={{ fontWeight: 400 }}>체험 등록</option>
+              <option value="job" style={{ fontWeight: 300 }}>공고 등록</option>
+              <option value="talent" style={{ fontWeight: 300 }}>인력 등록</option>
+              <option value="experience" style={{ fontWeight: 300 }}>체험 등록</option>
             </select>
             <ChevronDown
               size={20}
@@ -79,6 +101,16 @@ export default function MobileRegister() {
         {registrationType === 'talent' && <TalentRegistrationForm />}
         {registrationType === 'experience' && <ExperienceRegistrationForm />}
       </div>
+
+      {/* 모바일 하단 네비게이션 */}
+      <MobileBottomNav
+        currentTab={currentBottomTab}
+        onTabChange={setCurrentBottomTab}
+        onChatClick={handleChatClick}
+        onProfileClick={handleProfileClick}
+        onRegisterClick={handleRegisterClick}
+        onHomeClick={handleHomeClick}
+      />
     </div>
   );
 }

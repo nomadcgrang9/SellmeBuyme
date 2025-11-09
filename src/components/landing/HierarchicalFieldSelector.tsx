@@ -108,15 +108,15 @@ export default function HierarchicalFieldSelector({ value, onChange }: Hierarchi
                           animate={{ opacity: 1, y: 6, scale: 1 }}
                           exit={{ opacity: 0, y: -4, scale: 0.96 }}
                           transition={{ duration: 0.16 }}
-                          className="absolute left-1/2 top-full z-10 mt-2 -translate-x-1/2 rounded-2xl border border-blue-200 bg-white shadow-sm"
+                          className="absolute left-1/2 top-full z-10 mt-2 -translate-x-1/2 rounded-lg border border-gray-200 bg-white shadow-sm w-[420px] max-w-[90vw]"
                         >
-                          <div className="px-4 py-3">
+                          <div className="px-4 py-2.5">
                             {/* 모든 소분류를 한번에 표시 */}
-                            <div className="flex flex-wrap gap-2 max-w-[500px]">
+                            <div className="grid grid-cols-3 gap-x-4 gap-y-2">
                               {category.subcategories.map((sub: { id: string; label: string }) => (
                                 <span
                                   key={sub.id}
-                                  className="px-3 py-1.5 text-[12px] font-medium text-gray-700 bg-blue-50 rounded-full border border-blue-100"
+                                  className="text-[11px] text-gray-700 whitespace-nowrap overflow-hidden text-ellipsis"
                                 >
                                   {sub.label}
                                 </span>
@@ -143,15 +143,15 @@ export default function HierarchicalFieldSelector({ value, onChange }: Hierarchi
             <div className="mb-4 pb-4 border-b border-gray-200 flex items-center justify-between">
               <button
                 onClick={handleBackClick}
-                className="text-[14px] font-medium text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                className="text-gray-900 hover:text-gray-700"
               >
-                <IconArrowLeft size={18} /> 돌아가기
+                <IconArrowLeft size={18} />
               </button>
               <h3 className="text-[16px] font-bold text-gray-900">{currentCategory.label}</h3>
               <div className="w-12" />
             </div>
 
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4 max-h-[360px] overflow-y-auto pr-1">
+            <div className="grid grid-cols-4 gap-3 mb-4 max-h-[360px] overflow-y-auto pr-1">
               {currentCategory.subcategories.map(subcategory => {
                 const matchedIndex = findSelectionIndex(subcategory.label);
                 const isSelected = matchedIndex !== -1;
@@ -217,10 +217,6 @@ export default function HierarchicalFieldSelector({ value, onChange }: Hierarchi
                 );
               })}
             </div>
-
-            {currentCategory.subcategories.some(sub => sub.description) && (
-              <p className="text-[13px] text-gray-500">필요한 항목을 모두 선택한 후 상단 돌아가기를 눌러 대분류 목록으로 이동하세요.</p>
-            )}
           </motion.div>
         ) : null}
       </AnimatePresence>

@@ -661,10 +661,67 @@ export default function App() {
 
   useEffect(() => {
     if (status !== 'authenticated' || !userId) {
-      setRecommendationCards([]);
-      setRecommendationHeadline('추천을 준비 중이에요');
-      setRecommendationDescription('로그인 후 프로필을 저장하면 맞춤 추천을 볼 수 있어요.');
-      setRecommendationLoading(false);
+      // 비로그인 사용자: 위치 기반 추천 제공
+      setRecommendationLoading(true);
+
+      Promise.all([
+        searchCards({ viewType: 'job', limit: 5, offset: 0 }),
+        searchCards({ viewType: 'talent', limit: 5, offset: 0 })
+      ]).then(([jobResult, talentResult]) => {
+        // 1. 안내 카드 생성 (ExperienceCard 타입으로 생성)
+        const infoCard: ExperienceCard = {
+          id: 'anonymous-info-card',
+          type: 'experience',
+          programTitle: '위치 기반 추천 안내',
+          categories: [],
+          targetSchoolLevels: [],
+          regionSeoul: [],
+          regionGyeonggi: [],
+          locationSummary: '',
+          operationTypes: [],
+          introduction: '',
+          contactPhone: '',
+          contactEmail: '',
+          status: 'active',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+
+        // 2. 실제 카드 수집 (공고 2장 + 인력 2장, 체험 카드는 제외)
+        const jobCards = jobResult.cards.slice(0, 2);
+        const talentCards = talentResult.cards.slice(0, 2);
+
+        // 3. 부족한 카드를 공고/인력으로 채우기 (총 5장 목표)
+        const realCardsCount = jobCards.length + talentCards.length;
+        const needed = 5 - realCardsCount;
+
+        let extraCards: Card[] = [];
+        if (needed > 0) {
+          const remainingJobs = jobResult.cards.slice(2);
+          const remainingTalents = talentResult.cards.slice(2);
+          extraCards = [...remainingJobs, ...remainingTalents].slice(0, needed);
+        }
+
+        // 4. 실제 카드들만 위치 기반 정렬 적용
+        const realCards = [...jobCards, ...talentCards, ...extraCards];
+        const sortedRealCards = userLocation
+          ? sortCardsByLocation(realCards, userLocation)
+          : realCards;
+
+        // 5. 최종 배열: [안내카드, ...정렬된 실제 카드들]
+        const anonymousCards = [infoCard, ...sortedRealCards];
+
+        setRecommendationCards(anonymousCards);
+        setRecommendationHeadline('위치 기반 추천');
+        setRecommendationDescription('로그인 후 프로필을 저장하면 더 정확한 맞춤 추천을 받을 수 있어요.');
+        setRecommendationLoading(false);
+      }).catch((error) => {
+        console.error('비로그인 추천 로드 실패:', error);
+        setRecommendationCards([]);
+        setRecommendationHeadline('추천을 준비 중이에요');
+        setRecommendationDescription('로그인 후 프로필을 저장하면 맞춤 추천을 볼 수 있어요.');
+        setRecommendationLoading(false);
+      });
       return;
     }
 
