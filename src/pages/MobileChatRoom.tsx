@@ -12,7 +12,11 @@ import { MAX_FILE_SIZE } from '@/types/chat';
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 export default function MobileChatRoom() {
-  const user = useAuthStore((state) => state.user);
+  const { user, status, initialize } = useAuthStore((state) => ({
+    user: state.user,
+    status: state.status,
+    initialize: state.initialize,
+  }));
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [messageInput, setMessageInput] = useState('');
@@ -41,6 +45,11 @@ export default function MobileChatRoom() {
     sendMessage: state.sendMessage,
     setActiveRoom: state.setActiveRoom,
   }));
+
+  // 인증 초기화
+  useEffect(() => {
+    void initialize();
+  }, [initialize]);
 
   // Realtime 구독 (특정 채팅방만)
   const { sendTyping } = useChatRealtime({

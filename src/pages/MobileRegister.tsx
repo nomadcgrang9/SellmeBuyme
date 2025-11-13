@@ -36,7 +36,7 @@ export default function MobileRegister() {
   };
 
   const handleChatClick = () => {
-    alert('채팅 기능은 준비 중입니다.');
+    window.location.href = '/chat';
   };
 
   const handleProfileClick = () => {

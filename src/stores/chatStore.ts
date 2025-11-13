@@ -128,33 +128,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set({ isSendingMessage: true });
 
     try {
-      let fileUploadResult = null;
-
-      // 파일이 있으면 먼저 업로드
-      if (input.file) {
-        const { data, error } = await uploadChatFile(input.room_id, input.file);
-
-        if (error) {
-          console.error('[chatStore] 파일 업로드 실패:', error.message);
-          return;
-        }
-
-        fileUploadResult = data;
-      }
-
-      // 메시지 전송
+      // sendMessageApi가 파일 업로드를 처리하므로 직접 전달
       const { data, error } = await sendMessageApi({
         room_id: input.room_id,
         content: input.content,
-        message_type: input.message_type || (fileUploadResult ? 'file' : 'text'),
-        file: fileUploadResult
-          ? {
-              url: fileUploadResult.url,
-              name: fileUploadResult.file_name,
-              size: fileUploadResult.file_size,
-              type: fileUploadResult.file_type,
-            }
-          : undefined,
+        message_type: input.message_type,
+        file: input.file, // File 객체를 그대로 전달
       });
 
       if (error) {
