@@ -6,6 +6,8 @@ import DeveloperPage from './pages/DeveloperPage'
 import AuthCallback from './pages/AuthCallback'
 import MobileSearch from './pages/MobileSearch'
 import MobileRegister from './pages/MobileRegister'
+import MobileChat from './pages/MobileChat'
+import MobileChatRoom from './pages/MobileChatRoom'
 import './index.css'
 import Landing from './pages/Landing'
 import { errorReporter } from './lib/utils/errorReporter'
@@ -55,6 +57,14 @@ else if (pathname.startsWith('/search')) {
 // 모바일 등록 페이지
 else if (pathname.startsWith('/register')) {
   rootComponent = <MobileRegister />
+}
+// 모바일 채팅 상세 페이지 (/chat/:roomId)
+else if (pathname.match(/^\/chat\/.+/)) {
+  rootComponent = <MobileChatRoom />
+}
+// 모바일 채팅 목록 페이지 (/chat)
+else if (pathname.startsWith('/chat')) {
+  rootComponent = <MobileChat />
 }
 // 데모/시연용 랜딩 페이지
 else if (pathname.startsWith('/landing')) {

@@ -1,7 +1,9 @@
 import { TalentCard as TalentCardType } from '@/types';
 import { IconMapPin, IconBriefcase, IconStar, IconPhone, IconAt } from '@tabler/icons-react';
+import { MessageCircle } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { getTalentImage, handleImageError } from '@/lib/utils/cardImages';
+import { createOrGetChatRoom } from '@/lib/supabase/chat';
 
 interface TalentCardProps {
   talent: TalentCardType;
@@ -15,6 +17,41 @@ export default function TalentCard({ talent, onEditClick, isHighlight }: TalentC
 
   // specialty 기반 이미지 경로 결정
   const imageUrl = getTalentImage(talent.specialty);
+
+  // 채팅 시작 핸들러
+  const handleChatClick = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+
+    if (!user) {
+      alert('로그인이 필요한 기능입니다');
+      return;
+    }
+
+    if (!talent.user_id) {
+      alert('이 인력과는 채팅할 수 없습니다');
+      return;
+    }
+
+    try {
+      const { data: roomId, error } = await createOrGetChatRoom({
+        other_user_id: talent.user_id,
+        context_type: 'talent',
+        context_card_id: talent.id,
+      });
+
+      if (error || !roomId) {
+        console.error('채팅방 생성 실패:', error);
+        alert('채팅방을 생성할 수 없습니다');
+        return;
+      }
+
+      // 채팅방으로 이동
+      window.location.href = `/chat/${roomId}`;
+    } catch (err) {
+      console.error('채팅 시작 오류:', err);
+      alert('채팅을 시작할 수 없습니다');
+    }
+  };
 
   return (
     <article
@@ -34,6 +71,16 @@ export default function TalentCard({ talent, onEditClick, isHighlight }: TalentC
           {/* 헤더 */}
           <div className="flex items-center justify-between mb-3">
             <span className="text-sm font-semibold text-[#2f855a]">인력</span>
+            {/* 채팅 버튼 (본인 카드가 아니고 user_id가 있을 때만) */}
+            {user && !isOwner && talent.user_id && (
+              <button
+                onClick={handleChatClick}
+                className="p-1.5 hover:bg-emerald-50 rounded-full transition-colors"
+                title="채팅하기"
+              >
+                <MessageCircle className="w-5 h-5 text-emerald-600" />
+              </button>
+            )}
           </div>
 
           {/* 이름 */}
