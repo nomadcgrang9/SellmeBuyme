@@ -1,6 +1,7 @@
 'use client';
 
 import { IconSearch } from '@tabler/icons-react';
+import { MessageCircle } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -48,9 +49,10 @@ const sliderTranslateMap: Record<ViewType, number> = {
 
 interface HeaderProps {
   onProfileClick?: () => void;
+  onChatClick?: () => void;
 }
 
-export default function Header({ onProfileClick }: HeaderProps) {
+export default function Header({ onProfileClick, onChatClick }: HeaderProps) {
   const [openFilter, setOpenFilter] = useState<FilterKey | null>(null);
   const [localSearchQuery, setLocalSearchQuery] = useState('');
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -233,16 +235,27 @@ export default function Header({ onProfileClick }: HeaderProps) {
             {/* 로그인/회원가입 버튼 */}
             <div className="flex items-center gap-2 shrink-0 ml-auto">
               {status === 'authenticated' && user ? (
-                <button
-                  type="button"
-                  onClick={() => onProfileClick?.()}
-                  className="flex items-center gap-2 h-9 px-4 text-sm font-semibold text-white rounded-md bg-gradient-to-r from-[#9DD2FF] to-[#68B2FF] shadow-md hover:from-[#8BC8FF] hover:to-[#58A8FF] transition-colors"
-                >
-                  <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/40 text-[#68B2FF] text-xs font-bold">
-                    {user.email?.[0]?.toUpperCase() ?? 'P'}
-                  </span>
-                  <span>프로필</span>
-                </button>
+                <>
+                  <button
+                    type="button"
+                    onClick={() => onChatClick?.()}
+                    className="flex items-center gap-2 h-9 px-4 text-sm font-semibold text-gray-700 rounded-md border border-gray-300 hover:bg-gray-50 transition-colors"
+                    title="채팅"
+                  >
+                    <MessageCircle className="w-4 h-4" />
+                    <span>채팅</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onProfileClick?.()}
+                    className="flex items-center gap-2 h-9 px-4 text-sm font-semibold text-white rounded-md bg-gradient-to-r from-[#9DD2FF] to-[#68B2FF] shadow-md hover:from-[#8BC8FF] hover:to-[#58A8FF] transition-colors"
+                  >
+                    <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/40 text-[#68B2FF] text-xs font-bold">
+                      {user.email?.[0]?.toUpperCase() ?? 'P'}
+                    </span>
+                    <span>프로필</span>
+                  </button>
+                </>
               ) : (
                 <>
                   <button
@@ -301,13 +314,23 @@ export default function Header({ onProfileClick }: HeaderProps) {
 
             {/* 로그인/회원가입/프로필 버튼 */}
             {status === 'authenticated' && user ? (
-              <button
-                type="button"
-                onClick={() => onProfileClick?.()}
-                className="shrink-0 h-7 px-2 text-[10px] font-semibold text-white rounded-md bg-gradient-to-r from-[#9DD2FF] to-[#68B2FF] relative z-10 ml-auto"
-              >
-                프로필
-              </button>
+              <div className="flex items-center gap-1 shrink-0 relative z-10 ml-auto">
+                <button
+                  type="button"
+                  onClick={() => onChatClick?.()}
+                  className="h-7 px-2 text-[10px] font-semibold text-gray-700 rounded-md border border-gray-300"
+                  title="채팅"
+                >
+                  <MessageCircle className="w-3 h-3" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onProfileClick?.()}
+                  className="h-7 px-2 text-[10px] font-semibold text-white rounded-md bg-gradient-to-r from-[#9DD2FF] to-[#68B2FF]"
+                >
+                  프로필
+                </button>
+              </div>
             ) : (
               <div className="flex items-center gap-1 shrink-0 relative z-10">
                 <button

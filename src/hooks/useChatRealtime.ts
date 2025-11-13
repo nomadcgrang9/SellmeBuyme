@@ -64,41 +64,39 @@ export function useChatRealtime(options: UseChatRealtimeOptions = {}) {
       async (payload) => {
         console.log('[useChatRealtime] 새 메시지 수신:', payload);
 
-        // 메시지 ID로 상세 정보 조회 (발신자 정보 포함)
-        const { data, error } = await supabase
+        // 메시지 ID로 상세 정보 조회
+        const { data: msgData, error: msgError } = await supabase
           .from('chat_messages')
-          .select(
-            `
-            *,
-            sender:auth.users!sender_id (
-              id,
-              email,
-              user_metadata
-            )
-          `
-          )
+          .select('*')
           .eq('id', payload.new.id)
           .single();
 
-        if (error) {
-          console.error('[useChatRealtime] 메시지 조회 실패:', error.message);
+        if (msgError) {
+          console.error('[useChatRealtime] 메시지 조회 실패:', msgError.message);
           return;
         }
 
-        if (!data) return;
+        if (!msgData) return;
+
+        // 발신자 프로필 조회
+        const { data: profile } = await supabase
+          .from('user_profiles')
+          .select('display_name, profile_image_url')
+          .eq('user_id', msgData.sender_id)
+          .single();
 
         // ChatMessage 형태로 변환
         const message: ChatMessage = {
-          ...data,
-          sender_name: data.sender?.user_metadata?.display_name || data.sender?.email || '알 수 없음',
-          sender_profile_image: data.sender?.user_metadata?.profile_image_url || null,
-          file_metadata: data.file_url
+          ...msgData,
+          sender_name: profile?.display_name || '사용자',
+          sender_profile_image: profile?.profile_image_url || null,
+          file_metadata: msgData.file_url
             ? {
-                url: data.file_url,
-                name: data.file_name || '',
-                size: data.file_size || 0,
-                type: data.file_type || '',
-                size_formatted: formatFileSize(data.file_size || 0),
+                url: msgData.file_url,
+                name: msgData.file_name || '',
+                size: msgData.file_size || 0,
+                type: msgData.file_type || '',
+                size_formatted: formatFileSize(msgData.file_size || 0),
               }
             : undefined,
         };
@@ -129,17 +127,29 @@ export function useChatRealtime(options: UseChatRealtimeOptions = {}) {
 
           // 모든 온라인 사용자 업데이트
           Object.keys(state).forEach((userId) => {
-            const presences = state[userId] as PresenceState[];
+            const presences = state[userId] as any[];
             if (presences && presences.length > 0) {
-              updatePresence(userId, presences[0]);
+              // Supabase Realtime presence 데이터 구조에서 실제 데이터 추출
+              const presenceData = presences[0] as any;
+              const presenceState: PresenceState = {
+                user_id: presenceData.user_id || userId,
+                user_name: presenceData.user_name || '사용자',
+                online_at: presenceData.online_at || new Date().toISOString(),
+              };
+              updatePresence(userId, presenceState);
             }
           });
         })
         .on('presence', { event: 'join' }, ({ key, newPresences }) => {
           console.log('[useChatRealtime] User joined:', key, newPresences);
-          const presence = newPresences[0] as PresenceState;
-          if (presence) {
-            updatePresence(key, presence);
+          if (newPresences && newPresences.length > 0) {
+            const presenceData = newPresences[0] as any;
+            const presenceState: PresenceState = {
+              user_id: presenceData.user_id || key,
+              user_name: presenceData.user_name || '사용자',
+              online_at: presenceData.online_at || new Date().toISOString(),
+            };
+            updatePresence(key, presenceState);
           }
         })
         .on('presence', { event: 'leave' }, ({ key }) => {

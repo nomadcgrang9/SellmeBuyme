@@ -1,9 +1,10 @@
-import { useEffect } from 'react';
-import { ChevronLeft, MessageCircle, User } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { ChevronLeft, MessageCircle, User, UserPlus } from 'lucide-react';
 import { useChatStore } from '@/stores/chatStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useChatRealtime } from '@/hooks/useChatRealtime';
 import BottomNav from '@/components/mobile/BottomNav';
+import UserSearchModal from '@/components/chat/UserSearchModal';
 import type { ChatRoom } from '@/types/chat';
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -11,13 +12,23 @@ import type { ChatRoom } from '@/types/chat';
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 export default function MobileChat() {
-  const user = useAuthStore((state) => state.user);
+  const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
+  const { user, status, initialize } = useAuthStore((state) => ({
+    user: state.user,
+    status: state.status,
+    initialize: state.initialize,
+  }));
   const { rooms, isLoadingRooms, loadChatRooms, totalUnreadCount } = useChatStore((state) => ({
     rooms: state.rooms,
     isLoadingRooms: state.isLoadingRooms,
     loadChatRooms: state.loadChatRooms,
     totalUnreadCount: state.totalUnreadCount,
   }));
+
+  // 인증 초기화
+  useEffect(() => {
+    void initialize();
+  }, [initialize]);
 
   // Realtime 구독 (전역 - 모든 채팅방)
   useChatRealtime({
@@ -42,8 +53,39 @@ export default function MobileChat() {
     window.location.href = `/chat/${room.id}`;
   };
 
+  // 인증 확인 중
+  if (status === 'idle' || status === 'loading') {
+    return (
+      <div className="min-h-screen bg-gray-50 pb-20">
+        {/* 헤더 */}
+        <div className="sticky top-0 z-50 bg-white border-b border-gray-200">
+          <div className="flex items-center justify-between p-4">
+            <button
+              onClick={handleBack}
+              className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+              aria-label="뒤로가기"
+            >
+              <ChevronLeft className="w-6 h-6 text-gray-700" />
+            </button>
+            <h1 className="text-lg font-bold text-gray-900">채팅</h1>
+            <div className="w-10" /> {/* 중앙 정렬용 */}
+          </div>
+        </div>
+
+        {/* 로딩 중 */}
+        <div className="flex flex-col items-center justify-center py-20 px-4">
+          <div className="inline-block w-12 h-12 border-4 border-gray-200 border-t-[#68B2FF] rounded-full animate-spin mb-4"></div>
+          <p className="text-gray-500 text-center">확인 중...</p>
+        </div>
+
+        {/* 하단 네비게이션 */}
+        <BottomNav />
+      </div>
+    );
+  }
+
   // 로그인 필요
-  if (!user) {
+  if (status === 'unauthenticated' || !user) {
     return (
       <div className="min-h-screen bg-gray-50 pb-20">
         {/* 헤더 */}
@@ -89,7 +131,14 @@ export default function MobileChat() {
             <ChevronLeft className="w-6 h-6 text-gray-700" />
           </button>
           <h1 className="text-lg font-bold text-gray-900">채팅</h1>
-          <div className="w-10" /> {/* 중앙 정렬용 */}
+          <button
+            onClick={() => setIsSearchModalOpen(true)}
+            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+            aria-label="사용자 검색"
+            title="사용자 검색"
+          >
+            <UserPlus className="w-5 h-5 text-gray-700" />
+          </button>
         </div>
       </div>
 
@@ -119,6 +168,12 @@ export default function MobileChat() {
 
       {/* 하단 네비게이션 */}
       <BottomNav />
+
+      {/* 사용자 검색 모달 */}
+      <UserSearchModal
+        isOpen={isSearchModalOpen}
+        onClose={() => setIsSearchModalOpen(false)}
+      />
     </div>
   );
 }

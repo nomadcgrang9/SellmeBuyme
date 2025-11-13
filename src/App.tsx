@@ -22,6 +22,7 @@ import RegisterBottomSheet from '@/components/mobile/RegisterBottomSheet';
 import MobileProfilePage from '@/components/mobile/MobileProfilePage';
 import MobileAuthPage from '@/components/mobile/MobileAuthPage';
 import WelcomeTourModal from '@/components/tour/WelcomeTourModal';
+import DesktopChatModal from '@/components/chat/DesktopChatModal';
 import { searchCards, fetchRecommendationsCache, isCacheValid, hasProfileChanged, shouldInvalidateCache, fetchPromoCards, selectRecommendationCards, filterByTeacherLevel, filterByJobType, calculateSubjectScore, filterByExperience, generateRecommendations, fetchFreshJobs } from '@/lib/supabase/queries';
 import { fetchUserProfile, type UserProfileRow } from '@/lib/supabase/profiles';
 import { useSearchStore } from '@/stores/searchStore';
@@ -224,6 +225,7 @@ export default function App() {
   const [currentBottomTab, setCurrentBottomTab] = useState<'home' | 'chat' | 'profile' | null>('home');
   const [isRegisterBottomSheetOpen, setIsRegisterBottomSheetOpen] = useState(false);
   const [registerType, setRegisterType] = useState<'job' | 'talent' | 'experience' | null>(null);
+  const [isChatModalOpen, setIsChatModalOpen] = useState(false);
 
   // AI 추천 카드 클릭 시 전체 데이터 조회
   const handleCardClick = async (card: Card) => {
@@ -481,7 +483,16 @@ export default function App() {
 
   // 모바일 하단 네비: 채팅 버튼 클릭
   const handleChatClick = () => {
-    alert('채팅 기능은 준비 중입니다.');
+    // 화면 크기 확인 (768px = md breakpoint)
+    const isMobile = window.innerWidth < 768;
+
+    if (isMobile) {
+      // 모바일: 새 페이지로 이동
+      window.location.href = '/chat';
+    } else {
+      // 데스크톱: 모달 열기
+      setIsChatModalOpen(true);
+    }
   };
 
   const handleHomeClick = () => {
@@ -1029,7 +1040,10 @@ export default function App() {
 
       {/* PC: 기존 헤더 */}
       <div className="hidden md:block">
-        <Header onProfileClick={handleOpenProfileView} />
+        <Header
+          onProfileClick={handleOpenProfileView}
+          onChatClick={handleChatClick}
+        />
       </div>
 
       {/* 등록 버튼 섹션 (모바일) - PC에서만 표시 (추후 플로팅 메뉴로 대체 예정) */}
@@ -1310,6 +1324,12 @@ export default function App() {
 
       {/* 최초 방문자용 투어 모달 */}
       <WelcomeTourModal />
+
+      {/* 데스크톱 채팅 모달 */}
+      <DesktopChatModal
+        isOpen={isChatModalOpen}
+        onClose={() => setIsChatModalOpen(false)}
+      />
     </div>
   );
 }
