@@ -1,5 +1,8 @@
 # Cloudflare Pages SPA 라우팅 설정
 # 모든 경로를 index.html로 리다이렉트하여 클라이언트 사이드 라우팅 활성화
 
+# ⚠️ 주의: Functions는 _redirects보다 우선순위가 높으므로
+# /admin-portal은 functions/[[path]].ts에서 자동으로 처리됩니다.
+
 # SPA 폴백: 존재하지 않는 모든 경로를 index.html로 리다이렉트 (200 상태 유지)
 /*    /index.html   200
