@@ -1,0 +1,226 @@
+import { useEffect, useRef } from 'react';
+import type { RealtimeChannel } from '@supabase/supabase-js';
+import { supabase } from '@/lib/supabase/client';
+import { useChatStore } from '@/stores/chatStore';
+import { useAuthStore } from '@/stores/authStore';
+import type { ChatMessage, TypingEventPayload, PresenceState } from '@/types/chat';
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// useChatRealtime - 채팅 실시간 구독 훅
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+interface UseChatRealtimeOptions {
+  /** 특정 채팅방만 구독 (없으면 모든 참여 채팅방 구독) */
+  roomId?: string;
+  /** 타이핑 인디케이터 활성화 여부 */
+  enableTyping?: boolean;
+  /** 온라인 상태 활성화 여부 */
+  enablePresence?: boolean;
+}
+
+/**
+ * Supabase Realtime을 사용한 채팅 실시간 구독 훅
+ *
+ * **기능:**
+ * - PostgreSQL CDC로 새 메시지 수신
+ * - Broadcast로 타이핑 인디케이터 구독
+ * - Presence로 사용자 온라인 상태 추적
+ *
+ * @param options 구독 옵션
+ */
+export function useChatRealtime(options: UseChatRealtimeOptions = {}) {
+  const { roomId, enableTyping = true, enablePresence = true } = options;
+
+  const user = useAuthStore((state) => state.user);
+  const addMessage = useChatStore((state) => state.addMessage);
+  const updateTyping = useChatStore((state) => state.updateTyping);
+  const updatePresence = useChatStore((state) => state.updatePresence);
+  const updateUnreadCount = useChatStore((state) => state.updateUnreadCount);
+
+  const channelRef = useRef<RealtimeChannel | null>(null);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const channelName = roomId ? `chat:${roomId}` : 'chat:global';
+
+    // ━━━ Realtime 채널 생성 ━━━
+    const channel = supabase.channel(channelName, {
+      config: {
+        broadcast: { self: false }, // 자신의 broadcast는 받지 않음
+        presence: { key: user.id },
+      },
+    });
+
+    // ━━━ 1. PostgreSQL CDC - 새 메시지 수신 ━━━
+    channel.on(
+      'postgres_changes',
+      {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'chat_messages',
+        filter: roomId ? `room_id=eq.${roomId}` : undefined,
+      },
+      async (payload) => {
+        console.log('[useChatRealtime] 새 메시지 수신:', payload);
+
+        // 메시지 ID로 상세 정보 조회 (발신자 정보 포함)
+        const { data, error } = await supabase
+          .from('chat_messages')
+          .select(
+            `
+            *,
+            sender:auth.users!sender_id (
+              id,
+              email,
+              user_metadata
+            )
+          `
+          )
+          .eq('id', payload.new.id)
+          .single();
+
+        if (error) {
+          console.error('[useChatRealtime] 메시지 조회 실패:', error.message);
+          return;
+        }
+
+        if (!data) return;
+
+        // ChatMessage 형태로 변환
+        const message: ChatMessage = {
+          ...data,
+          sender_name: data.sender?.user_metadata?.display_name || data.sender?.email || '알 수 없음',
+          sender_profile_image: data.sender?.user_metadata?.profile_image_url || null,
+          file_metadata: data.file_url
+            ? {
+                url: data.file_url,
+                name: data.file_name || '',
+                size: data.file_size || 0,
+                type: data.file_type || '',
+                size_formatted: formatFileSize(data.file_size || 0),
+              }
+            : undefined,
+        };
+
+        // Store에 메시지 추가
+        addMessage(message);
+
+        // 읽지 않은 메시지 수 업데이트
+        await updateUnreadCount();
+      }
+    );
+
+    // ━━━ 2. Broadcast - 타이핑 인디케이터 ━━━
+    if (enableTyping) {
+      channel.on('broadcast', { event: 'typing' }, (payload) => {
+        const data = payload.payload as TypingEventPayload;
+        console.log('[useChatRealtime] 타이핑 이벤트:', data);
+        updateTyping(data);
+      });
+    }
+
+    // ━━━ 3. Presence - 온라인 상태 ━━━
+    if (enablePresence) {
+      channel
+        .on('presence', { event: 'sync' }, () => {
+          const state = channel.presenceState();
+          console.log('[useChatRealtime] Presence sync:', state);
+
+          // 모든 온라인 사용자 업데이트
+          Object.keys(state).forEach((userId) => {
+            const presences = state[userId] as PresenceState[];
+            if (presences && presences.length > 0) {
+              updatePresence(userId, presences[0]);
+            }
+          });
+        })
+        .on('presence', { event: 'join' }, ({ key, newPresences }) => {
+          console.log('[useChatRealtime] User joined:', key, newPresences);
+          const presence = newPresences[0] as PresenceState;
+          if (presence) {
+            updatePresence(key, presence);
+          }
+        })
+        .on('presence', { event: 'leave' }, ({ key }) => {
+          console.log('[useChatRealtime] User left:', key);
+          updatePresence(key, null);
+        });
+
+      // Presence 상태 추적 시작 (자신의 온라인 상태 전송)
+      channel.track({
+        user_id: user.id,
+        user_name: user.user_metadata?.display_name || user.email || '알 수 없음',
+        online_at: new Date().toISOString(),
+      });
+    }
+
+    // ━━━ 채널 구독 시작 ━━━
+    channel.subscribe((status) => {
+      console.log(`[useChatRealtime] 채널 "${channelName}" 구독 상태:`, status);
+
+      if (status === 'SUBSCRIBED') {
+        console.log(`[useChatRealtime] ✅ "${channelName}" 구독 완료`);
+      } else if (status === 'CHANNEL_ERROR') {
+        console.error(`[useChatRealtime] ❌ "${channelName}" 구독 실패`);
+      }
+    });
+
+    channelRef.current = channel;
+
+    // ━━━ Cleanup - 언마운트 시 구독 해제 ━━━
+    return () => {
+      console.log(`[useChatRealtime] 🧹 "${channelName}" 구독 해제`);
+      supabase.removeChannel(channel);
+      channelRef.current = null;
+    };
+  }, [
+    user,
+    roomId,
+    enableTyping,
+    enablePresence,
+    addMessage,
+    updateTyping,
+    updatePresence,
+    updateUnreadCount,
+  ]);
+
+  return {
+    /**
+     * 타이핑 상태 전송 (Broadcast)
+     */
+    sendTyping: (isTyping: boolean) => {
+      if (!channelRef.current || !user) return;
+
+      const payload: TypingEventPayload = {
+        room_id: roomId || '',
+        user_id: user.id,
+        user_name: user.user_metadata?.display_name || user.email || '알 수 없음',
+        is_typing: isTyping,
+      };
+
+      channelRef.current.send({
+        type: 'broadcast',
+        event: 'typing',
+        payload,
+      });
+    },
+  };
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// Utility Functions
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+/**
+ * 파일 크기를 사람이 읽을 수 있는 형태로 포맷
+ */
+function formatFileSize(bytes: number): string {
+  if (bytes === 0) return '0 B';
+
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+
+  return `${(bytes / Math.pow(k, i)).toFixed(1)} ${sizes[i]}`;
+}

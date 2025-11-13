@@ -1,7 +1,9 @@
 import { ExperienceCard as ExperienceCardType } from '@/types';
 import { IconMapPin, IconCategory, IconSchool, IconUsers, IconPhone, IconAt, IconEdit, IconTrash } from '@tabler/icons-react';
+import { MessageCircle } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { getExperienceImage, handleImageError } from '@/lib/utils/cardImages';
+import { createOrGetChatRoom } from '@/lib/supabase/chat';
 
 interface ExperienceCardProps {
   card: ExperienceCardType;
@@ -36,6 +38,41 @@ export default function ExperienceCard({ card, onEditClick, onDeleteClick, onCar
   // categories 기반 이미지 경로 결정
   const imageUrl = getExperienceImage(card.categories);
 
+  // 채팅 시작 핸들러
+  const handleChatClick = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+
+    if (!user) {
+      alert('로그인이 필요한 기능입니다');
+      return;
+    }
+
+    if (!card.user_id) {
+      alert('이 체험과는 채팅할 수 없습니다');
+      return;
+    }
+
+    try {
+      const { data: roomId, error } = await createOrGetChatRoom({
+        other_user_id: card.user_id,
+        context_type: 'experience',
+        context_card_id: card.id,
+      });
+
+      if (error || !roomId) {
+        console.error('채팅방 생성 실패:', error);
+        alert('채팅방을 생성할 수 없습니다');
+        return;
+      }
+
+      // 채팅방으로 이동
+      window.location.href = `/chat/${roomId}`;
+    } catch (err) {
+      console.error('채팅 시작 오류:', err);
+      alert('채팅을 시작할 수 없습니다');
+    }
+  };
+
   return (
     <article
       className="card-interactive bg-white border border-gray-200 rounded-lg shadow-md animate-slide-up overflow-hidden cursor-pointer"
@@ -48,34 +85,46 @@ export default function ExperienceCard({ card, onEditClick, onDeleteClick, onCar
       <div className="flex p-4 flex-1 gap-3">
         {/* 좌측: 텍스트 정보 */}
         <div className="flex flex-col flex-1 min-w-0">
-          {/* 헤더 - "체험" 텍스트와 소유자 액션 */}
-          <div className="flex items-center gap-2 mb-2">
-            <span className="text-sm font-bold text-[#f4c96b]">체험</span>
-            {isOwner && (
-              <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onEditClick?.(card);
-                  }}
-                  className="p-0.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded transition-colors"
-                  title="수정하기"
-                >
-                  <IconEdit size={16} />
-                </button>
-                <button
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onDeleteClick?.(card);
-                  }}
-                  className="p-0.5 text-red-500 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
-                  title="삭제하기"
-                >
-                  <IconTrash size={16} />
-                </button>
-              </div>
+          {/* 헤더 - "체험" 텍스트, 소유자 액션, 채팅 버튼 */}
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-bold text-[#f4c96b]">체험</span>
+              {isOwner && (
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onEditClick?.(card);
+                    }}
+                    className="p-0.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded transition-colors"
+                    title="수정하기"
+                  >
+                    <IconEdit size={16} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onDeleteClick?.(card);
+                    }}
+                    className="p-0.5 text-red-500 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                    title="삭제하기"
+                  >
+                    <IconTrash size={16} />
+                  </button>
+                </div>
+              )}
+            </div>
+            {/* 채팅 버튼 (본인 카드가 아니고 user_id가 있을 때만) */}
+            {user && !isOwner && card.user_id && (
+              <button
+                onClick={handleChatClick}
+                className="p-1.5 hover:bg-orange-50 rounded-full transition-colors"
+                title="채팅하기"
+              >
+                <MessageCircle className="w-5 h-5 text-[#f4c96b]" />
+              </button>
             )}
           </div>
 

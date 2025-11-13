@@ -49,3 +49,7 @@ update-*.ps1
 
 # playwright mcp temp files
 .playwright-mcp/
+
+# 투어 GIF 파일 (25MB 제한으로 제외)
+public/picture/experiences/tour1.gif
+public/picture/experiences/tour3.gif
