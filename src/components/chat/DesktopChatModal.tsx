@@ -10,9 +10,10 @@ import { MAX_FILE_SIZE } from '@/types/chat';
 interface DesktopChatModalProps {
   isOpen: boolean;
   onClose: () => void;
+  selectedRoomId?: string | null;
 }
 
-export default function DesktopChatModal({ isOpen, onClose }: DesktopChatModalProps) {
+export default function DesktopChatModal({ isOpen, onClose, selectedRoomId }: DesktopChatModalProps) {
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
   const [selectedRoom, setSelectedRoom] = useState<string | null>(null);
   const [messageInput, setMessageInput] = useState('');
@@ -51,6 +52,13 @@ export default function DesktopChatModal({ isOpen, onClose }: DesktopChatModalPr
   useEffect(() => {
     void initialize();
   }, [initialize]);
+
+  // 외부에서 전달된 selectedRoomId로 자동 선택
+  useEffect(() => {
+    if (selectedRoomId && isOpen) {
+      setSelectedRoom(selectedRoomId);
+    }
+  }, [selectedRoomId, isOpen]);
 
   // Realtime 구독
   useChatRealtime({

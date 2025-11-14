@@ -226,6 +226,7 @@ export default function App() {
   const [isRegisterBottomSheetOpen, setIsRegisterBottomSheetOpen] = useState(false);
   const [registerType, setRegisterType] = useState<'job' | 'talent' | 'experience' | null>(null);
   const [isChatModalOpen, setIsChatModalOpen] = useState(false);
+  const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
 
   // AI 추천 카드 클릭 시 전체 데이터 조회
   const handleCardClick = async (card: Card) => {
@@ -493,6 +494,12 @@ export default function App() {
       // 데스크톱: 모달 열기
       setIsChatModalOpen(true);
     }
+  };
+
+  // 카드에서 채팅 모달 열기 (특정 room)
+  const handleOpenChatModal = (roomId: string) => {
+    setSelectedRoomId(roomId);
+    setIsChatModalOpen(true);
   };
 
   const handleHomeClick = () => {
@@ -1121,6 +1128,7 @@ export default function App() {
                 onExperienceEditClick={handleExperienceEditClick}
                 onExperienceDeleteClick={handleExperienceDeleteClick}
                 highlightTalentId={highlightTalentId}
+                onOpenChatModal={handleOpenChatModal}
               />
 
               <div ref={sentinelRef} className="h-1" aria-hidden />
@@ -1328,7 +1336,11 @@ export default function App() {
       {/* 데스크톱 채팅 모달 */}
       <DesktopChatModal
         isOpen={isChatModalOpen}
-        onClose={() => setIsChatModalOpen(false)}
+        onClose={() => {
+          setIsChatModalOpen(false);
+          setSelectedRoomId(null);
+        }}
+        selectedRoomId={selectedRoomId}
       />
     </div>
   );

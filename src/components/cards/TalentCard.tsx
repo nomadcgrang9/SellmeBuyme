@@ -9,9 +9,10 @@ interface TalentCardProps {
   talent: TalentCardType;
   onEditClick?: (card: TalentCardType) => void;
   isHighlight?: boolean;
+  onOpenChatModal?: (roomId: string) => void;
 }
 
-export default function TalentCard({ talent, onEditClick, isHighlight }: TalentCardProps) {
+export default function TalentCard({ talent, onEditClick, isHighlight, onOpenChatModal }: TalentCardProps) {
   const { user } = useAuthStore((s) => ({ user: s.user }));
   const isOwner = Boolean(user && talent.user_id && user.id === talent.user_id);
 
@@ -45,8 +46,15 @@ export default function TalentCard({ talent, onEditClick, isHighlight }: TalentC
         return;
       }
 
-      // 채팅방으로 이동
-      window.location.href = `/chat/${roomId}`;
+      // 화면 크기에 따라 분기
+      const isMobile = window.innerWidth < 768;
+      if (isMobile) {
+        // 모바일: 페이지 이동
+        window.location.href = `/chat/${roomId}`;
+      } else {
+        // 데스크톱: 모달 열기
+        onOpenChatModal?.(roomId);
+      }
     } catch (err) {
       console.error('채팅 시작 오류:', err);
       alert('채팅을 시작할 수 없습니다');

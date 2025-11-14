@@ -7,6 +7,7 @@ import PromoTabManager from '@/components/admin/PromoTabManager';
 import BoardSubmissionList from '@/components/admin/BoardSubmissionList';
 import BoardApprovalModal from '@/components/admin/BoardApprovalModal';
 import DashboardOverview from '@/components/admin/dashboard/DashboardOverview';
+import AdminUserManagement from '@/components/admin/AdminUserManagement';
 import { CollapsibleSection } from '@/components/developer/CollapsibleSection';
 import type { CrawlBoard, CreateCrawlBoardInput } from '@/types';
 import { createCrawlBoard, updateCrawlBoard } from '@/lib/supabase/queries';
@@ -29,6 +30,7 @@ const ADMIN_TABS: AdminTab[] = [
   { key: 'overview', label: '대시보드', description: '요약 지표' },
   { key: 'crawl', label: '크롤링 게시판 관리', description: '개발자 제출 승인 및 게시판 관리', badge: 'NEW' },
   { key: 'promo', label: '홍보카드 관리', description: '추천 섹션 프로모·띠지 배너 편집' },
+  { key: 'users', label: '사용자 관리', description: '가입 사용자 목록 및 프로필 조회' },
   { key: 'content', label: '콘텐츠 관리', description: '공고 / 인력 검수' },
   { key: 'settings', label: '설정', description: '권한 및 시스템 설정' }
 ];
@@ -224,6 +226,8 @@ export default function AdminPageWithHamburger() {
         );
       case 'promo':
         return <PromoTabManager />;
+      case 'users':
+        return <AdminUserManagement />;
       default:
         return (
           <div className="flex h-full flex-col items-center justify-center rounded-lg border border-dashed border-slate-300 bg-white p-10 text-center text-sm text-slate-500">

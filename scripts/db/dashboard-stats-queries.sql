@@ -100,6 +100,14 @@ GROUP BY primary_region
 ORDER BY count DESC
 LIMIT 5;
 
+-- 11. 프로필 80% 이상 사용자 수 (profile_completion 컬럼 사용)
+-- ============================================
+-- ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS profile_completion INTEGER NOT NULL DEFAULT 0;
+-- 위 마이그레이션 실행 후, 다음 쿼리로 KPI를 조회할 수 있습니다.
+-- SELECT COUNT(*) AS high_profile_users
+-- FROM user_profiles
+-- WHERE profile_completion >= 80;
+
 -- 11. 메뉴 클릭 통계 (오늘)
 -- ============================================
 SELECT 
@@ -151,6 +159,7 @@ CREATE TABLE IF NOT EXISTS search_logs (
 -- ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS gender TEXT;
 -- ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS age INTEGER;
 -- ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS role TEXT;
+-- ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS profile_completion INTEGER NOT NULL DEFAULT 0;
 
 -- 인덱스 생성 (성능 최적화)
 CREATE INDEX IF NOT EXISTS idx_user_activity_logs_created_at ON user_activity_logs(created_at);
@@ -158,3 +167,4 @@ CREATE INDEX IF NOT EXISTS idx_user_activity_logs_user_id ON user_activity_logs(
 CREATE INDEX IF NOT EXISTS idx_search_logs_created_at ON search_logs(created_at);
 CREATE INDEX IF NOT EXISTS idx_job_postings_created_at ON job_postings(created_at);
 CREATE INDEX IF NOT EXISTS idx_talents_created_at ON talents(created_at);
+CREATE INDEX IF NOT EXISTS idx_user_profiles_profile_completion ON user_profiles(profile_completion);

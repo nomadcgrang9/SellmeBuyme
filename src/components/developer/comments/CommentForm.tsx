@@ -177,9 +177,15 @@ export function CommentForm({
           disabled={isSubmitting}
         />
 
-        <span className="shrink-0 text-[10px] font-medium text-gray-400" title="Enter: 등록 · Shift+Enter: 줄바꿈">
+        <button
+          type="button"
+          onClick={() => void handleSubmit()}
+          className="shrink-0 text-[10px] font-medium text-gray-400 cursor-pointer hover:text-gray-600 transition-colors"
+          title="클릭하여 등록 · Enter: 등록 · Shift+Enter: 줄바꿈"
+          disabled={isSubmitting}
+        >
           ↵ 등록
-        </span>
+        </button>
       </div>
     </form>
   );
