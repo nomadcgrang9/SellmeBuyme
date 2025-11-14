@@ -10,9 +10,10 @@ interface ExperienceCardProps {
   onEditClick?: (card: ExperienceCardType) => void;
   onDeleteClick?: (card: ExperienceCardType) => void;
   onCardClick?: () => void;
+  onOpenChatModal?: (roomId: string) => void;
 }
 
-export default function ExperienceCard({ card, onEditClick, onDeleteClick, onCardClick }: ExperienceCardProps) {
+export default function ExperienceCard({ card, onEditClick, onDeleteClick, onCardClick, onOpenChatModal }: ExperienceCardProps) {
   console.log('[ExperienceCard] 렌더링:', {
     id: card.id,
     programTitle: card.programTitle,
@@ -65,8 +66,15 @@ export default function ExperienceCard({ card, onEditClick, onDeleteClick, onCar
         return;
       }
 
-      // 채팅방으로 이동
-      window.location.href = `/chat/${roomId}`;
+      // 화면 크기에 따라 분기
+      const isMobile = window.innerWidth < 768;
+      if (isMobile) {
+        // 모바일: 페이지 이동
+        window.location.href = `/chat/${roomId}`;
+      } else {
+        // 데스크톱: 모달 열기
+        onOpenChatModal?.(roomId);
+      }
     } catch (err) {
       console.error('채팅 시작 오류:', err);
       alert('채팅을 시작할 수 없습니다');

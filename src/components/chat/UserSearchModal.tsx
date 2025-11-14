@@ -10,7 +10,6 @@ interface UserSearchModalProps {
 
 interface UserSearchResult {
   id: string;
-  email: string;
   display_name: string | null;
   profile_image_url: string | null;
 }
@@ -33,11 +32,11 @@ export default function UserSearchModal({ isOpen, onClose }: UserSearchModalProp
     setError(null);
 
     try {
-      // user_profiles에서 이메일 또는 display_name으로 검색
+      // user_profiles에서 display_name 또는 phone으로 검색
       const { data, error: searchError } = await supabase
         .from('user_profiles')
-        .select('user_id, email, display_name, profile_image_url')
-        .or(`email.ilike.%${searchQuery}%,display_name.ilike.%${searchQuery}%`)
+        .select('user_id, display_name, profile_image_url')
+        .or(`display_name.ilike.%${searchQuery}%,phone.ilike.%${searchQuery}%`)
         .limit(10);
 
       if (searchError) throw searchError;
@@ -50,7 +49,6 @@ export default function UserSearchModal({ isOpen, onClose }: UserSearchModalProp
 
       setSearchResults(data.map(user => ({
         id: user.user_id,
-        email: user.email,
         display_name: user.display_name,
         profile_image_url: user.profile_image_url
       })));
@@ -108,7 +106,7 @@ export default function UserSearchModal({ isOpen, onClose }: UserSearchModalProp
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                placeholder="이메일 또는 이름 입력"
+                placeholder="사용자 이름 또는 전화번호 입력"
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#68B2FF]"
               />
             </div>
@@ -138,7 +136,7 @@ export default function UserSearchModal({ isOpen, onClose }: UserSearchModalProp
                   {user.profile_image_url ? (
                     <img
                       src={user.profile_image_url}
-                      alt={user.display_name || user.email}
+                      alt={user.display_name || '사용자'}
                       className="w-12 h-12 rounded-full object-cover border border-gray-200"
                     />
                   ) : (
@@ -148,11 +146,8 @@ export default function UserSearchModal({ isOpen, onClose }: UserSearchModalProp
                   )}
                   <div className="flex-1 min-w-0">
                     <h3 className="font-semibold text-gray-900 truncate">
-                      {user.display_name || user.email}
+                      {user.display_name || '이름 없음'}
                     </h3>
-                    {user.display_name && (
-                      <p className="text-sm text-gray-500 truncate">{user.email}</p>
-                    )}
                   </div>
                   <MessageCircle className="w-5 h-5 text-[#68B2FF]" />
                 </button>
@@ -162,7 +157,7 @@ export default function UserSearchModal({ isOpen, onClose }: UserSearchModalProp
             <div className="flex flex-col items-center justify-center py-12 px-4">
               <UserPlus className="w-12 h-12 text-gray-300 mb-3" />
               <p className="text-gray-500 text-center">
-                {searchQuery ? '검색 결과가 없습니다' : '이메일 또는 이름으로 사용자를 검색하세요'}
+                {searchQuery ? '검색 결과가 없습니다' : '사용자 이름 또는 전화번호로 검색하세요'}
               </p>
             </div>
           )}
