@@ -72,7 +72,8 @@ export default function DesktopChatModal({ isOpen, onClose, selectedRoomId }: De
     if (isOpen && user) {
       loadChatRooms();
     }
-  }, [isOpen, user, loadChatRooms]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, user]);
 
   // 선택된 채팅방의 메시지 로드
   useEffect(() => {
@@ -80,12 +81,35 @@ export default function DesktopChatModal({ isOpen, onClose, selectedRoomId }: De
       setActiveRoom(selectedRoom);
       loadMessages(selectedRoom);
     }
-  }, [selectedRoom, user, setActiveRoom, loadMessages]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedRoom, user]);
 
   // 메시지 목록 자동 스크롤
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messagesByRoom[selectedRoom || '']]);
+
+  // 브라우저 탭 visibility 변경 감지 (Alt+Tab 대응)
+  // ✅ REALTIME이 모든 동기화를 자동으로 처리하므로 수동 재로드 불필요
+  // useEffect(() => {
+  //   if (!isOpen) return;
+
+  //   const handleVisibilityChange = () => {
+  //     if (!document.hidden && selectedRoom) {
+  //       console.log('[DesktopChatModal] 탭 활성화 → 채팅방 목록 재로드');
+  //       // ✅ 메시지 재로드 제거 (Realtime이 이미 동기화함)
+  //       // loadMessages(selectedRoom, 0);  // ❌ 제거! (알트탭 후 메시지 삭제 원인)
+  //       // loadChatRooms(); // ❌ 이것도 제거! (Realtime이 자동 동기화)
+  //     }
+  //   };
+
+  //   document.addEventListener('visibilitychange', handleVisibilityChange);
+
+  //   return () => {
+  //     document.removeEventListener('visibilitychange', handleVisibilityChange);
+  //   };
+  //   // eslint-disable-next-line react-hooks/exhaustive-deps
+  // }, [isOpen, selectedRoom]);
 
   // 현재 채팅방 정보
   const currentRoom = rooms.find((r) => r.id === selectedRoom);

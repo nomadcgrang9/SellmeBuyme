@@ -16,6 +16,77 @@ import type {
 } from '@/types/chat';
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 유틸리티 함수
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+/**
+ * 사용자 표시 이름 가져오기 (email fallback 포함)
+ * 우선순위: display_name > 이메일 @ 앞부분 > "알 수 없음"
+ */
+async function getUserDisplayName(userId: string): Promise<string> {
+  // 1. user_profiles에서 display_name 조회
+  const { data: profile } = await supabase
+    .from('user_profiles')
+    .select('display_name')
+    .eq('user_id', userId)
+    .single();
+
+  if (profile?.display_name) {
+    return profile.display_name;
+  }
+
+  // 2. auth.users에서 이메일 조회하여 @ 앞부분 추출
+  try {
+    const { data: { user } } = await supabase.auth.admin.getUserById(userId);
+    if (user?.email) {
+      return user.email.split('@')[0];
+    }
+  } catch (error) {
+    console.error('[getUserDisplayName] auth.users 조회 실패:', error);
+  }
+
+  // 3. 모두 실패 시 fallback
+  return '알 수 없음';
+}
+
+/**
+ * 사용자 프로필 이미지 URL 가져오기
+ * 우선순위: user_profiles.profile_image_url > auth.user_metadata.avatar_url/picture > null
+ */
+async function getUserProfileImage(userId: string): Promise<string | null> {
+  // 1. user_profiles에서 profile_image_url 조회
+  const { data: profile } = await supabase
+    .from('user_profiles')
+    .select('profile_image_url')
+    .eq('user_id', userId)
+    .single();
+
+  if (profile?.profile_image_url) {
+    // Storage 경로인 경우 Public URL로 변환
+    if (!profile.profile_image_url.startsWith('http')) {
+      const { data: urlData } = supabase.storage
+        .from('profiles')
+        .getPublicUrl(profile.profile_image_url);
+      return urlData.publicUrl;
+    }
+    return profile.profile_image_url;
+  }
+
+  // 2. auth.users의 OAuth 프로필 이미지 사용
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user?.id === userId) {
+      // 자신의 프로필이면 현재 세션의 user_metadata 사용
+      return user.user_metadata?.avatar_url || user.user_metadata?.picture || null;
+    }
+  } catch {
+    // 무시
+  }
+
+  return null;
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 채팅방 관련 쿼리
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -52,13 +123,6 @@ export async function getChatRooms(): Promise<{ data: ChatRoom[] | null; error: 
           ? room.participant_2_id
           : room.participant_1_id;
 
-        // 상대방 프로필 조회
-        const { data: profile } = await supabase
-          .from('user_profiles')
-          .select('display_name, profile_image_url')
-          .eq('user_id', otherId)
-          .single();
-
         // 내 참여자 정보 조회
         const { data: participant } = await supabase
           .from('chat_participants')
@@ -73,8 +137,8 @@ export async function getChatRooms(): Promise<{ data: ChatRoom[] | null; error: 
         return {
           ...room,
           other_user_id: otherId,
-          other_user_name: profile?.display_name || '사용자',
-          other_user_profile_image: profile?.profile_image_url || null,
+          other_user_name: await getUserDisplayName(otherId),
+          other_user_profile_image: await getUserProfileImage(otherId),
           last_message_content: lastMessage?.content || null,
           last_message_type: lastMessage?.message_type || null,
           my_unread_count: participant?.unread_count || 0,
@@ -167,7 +231,7 @@ export async function getChatRoom(
       data: {
         ...room,
         other_user_id: otherId,
-        other_user_name: profile?.display_name || '사용자',
+        other_user_name: await getUserDisplayName(otherId),
         other_user_profile_image: profile?.profile_image_url || null,
         last_message_content: null,
         last_message_type: null,
@@ -227,7 +291,7 @@ export async function getMessages(
 
         return {
           ...msg,
-          sender_name: profile?.display_name || '사용자',
+          sender_name: await getUserDisplayName(msg.sender_id),
           sender_profile_image: profile?.profile_image_url || null,
           file_metadata: fileMetadata,
         } as ChatMessage;
@@ -316,7 +380,7 @@ export async function sendMessage(
     return {
       data: {
         ...message,
-        sender_name: profile?.display_name || '사용자',
+        sender_name: await getUserDisplayName(user.id),
         sender_profile_image: profile?.profile_image_url || null,
         file_metadata: fileMetadata,
       } as ChatMessage,
