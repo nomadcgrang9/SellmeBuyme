@@ -1,9 +1,12 @@
 import { TalentCard as TalentCardType } from '@/types';
-import { IconMapPin, IconBriefcase, IconStar, IconPhone, IconAt } from '@tabler/icons-react';
+import { IconMapPin, IconBriefcase, IconStar, IconPhone, IconAt, IconHeart } from '@tabler/icons-react';
 import { MessageCircle } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
+import { useBookmarkStore } from '@/stores/bookmarkStore';
 import { getTalentImage, handleImageError } from '@/lib/utils/cardImages';
 import { createOrGetChatRoom } from '@/lib/supabase/chat';
+import { addBookmark, removeBookmark } from '@/lib/supabase/queries';
+import { useToastStore } from '@/stores/toastStore';
 
 interface TalentCardProps {
   talent: TalentCardType;
@@ -14,10 +17,54 @@ interface TalentCardProps {
 
 export default function TalentCard({ talent, onEditClick, isHighlight, onOpenChatModal }: TalentCardProps) {
   const { user } = useAuthStore((s) => ({ user: s.user }));
+  const { isBookmarked, addBookmark: addToStore, removeBookmark: removeFromStore } = useBookmarkStore();
+  const showToast = useToastStore((state) => state.showToast);
   const isOwner = Boolean(user && talent.user_id && user.id === talent.user_id);
+  const bookmarked = isBookmarked(talent.id);
 
   // specialty 기반 이미지 경로 결정
   const imageUrl = getTalentImage(talent.specialty);
+
+  // 북마크 토글 핸들러
+  const handleBookmarkToggle = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    
+    console.log('[TalentCard] 북마크 토글 시작:', { talentId: talent.id, userId: user?.id, bookmarked });
+    
+    if (!user) {
+      console.warn('[TalentCard] 로그인 필요');
+      showToast('로그인이 필요합니다', 'error');
+      return;
+    }
+
+    try {
+      if (bookmarked) {
+        // 북마크 제거
+        console.log('[TalentCard] 북마크 제거 시작');
+        removeFromStore(talent.id);
+        await removeBookmark(user.id, talent.id, 'talent');
+        console.log('[TalentCard] 북마크 제거 완료');
+        showToast('북마크를 제거했습니다', 'success');
+      } else {
+        // 북마크 추가
+        console.log('[TalentCard] 북마크 추가 시작');
+        addToStore(talent.id);
+        await addBookmark(user.id, talent.id, 'talent');
+        console.log('[TalentCard] 북마크 추가 완료');
+        showToast('북마크했습니다', 'success');
+      }
+    } catch (error) {
+      console.error('[TalentCard] 북마크 토글 실패:', error);
+      console.error('[TalentCard] 에러 상세:', { name: (error as Error).name, message: (error as Error).message });
+      // 실패 시 롤백
+      if (bookmarked) {
+        addToStore(talent.id);
+      } else {
+        removeFromStore(talent.id);
+      }
+      showToast('북마크 처리에 실패했습니다', 'error');
+    }
+  };
 
   // 채팅 시작 핸들러
   const handleChatClick = async (e: React.MouseEvent) => {
@@ -79,16 +126,32 @@ export default function TalentCard({ talent, onEditClick, isHighlight, onOpenCha
           {/* 헤더 */}
           <div className="flex items-center justify-between mb-3">
             <span className="text-sm font-semibold text-[#2f855a]">인력</span>
-            {/* 채팅 버튼 (본인 카드가 아니고 user_id가 있을 때만) */}
-            {user && !isOwner && talent.user_id && (
+            <div className="flex items-center gap-2">
+              {/* 북마크 버튼 */}
               <button
-                onClick={handleChatClick}
-                className="p-1.5 hover:bg-emerald-50 rounded-full transition-colors"
-                title="채팅하기"
+                onClick={handleBookmarkToggle}
+                className="transition-colors hover:scale-110 transform duration-200"
+                aria-label={bookmarked ? '북마크 제거' : '북마크 추가'}
+                title={bookmarked ? '북마크 제거' : '북마크 추가'}
               >
-                <MessageCircle className="w-5 h-5 text-emerald-600" />
+                <IconHeart
+                  size={20}
+                  stroke={1.5}
+                  fill={bookmarked ? 'currentColor' : 'none'}
+                  className={bookmarked ? 'text-red-500' : 'text-gray-300 hover:text-red-400'}
+                />
               </button>
-            )}
+              {/* 채팅 버튼 (본인 카드가 아니고 user_id가 있을 때만) */}
+              {user && !isOwner && talent.user_id && (
+                <button
+                  onClick={handleChatClick}
+                  className="p-1.5 hover:bg-emerald-50 rounded-full transition-colors"
+                  title="채팅하기"
+                >
+                  <MessageCircle className="w-5 h-5 text-emerald-600" />
+                </button>
+              )}
+            </div>
           </div>
 
           {/* 이름 */}

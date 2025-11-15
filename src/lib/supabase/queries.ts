@@ -3806,3 +3806,195 @@ function formatTalentLocation(locations: string[]): string {
   return parts.join('/') || '지역 미지정';
 }
 
+// ============================================================================
+// Bookmark Functions (북마크 관련 함수)
+// ============================================================================
+
+/**
+ * 사용자의 모든 북마크 ID 조회
+ */
+export async function fetchUserBookmarkIds(userId: string): Promise<string[]> {
+  try {
+    const { data, error } = await supabase
+      .from('bookmarks')
+      .select('card_id')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('[fetchUserBookmarkIds] 에러:', error);
+      throw error;
+    }
+
+    return data?.map(b => b.card_id) || [];
+  } catch (error) {
+    console.error('[fetchUserBookmarkIds] 북마크 조회 실패:', error);
+    return [];
+  }
+}
+
+/**
+ * 북마크 추가
+ */
+export async function addBookmark(
+  userId: string,
+  cardId: string,
+  cardType: 'job' | 'talent' | 'experience'
+): Promise<void> {
+  console.log('[addBookmark] 시작:', { userId, cardId, cardType });
+  
+  try {
+    const { error } = await supabase
+      .from('bookmarks')
+      .insert({
+        user_id: userId,
+        card_id: cardId,
+        card_type: cardType
+      });
+
+    if (error) {
+      // 중복 에러는 무시 (이미 북마크됨)
+      if (error.code === '23505') {
+        console.log('[addBookmark] 이미 북마크된 카드:', cardId);
+        return;
+      }
+      console.error('[addBookmark] DB 에러:', error);
+      console.error('[addBookmark] 에러 상세:', {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint
+      });
+      throw error;
+    }
+
+    console.log('[addBookmark] 북마크 추가 성공:', cardId);
+  } catch (error) {
+    console.error('[addBookmark] 예외 발생:', error);
+    throw error;
+  }
+}
+
+/**
+ * 북마크 제거
+ */
+export async function removeBookmark(
+  userId: string,
+  cardId: string,
+  cardType: 'job' | 'talent' | 'experience'
+): Promise<void> {
+  console.log('[removeBookmark] 시작:', { userId, cardId, cardType });
+  
+  try {
+    const { error } = await supabase
+      .from('bookmarks')
+      .delete()
+      .eq('user_id', userId)
+      .eq('card_id', cardId)
+      .eq('card_type', cardType);
+
+    if (error) {
+      console.error('[removeBookmark] DB 에러:', error);
+      console.error('[removeBookmark] 에러 상세:', {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint
+      });
+      throw error;
+    }
+
+    console.log('[removeBookmark] 북마크 제거 성공:', cardId);
+  } catch (error) {
+    console.error('[removeBookmark] 예외 발생:', error);
+    throw error;
+  }
+}
+
+/**
+ * 북마크된 카드 데이터 조회 (모든 타입)
+ */
+export async function fetchBookmarkedCards(userId: string): Promise<Card[]> {
+  try {
+    // 1. 사용자의 북마크 조회
+    const { data: bookmarks, error: bookmarkError } = await supabase
+      .from('bookmarks')
+      .select('card_id, card_type, created_at')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (bookmarkError) {
+      console.error('[fetchBookmarkedCards] 북마크 조회 에러:', bookmarkError);
+      throw bookmarkError;
+    }
+
+    if (!bookmarks || bookmarks.length === 0) {
+      return [];
+    }
+
+    // 2. 카드 타입별로 그룹화
+    const jobIds = bookmarks.filter(b => b.card_type === 'job').map(b => b.card_id);
+    const talentIds = bookmarks.filter(b => b.card_type === 'talent').map(b => b.card_id);
+    const experienceIds = bookmarks.filter(b => b.card_type === 'experience').map(b => b.card_id);
+
+    const cards: Card[] = [];
+
+    // 3. 공고 카드 조회
+    if (jobIds.length > 0) {
+      const { data: jobs, error: jobError } = await supabase
+        .from('job_postings')
+        .select('*')
+        .in('id', jobIds);
+
+      if (!jobError && jobs) {
+        const jobCards = jobs.map(job => mapJobPostingToCard(job));
+        cards.push(...jobCards);
+      }
+    }
+
+    // 4. 인력 카드 조회
+    if (talentIds.length > 0) {
+      const { data: talents, error: talentError } = await supabase
+        .from('talents')
+        .select('*')
+        .in('id', talentIds);
+
+      if (!talentError && talents) {
+        const talentCards = talents.map(talent => mapTalentToCard(talent));
+        cards.push(...talentCards);
+      }
+    }
+
+    // 5. 체험 카드 조회
+    if (experienceIds.length > 0) {
+      const { data: experiences, error: expError } = await supabase
+        .from('experiences')
+        .select('*')
+        .in('id', experienceIds);
+
+      if (!expError && experiences) {
+        const experienceCards = experiences.map(exp => mapExperienceRowToCard(exp));
+        cards.push(...experienceCards);
+      }
+    }
+
+    // 6. 북마크 생성일 순으로 정렬 (최신순)
+    const bookmarkMap = new Map(bookmarks.map(b => [b.card_id, b.created_at]));
+    cards.sort((a, b) => {
+      const aTime = bookmarkMap.get(a.id) || '';
+      const bTime = bookmarkMap.get(b.id) || '';
+      return bTime.localeCompare(aTime);
+    });
+
+    // 7. isBookmarked 플래그 추가
+    cards.forEach(card => {
+      card.isBookmarked = true;
+    });
+
+    return cards;
+  } catch (error) {
+    console.error('[fetchBookmarkedCards] 북마크 카드 조회 실패:', error);
+    return [];
+  }
+}
+

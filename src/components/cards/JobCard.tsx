@@ -8,10 +8,14 @@ import {
   IconPhone,
   IconExternalLink,
   IconBook,
-  IconAlertCircle
+  IconAlertCircle,
+  IconHeart
 } from '@tabler/icons-react';
 import MapPopup from '@/components/map/MapPopup';
 import { useAuthStore } from '@/stores/authStore';
+import { useBookmarkStore } from '@/stores/bookmarkStore';
+import { addBookmark, removeBookmark } from '@/lib/supabase/queries';
+import { useToastStore } from '@/stores/toastStore';
 
 interface JobCardProps {
   job: JobPostingCard;
@@ -25,9 +29,53 @@ export default function JobCard({ job, cardIndex = 0, onClick, onEditClick }: Jo
   const cardRef = useRef<HTMLElement>(null);
   const expansionRef = useRef<HTMLDivElement>(null);
   const { user } = useAuthStore((state) => ({ user: state.user }));
+  const { isBookmarked, addBookmark: addToStore, removeBookmark: removeFromStore } = useBookmarkStore();
+  const showToast = useToastStore((state) => state.showToast);
 
   // 소유권 확인: 로그인 사용자 && 사용자 등록 공고 && 본인 공고
   const isOwner = user && job.user_id === user.id && job.source === 'user_posted';
+  const bookmarked = isBookmarked(job.id);
+
+  // 북마크 토글 핸들러
+  const handleBookmarkToggle = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    
+    console.log('[JobCard] 북마크 토글 시작:', { jobId: job.id, userId: user?.id, bookmarked });
+    
+    if (!user) {
+      console.warn('[JobCard] 로그인 필요');
+      showToast('로그인이 필요합니다', 'error');
+      return;
+    }
+
+    try {
+      if (bookmarked) {
+        // 북마크 제거
+        console.log('[JobCard] 북마크 제거 시작');
+        removeFromStore(job.id);
+        await removeBookmark(user.id, job.id, 'job');
+        console.log('[JobCard] 북마크 제거 완료');
+        showToast('북마크를 제거했습니다', 'success');
+      } else {
+        // 북마크 추가
+        console.log('[JobCard] 북마크 추가 시작');
+        addToStore(job.id);
+        await addBookmark(user.id, job.id, 'job');
+        console.log('[JobCard] 북마크 추가 완료');
+        showToast('북마크했습니다', 'success');
+      }
+    } catch (error) {
+      console.error('[JobCard] 북마크 토글 실패:', error);
+      console.error('[JobCard] 에러 상세:', { name: (error as Error).name, message: (error as Error).message });
+      // 실패 시 롤백
+      if (bookmarked) {
+        addToStore(job.id);
+      } else {
+        removeFromStore(job.id);
+      }
+      showToast('북마크 처리에 실패했습니다', 'error');
+    }
+  };
 
   // 태그 중복 제거 및 정규화
   const normalizedTags = job.tags.map(tag =>
@@ -77,11 +125,27 @@ export default function JobCard({ job, cardIndex = 0, onClick, onEditClick }: Jo
             {/* 헤더 */}
             <div className="flex items-center justify-between mb-3">
               <span className="text-sm font-semibold text-[#68B2FF]">공고</span>
-              {job.isUrgent && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-500 text-white text-xs font-bold">
-                  🔥 긴급
-                </span>
-              )}
+              <div className="flex items-center gap-2">
+                {job.isUrgent && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-500 text-white text-xs font-bold">
+                    🔥 긴급
+                  </span>
+                )}
+                {/* 북마크 버튼 */}
+                <button
+                  onClick={handleBookmarkToggle}
+                  className="transition-colors hover:scale-110 transform duration-200"
+                  aria-label={bookmarked ? '북마크 제거' : '북마크 추가'}
+                  title={bookmarked ? '북마크 제거' : '북마크 추가'}
+                >
+                  <IconHeart
+                    size={20}
+                    stroke={1.5}
+                    fill={bookmarked ? 'currentColor' : 'none'}
+                    className={bookmarked ? 'text-red-500' : 'text-gray-300 hover:text-red-400'}
+                  />
+                </button>
+              </div>
             </div>
 
             {/* 기관명 */}

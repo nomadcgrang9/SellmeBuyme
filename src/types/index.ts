@@ -27,6 +27,7 @@ export interface JobPostingCard {
   user_id?: string | null;
   source?: string | null;
   form_payload?: JobPostingFormPayload | null;
+  isBookmarked?: boolean;  // 북마크 상태
 }
 
 export interface JobPostingFormPayload {
@@ -98,6 +99,7 @@ export interface TalentCard {
   introduction?: string | null;
   rating: number;
   reviewCount: number;
+  isBookmarked?: boolean;  // 북마크 상태
 }
 
 export interface ExperienceFormPayload {
@@ -134,6 +136,7 @@ export interface ExperienceCard {
   createdAt: string;
   updatedAt: string;
   form_payload?: ExperienceFormPayload | null;
+  isBookmarked?: boolean;  // 북마크 상태
 }
 
 export type ViewType = 'all' | 'job' | 'talent' | 'experience';
@@ -421,4 +424,26 @@ export interface UpdatePopularKeywordInput {
   displayOrder?: number;
   isActive?: boolean;
   searchCount?: number;
+}
+
+// ============================================================================
+// Bookmark Types (북마크 관련 타입)
+// ============================================================================
+
+export type BookmarkCardType = 'job' | 'talent' | 'experience';
+
+export interface Bookmark {
+  id: string;
+  user_id: string;
+  card_type: BookmarkCardType;
+  card_id: string;
+  created_at: string;
+}
+
+export interface BookmarkRow {
+  id: string;
+  user_id: string;
+  card_type: string;
+  card_id: string;
+  created_at: string;
 }

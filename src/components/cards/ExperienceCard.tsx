@@ -1,9 +1,12 @@
 import { ExperienceCard as ExperienceCardType } from '@/types';
-import { IconMapPin, IconCategory, IconSchool, IconUsers, IconPhone, IconAt, IconEdit, IconTrash } from '@tabler/icons-react';
+import { IconMapPin, IconCategory, IconSchool, IconUsers, IconPhone, IconAt, IconEdit, IconTrash, IconHeart } from '@tabler/icons-react';
 import { MessageCircle } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
+import { useBookmarkStore } from '@/stores/bookmarkStore';
 import { getExperienceImage, handleImageError } from '@/lib/utils/cardImages';
 import { createOrGetChatRoom } from '@/lib/supabase/chat';
+import { addBookmark, removeBookmark } from '@/lib/supabase/queries';
+import { useToastStore } from '@/stores/toastStore';
 
 interface ExperienceCardProps {
   card: ExperienceCardType;
@@ -25,7 +28,10 @@ export default function ExperienceCard({ card, onEditClick, onDeleteClick, onCar
   });
 
   const { user } = useAuthStore((state) => ({ user: state.user }));
+  const { isBookmarked, addBookmark: addToStore, removeBookmark: removeFromStore } = useBookmarkStore();
+  const showToast = useToastStore((state) => state.showToast);
   const isOwner = Boolean(user && card.user_id && user.id === card.user_id);
+  const bookmarked = isBookmarked(card.id);
 
   const categories = card.categories?.slice(0, 3) || [];
   const targetLevels = card.targetSchoolLevels?.slice(0, 3) || [];
@@ -38,6 +44,47 @@ export default function ExperienceCard({ card, onEditClick, onDeleteClick, onCar
 
   // categories 기반 이미지 경로 결정
   const imageUrl = getExperienceImage(card.categories);
+
+  // 북마크 토글 핸들러
+  const handleBookmarkToggle = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    
+    console.log('[ExperienceCard] 북마크 토글 시작:', { cardId: card.id, userId: user?.id, bookmarked });
+    
+    if (!user) {
+      console.warn('[ExperienceCard] 로그인 필요');
+      showToast('로그인이 필요합니다', 'error');
+      return;
+    }
+
+    try {
+      if (bookmarked) {
+        // 북마크 제거
+        console.log('[ExperienceCard] 북마크 제거 시작');
+        removeFromStore(card.id);
+        await removeBookmark(user.id, card.id, 'experience');
+        console.log('[ExperienceCard] 북마크 제거 완료');
+        showToast('북마크를 제거했습니다', 'success');
+      } else {
+        // 북마크 추가
+        console.log('[ExperienceCard] 북마크 추가 시작');
+        addToStore(card.id);
+        await addBookmark(user.id, card.id, 'experience');
+        console.log('[ExperienceCard] 북마크 추가 완료');
+        showToast('북마크했습니다', 'success');
+      }
+    } catch (error) {
+      console.error('[ExperienceCard] 북마크 토글 실패:', error);
+      console.error('[ExperienceCard] 에러 상세:', { name: (error as Error).name, message: (error as Error).message });
+      // 실패 시 롤백
+      if (bookmarked) {
+        addToStore(card.id);
+      } else {
+        removeFromStore(card.id);
+      }
+      showToast('북마크 처리에 실패했습니다', 'error');
+    }
+  };
 
   // 채팅 시작 핸들러
   const handleChatClick = async (e: React.MouseEvent) => {
@@ -93,7 +140,7 @@ export default function ExperienceCard({ card, onEditClick, onDeleteClick, onCar
       <div className="flex p-4 flex-1 gap-3">
         {/* 좌측: 텍스트 정보 */}
         <div className="flex flex-col flex-1 min-w-0">
-          {/* 헤더 - "체험" 텍스트, 소유자 액션, 채팅 버튼 */}
+          {/* 헤더 - "체험" 텍스트, 소유자 액션, 북마크, 채팅 버튼 */}
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
               <span className="text-sm font-bold text-[#f4c96b]">체험</span>
@@ -124,16 +171,32 @@ export default function ExperienceCard({ card, onEditClick, onDeleteClick, onCar
                 </div>
               )}
             </div>
-            {/* 채팅 버튼 (본인 카드가 아니고 user_id가 있을 때만) */}
-            {user && !isOwner && card.user_id && (
+            <div className="flex items-center gap-2">
+              {/* 북마크 버튼 */}
               <button
-                onClick={handleChatClick}
-                className="p-1.5 hover:bg-orange-50 rounded-full transition-colors"
-                title="채팅하기"
+                onClick={handleBookmarkToggle}
+                className="transition-colors hover:scale-110 transform duration-200"
+                aria-label={bookmarked ? '북마크 제거' : '북마크 추가'}
+                title={bookmarked ? '북마크 제거' : '북마크 추가'}
               >
-                <MessageCircle className="w-5 h-5 text-[#f4c96b]" />
+                <IconHeart
+                  size={20}
+                  stroke={1.5}
+                  fill={bookmarked ? 'currentColor' : 'none'}
+                  className={bookmarked ? 'text-red-500' : 'text-gray-300 hover:text-red-400'}
+                />
               </button>
-            )}
+              {/* 채팅 버튼 (본인 카드가 아니고 user_id가 있을 때만) */}
+              {user && !isOwner && card.user_id && (
+                <button
+                  onClick={handleChatClick}
+                  className="p-1.5 hover:bg-orange-50 rounded-full transition-colors"
+                  title="채팅하기"
+                >
+                  <MessageCircle className="w-5 h-5 text-[#f4c96b]" />
+                </button>
+              )}
+            </div>
           </div>
 
           {/* 제목 */}
