@@ -309,7 +309,7 @@ export default function DeveloperPage() {
                   onStatusChange={async (projectId, newStatus) => {
                     const project = projects.find(p => p.id === projectId);
                     if (project) {
-                      await updateProjectItem(projectId, { ...project, status: newStatus });
+                      await updateProjectItem(projectId, { ...project, sourceIdeaId: project.sourceIdeaId || undefined, status: newStatus });
                     }
                   }}
                 />

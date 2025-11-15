@@ -1,6 +1,6 @@
 'use client';
 
-import { IconSearch } from '@tabler/icons-react';
+import { IconSearch, IconHeart } from '@tabler/icons-react';
 import { MessageCircle } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -11,6 +11,8 @@ import {
 } from '@/lib/constants/filters';
 import { useDebounce } from '@/lib/hooks/useDebounce';
 import { useSearchStore } from '@/stores/searchStore';
+import { useChatStore } from '@/stores/chatStore';
+import { useBookmarkStore } from '@/stores/bookmarkStore';
 import SocialSignupModal, { type AuthProvider } from '@/components/auth/SocialSignupModal';
 import { supabase } from '@/lib/supabase/client';
 import { useAuthStore } from '@/stores/authStore';
@@ -50,9 +52,10 @@ const sliderTranslateMap: Record<ViewType, number> = {
 interface HeaderProps {
   onProfileClick?: () => void;
   onChatClick?: () => void;
+  onBookmarkClick?: () => void;
 }
 
-export default function Header({ onProfileClick, onChatClick }: HeaderProps) {
+export default function Header({ onProfileClick, onChatClick, onBookmarkClick }: HeaderProps) {
   const [openFilter, setOpenFilter] = useState<FilterKey | null>(null);
   const [localSearchQuery, setLocalSearchQuery] = useState('');
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -62,6 +65,9 @@ export default function Header({ onProfileClick, onChatClick }: HeaderProps) {
     status: state.status,
     user: state.user
   }));
+  const { totalUnreadCount } = useChatStore();
+  const { bookmarkCount } = useBookmarkStore();
+  const updateUnreadCount = useChatStore(state => state.updateUnreadCount);
   const debouncedSearchQuery = useDebounce(localSearchQuery, 500);
   const {
     searchQuery,
@@ -111,6 +117,13 @@ export default function Header({ onProfileClick, onChatClick }: HeaderProps) {
       setSearchQuery(debouncedSearchQuery);
     }
   }, [debouncedSearchQuery, setSearchQuery]);
+
+  // 컴포넌트 마운트 시 읽지 않은 메시지 수 초기화
+  useEffect(() => {
+    if (user) {
+      updateUnreadCount();
+    }
+  }, [user, updateUnreadCount]);
 
   const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
@@ -239,11 +252,41 @@ export default function Header({ onProfileClick, onChatClick }: HeaderProps) {
                   <button
                     type="button"
                     onClick={() => onChatClick?.()}
-                    className="flex items-center gap-2 h-9 px-4 text-sm font-semibold text-gray-700 rounded-md border border-gray-300 hover:bg-gray-50 transition-colors"
+                    className="relative flex items-center gap-2 h-9 px-4 text-sm font-semibold text-gray-700 rounded-md border border-gray-300 hover:bg-gray-50 transition-colors"
                     title="채팅"
                   >
                     <MessageCircle className="w-4 h-4" />
                     <span>채팅</span>
+
+                    {/* 읽지 않은 메시지 배지 */}
+                    {totalUnreadCount > 0 && (
+                      <div className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1
+                                      bg-red-500 text-white text-[10px] font-bold
+                                      rounded-full flex items-center justify-center
+                                      shadow-md border border-white">
+                        {totalUnreadCount > 99 ? '99+' : totalUnreadCount}
+                      </div>
+                    )}
+                  </button>
+                  {/* 북마크 버튼 */}
+                  <button
+                    type="button"
+                    onClick={() => onBookmarkClick?.()}
+                    className="relative flex items-center gap-2 h-9 px-4 text-sm font-semibold text-gray-700 rounded-md border border-gray-300 hover:bg-gray-50 transition-colors"
+                    title="북마크"
+                  >
+                    <IconHeart className="w-4 h-4" stroke={1.5} />
+                    <span>북마크</span>
+                    
+                    {/* 북마크 개수 배지 */}
+                    {bookmarkCount > 0 && (
+                      <div className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1
+                                      bg-red-500 text-white text-[10px] font-bold
+                                      rounded-full flex items-center justify-center
+                                      shadow-md border border-white">
+                        {bookmarkCount > 99 ? '99+' : bookmarkCount}
+                      </div>
+                    )}
                   </button>
                   <button
                     type="button"
@@ -318,10 +361,20 @@ export default function Header({ onProfileClick, onChatClick }: HeaderProps) {
                 <button
                   type="button"
                   onClick={() => onChatClick?.()}
-                  className="h-7 px-2 text-[10px] font-semibold text-gray-700 rounded-md border border-gray-300"
+                  className="relative h-7 px-2 text-[10px] font-semibold text-gray-700 rounded-md border border-gray-300"
                   title="채팅"
                 >
                   <MessageCircle className="w-3 h-3" />
+
+                  {/* 읽지 않은 메시지 배지 (모바일) */}
+                  {totalUnreadCount > 0 && (
+                    <div className="absolute top-0 right-0 min-w-[16px] h-[16px] px-0.5
+                                    bg-red-500 text-white text-[9px] font-bold
+                                    rounded-full flex items-center justify-center
+                                    shadow-md border border-white">
+                      {totalUnreadCount > 99 ? '99+' : totalUnreadCount}
+                    </div>
+                  )}
                 </button>
                 <button
                   type="button"
