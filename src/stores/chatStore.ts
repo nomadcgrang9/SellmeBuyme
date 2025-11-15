@@ -103,14 +103,45 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
       const messages = data || [];
 
+      // ✅ 안전장치: offset이 0이고 결과가 비어있으면 기존 데이터 유지
+      if (offset === 0 && messages.length === 0) {
+        const existing = get().messagesByRoom[roomId] || [];
+        if (existing.length > 0) {
+          console.warn('[chatStore] 메시지 재로드 결과가 비어있음 - 기존 데이터 유지');
+          return;
+        }
+      }
+
       set((state) => {
         const existing = state.messagesByRoom[roomId] || [];
         const merged = offset === 0 ? messages : [...existing, ...messages];
 
+        // 중복 제거 (같은 ID의 메시지)
+        const uniqueMessages = Array.from(
+          new Map(merged.map(msg => [msg.id, msg])).values()
+        );
+
+        // 시간순 정렬 보장 (오래된 것 → 최신 순)
+        const sorted = uniqueMessages.sort(
+          (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+        );
+
+        // 디버깅 로그
+        console.log('[chatStore] loadMessages:', {
+          roomId: roomId.substring(0, 8) + '...',
+          offset,
+          existing: existing.length,
+          new: messages.length,
+          unique: uniqueMessages.length,
+          sorted: sorted.length,
+          latestMessage: sorted[sorted.length - 1]?.content?.substring(0, 20),
+          latestTime: sorted[sorted.length - 1]?.created_at,
+        });
+
         return {
           messagesByRoom: {
             ...state.messagesByRoom,
-            [roomId]: merged,
+            [roomId]: sorted,
           },
         };
       });
@@ -251,9 +282,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
       };
     });
 
-    // 채팅방 목록의 last_message 업데이트
-    set((state) => ({
-      rooms: state.rooms.map((room) =>
+    // 채팅방 목록의 last_message 업데이트 및 정렬
+    set((state) => {
+      const updatedRooms = state.rooms.map((room) =>
         room.id === message.room_id
           ? {
               ...room,
@@ -262,8 +293,23 @@ export const useChatStore = create<ChatState>((set, get) => ({
               last_message_at: message.created_at,
             }
           : room
-      ),
-    }));
+      );
+
+      // 최신 메시지 기준으로 정렬 (최신 대화방이 맨 위로)
+      const sorted = updatedRooms.sort((a, b) => {
+        const aTime = new Date(a.last_message_at || a.created_at).getTime();
+        const bTime = new Date(b.last_message_at || b.created_at).getTime();
+        return bTime - aTime; // 최신순
+      });
+
+      console.log('[chatStore] addMessage - 채팅방 목록 업데이트:', {
+        roomId: message.room_id.substring(0, 8) + '...',
+        content: message.content?.substring(0, 20),
+        time: message.created_at,
+      });
+
+      return { rooms: sorted };
+    });
   },
 
   /**

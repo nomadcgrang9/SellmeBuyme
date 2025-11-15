@@ -85,10 +85,21 @@ export function useChatRealtime(options: UseChatRealtimeOptions = {}) {
           .eq('user_id', msgData.sender_id)
           .single();
 
+        // 발신자 이름 결정 (email fallback 포함)
+        let senderName = profile?.display_name;
+        if (!senderName) {
+          try {
+            const { data: { user: authUser } } = await supabase.auth.admin.getUserById(msgData.sender_id);
+            senderName = authUser?.email?.split('@')[0] || '알 수 없음';
+          } catch {
+            senderName = '알 수 없음';
+          }
+        }
+
         // ChatMessage 형태로 변환
         const message: ChatMessage = {
           ...msgData,
-          sender_name: profile?.display_name || '사용자',
+          sender_name: senderName,
           sender_profile_image: profile?.profile_image_url || null,
           file_metadata: msgData.file_url
             ? {
@@ -156,13 +167,6 @@ export function useChatRealtime(options: UseChatRealtimeOptions = {}) {
           console.log('[useChatRealtime] User left:', key);
           updatePresence(key, null);
         });
-
-      // Presence 상태 추적 시작 (자신의 온라인 상태 전송)
-      channel.track({
-        user_id: user.id,
-        user_name: user.user_metadata?.display_name || user.email || '알 수 없음',
-        online_at: new Date().toISOString(),
-      });
     }
 
     // ━━━ 채널 구독 시작 ━━━
@@ -171,6 +175,15 @@ export function useChatRealtime(options: UseChatRealtimeOptions = {}) {
 
       if (status === 'SUBSCRIBED') {
         console.log(`[useChatRealtime] ✅ "${channelName}" 구독 완료`);
+
+        // Presence 상태 추적 시작 (구독 완료 후에만 실행)
+        if (enablePresence) {
+          channel.track({
+            user_id: user.id,
+            user_name: user.user_metadata?.display_name || user.email || '알 수 없음',
+            online_at: new Date().toISOString(),
+          });
+        }
       } else if (status === 'CHANNEL_ERROR') {
         console.error(`[useChatRealtime] ❌ "${channelName}" 구독 실패`);
       }
