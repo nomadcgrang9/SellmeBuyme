@@ -14,6 +14,8 @@ import IdeaCard from '@/components/developer/IdeaCard';
 import BoardSubmissionCard from '@/components/developer/BoardSubmissionCard';
 import ProjectCard from '@/components/developer/ProjectCard';
 import ProjectFormModal from '@/components/developer/ProjectFormModal';
+import ProjectDashboard from '@/components/developer/ProjectDashboard';
+import KanbanView from '@/components/developer/KanbanView';
 import ErrorLogSection from '@/components/developer/ErrorLogSection';
 import { useDeployments } from '@/lib/hooks/useDeployments';
 import { useFilteredIdeas } from '@/lib/hooks/useFilteredIdeas';
@@ -279,23 +281,13 @@ export default function DeveloperPage() {
             title="프로젝트 관리하기"
             icon={<Rocket className="w-5 h-5" />}
             defaultOpen={false}
-            filterButton={
-              <FilterButton
-                options={[
-                  { value: 'all', label: '전체' },
-                  { value: 'active', label: '🟢 진행중' },
-                  { value: 'paused', label: '🟡 보류' },
-                  { value: 'completed', label: '✅ 완료' },
-                  { value: 'difficult', label: '🔴 어려움' },
-                ]}
-                value={projectFilter}
-                onChange={(v) => setProjectFilter(v as any)}
-              />
-            }
           >
             <div className="p-4 space-y-4">
 
-              {/* 프로젝트 카드 리스트 */}
+              {/* 프로젝트 요약 대시보드 */}
+              {!projectsLoading && !projectsError && <ProjectDashboard projects={projects} />}
+
+              {/* 칸반뷰 (기본) */}
               {projectsLoading ? (
                 <div className="text-center py-8 text-gray-500">로딩 중...</div>
               ) : projectsError ? (
@@ -307,28 +299,21 @@ export default function DeveloperPage() {
                   프로젝트가 없습니다
                 </div>
               ) : (
-                <div className="space-y-3">
-                  {projects.map((project) => (
-                    <ProjectCard
-                      key={project.id}
-                      project={project}
-                      onEdit={(p) => {
-                        setEditingProject(p);
-                        setShowProjectForm(true);
-                      }}
-                      onDelete={() => deleteProjectItem(project.id)}
-                      onCompleteStage={(stageId) => completeStage(project.id, stageId)}
-                    />
-                  ))}
-                </div>
+                <KanbanView
+                  projects={projects}
+                  onEdit={(p) => {
+                    setEditingProject(p);
+                    setShowProjectForm(true);
+                  }}
+                  onDelete={deleteProjectItem}
+                  onStatusChange={async (projectId, newStatus) => {
+                    const project = projects.find(p => p.id === projectId);
+                    if (project) {
+                      await updateProjectItem(projectId, { ...project, status: newStatus });
+                    }
+                  }}
+                />
               )}
-
-              {/* 페이지네이션 */}
-              <PaginationDots
-                hasMore={projectsHasMore}
-                onLoadMore={loadMoreProjects}
-                isLoading={projectsLoading}
-              />
             </div>
           </CollapsibleSection>
 
