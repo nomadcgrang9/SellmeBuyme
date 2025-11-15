@@ -21,12 +21,17 @@ import MobileBottomNav from '@/components/mobile/MobileBottomNav';
 import RegisterBottomSheet from '@/components/mobile/RegisterBottomSheet';
 import MobileProfilePage from '@/components/mobile/MobileProfilePage';
 import MobileAuthPage from '@/components/mobile/MobileAuthPage';
-import WelcomeTourModal from '@/components/tour/WelcomeTourModal';
+// import WelcomeTourModal from '@/components/tour/WelcomeTourModal';
 import DesktopChatModal from '@/components/chat/DesktopChatModal';
-import { searchCards, fetchRecommendationsCache, isCacheValid, hasProfileChanged, shouldInvalidateCache, fetchPromoCards, selectRecommendationCards, filterByTeacherLevel, filterByJobType, calculateSubjectScore, filterByExperience, generateRecommendations, fetchFreshJobs } from '@/lib/supabase/queries';
+import BookmarkModal from '@/components/bookmark/BookmarkModal';
+import BookmarkPage from '@/pages/BookmarkPage';
+import { searchCards, fetchRecommendationsCache, isCacheValid, hasProfileChanged, shouldInvalidateCache, fetchPromoCards, selectRecommendationCards, filterByTeacherLevel, filterByJobType, calculateSubjectScore, filterByExperience, generateRecommendations, fetchFreshJobs, fetchUserBookmarkIds } from '@/lib/supabase/queries';
 import { fetchUserProfile, type UserProfileRow } from '@/lib/supabase/profiles';
 import { useSearchStore } from '@/stores/searchStore';
 import { useAuthStore } from '@/stores/authStore';
+import { useBookmarkStore } from '@/stores/bookmarkStore';
+import { useChatStore } from '@/stores/chatStore';
+import { useChatRealtime } from '@/hooks/useChatRealtime';
 import { supabase } from '@/lib/supabase/client';
 import type { Card, PromoCardSettings, JobPostingCard, ExperienceCard } from '@/types';
 import { getRegisteredTalentFromLocalStorage, clearRegisteredTalentFromLocalStorage } from '@/lib/utils/landingTransform';
@@ -177,6 +182,15 @@ export default function App() {
     user: state.user
   }));
 
+  const updateUnreadCount = useChatStore(state => state.updateUnreadCount);
+  const loadChatRooms = useChatStore(state => state.loadChatRooms);
+
+  // 전역 실시간 구독 (채팅 모달 닫혀있어도 작동)
+  useChatRealtime({
+    enableTyping: false,      // 전역에서는 타이핑 불필요
+    enablePresence: false,    // 전역에서는 온라인 상태 불필요
+  });
+
   // 위치 기반 자동 추천 (익명 사용자용)
   const { address, loading: locationLoading, permissionDenied } = useGeolocation();
   const [userLocation, setUserLocation] = useState<{ city: string; district: string } | null>(null);
@@ -227,10 +241,24 @@ export default function App() {
   const [registerType, setRegisterType] = useState<'job' | 'talent' | 'experience' | null>(null);
   const [isChatModalOpen, setIsChatModalOpen] = useState(false);
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
+  const [isBookmarkModalOpen, setIsBookmarkModalOpen] = useState(false);
+  const [showBookmarkPage, setShowBookmarkPage] = useState(false);
+  const [shouldResumeBookmark, setShouldResumeBookmark] = useState<'modal' | 'page' | false>(false);
 
   // AI 추천 카드 클릭 시 전체 데이터 조회
   const handleCardClick = async (card: Card) => {
     console.log('카드 클릭:', card);
+
+    // 북마크 모달/페이지가 열려있으면 임시로 닫기
+    if (isBookmarkModalOpen) {
+      console.log('[handleCardClick] 북마크 모달 임시 닫기');
+      setIsBookmarkModalOpen(false);
+      setShouldResumeBookmark('modal');
+    } else if (showBookmarkPage) {
+      console.log('[handleCardClick] 북마크 페이지 임시 닫기');
+      setShowBookmarkPage(false);
+      setShouldResumeBookmark('page');
+    }
 
     // 체험 카드 처리
     if (card.type === 'experience') {
@@ -277,6 +305,33 @@ export default function App() {
   useEffect(() => {
     void initialize();
   }, [initialize]);
+
+  // 앱 마운트 시 채팅 관련 초기화
+  useEffect(() => {
+    if (user) {
+      updateUnreadCount();
+      loadChatRooms(); // 채팅방 목록 미리 로드
+    }
+  }, [user, updateUnreadCount, loadChatRooms]);
+
+  // 북마크 초기화 (사용자 로그인 시)
+  const { loadBookmarks } = useBookmarkStore();
+  useEffect(() => {
+    if (user?.id) {
+      console.log('[App] 북마크 초기화 시작:', user.id);
+      fetchUserBookmarkIds(user.id)
+        .then((bookmarkIds) => {
+          console.log('[App] 북마크 로드 완료:', bookmarkIds.length, '개');
+          loadBookmarks(bookmarkIds, bookmarkIds.length);
+        })
+        .catch((error) => {
+          console.error('[App] 북마크 로드 실패:', error);
+        });
+    } else {
+      // 로그아웃 시 북마크 초기화
+      loadBookmarks([], 0);
+    }
+  }, [user?.id, loadBookmarks]);
 
   // 주소 정규화 함수 (캐시된 데이터도 처리)
   const normalizeAddress = (addr: { city: string; district: string }) => {
@@ -500,6 +555,21 @@ export default function App() {
   const handleOpenChatModal = (roomId: string) => {
     setSelectedRoomId(roomId);
     setIsChatModalOpen(true);
+  };
+
+  // 북마크 버튼 클릭 (모바일 헤더 / 데스크톱 헤더)
+  const handleBookmarkClick = () => {
+    // 화면 크기 확인 (768px = md breakpoint)
+    const isMobile = window.innerWidth < 768;
+
+    if (isMobile) {
+      // 모바일: 북마크 페이지 표시
+      setShowBookmarkPage(true);
+      setCurrentBottomTab(null); // 하단 네비는 유지되지만 탭은 선택 해제
+    } else {
+      // 데스크톱: 북마크 모달 열기
+      setIsBookmarkModalOpen(true);
+    }
   };
 
   const handleHomeClick = () => {
@@ -1029,7 +1099,7 @@ export default function App() {
         <MobileHeader
           onSearchClick={() => window.location.href = '/search'}
           onNotificationClick={() => alert('알림 기능 준비 중입니다')}
-          onBookmarkClick={() => alert('북마크 기능 준비 중입니다')}
+          onBookmarkClick={handleBookmarkClick}
           notificationCount={0}
           isScrolled={isScrolled}
           promoCards={promoCards}
@@ -1050,6 +1120,7 @@ export default function App() {
         <Header
           onProfileClick={handleOpenProfileView}
           onChatClick={handleChatClick}
+          onBookmarkClick={handleBookmarkClick}
         />
       </div>
 
@@ -1243,7 +1314,19 @@ export default function App() {
         <JobDetailModal
           job={selectedJob}
           isOpen={!!selectedJob}
-          onClose={() => setSelectedJob(null)}
+          onClose={() => {
+            setSelectedJob(null);
+            // 북마크 모달/페이지 복원
+            if (shouldResumeBookmark) {
+              console.log('[JobDetailModal] 북마크 복원:', shouldResumeBookmark);
+              if (shouldResumeBookmark === 'modal') {
+                setIsBookmarkModalOpen(true);
+              } else if (shouldResumeBookmark === 'page') {
+                setShowBookmarkPage(true);
+              }
+              setShouldResumeBookmark(false);
+            }
+          }}
           onEditClick={handleJobEditClick}
         />
       )}
@@ -1253,7 +1336,19 @@ export default function App() {
         <ExperienceDetailModal
           experience={selectedExperience}
           isOpen={!!selectedExperience}
-          onClose={() => setSelectedExperience(null)}
+          onClose={() => {
+            setSelectedExperience(null);
+            // 북마크 모달/페이지 복원
+            if (shouldResumeBookmark) {
+              console.log('[ExperienceDetailModal] 북마크 복원:', shouldResumeBookmark);
+              if (shouldResumeBookmark === 'modal') {
+                setIsBookmarkModalOpen(true);
+              } else if (shouldResumeBookmark === 'page') {
+                setShowBookmarkPage(true);
+              }
+              setShouldResumeBookmark(false);
+            }
+          }}
           onEditClick={handleExperienceEditClick}
           onDeleteClick={handleExperienceDeleteClick}
         />
@@ -1331,7 +1426,7 @@ export default function App() {
       />
 
       {/* 최초 방문자용 투어 모달 */}
-      <WelcomeTourModal />
+      {/* <WelcomeTourModal /> */}
 
       {/* 데스크톱 채팅 모달 */}
       <DesktopChatModal
@@ -1342,6 +1437,32 @@ export default function App() {
         }}
         selectedRoomId={selectedRoomId}
       />
+
+      {/* 데스크톱 북마크 모달 */}
+      <BookmarkModal
+        isOpen={isBookmarkModalOpen}
+        onClose={() => setIsBookmarkModalOpen(false)}
+        onCardClick={handleCardClick}
+        onJobEditClick={handleJobEditClick}
+        onExperienceEditClick={handleExperienceEditClick}
+        onExperienceDeleteClick={handleExperienceDeleteClick}
+        onOpenChatModal={handleOpenChatModal}
+      />
+
+      {/* 모바일 북마크 페이지 */}
+      {showBookmarkPage && (
+        <BookmarkPage
+          onBack={() => {
+            setShowBookmarkPage(false);
+            setCurrentBottomTab('home');
+          }}
+          onCardClick={handleCardClick}
+          onJobEditClick={handleJobEditClick}
+          onExperienceEditClick={handleExperienceEditClick}
+          onExperienceDeleteClick={handleExperienceDeleteClick}
+          onOpenChatModal={handleOpenChatModal}
+        />
+      )}
     </div>
   );
 }
