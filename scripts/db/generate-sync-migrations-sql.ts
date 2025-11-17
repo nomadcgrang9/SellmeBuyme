@@ -41,10 +41,7 @@ const sql = `
 -- 실행 후: 다시 SELECT로 확인
 
 -- Step 1: 기존 마이그레이션 상태 확인
-SELECT
-  version,
-  name,
-  executed_at
+SELECT *
 FROM supabase_migrations.schema_migrations
 ORDER BY version ASC;
 
@@ -53,16 +50,13 @@ ORDER BY version ASC;
 ${versions.map(version => {
   const file = localFiles.find(f => f.startsWith(version));
   const description = file ? file.replace(/^\d+_/, '').replace('.sql', '') : 'unknown';
-  return `INSERT INTO supabase_migrations.schema_migrations (version, name, executed_at)
-VALUES ('${version}', '${description}', NOW())
+  return `INSERT INTO supabase_migrations.schema_migrations (version, name)
+VALUES ('${version}', '${description}')
 ON CONFLICT (version) DO NOTHING;`;
 }).join('\n\n')}
 
 -- Step 3: 동기화 후 확인
-SELECT
-  version,
-  name,
-  executed_at
+SELECT *
 FROM supabase_migrations.schema_migrations
 ORDER BY version ASC;
 
