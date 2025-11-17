@@ -42,120 +42,114 @@
 -- 실행 후: 다시 SELECT로 확인
 
 -- Step 1: 기존 마이그레이션 상태 확인
-SELECT
-  version,
-  name,
-  executed_at
+SELECT *
 FROM supabase_migrations.schema_migrations
 ORDER BY version ASC;
 
 -- Step 2: 로컬에 있는 모든 마이그레이션을 원격 DB에 "적용됨" 상태로 등록
 -- (이미 존재하는 버전은 무시됨)
-INSERT INTO supabase_migrations.schema_migrations (version, name, executed_at)
-VALUES ('20250102', 'create_dev_comments', NOW())
+INSERT INTO supabase_migrations.schema_migrations (version, name)
+VALUES ('20250102', 'create_dev_comments')
 ON CONFLICT (version) DO NOTHING;
 
-INSERT INTO supabase_migrations.schema_migrations (version, name, executed_at)
-VALUES ('20250106', 'create_error_logs', NOW())
+INSERT INTO supabase_migrations.schema_migrations (version, name)
+VALUES ('20250106', 'create_error_logs')
 ON CONFLICT (version) DO NOTHING;
 
-INSERT INTO supabase_migrations.schema_migrations (version, name, executed_at)
-VALUES ('20250113', 'chat_system', NOW())
+INSERT INTO supabase_migrations.schema_migrations (version, name)
+VALUES ('20250113', 'chat_system')
 ON CONFLICT (version) DO NOTHING;
 
-INSERT INTO supabase_migrations.schema_migrations (version, name, executed_at)
-VALUES ('20250115', 'create_bookmarks_table', NOW())
+INSERT INTO supabase_migrations.schema_migrations (version, name)
+VALUES ('20250115', 'create_bookmarks_table')
 ON CONFLICT (version) DO NOTHING;
 
-INSERT INTO supabase_migrations.schema_migrations (version, name, executed_at)
-VALUES ('20250117', 'initial_schema', NOW())
+INSERT INTO supabase_migrations.schema_migrations (version, name)
+VALUES ('20250117', 'initial_schema')
 ON CONFLICT (version) DO NOTHING;
 
-INSERT INTO supabase_migrations.schema_migrations (version, name, executed_at)
-VALUES ('20250118', 'add_job_fields', NOW())
+INSERT INTO supabase_migrations.schema_migrations (version, name)
+VALUES ('20250118', 'add_job_fields')
 ON CONFLICT (version) DO NOTHING;
 
-INSERT INTO supabase_migrations.schema_migrations (version, name, executed_at)
-VALUES ('20250119', 'add_search_vectors', NOW())
+INSERT INTO supabase_migrations.schema_migrations (version, name)
+VALUES ('20250119', 'add_search_vectors')
 ON CONFLICT (version) DO NOTHING;
 
-INSERT INTO supabase_migrations.schema_migrations (version, name, executed_at)
-VALUES ('20250120', 'add_recommendations_cache', NOW())
+INSERT INTO supabase_migrations.schema_migrations (version, name)
+VALUES ('20250120', 'add_recommendations_cache')
 ON CONFLICT (version) DO NOTHING;
 
-INSERT INTO supabase_migrations.schema_migrations (version, name, executed_at)
-VALUES ('20250121', 'add_crawl_batch_size', NOW())
+INSERT INTO supabase_migrations.schema_migrations (version, name)
+VALUES ('20250121', 'add_crawl_batch_size')
 ON CONFLICT (version) DO NOTHING;
 
-INSERT INTO supabase_migrations.schema_migrations (version, name, executed_at)
-VALUES ('20250122', 'add_promo_card_badge_color', NOW())
+INSERT INTO supabase_migrations.schema_migrations (version, name)
+VALUES ('20250122', 'add_promo_card_badge_color')
 ON CONFLICT (version) DO NOTHING;
 
-INSERT INTO supabase_migrations.schema_migrations (version, name, executed_at)
-VALUES ('20250123', 'create_storage_bucket', NOW())
+INSERT INTO supabase_migrations.schema_migrations (version, name)
+VALUES ('20250123', 'create_storage_bucket')
 ON CONFLICT (version) DO NOTHING;
 
-INSERT INTO supabase_migrations.schema_migrations (version, name, executed_at)
-VALUES ('20250124', 'add_school_level_fields', NOW())
+INSERT INTO supabase_migrations.schema_migrations (version, name)
+VALUES ('20250124', 'add_school_level_fields')
 ON CONFLICT (version) DO NOTHING;
 
-INSERT INTO supabase_migrations.schema_migrations (version, name, executed_at)
-VALUES ('20250125', 'simplify_user_profiles', NOW())
+INSERT INTO supabase_migrations.schema_migrations (version, name)
+VALUES ('20250125', 'simplify_user_profiles')
 ON CONFLICT (version) DO NOTHING;
 
-INSERT INTO supabase_migrations.schema_migrations (version, name, executed_at)
-VALUES ('20250126', 'add_gradient_color_fields', NOW())
+INSERT INTO supabase_migrations.schema_migrations (version, name)
+VALUES ('20250126', 'add_gradient_color_fields')
 ON CONFLICT (version) DO NOTHING;
 
-INSERT INTO supabase_migrations.schema_migrations (version, name, executed_at)
-VALUES ('20250127', 'temp_testing_policies', NOW())
+INSERT INTO supabase_migrations.schema_migrations (version, name)
+VALUES ('20250127', 'temp_testing_policies')
 ON CONFLICT (version) DO NOTHING;
 
-INSERT INTO supabase_migrations.schema_migrations (version, name, executed_at)
-VALUES ('20250128000000', 'add_fts_for_jobs', NOW())
+INSERT INTO supabase_migrations.schema_migrations (version, name)
+VALUES ('20250128000000', 'add_fts_for_jobs')
 ON CONFLICT (version) DO NOTHING;
 
-INSERT INTO supabase_migrations.schema_migrations (version, name, executed_at)
-VALUES ('20250204', 'add_is_local_government_column', NOW())
+INSERT INTO supabase_migrations.schema_migrations (version, name)
+VALUES ('20250204', 'add_is_local_government_column')
 ON CONFLICT (version) DO NOTHING;
 
-INSERT INTO supabase_migrations.schema_migrations (version, name, executed_at)
-VALUES ('20250205', 'add_delete_policy_dev_board_submissions', NOW())
+INSERT INTO supabase_migrations.schema_migrations (version, name)
+VALUES ('20250205', 'add_delete_policy_dev_board_submissions')
 ON CONFLICT (version) DO NOTHING;
 
-INSERT INTO supabase_migrations.schema_migrations (version, name, executed_at)
-VALUES ('20250210', 'add_talent_form_payload', NOW())
+INSERT INTO supabase_migrations.schema_migrations (version, name)
+VALUES ('20250210', 'add_talent_form_payload')
 ON CONFLICT (version) DO NOTHING;
 
-INSERT INTO supabase_migrations.schema_migrations (version, name, executed_at)
-VALUES ('20250211', 'allow_anonymous_experience_insert', NOW())
+INSERT INTO supabase_migrations.schema_migrations (version, name)
+VALUES ('20250211', 'allow_anonymous_experience_insert')
 ON CONFLICT (version) DO NOTHING;
 
-INSERT INTO supabase_migrations.schema_migrations (version, name, executed_at)
-VALUES ('20251031', 'experiences_schema', NOW())
+INSERT INTO supabase_migrations.schema_migrations (version, name)
+VALUES ('20251031', 'experiences_schema')
 ON CONFLICT (version) DO NOTHING;
 
-INSERT INTO supabase_migrations.schema_migrations (version, name, executed_at)
-VALUES ('20251102', 'add_teacher_employment_type', NOW())
+INSERT INTO supabase_migrations.schema_migrations (version, name)
+VALUES ('20251102', 'add_teacher_employment_type')
 ON CONFLICT (version) DO NOTHING;
 
-INSERT INTO supabase_migrations.schema_migrations (version, name, executed_at)
-VALUES ('20251105', 'landing_talent_registration', NOW())
+INSERT INTO supabase_migrations.schema_migrations (version, name)
+VALUES ('20251105', 'landing_talent_registration')
 ON CONFLICT (version) DO NOTHING;
 
-INSERT INTO supabase_migrations.schema_migrations (version, name, executed_at)
-VALUES ('20251114', 'fix_chat_participants_rls', NOW())
+INSERT INTO supabase_migrations.schema_migrations (version, name)
+VALUES ('20251114', 'fix_chat_participants_rls')
 ON CONFLICT (version) DO NOTHING;
 
-INSERT INTO supabase_migrations.schema_migrations (version, name, executed_at)
-VALUES ('20251115', 'fix_chat_participants_rls_final', NOW())
+INSERT INTO supabase_migrations.schema_migrations (version, name)
+VALUES ('20251115', 'fix_chat_participants_rls_final')
 ON CONFLICT (version) DO NOTHING;
 
 -- Step 3: 동기화 후 확인
-SELECT
-  version,
-  name,
-  executed_at
+SELECT *
 FROM supabase_migrations.schema_migrations
 ORDER BY version ASC;
 
