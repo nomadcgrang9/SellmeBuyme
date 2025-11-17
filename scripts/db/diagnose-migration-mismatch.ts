@@ -20,12 +20,19 @@ async function diagnoseMigrationMismatch() {
     // 1. 원격 DB의 schema_migrations 테이블 조회 (직접 SQL 사용)
     console.log('\n📍 Step 1: 원격 DB의 적용된 마이그레이션 조회');
 
-    const { data: remoteMigrations, error: remoteError } = await supabase.rpc('exec_sql', {
-      sql: 'SELECT version FROM supabase_migrations.schema_migrations ORDER BY version ASC'
-    }).catch(() => {
+    let remoteMigrations: any = null;
+    let remoteError: any = null;
+
+    try {
+      const result = await supabase.rpc('exec_sql', {
+        sql: 'SELECT version FROM supabase_migrations.schema_migrations ORDER BY version ASC'
+      });
+      remoteMigrations = result.data;
+      remoteError = result.error;
+    } catch (err) {
       // exec_sql 함수가 없으면 다른 방법 시도
-      return { data: null, error: { message: 'exec_sql not available' } };
-    });
+      remoteError = { message: 'exec_sql not available' };
+    }
 
     if (remoteError || !remoteMigrations) {
       console.log('⚠️  exec_sql 사용 불가, npx supabase migration list 결과 사용');
