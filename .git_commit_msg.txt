@@ -1,0 +1,17 @@
+Fix DeveloperPage network timeout - optimize PWA caching and data loading
+
+1. PWA 캐시 용량 증가 (50 → 200)
+   - Supabase 캐시 maxEntries 증가
+   - DeveloperPage 4개 동시 쿼리 대응
+
+2. GitHub API 별도 캐싱 규칙 추가
+   - 배포 정보 캐싱 (1시간)
+   - 캐시 미스 방지
+
+3. DeveloperPage 데이터 로딩 최적화
+   - useFilteredIdeas: 1000 → 30개
+   - useFilteredSubmissions: 1000 → 30개
+   - useProjects: 1000 → 30개
+   - 네트워크 요청 부하 감소
+
+결과: /note 페이지 간헐적 오류 해결
