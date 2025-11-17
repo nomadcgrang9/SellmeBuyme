@@ -1,11 +1,11 @@
 -- 북마크 테이블 생성
 CREATE TABLE IF NOT EXISTS public.bookmarks (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   card_type VARCHAR(20) NOT NULL CHECK (card_type IN ('job', 'talent', 'experience')),
   card_id UUID NOT NULL,
   created_at TIMESTAMPTZ DEFAULT NOW(),
-  
+
   -- 복합 유니크 제약: 사용자당 카드당 1개만 북마크
   CONSTRAINT bookmarks_user_card_unique UNIQUE(user_id, card_type, card_id)
 );
