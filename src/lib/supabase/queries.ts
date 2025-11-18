@@ -3954,8 +3954,8 @@ export async function fetchBookmarkedCards(userId: string): Promise<Card[]> {
       matchesProvidedUserId: session?.user?.id === userId
     });
 
-    // Supabase URL 확인
-    console.log('[fetchBookmarkedCards] 🌐 Supabase URL:', supabase.supabaseUrl);
+    // Supabase URL 확인 (환경변수에서)
+    console.log('[fetchBookmarkedCards] 🌐 Supabase URL:', import.meta.env.VITE_SUPABASE_URL);
 
     // 1. 사용자의 북마크 조회
     const { data: bookmarks, error: bookmarkError } = await supabase
