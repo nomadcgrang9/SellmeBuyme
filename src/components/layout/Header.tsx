@@ -249,42 +249,41 @@ export default function Header({ onProfileClick, onChatClick, onBookmarkClick }:
             <div className="flex items-center gap-2 shrink-0 ml-auto">
               {status === 'authenticated' && user ? (
                 <>
-                  <button
-                    type="button"
-                    onClick={() => onChatClick?.()}
-                    className="relative flex items-center gap-2 h-9 px-4 text-sm font-semibold text-gray-700 rounded-md border border-gray-300 hover:bg-gray-50 transition-colors"
-                    title="채팅"
-                  >
-                    <MessageCircle className="w-4 h-4" />
-                    <span>채팅</span>
-
-                    {/* 읽지 않은 메시지 배지 */}
-                    {totalUnreadCount > 0 && (
-                      <div className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1
-                                      bg-red-500 text-white text-[10px] font-bold
-                                      rounded-full flex items-center justify-center
-                                      shadow-md border border-white">
-                        {totalUnreadCount > 99 ? '99+' : totalUnreadCount}
-                      </div>
-                    )}
-                  </button>
-                  {/* 북마크 버튼 */}
+                  {/* 북마크 버튼 - 아이콘만 */}
                   <button
                     type="button"
                     onClick={() => onBookmarkClick?.()}
-                    className="relative flex items-center gap-2 h-9 px-4 text-sm font-semibold text-gray-700 rounded-md border border-gray-300 hover:bg-gray-50 transition-colors"
+                    className="relative p-2 rounded-md hover:bg-gray-100 transition-colors"
                     title="북마크"
+                    aria-label="북마크"
                   >
-                    <IconHeart className="w-4 h-4" stroke={1.5} />
-                    <span>북마크</span>
-                    
+                    <IconHeart className="w-5 h-5 text-gray-700" stroke={1.5} />
                     {/* 북마크 개수 배지 */}
                     {bookmarkCount > 0 && (
-                      <div className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1
-                                      bg-red-500 text-white text-[10px] font-bold
+                      <div className="absolute -top-0.5 -right-0.5 min-w-[16px] h-[16px] px-1
+                                      bg-red-500 text-white text-[9px] font-bold
                                       rounded-full flex items-center justify-center
-                                      shadow-md border border-white">
+                                      shadow-sm">
                         {bookmarkCount > 99 ? '99+' : bookmarkCount}
+                      </div>
+                    )}
+                  </button>
+                  {/* 채팅 버튼 - 아이콘만 */}
+                  <button
+                    type="button"
+                    onClick={() => onChatClick?.()}
+                    className="relative p-2 rounded-md hover:bg-gray-100 transition-colors"
+                    title="채팅"
+                    aria-label="채팅"
+                  >
+                    <MessageCircle className="w-5 h-5 text-gray-700" />
+                    {/* 읽지 않은 메시지 배지 */}
+                    {totalUnreadCount > 0 && (
+                      <div className="absolute -top-0.5 -right-0.5 min-w-[16px] h-[16px] px-1
+                                      bg-red-500 text-white text-[9px] font-bold
+                                      rounded-full flex items-center justify-center
+                                      shadow-sm">
+                        {totalUnreadCount > 99 ? '99+' : totalUnreadCount}
                       </div>
                     )}
                   </button>

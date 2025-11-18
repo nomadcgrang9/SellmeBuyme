@@ -318,17 +318,27 @@ export default function App() {
   const { loadBookmarks } = useBookmarkStore();
   useEffect(() => {
     if (user?.id) {
-      console.log('[App] 북마크 초기화 시작:', user.id);
+      console.log('[App] 🔄 북마크 초기화 시작:', user.id);
       fetchUserBookmarkIds(user.id)
         .then((bookmarkIds) => {
-          console.log('[App] 북마크 로드 완료:', bookmarkIds.length, '개');
+          console.log('[App] ✅ 북마크 로드 완료:', bookmarkIds.length, '개');
+          console.log('[App] 📋 북마크 ID 목록:', bookmarkIds);
           loadBookmarks(bookmarkIds, bookmarkIds.length);
+
+          // bookmarkStore 상태 확인
+          const state = useBookmarkStore.getState();
+          console.log('[App] 📦 북마크 스토어 상태:', {
+            bookmarkedIdsSize: state.bookmarkedIds.size,
+            bookmarkCount: state.bookmarkCount,
+            bookmarkedIdsArray: Array.from(state.bookmarkedIds)
+          });
         })
         .catch((error) => {
-          console.error('[App] 북마크 로드 실패:', error);
+          console.error('[App] ❌ 북마크 로드 실패:', error);
         });
     } else {
       // 로그아웃 시 북마크 초기화
+      console.log('[App] 🚪 로그아웃 - 북마크 초기화');
       loadBookmarks([], 0);
     }
   }, [user?.id, loadBookmarks]);
