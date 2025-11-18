@@ -110,12 +110,12 @@ export default function TalentCard({ talent, onEditClick, isHighlight, onOpenCha
 
   return (
     <article
-      className={`card-interactive bg-white border rounded-lg shadow-md animate-slide-up overflow-hidden flex flex-col h-full transition-all duration-300 ${
+      className={`card-interactive bg-white border rounded-lg shadow-md animate-slide-up overflow-hidden flex flex-col transition-all duration-300 ${
         isHighlight
           ? 'border-[#2f855a] ring-4 ring-[#7db8a3] ring-opacity-50 animate-pulse shadow-xl'
           : 'border-gray-200'
       }`}
-      style={{ minHeight: '240px', maxHeight: '240px' }}
+      style={{ minHeight: '280px' }}
     >
       {/* 상단 컬러 바 (인력=그린) */}
       <div className={`h-1 bg-gradient-to-r from-[#7db8a3] to-[#6fb59b] flex-shrink-0 ${isHighlight ? 'h-2' : ''}`} />
@@ -126,32 +126,6 @@ export default function TalentCard({ talent, onEditClick, isHighlight, onOpenCha
           {/* 헤더 */}
           <div className="flex items-center justify-between mb-3">
             <span className="text-sm font-semibold text-[#2f855a]">인력</span>
-            <div className="flex items-center gap-2">
-              {/* 북마크 버튼 */}
-              <button
-                onClick={handleBookmarkToggle}
-                className="transition-colors hover:scale-110 transform duration-200"
-                aria-label={bookmarked ? '북마크 제거' : '북마크 추가'}
-                title={bookmarked ? '북마크 제거' : '북마크 추가'}
-              >
-                <IconHeart
-                  size={20}
-                  stroke={1.5}
-                  fill={bookmarked ? 'currentColor' : 'none'}
-                  className={bookmarked ? 'text-red-500' : 'text-gray-300 hover:text-red-400'}
-                />
-              </button>
-              {/* 채팅 버튼 (본인 카드가 아니고 user_id가 있을 때만) */}
-              {user && !isOwner && talent.user_id && (
-                <button
-                  onClick={handleChatClick}
-                  className="p-1.5 hover:bg-emerald-50 rounded-full transition-colors"
-                  title="채팅하기"
-                >
-                  <MessageCircle className="w-5 h-5 text-emerald-600" />
-                </button>
-              )}
-            </div>
           </div>
 
           {/* 이름 */}
@@ -228,6 +202,33 @@ export default function TalentCard({ talent, onEditClick, isHighlight, onOpenCha
             onError={(e) => handleImageError(e, 'talent')}
           />
         </div>
+      </div>
+
+      {/* 하단 액션바 */}
+      <div className="flex gap-2 px-4 pb-3">
+        {user && !isOwner && talent.user_id && (
+          <button
+            onClick={handleChatClick}
+            className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-md border border-gray-200 hover:bg-gray-50 transition-colors"
+            aria-label="채팅하기"
+          >
+            <MessageCircle className="w-4 h-4 text-gray-600" />
+            <span className="text-sm font-semibold text-gray-700">채팅</span>
+          </button>
+        )}
+        <button
+          onClick={handleBookmarkToggle}
+          className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-md border border-gray-200 hover:bg-gray-50 transition-colors"
+          aria-label={bookmarked ? '북마크 제거' : '북마크 추가'}
+        >
+          <IconHeart
+            size={16}
+            stroke={1.5}
+            fill={bookmarked ? 'currentColor' : 'none'}
+            className={bookmarked ? 'text-red-500' : 'text-gray-600'}
+          />
+          <span className="text-sm font-semibold text-gray-700">북마크</span>
+        </button>
       </div>
     </article>
   );

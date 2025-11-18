@@ -3,7 +3,7 @@ import { ChevronLeft, Send, Paperclip, X, Download, User } from 'lucide-react';
 import { useChatStore } from '@/stores/chatStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useChatRealtime } from '@/hooks/useChatRealtime';
-import BottomNav from '@/components/mobile/BottomNav';
+import MobileBottomNav from '@/components/mobile/MobileBottomNav';
 import type { ChatMessage } from '@/types/chat';
 import { MAX_FILE_SIZE } from '@/types/chat';
 
@@ -314,7 +314,14 @@ export default function MobileChatRoom() {
       </div>
 
       {/* 하단 네비게이션 (고정) */}
-      <BottomNav />
+      <MobileBottomNav
+        currentTab="chat"
+        onTabChange={() => {}}
+        onChatClick={() => window.location.href = '/chat'}
+        onProfileClick={() => window.location.href = '/profile'}
+        onRegisterClick={() => {}}
+        onHomeClick={() => window.location.href = '/'}
+      />
     </div>
   );
 }

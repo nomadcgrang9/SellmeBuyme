@@ -130,8 +130,8 @@ export default function ExperienceCard({ card, onEditClick, onDeleteClick, onCar
 
   return (
     <article
-      className="card-interactive bg-white border border-gray-200 rounded-lg shadow-md animate-slide-up overflow-hidden cursor-pointer"
-      style={{ minHeight: '300px', display: 'flex', flexDirection: 'column' }}
+      className="card-interactive bg-white border border-gray-200 rounded-lg shadow-md animate-slide-up overflow-hidden cursor-pointer flex flex-col"
+      style={{ minHeight: '340px' }}
       onClick={onCardClick}
     >
       {/* 상단 컬러 바 */}
@@ -140,7 +140,7 @@ export default function ExperienceCard({ card, onEditClick, onDeleteClick, onCar
       <div className="flex p-4 flex-1 gap-3">
         {/* 좌측: 텍스트 정보 */}
         <div className="flex flex-col flex-1 min-w-0">
-          {/* 헤더 - "체험" 텍스트, 소유자 액션, 북마크, 채팅 버튼 */}
+          {/* 헤더 - "체험" 텍스트, 소유자 액션 */}
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
               <span className="text-sm font-bold text-[#f4c96b]">체험</span>
@@ -169,32 +169,6 @@ export default function ExperienceCard({ card, onEditClick, onDeleteClick, onCar
                     <IconTrash size={16} />
                   </button>
                 </div>
-              )}
-            </div>
-            <div className="flex items-center gap-2">
-              {/* 북마크 버튼 */}
-              <button
-                onClick={handleBookmarkToggle}
-                className="transition-colors hover:scale-110 transform duration-200"
-                aria-label={bookmarked ? '북마크 제거' : '북마크 추가'}
-                title={bookmarked ? '북마크 제거' : '북마크 추가'}
-              >
-                <IconHeart
-                  size={20}
-                  stroke={1.5}
-                  fill={bookmarked ? 'currentColor' : 'none'}
-                  className={bookmarked ? 'text-red-500' : 'text-gray-300 hover:text-red-400'}
-                />
-              </button>
-              {/* 채팅 버튼 (본인 카드가 아니고 user_id가 있을 때만) */}
-              {user && !isOwner && card.user_id && (
-                <button
-                  onClick={handleChatClick}
-                  className="p-1.5 hover:bg-orange-50 rounded-full transition-colors"
-                  title="채팅하기"
-                >
-                  <MessageCircle className="w-5 h-5 text-[#f4c96b]" />
-                </button>
               )}
             </div>
           </div>
@@ -256,6 +230,33 @@ export default function ExperienceCard({ card, onEditClick, onDeleteClick, onCar
             onError={(e) => handleImageError(e, 'experience')}
           />
         </div>
+      </div>
+
+      {/* 하단 액션바 */}
+      <div className="flex gap-2 px-4 pb-3">
+        {user && !isOwner && card.user_id && (
+          <button
+            onClick={handleChatClick}
+            className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-md border border-gray-200 hover:bg-gray-50 transition-colors"
+            aria-label="채팅하기"
+          >
+            <MessageCircle className="w-4 h-4 text-gray-600" />
+            <span className="text-sm font-semibold text-gray-700">채팅</span>
+          </button>
+        )}
+        <button
+          onClick={handleBookmarkToggle}
+          className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-md border border-gray-200 hover:bg-gray-50 transition-colors"
+          aria-label={bookmarked ? '북마크 제거' : '북마크 추가'}
+        >
+          <IconHeart
+            size={16}
+            stroke={1.5}
+            fill={bookmarked ? 'currentColor' : 'none'}
+            className={bookmarked ? 'text-red-500' : 'text-gray-600'}
+          />
+          <span className="text-sm font-semibold text-gray-700">북마크</span>
+        </button>
       </div>
     </article>
   );

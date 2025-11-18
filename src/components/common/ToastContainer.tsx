@@ -13,33 +13,23 @@ export default function ToastContainer() {
   }
 
   return (
-    <div className="pointer-events-none fixed top-6 right-6 z-[9999] flex w-full max-w-sm flex-col gap-3">
+    <div className="pointer-events-none fixed top-6 right-6 z-[9999] flex w-full max-w-sm flex-col gap-2">
       {items.map((toast) => {
-        const baseStyle =
-          'pointer-events-auto flex items-start gap-3 rounded-2xl border px-4 py-3 shadow-lg backdrop-blur-sm text-sm font-medium transition-all';
-
-        const tone = {
-          success: 'border-emerald-200 bg-emerald-50/95 text-emerald-800',
-          error: 'border-red-200 bg-red-50/95 text-red-800',
-          info: 'border-slate-200 bg-white/95 text-slate-800',
-          warning: 'border-amber-200 bg-amber-50/95 text-amber-800'
+        const textColor = {
+          success: 'text-gray-800',
+          error: 'text-red-800',
+          info: 'text-gray-800',
+          warning: 'text-amber-800'
         }[toast.type];
 
         return (
           <div
             key={toast.id}
-            className={`${baseStyle} ${tone}`}
+            className={`pointer-events-auto px-4 py-2.5 text-sm font-medium ${textColor} bg-white/95 backdrop-blur-sm rounded-lg shadow-lg border border-gray-200 transition-all animate-slide-in-right`}
             role="status"
             aria-live="polite"
           >
-            <span className="flex-1 leading-relaxed">{toast.message}</span>
-            <button
-              type="button"
-              onClick={() => removeToast(toast.id)}
-              className="text-xs font-semibold text-slate-500 transition-colors hover:text-slate-800"
-            >
-              닫기
-            </button>
+            {toast.message}
           </div>
         );
       })}

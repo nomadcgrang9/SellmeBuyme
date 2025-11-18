@@ -3815,20 +3815,38 @@ function formatTalentLocation(locations: string[]): string {
  */
 export async function fetchUserBookmarkIds(userId: string): Promise<string[]> {
   try {
+    console.log('[fetchUserBookmarkIds] 🔍 시작 - userId:', userId);
+
+    // 세션 확인
+    const { data: { session } } = await supabase.auth.getSession();
+    console.log('[fetchUserBookmarkIds] 📌 세션 정보:', {
+      sessionExists: !!session,
+      sessionUserId: session?.user?.id,
+      matchesProvidedUserId: session?.user?.id === userId
+    });
+
     const { data, error } = await supabase
       .from('bookmarks')
       .select('card_id')
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
 
+    console.log('[fetchUserBookmarkIds] 📊 쿼리 결과:', {
+      dataLength: data?.length,
+      error: error,
+      rawData: data
+    });
+
     if (error) {
-      console.error('[fetchUserBookmarkIds] 에러:', error);
+      console.error('[fetchUserBookmarkIds] ❌ 에러:', error);
       throw error;
     }
 
-    return data?.map(b => b.card_id) || [];
+    const result = data?.map(b => b.card_id) || [];
+    console.log('[fetchUserBookmarkIds] ✅ 반환:', result);
+    return result;
   } catch (error) {
-    console.error('[fetchUserBookmarkIds] 북마크 조회 실패:', error);
+    console.error('[fetchUserBookmarkIds] 💥 북마크 조회 실패:', error);
     return [];
   }
 }
@@ -3841,24 +3859,34 @@ export async function addBookmark(
   cardId: string,
   cardType: 'job' | 'talent' | 'experience'
 ): Promise<void> {
-  console.log('[addBookmark] 시작:', { userId, cardId, cardType });
-  
+  console.log('[addBookmark] 🔍 시작:', { userId, cardId, cardType });
+
   try {
-    const { error } = await supabase
+    // 세션 확인
+    const { data: { session } } = await supabase.auth.getSession();
+    console.log('[addBookmark] 📌 세션 정보:', {
+      sessionExists: !!session,
+      sessionUserId: session?.user?.id
+    });
+
+    const { data, error } = await supabase
       .from('bookmarks')
       .insert({
         user_id: userId,
         card_id: cardId,
         card_type: cardType
-      });
+      })
+      .select();
+
+    console.log('[addBookmark] 📊 INSERT 결과:', { data, error });
 
     if (error) {
       // 중복 에러는 무시 (이미 북마크됨)
       if (error.code === '23505') {
-        console.log('[addBookmark] 이미 북마크된 카드:', cardId);
+        console.log('[addBookmark] ⚠️ 이미 북마크된 카드:', cardId);
         return;
       }
-      console.error('[addBookmark] DB 에러:', error);
+      console.error('[addBookmark] ❌ DB 에러:', error);
       console.error('[addBookmark] 에러 상세:', {
         code: error.code,
         message: error.message,
@@ -3868,9 +3896,9 @@ export async function addBookmark(
       throw error;
     }
 
-    console.log('[addBookmark] 북마크 추가 성공:', cardId);
+    console.log('[addBookmark] ✅ 북마크 추가 성공');
   } catch (error) {
-    console.error('[addBookmark] 예외 발생:', error);
+    console.error('[addBookmark] 💥 예외 발생:', error);
     throw error;
   }
 }
@@ -3916,6 +3944,19 @@ export async function removeBookmark(
  */
 export async function fetchBookmarkedCards(userId: string): Promise<Card[]> {
   try {
+    console.log('[fetchBookmarkedCards] 🔍 시작 - userId:', userId);
+
+    // Supabase 세션 확인
+    const { data: { session } } = await supabase.auth.getSession();
+    console.log('[fetchBookmarkedCards] 📌 Supabase 세션:', {
+      sessionExists: !!session,
+      sessionUserId: session?.user?.id,
+      matchesProvidedUserId: session?.user?.id === userId
+    });
+
+    // Supabase URL 확인
+    console.log('[fetchBookmarkedCards] 🌐 Supabase URL:', supabase.supabaseUrl);
+
     // 1. 사용자의 북마크 조회
     const { data: bookmarks, error: bookmarkError } = await supabase
       .from('bookmarks')
@@ -3923,12 +3964,19 @@ export async function fetchBookmarkedCards(userId: string): Promise<Card[]> {
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
 
+    console.log('[fetchBookmarkedCards] 📊 북마크 조회 결과:', {
+      bookmarksLength: bookmarks?.length,
+      bookmarkError,
+      rawBookmarks: bookmarks
+    });
+
     if (bookmarkError) {
       console.error('[fetchBookmarkedCards] 북마크 조회 에러:', bookmarkError);
       throw bookmarkError;
     }
 
     if (!bookmarks || bookmarks.length === 0) {
+      console.log('[fetchBookmarkedCards] 북마크 없음 - 빈 배열 반환');
       return [];
     }
 
@@ -3936,6 +3984,8 @@ export async function fetchBookmarkedCards(userId: string): Promise<Card[]> {
     const jobIds = bookmarks.filter(b => b.card_type === 'job').map(b => b.card_id);
     const talentIds = bookmarks.filter(b => b.card_type === 'talent').map(b => b.card_id);
     const experienceIds = bookmarks.filter(b => b.card_type === 'experience').map(b => b.card_id);
+
+    console.log('[fetchBookmarkedCards] 카드 타입별 그룹화:', { jobIds, talentIds, experienceIds });
 
     const cards: Card[] = [];
 
@@ -3945,6 +3995,8 @@ export async function fetchBookmarkedCards(userId: string): Promise<Card[]> {
         .from('job_postings')
         .select('*')
         .in('id', jobIds);
+
+      console.log('[fetchBookmarkedCards] 공고 카드 조회:', { jobs: jobs?.length, jobError });
 
       if (!jobError && jobs) {
         const jobCards = jobs.map(job => mapJobPostingToCard(job));
@@ -3959,6 +4011,8 @@ export async function fetchBookmarkedCards(userId: string): Promise<Card[]> {
         .select('*')
         .in('id', talentIds);
 
+      console.log('[fetchBookmarkedCards] 인력 카드 조회:', { talents: talents?.length, talentError });
+
       if (!talentError && talents) {
         const talentCards = talents.map(talent => mapTalentToCard(talent));
         cards.push(...talentCards);
@@ -3971,6 +4025,8 @@ export async function fetchBookmarkedCards(userId: string): Promise<Card[]> {
         .from('experiences')
         .select('*')
         .in('id', experienceIds);
+
+      console.log('[fetchBookmarkedCards] 체험 카드 조회:', { experiences: experiences?.length, expError });
 
       if (!expError && experiences) {
         const experienceCards = experiences.map(exp => mapExperienceRowToCard(exp));
@@ -3990,6 +4046,8 @@ export async function fetchBookmarkedCards(userId: string): Promise<Card[]> {
     cards.forEach(card => {
       card.isBookmarked = true;
     });
+
+    console.log('[fetchBookmarkedCards] 최종 반환 카드 수:', cards.length);
 
     return cards;
   } catch (error) {

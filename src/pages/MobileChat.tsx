@@ -3,7 +3,7 @@ import { ChevronLeft, MessageCircle, User, UserPlus } from 'lucide-react';
 import { useChatStore } from '@/stores/chatStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useChatRealtime } from '@/hooks/useChatRealtime';
-import BottomNav from '@/components/mobile/BottomNav';
+import MobileBottomNav from '@/components/mobile/MobileBottomNav';
 import UserSearchModal from '@/components/chat/UserSearchModal';
 import type { ChatRoom } from '@/types/chat';
 
@@ -79,7 +79,14 @@ export default function MobileChat() {
         </div>
 
         {/* 하단 네비게이션 */}
-        <BottomNav />
+        <MobileBottomNav
+          currentTab="chat"
+          onTabChange={() => {}}
+          onChatClick={() => {}}
+          onProfileClick={() => window.location.href = '/profile'}
+          onRegisterClick={() => {}}
+          onHomeClick={() => window.location.href = '/'}
+        />
       </div>
     );
   }
@@ -113,7 +120,14 @@ export default function MobileChat() {
         </div>
 
         {/* 하단 네비게이션 */}
-        <BottomNav />
+        <MobileBottomNav
+          currentTab="chat"
+          onTabChange={() => {}}
+          onChatClick={() => {}}
+          onProfileClick={() => window.location.href = '/profile'}
+          onRegisterClick={() => {}}
+          onHomeClick={() => window.location.href = '/'}
+        />
       </div>
     );
   }
@@ -167,7 +181,14 @@ export default function MobileChat() {
       </div>
 
       {/* 하단 네비게이션 */}
-      <BottomNav />
+      <MobileBottomNav
+        currentTab="chat"
+        onTabChange={() => {}}
+        onChatClick={() => {}}
+        onProfileClick={() => window.location.href = '/profile'}
+        onRegisterClick={() => {}}
+        onHomeClick={() => window.location.href = '/'}
+      />
 
       {/* 사용자 검색 모달 */}
       <UserSearchModal
