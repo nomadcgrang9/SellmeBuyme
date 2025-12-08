@@ -267,8 +267,8 @@ The app uses a custom color palette defined in `tailwind.config.ts`:
 
 ## References
 
-- **Architecture docs**: `BACKEND_STRUCTURE.md`, `FRONTEND_STRUCTURE.md`
-- **Color system**: `COLOR_STRUCTURE.md`
-- **Crawling plan**: `CRAWLING_PLAN.md`
-- **Search redesign**: `SEARCH_SYSTEM_REDESIGN.md`
+- **Architecture docs**: `docs/BACKEND_STRUCTURE.md`, `docs/FRONTEND_STRUCTURE.md`
+- **Color system**: `docs/COLOR_STRUCTURE.md`
+- **Crawling plan**: `docs/CRAWLING_PLAN.md`
+- **Team guides**: `docs/GUIDE_DEVELOPER.md`, `docs/GUIDE_PLANNER.md`, `docs/GUIDE_ARCHITECTURE.md`
 - **Recent changes**: Check git log for detailed change history
