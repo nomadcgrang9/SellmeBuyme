@@ -10,11 +10,28 @@
 SellmeBuyme/
 │
 ├── 📂 src/                    # 프론트엔드 소스코드
-├── 📂 crawler/                # 크롤러 (Node.js)
+│   ├── 📂 api/                # API 라우트 (Vite middleware)
+│   ├── 📂 components/         # UI 컴포넌트
+│   ├── 📂 hooks/              # 커스텀 훅
+│   ├── 📂 lib/                # 유틸리티, Supabase 클라이언트
+│   ├── 📂 pages/              # 페이지 컴포넌트
+│   ├── 📂 stores/             # Zustand 상태 관리
+│   ├── 📂 styles/             # 스타일 파일
+│   └── 📂 types/              # TypeScript 타입 정의
+├── 📂 crawler/                # 크롤러 (Node.js + Playwright)
+│   ├── 📂 ai-generator/       # AI 크롤러 자동 생성
+│   ├── 📂 lib/                # 크롤러 유틸리티
+│   └── 📂 sources/            # 사이트별 크롤러
 ├── 📂 supabase/               # 백엔드 (DB, Edge Functions)
-├── 📂 scripts/                # 관리 스크립트 (TypeScript)
-├── 📂 public/                 # 정적 파일
-└── 📄 설정 파일들              # vite, ts, tailwind 등
+│   ├── 📂 functions/          # Edge Functions (Deno)
+│   └── 📂 migrations/         # DB 마이그레이션 SQL
+├── 📂 scripts/                # 관리 스크립트 (TypeScript) - 100개+
+│   ├── 📂 db/                 # DB 관리 스크립트
+│   ├── 📂 dev/                # 개발용 스크립트
+│   └── 📂 test/               # 테스트/검증 스크립트
+├── 📂 docs/                   # 문서 파일 (MD)
+├── 📂 public/                 # 정적 파일, 폰트
+└── 📄 설정 파일들              # vite, ts, tailwind, capacitor 등
 ```
 
 ---
@@ -53,20 +70,22 @@ SellmeBuyme/
 | `StripeBanner.tsx` | 배너 광고 섹션 |
 
 #### 🗂 auth/ - 인증/프로필
-| 파일 | 역할 |
-|------|------|
-| `SocialSignupModal.tsx` | 소셜 로그인 모달 |
-| `ProfileSetupModal.tsx` | 프로필 설정 (5단계) |
-| `ProfileStep1Basic.tsx` | Step 1: 기본 정보 |
-| `ProfileStep1Role.tsx` | Step 1: 역할 선택 |
-| `ProfileStep2Education.tsx` | Step 2: 학력 |
-| `ProfileStep2Field.tsx` | Step 2: 전공/과목 |
-| `ProfileStep3Location.tsx` | Step 3: 거주지 |
-| `ProfileStep3Preferences.tsx` | Step 3: 선호 조건 |
-| `ProfileStep4Priority.tsx` | Step 4: 우선순위 |
-| `ProfileStep5Skills.tsx` | Step 5: 스킬/자격증 |
-| `ProfileViewModal.tsx` | 프로필 조회/편집 |
-| `ProfileAwarenessModal.tsx` | 프로필 설정 알림 |
+| 파일 | 역할 | 상태 |
+|------|------|-----|
+| `SocialSignupModal.tsx` | 소셜 로그인 모달 | ✅ 사용 |
+| `ProfileSetupModal.tsx` | 프로필 설정 (3단계) | ✅ 사용 |
+| `ProfileStep1Role.tsx` | Step 1: 역할 선택 (교사/강사/업체/학교행정) | ✅ 사용 |
+| `ProfileStep2Field.tsx` | Step 2: 분야 선택 (학교급/과목/강사분야) | ✅ 사용 |
+| `ProfileStep3Location.tsx` | Step 3: 지역 + 자기소개 | ✅ 사용 |
+| `ProfileViewModal.tsx` | 프로필 조회/편집 | ✅ 사용 |
+| `ProfileAwarenessModal.tsx` | 프로필 설정 알림 | ✅ 사용 |
+| `ProfileStep1Basic.tsx` | (미사용) 기본 정보 | ⚠️ deprecated |
+| `ProfileStep2Education.tsx` | (미사용) 학력 | ⚠️ deprecated |
+| `ProfileStep3Preferences.tsx` | (미사용) 선호 조건 | ⚠️ deprecated |
+| `ProfileStep4Priority.tsx` | (미사용) 우선순위 | ⚠️ deprecated |
+| `ProfileStep5Skills.tsx` | (미사용) 스킬/자격증 | ⚠️ deprecated |
+| `ProfileSetupModalNew.tsx` | (백업) | ⚠️ backup |
+| `ProfileSetupModal_backup.tsx` | (백업) | ⚠️ backup |
 
 #### 🗂 cards/ - 카드 컴포넌트
 | 파일 | 역할 |
@@ -105,22 +124,23 @@ SellmeBuyme/
 | `FormLayout.tsx` | 폼 레이아웃 래퍼 |
 
 #### 🗂 mobile/ - 모바일 전용
-| 파일 | 역할 |
-|------|------|
-| `MobileHeader.tsx` | 모바일 헤더 |
-| `MobileBottomNav.tsx` | 모바일 하단 네비게이션 (현재 사용) |
-| `BottomNav.tsx` | 구버전 하단 네비 (deprecated) |
-| `MobileProfilePage.tsx` | 모바일 프로필 페이지 |
-| `MobileAuthPage.tsx` | 모바일 인증 페이지 |
-| `RegisterButtonsSection.tsx` | 등록 버튼 섹션 |
-| `RegisterBottomSheet.tsx` | 등록 바텀시트 |
-| `IntegratedHeaderPromo.tsx` | 헤더-프로모 통합 |
-| `MobilePromoSection.tsx` | 모바일 프로모 섹션 |
-| `StatisticsBanner.tsx` | 통계 배너 |
+| 파일 | 역할 | 상태 |
+|------|------|-----|
+| `MobileHeader.tsx` | 모바일 헤더 | ✅ |
+| `MobileBottomNav.tsx` | 모바일 하단 네비게이션 | ✅ 현재 사용 |
+| `MobileProfilePage.tsx` | 모바일 프로필 페이지 | ✅ |
+| `MobileAuthPage.tsx` | 모바일 인증 페이지 | ✅ |
+| `MobilePromoSection.tsx` | 모바일 프로모 섹션 | ✅ |
+| `RegisterButtonsSection.tsx` | 등록 버튼 섹션 | ✅ |
+| `RegisterBottomSheet.tsx` | 등록 바텀시트 | ✅ |
+| `IntegratedHeaderPromo.tsx` | 헤더-프로모 통합 | ✅ |
+| `StatisticsBanner.tsx` | 통계 배너 | ✅ |
+| `BottomNav.tsx` | 구버전 하단 네비 | ⚠️ deprecated |
 
 #### 🗂 admin/ - 관리자
 | 파일 | 역할 |
 |------|------|
+| `AdminUserManagement.tsx` | 사용자 관리 |
 | `CrawlBoardList.tsx` | 크롤 보드 목록 |
 | `CrawlBoardForm.tsx` | 크롤 보드 폼 |
 | `CrawlBatchSizeInput.tsx` | 배치 크기 입력 |
@@ -213,6 +233,11 @@ SellmeBuyme/
 | `TourTooltip.tsx` | 투어 툴팁 |
 | `WelcomeTourModal.tsx` | 환영 투어 모달 |
 
+#### 🗂 기타 컴포넌트
+| 파일 | 역할 |
+|------|------|
+| `BlurText.tsx` | 블러 텍스트 효과 |
+
 #### 🗂 map/ - 지도
 | 파일 | 역할 |
 |------|------|
@@ -225,6 +250,14 @@ SellmeBuyme/
 |------|------|
 | `ToastContainer.tsx` | 토스트 알림 |
 | `TextType.tsx` | 텍스트 타입 |
+
+### 📂 api/ - API 라우트
+
+| 파일 | 역할 |
+|------|------|
+| `generate-crawler.ts` | 크롤러 생성 API (Vite middleware) |
+
+---
 
 ### 📂 stores/ - 상태 관리 (Zustand)
 
@@ -341,6 +374,8 @@ SellmeBuyme/
 |------|------|
 | `index.js` | 메인 크롤러 오케스트레이터 |
 | `package.json` | 크롤러 의존성 |
+| `debug-gyeonggi-html.js` | 경기도 HTML 디버그 |
+| `migrate-attachment-urls.js` | 첨부파일 URL 마이그레이션 |
 
 ### 📂 sources/ - 사이트별 크롤러
 
@@ -366,14 +401,24 @@ SellmeBuyme/
 | `jobFieldParser.js` | 공고 필드 파싱 |
 | `fileConverter.js` | 파일 변환 |
 
-### 📂 ai-generator/ - AI 크롤러 생성
+### 📂 ai-generator/ - AI 크롤러 자동 생성
 
+#### agents/ - 에이전트
 | 파일 | 역할 |
 |------|------|
-| `agents/boardAnalyzer.ts` | 게시판 분석 에이전트 |
-| `agents/codeGenerator.ts` | 코드 생성 에이전트 |
-| `agents/sandbox.ts` | 샌드박스 테스트 |
-| `agents/selfCorrection.ts` | 자동 수정 에이전트 |
+| `boardAnalyzer.ts` | 게시판 분석 에이전트 |
+| `codeGenerator.ts` | 코드 생성 에이전트 |
+| `sandbox.ts` | 샌드박스 테스트 |
+| `selfCorrection.ts` | 자동 수정 에이전트 |
+
+#### 기타 파일
+| 파일 | 역할 |
+|------|------|
+| `types/index.ts` | 타입 정의 |
+| `analyze-namyangju-structure.ts` | 남양주 구조 분석 |
+| `explore-namyangju.ts` | 남양주 탐색 |
+| `check-detail-page.ts` | 상세페이지 확인 |
+| `test-phase5-*.ts` | Phase 5 테스트 스크립트 (4개) |
 
 ---
 
@@ -416,6 +461,8 @@ SellmeBuyme/
 ## 📜 scripts/ - 관리 스크립트
 
 > ⚠️ **모든 스크립트는 TypeScript(.ts) 필수** (PROJECT_RULES.md)
+>
+> 📝 현재 100개 이상의 스크립트가 있습니다. 아래는 주요 카테고리별 대표 스크립트입니다.
 
 ### 📂 db/ - DB 관리
 
@@ -426,18 +473,44 @@ SellmeBuyme/
 | `run-migration.ts` | 마이그레이션 실행 |
 | `check-keywords.ts` | 검색 키워드 확인 |
 | `sync-deployments.ts` | 배포 동기화 |
-| `verify-crawl-boards.ts` | 크롤 보드 검증 |
-| `delete-duplicate-chat-rooms.ts` | 중복 채팅방 삭제 |
+| `patch-crawl-boards-meta.ts` | 크롤보드 메타 패치 |
+| `backfill-search-vectors.ts` | 검색 벡터 백필 |
+| `check-extensions.ts` | DB 확장 확인 |
+| `check-pgroonga-availability.ts` | pgroonga 가용성 확인 |
+| `check-search-data.ts` | 검색 데이터 확인 |
 
-### 📂 test/ - 테스트
+### 📂 dev/ - 개발용
+
+| 파일 | 역할 |
+|------|------|
+| `inspect-db-data.ts` | DB 데이터 검사 |
+| `inspect-db-data-fixed.ts` | DB 데이터 검사 (수정본) |
+
+### 📂 test/ - 테스트/검증
 
 | 파일 | 역할 |
 |------|------|
 | `verify-stripe-banners.ts` | 배너 검증 |
-| `verify-chat-features.ts` | 채팅 기능 검증 |
-| `check-bookmarks-table.ts` | 북마크 테이블 확인 |
-| `test-bookmark-insert.ts` | 북마크 삽입 테스트 |
-| `chat-e2e-test.ts` | 채팅 E2E 테스트 |
+| `verify-auto-statistics.ts` | 자동 통계 검증 |
+| `verify-synonym-search.ts` | 동의어 검색 검증 |
+| `verify-phase4-integration.ts` | Phase 4 통합 검증 |
+| `test-refresh-stats.ts` | 통계 새로고침 테스트 |
+| `test-search-query.ts` | 검색 쿼리 테스트 |
+| `test-stripe-banner-rls.ts` | 배너 RLS 테스트 |
+| `test-crawl-boards-search.ts` | 크롤보드 검색 테스트 |
+| `view-boards-with-regions.ts` | 지역별 보드 조회 |
+
+### 📂 루트 스크립트 (주요)
+
+| 카테고리 | 예시 스크립트 | 수량 |
+|---------|-------------|------|
+| `check-*.ts` | DB 상태, 크롤보드, 프로필 확인 등 | ~50개 |
+| `delete-*.ts` | 중복/불량 데이터 삭제 | ~15개 |
+| `analyze-*.ts` | 구조 분석, 링크 분석 등 | ~10개 |
+| `cleanup-*.ts` | 데이터 정리 | ~8개 |
+| `diagnose-*.ts` | 문제 진단 | ~5개 |
+| `migrate-*.ts` | 데이터 마이그레이션 | ~3개 |
+| 기타 | 유틸리티 | ~10개 |
 
 ---
 
@@ -457,15 +530,27 @@ SellmeBuyme/
 
 ## 📚 문서 파일
 
+### 루트 문서
 | 파일 | 역할 |
 |------|------|
 | `README.md` | 프로젝트 소개 |
 | `CLAUDE.md` | Claude Code 개발 가이드 (핵심) |
+
+### docs/ 폴더 문서 (31개)
+| 파일 | 역할 |
+|------|------|
+| `GUIDE_DEVELOPER.md` | 개발자 가이드 (이 문서) |
+| `GUIDE_PLANNER.md` | 기획자/마케터 가이드 |
+| `GUIDE_ARCHITECTURE.md` | 아키텍처 가이드 |
 | `PROJECT_RULES.md` | 코드 작성 규칙 |
 | `FRONTEND_STRUCTURE.md` | 프론트엔드 구조 |
 | `BACKEND_STRUCTURE.md` | 백엔드 구조 |
 | `COLOR_STRUCTURE.md` | 색상 팔레트 |
 | `CRAWLING_PLAN.md` | 크롤러 계획 |
+| `SECURITY.md` | 보안 가이드 |
+| `MOBILE_*.md` | 모바일 관련 문서 (여러 개) |
+| `BOOKMARK_*.md` | 북마크 관련 문서 (여러 개) |
+| 기타 | 기능별 계획/디버그 문서 |
 
 ---
 
@@ -503,6 +588,442 @@ npx tsx scripts/db/grant-admin-role.ts
 
 ---
 
+## 🗃️ Supabase 데이터베이스 테이블
+
+> 실제 Supabase에서 사용 중인 테이블 목록입니다. (2025-12-09 기준)
+
+### 📌 핵심 비즈니스 테이블
+
+#### `job_postings` - 일자리 공고
+| 컬럼 | 타입 | Nullable | 설명 |
+|------|------|----------|------|
+| `id` | uuid | NO | PK |
+| `organization` | text | YES | 기관명 |
+| `title` | text | YES | 공고 제목 |
+| `tags` | ARRAY | YES | 태그 배열 |
+| `location` | text | YES | 위치 |
+| `compensation` | text | YES | 급여 |
+| `deadline` | text | YES | 마감일 |
+| `work_period` | text | YES | 근무기간 |
+| `work_time` | text | YES | 근무시간 |
+| `contact` | text | YES | 연락처 |
+| `detail_content` | text | YES | 상세내용 |
+| `source_url` | text | YES | 원본 URL |
+| `attachment_url` | text | YES | 첨부파일 URL |
+| `attachment_path` | text | YES | 첨부파일 경로 |
+| `is_urgent` | boolean | YES | 긴급 여부 |
+| `school_level` | text | YES | 학교급 |
+| `subject` | text | YES | 과목 |
+| `required_license` | text | YES | 필수자격 |
+| `structured_content` | jsonb | YES | 구조화된 내용 |
+| `form_payload` | jsonb | YES | 폼 데이터 |
+| `user_id` | uuid | YES | 작성자 |
+| `search_vector` | tsvector | YES | FTS 벡터 |
+| `created_at` | timestamptz | YES | 생성일 |
+| `updated_at` | timestamptz | YES | 수정일 |
+
+#### `talents` - 인재 풀
+| 컬럼 | 타입 | Nullable | 설명 |
+|------|------|----------|------|
+| `id` | uuid | NO | PK |
+| `user_id` | uuid | YES | 연결된 유저 |
+| `name` | text | NO | 이름 |
+| `specialty` | text | NO | 전문분야 |
+| `tags` | ARRAY | YES | 태그 |
+| `location` | ARRAY | YES | 활동지역 |
+| `experience_years` | integer | YES | 경력(년) |
+| `phone` | text | YES | 전화번호 |
+| `email` | text | YES | 이메일 |
+| `license` | text | YES | 자격증 |
+| `introduction` | text | YES | 자기소개 |
+| `rating` | numeric | YES | 평점 |
+| `review_count` | integer | YES | 리뷰 수 |
+| `is_verified` | boolean | YES | 인증 여부 |
+| `search_vector` | tsvector | YES | FTS 벡터 |
+| `created_at` | timestamptz | YES | 생성일 |
+| `updated_at` | timestamptz | YES | 수정일 |
+
+#### `experiences` - 체험 프로그램
+| 컬럼 | 타입 | Nullable | 설명 |
+|------|------|----------|------|
+| `id` | uuid | NO | PK |
+| `user_id` | uuid | YES | 작성자 |
+| `program_title` | text | NO | 프로그램명 |
+| `categories` | ARRAY | YES | 카테고리 |
+| `target_school_levels` | ARRAY | YES | 대상 학교급 |
+| `region_seoul` | ARRAY | YES | 서울 지역 |
+| `region_gyeonggi` | ARRAY | YES | 경기 지역 |
+| `location_summary` | text | YES | 위치 요약 |
+| `operation_types` | ARRAY | YES | 운영 타입 |
+| `capacity` | text | YES | 수용인원 |
+| `introduction` | text | YES | 소개 |
+| `contact_phone` | text | YES | 연락처 |
+| `contact_email` | text | YES | 이메일 |
+| `form_payload` | jsonb | YES | 폼 데이터 |
+| `status` | text | YES | 상태 |
+| `search_vector` | tsvector | YES | FTS 벡터 |
+| `created_at` | timestamptz | YES | 생성일 |
+| `updated_at` | timestamptz | YES | 수정일 |
+
+#### `user_profiles` - 사용자 프로필
+| 컬럼 | 타입 | Nullable | 설명 |
+|------|------|----------|------|
+| `id` | uuid | NO | PK (auth.users FK) |
+| `display_name` | text | YES | 표시 이름 |
+| `roles` | ARRAY | YES | 역할 (교사/강사 등) |
+| `interest_regions` | ARRAY | YES | 관심 지역 |
+| `preferred_subjects` | ARRAY | YES | 선호 과목 |
+| `preferred_job_types` | ARRAY | YES | 선호 직종 |
+| `capable_subjects` | ARRAY | YES | 가능 과목 |
+| `experience_years` | integer | YES | 경력(년) |
+| `teacher_level` | text | YES | 교사 자격 |
+| `profile_image_url` | text | YES | 프로필 이미지 |
+| `is_admin` | boolean | YES | 관리자 여부 |
+| `is_profile_complete` | boolean | YES | 프로필 완성 여부 |
+| `created_at` | timestamptz | YES | 생성일 |
+| `updated_at` | timestamptz | YES | 수정일 |
+
+#### `bookmarks` - 북마크
+| 컬럼 | 타입 | Nullable | 설명 |
+|------|------|----------|------|
+| `id` | uuid | NO | PK |
+| `user_id` | uuid | NO | 사용자 ID |
+| `card_type` | text | NO | 카드 타입 (job/talent/experience) |
+| `card_id` | uuid | NO | 카드 ID |
+| `created_at` | timestamptz | YES | 생성일 |
+
+---
+
+### 💬 채팅 시스템
+
+#### `chat_rooms` - 채팅방
+| 컬럼 | 타입 | Nullable | 설명 |
+|------|------|----------|------|
+| `id` | uuid | NO | PK |
+| `name` | text | YES | 채팅방 이름 |
+| `is_group` | boolean | YES | 그룹채팅 여부 |
+| `last_message` | text | YES | 마지막 메시지 |
+| `last_message_at` | timestamptz | YES | 마지막 메시지 시간 |
+| `created_at` | timestamptz | YES | 생성일 |
+| `updated_at` | timestamptz | YES | 수정일 |
+
+#### `chat_participants` - 채팅 참가자
+| 컬럼 | 타입 | Nullable | 설명 |
+|------|------|----------|------|
+| `id` | uuid | NO | PK |
+| `room_id` | uuid | NO | 채팅방 ID |
+| `user_id` | uuid | NO | 참가자 ID |
+| `joined_at` | timestamptz | YES | 참가일 |
+| `last_read_at` | timestamptz | YES | 마지막 읽음 |
+
+#### `chat_messages` - 채팅 메시지
+| 컬럼 | 타입 | Nullable | 설명 |
+|------|------|----------|------|
+| `id` | uuid | NO | PK |
+| `room_id` | uuid | NO | 채팅방 ID |
+| `sender_id` | uuid | NO | 발신자 ID |
+| `content` | text | NO | 메시지 내용 |
+| `is_read` | boolean | YES | 읽음 여부 |
+| `created_at` | timestamptz | YES | 생성일 |
+
+---
+
+### 🕷️ 크롤러 시스템
+
+#### `crawl_boards` - 크롤링 대상 게시판
+| 컬럼 | 타입 | Nullable | 설명 |
+|------|------|----------|------|
+| `id` | uuid | NO | PK |
+| `name` | text | NO | 보드 이름 |
+| `board_url` | text | NO | 게시판 URL |
+| `category` | text | YES | 카테고리 |
+| `description` | text | YES | 설명 |
+| `is_active` | boolean | YES | 활성화 여부 |
+| `status` | text | YES | 상태 (active/broken/blocked) |
+| `crawl_config` | jsonb | YES | 크롤링 설정 |
+| `crawl_batch_size` | integer | YES | 배치 크기 |
+| `region_code` | text | YES | 지역 코드 |
+| `subregion_code` | text | YES | 세부지역 코드 |
+| `region_display_name` | text | YES | 지역 표시명 |
+| `school_level` | text | YES | 학교급 |
+| `last_crawled_at` | timestamptz | YES | 마지막 크롤링 |
+| `last_success_at` | timestamptz | YES | 마지막 성공 |
+| `error_count` | integer | YES | 에러 카운트 |
+| `error_message` | text | YES | 에러 메시지 |
+| `approved_at` | timestamptz | YES | 승인일 |
+| `approved_by` | uuid | YES | 승인자 |
+| `created_at` | timestamptz | YES | 생성일 |
+| `updated_at` | timestamptz | YES | 수정일 |
+
+#### `crawl_logs` - 크롤링 로그
+| 컬럼 | 타입 | Nullable | 설명 |
+|------|------|----------|------|
+| `id` | uuid | NO | PK |
+| `board_id` | uuid | YES | 보드 ID |
+| `status` | text | YES | 상태 (pending/running/success/failed) |
+| `started_at` | timestamptz | YES | 시작 시간 |
+| `completed_at` | timestamptz | YES | 완료 시간 |
+| `items_found` | integer | YES | 발견 건수 |
+| `items_new` | integer | YES | 신규 건수 |
+| `items_skipped` | integer | YES | 스킵 건수 |
+| `ai_tokens_used` | integer | YES | AI 토큰 사용량 |
+| `error_log` | text | YES | 에러 로그 |
+| `created_at` | timestamptz | YES | 생성일 |
+
+#### `crawl_sources` - 크롤러 소스 코드
+| 컬럼 | 타입 | Nullable | 설명 |
+|------|------|----------|------|
+| `id` | uuid | NO | PK |
+| `board_id` | uuid | YES | 보드 ID |
+| `source_code` | text | YES | 소스 코드 |
+| `version` | integer | YES | 버전 |
+| `is_active` | boolean | YES | 활성화 여부 |
+| `generated_by` | text | YES | 생성자 |
+| `created_at` | timestamptz | YES | 생성일 |
+
+---
+
+### 🎨 프로모션/배너 시스템
+
+#### `promo_cards` - 프로모 카드
+| 컬럼 | 타입 | Nullable | 설명 |
+|------|------|----------|------|
+| `id` | uuid | NO | PK |
+| `collection_id` | uuid | YES | 컬렉션 ID |
+| `is_active` | boolean | YES | 활성화 |
+| `headline` | text | YES | 헤드라인 |
+| `image_url` | text | YES | 이미지 URL |
+| `insert_position` | integer | YES | 삽입 위치 |
+| `background_color` | text | YES | 배경색 |
+| `background_color_mode` | text | YES | 배경 모드 |
+| `background_gradient_start` | text | YES | 그라데이션 시작 |
+| `background_gradient_end` | text | YES | 그라데이션 끝 |
+| `font_color` | text | YES | 폰트 색상 |
+| `font_size` | integer | YES | 폰트 크기 |
+| `badge_color` | text | YES | 배지 색상 |
+| `badge_color_mode` | text | YES | 배지 모드 |
+| `badge_gradient_start` | text | YES | 배지 그라데이션 시작 |
+| `badge_gradient_end` | text | YES | 배지 그라데이션 끝 |
+| `image_scale` | numeric | YES | 이미지 스케일 |
+| `auto_play` | boolean | YES | 자동 재생 |
+| `duration` | integer | YES | 지속 시간 |
+| `last_draft_at` | timestamptz | YES | 마지막 임시저장 |
+| `last_applied_at` | timestamptz | YES | 마지막 적용 |
+| `updated_by` | uuid | YES | 수정자 |
+| `created_at` | timestamptz | YES | 생성일 |
+| `updated_at` | timestamptz | YES | 수정일 |
+
+#### `promo_card_collections` - 프로모 카드 컬렉션
+| 컬럼 | 타입 | Nullable | 설명 |
+|------|------|----------|------|
+| `id` | uuid | NO | PK |
+| `name` | text | YES | 컬렉션명 |
+| `description` | text | YES | 설명 |
+| `is_active` | boolean | YES | 활성화 |
+| `created_at` | timestamptz | YES | 생성일 |
+| `updated_at` | timestamptz | YES | 수정일 |
+
+#### `stripe_banners` - 스트라이프 배너
+| 컬럼 | 타입 | Nullable | 설명 |
+|------|------|----------|------|
+| `id` | uuid | NO | PK |
+| `type` | text | YES | 타입 (event/notice/review) |
+| `title` | text | NO | 제목 |
+| `description` | text | YES | 설명 |
+| `link` | text | YES | 링크 |
+| `bg_color` | text | YES | 배경색 |
+| `bg_color_mode` | text | YES | 배경 모드 |
+| `bg_gradient_start` | text | YES | 그라데이션 시작 |
+| `bg_gradient_end` | text | YES | 그라데이션 끝 |
+| `text_color` | text | YES | 텍스트 색상 |
+| `display_order` | integer | YES | 표시 순서 |
+| `is_active` | boolean | YES | 활성화 |
+| `updated_by` | uuid | YES | 수정자 |
+| `created_at` | timestamptz | YES | 생성일 |
+| `updated_at` | timestamptz | YES | 수정일 |
+
+#### `stripe_banner_config` - 배너 설정
+| 컬럼 | 타입 | Nullable | 설명 |
+|------|------|----------|------|
+| `id` | uuid | NO | PK |
+| `is_active` | boolean | YES | 활성화 |
+| `rotation_speed` | integer | YES | 회전 속도 |
+| `stats_mode` | text | YES | 통계 모드 |
+| `keywords_mode` | text | YES | 키워드 모드 |
+| `updated_by` | uuid | YES | 수정자 |
+| `created_at` | timestamptz | YES | 생성일 |
+| `updated_at` | timestamptz | YES | 수정일 |
+
+#### `stripe_statistics` - 스트라이프 통계
+| 컬럼 | 타입 | Nullable | 설명 |
+|------|------|----------|------|
+| `id` | uuid | NO | PK |
+| `new_jobs_count` | integer | YES | 새 일자리 수 |
+| `urgent_jobs_count` | integer | YES | 긴급 일자리 수 |
+| `new_talents_count` | integer | YES | 새 인재 수 |
+| `stats_date` | date | YES | 통계 날짜 |
+| `updated_by` | uuid | YES | 수정자 |
+| `created_at` | timestamptz | YES | 생성일 |
+| `updated_at` | timestamptz | YES | 수정일 |
+
+#### `popular_keywords` - 인기 검색어
+| 컬럼 | 타입 | Nullable | 설명 |
+|------|------|----------|------|
+| `id` | uuid | NO | PK |
+| `keyword` | text | NO | 키워드 |
+| `display_order` | integer | YES | 표시 순서 |
+| `is_active` | boolean | YES | 활성화 |
+| `is_manual` | boolean | YES | 수동 설정 여부 |
+| `search_count` | integer | YES | 검색 횟수 |
+| `updated_by` | uuid | YES | 수정자 |
+| `created_at` | timestamptz | YES | 생성일 |
+| `updated_at` | timestamptz | YES | 수정일 |
+
+---
+
+### 🤖 AI/추천 시스템
+
+#### `recommendations_cache` - AI 추천 캐시
+| 컬럼 | 타입 | Nullable | 설명 |
+|------|------|----------|------|
+| `user_id` | uuid | NO | PK (사용자 ID) |
+| `cards` | jsonb | YES | 추천 카드 목록 |
+| `ai_comment` | jsonb | YES | AI 코멘트 |
+| `profile_snapshot` | jsonb | YES | 프로필 스냅샷 |
+| `card_source_hash` | text | YES | 카드 소스 해시 |
+| `generated_at` | timestamptz | YES | 생성 시간 |
+| `created_at` | timestamptz | YES | 생성일 |
+| `updated_at` | timestamptz | YES | 수정일 |
+
+---
+
+### 👨‍💻 개발팀 협업
+
+#### `dev_projects` - 개발 프로젝트
+| 컬럼 | 타입 | Nullable | 설명 |
+|------|------|----------|------|
+| `id` | uuid | NO | PK |
+| `name` | text | NO | 프로젝트명 |
+| `description` | text | YES | 설명 |
+| `status` | text | YES | 상태 |
+| `owner_id` | uuid | YES | 소유자 |
+| `created_at` | timestamptz | YES | 생성일 |
+| `updated_at` | timestamptz | YES | 수정일 |
+
+#### `dev_ideas` - 아이디어
+| 컬럼 | 타입 | Nullable | 설명 |
+|------|------|----------|------|
+| `id` | uuid | NO | PK |
+| `project_id` | uuid | YES | 프로젝트 ID |
+| `title` | text | NO | 제목 |
+| `description` | text | YES | 설명 |
+| `category` | text | YES | 카테고리 |
+| `status` | text | YES | 상태 |
+| `author_id` | uuid | YES | 작성자 |
+| `created_at` | timestamptz | YES | 생성일 |
+| `updated_at` | timestamptz | YES | 수정일 |
+
+#### `dev_board_submissions` - 보드 제출
+| 컬럼 | 타입 | Nullable | 설명 |
+|------|------|----------|------|
+| `id` | uuid | NO | PK |
+| `board_name` | text | NO | 보드명 |
+| `board_url` | text | NO | 보드 URL |
+| `region_code` | text | YES | 지역 코드 |
+| `subregion_code` | text | YES | 세부지역 코드 |
+| `school_level` | text | YES | 학교급 |
+| `status` | text | YES | 상태 |
+| `submitted_by` | uuid | YES | 제출자 |
+| `reviewed_by` | uuid | YES | 검토자 |
+| `review_note` | text | YES | 검토 노트 |
+| `created_at` | timestamptz | YES | 생성일 |
+| `updated_at` | timestamptz | YES | 수정일 |
+
+#### `dev_comments` - 댓글
+| 컬럼 | 타입 | Nullable | 설명 |
+|------|------|----------|------|
+| `id` | uuid | NO | PK |
+| `target_type` | text | NO | 대상 타입 |
+| `target_id` | uuid | NO | 대상 ID |
+| `content` | text | NO | 내용 |
+| `author_id` | uuid | YES | 작성자 |
+| `parent_id` | uuid | YES | 부모 댓글 |
+| `created_at` | timestamptz | YES | 생성일 |
+| `updated_at` | timestamptz | YES | 수정일 |
+
+#### `dev_comment_authors` - 댓글 작성자
+| 컬럼 | 타입 | Nullable | 설명 |
+|------|------|----------|------|
+| `id` | uuid | NO | PK |
+| `display_name` | text | YES | 표시 이름 |
+| `avatar_url` | text | YES | 아바타 URL |
+| `created_at` | timestamptz | YES | 생성일 |
+
+---
+
+### 📊 시스템 로그
+
+#### `search_logs` - 검색 로그
+| 컬럼 | 타입 | Nullable | 설명 |
+|------|------|----------|------|
+| `id` | uuid | NO | PK |
+| `user_id` | uuid | YES | 사용자 ID |
+| `query` | text | YES | 검색어 |
+| `filters` | jsonb | YES | 필터 조건 |
+| `result_count` | integer | YES | 결과 수 |
+| `created_at` | timestamptz | YES | 생성일 |
+
+#### `error_logs` - 에러 로그
+| 컬럼 | 타입 | Nullable | 설명 |
+|------|------|----------|------|
+| `id` | uuid | NO | PK |
+| `error_type` | text | YES | 에러 타입 |
+| `error_message` | text | YES | 에러 메시지 |
+| `stack_trace` | text | YES | 스택 트레이스 |
+| `user_id` | uuid | YES | 사용자 ID |
+| `url` | text | YES | URL |
+| `metadata` | jsonb | YES | 메타데이터 |
+| `created_at` | timestamptz | YES | 생성일 |
+
+#### `github_deployments` - GitHub 배포
+| 컬럼 | 타입 | Nullable | 설명 |
+|------|------|----------|------|
+| `id` | uuid | NO | PK |
+| `deployment_id` | bigint | YES | GitHub 배포 ID |
+| `environment` | text | YES | 환경 |
+| `status` | text | YES | 상태 |
+| `commit_sha` | text | YES | 커밋 SHA |
+| `commit_message` | text | YES | 커밋 메시지 |
+| `author` | text | YES | 작성자 |
+| `deployed_at` | timestamptz | YES | 배포 시간 |
+| `created_at` | timestamptz | YES | 생성일 |
+
+---
+
+### ⚙️ 기타
+
+#### `regions` - 지역 마스터
+| 컬럼 | 타입 | Nullable | 설명 |
+|------|------|----------|------|
+| `code` | text | NO | PK (지역 코드) |
+| `name` | text | NO | 지역명 |
+| `level` | text | YES | 레벨 (province/city/district) |
+| `parent_code` | text | YES | 부모 코드 |
+| `display_order` | integer | YES | 표시 순서 |
+| `created_at` | timestamptz | YES | 생성일 |
+
+#### `help_settings` - 도움말 설정
+| 컬럼 | 타입 | Nullable | 설명 |
+|------|------|----------|------|
+| `id` | uuid | NO | PK |
+| `user_id` | uuid | YES | 사용자 ID |
+| `show_tour` | boolean | YES | 투어 표시 여부 |
+| `show_tooltips` | boolean | YES | 툴팁 표시 여부 |
+| `created_at` | timestamptz | YES | 생성일 |
+| `updated_at` | timestamptz | YES | 수정일 |
+
+---
+
 ## 🔗 파일 간 연결 관계
 
 ### 검색 기능
@@ -532,4 +1053,4 @@ MobileChat.tsx → chatStore.ts → useChatRealtime.ts → MobileChatRoom.tsx
 
 ---
 
-*마지막 업데이트: 2025-12-08*
+*마지막 업데이트: 2025-12-09*
