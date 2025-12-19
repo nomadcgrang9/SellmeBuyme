@@ -54,7 +54,7 @@ else if (import.meta.env.PROD && pathname.startsWith('/admin-portal')) {
 else if (import.meta.env.DEV && pathname.startsWith('/team-console')) {
   rootComponent = <TeamConsolePage />
 }
-// 프로덕션: 환경변수에 설정된 경로 (예: /sellba-x7k9m2-team-console-2025)
+// 프로덕션: 환경변수에 설정된 경로
 else if (import.meta.env.VITE_TEAM_CONSOLE_PATH && pathname === import.meta.env.VITE_TEAM_CONSOLE_PATH) {
   rootComponent = <TeamConsolePage />
 }
