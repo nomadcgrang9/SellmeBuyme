@@ -2,6 +2,7 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
 import AdminPage from './pages/AdminPage'
+import TeamConsolePage from './pages/TeamConsolePage'
 import DeveloperPage from './pages/DeveloperPage'
 import AuthCallback from './pages/AuthCallback'
 import MobileSearch from './pages/MobileSearch'
@@ -32,7 +33,7 @@ if (pathname.startsWith('/note')) {
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 관리자 페이지 라우팅
-// 로컬: /admin* 경로, 프로덕션: /admin-portal 또는 랜덤 경로
+// 로컬: /admin* 경로, 프로덕션: /admin-portal (로그인+admin 역할 필요)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 // 로컬 개발: /admin* 경로
@@ -43,9 +44,19 @@ else if (import.meta.env.DEV && pathname.startsWith('/admin')) {
 else if (import.meta.env.PROD && pathname.startsWith('/admin-portal')) {
   rootComponent = <AdminPage />
 }
-// 랜덤 경로 패턴 매칭 (예: /diekw-mx8k2pq9-console-secure-2025)
-else if (pathname.match(/^\/[a-z0-9\-]{20,}/i)) {
-  rootComponent = <AdminPage />
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 팀 콘솔 페이지 라우팅 (비밀번호 인증 방식)
+// 환경변수 VITE_TEAM_CONSOLE_PATH로 경로 설정
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+// 로컬 개발: /team-console 경로
+else if (import.meta.env.DEV && pathname.startsWith('/team-console')) {
+  rootComponent = <TeamConsolePage />
+}
+// 프로덕션: 환경변수에 설정된 경로 (예: /sellba-x7k9m2-team-console-2025)
+else if (import.meta.env.VITE_TEAM_CONSOLE_PATH && pathname === import.meta.env.VITE_TEAM_CONSOLE_PATH) {
+  rootComponent = <TeamConsolePage />
 }
 else if (pathname.startsWith('/auth/callback')) {
   rootComponent = <AuthCallback />
