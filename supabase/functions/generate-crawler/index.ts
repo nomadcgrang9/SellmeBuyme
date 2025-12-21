@@ -75,11 +75,12 @@ Deno.serve(async (req) => {
     })
 
     // 1. Submission 승인 처리
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")
+    // SUPABASE_ 접두어 변수는 Reserved라서 수정 불가 → 일반 변수명 사용
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") || Deno.env.get("PROJECT_URL")
+    const supabaseServiceKey = Deno.env.get("SERVICE_ROLE_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")
 
     if (!supabaseUrl || !supabaseServiceKey) {
-      throw new Error("SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is not set.")
+      throw new Error("SUPABASE_URL/PROJECT_URL or SERVICE_ROLE_KEY is not set.")
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
