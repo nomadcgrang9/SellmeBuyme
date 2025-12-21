@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { X, Megaphone, Bell, Gift, AlertTriangle, Pin } from 'lucide-react';
 import type { DevNotice, NoticeCategory, NoticeFormData } from '@/types/developer';
+import RichTextEditor from './RichTextEditor';
 
 interface NoticeFormProps {
   isOpen: boolean;
@@ -157,13 +158,11 @@ export default function NoticeForm({
             <label className="block text-sm font-medium text-gray-700 mb-1">
               내용 <span className="text-red-500">*</span>
             </label>
-            <textarea
+            <RichTextEditor
               value={content}
-              onChange={(e) => setContent(e.target.value)}
-              placeholder="공지 내용을 입력하세요"
-              rows={6}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#a8c5e0] focus:border-transparent resize-none"
-              required
+              onChange={setContent}
+              placeholder="공지 내용을 입력하세요. / 입력 시 토글 블록 생성"
+              rows={8}
             />
           </div>
 

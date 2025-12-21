@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { User, Calendar, Trash2, Edit2, Pin, Megaphone, Bell, Gift, AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react';
 import { CommentSection } from './comments/CommentSection';
-import { linkifyText } from '@/lib/utils/linkify.tsx';
+import MarkdownRenderer from './MarkdownRenderer';
 import type { DevNotice, NoticeCategory } from '@/types/developer';
 
 interface NoticeCardProps {
@@ -105,11 +105,11 @@ export default function NoticeCard({
               {notice.title}
             </h3>
 
-            {/* 내용 미리보기 (접힌 상태) */}
+            {/* 내용 미리보기 (접힌 상태) - 마크다운 미리보기 */}
             {!isExpanded && (
-              <p className="text-sm text-gray-700 line-clamp-2 break-words">
-                {linkifyText(notice.content)}
-              </p>
+              <div className="text-sm text-gray-700 line-clamp-2 break-words [&_.markdown-content]:inline">
+                <MarkdownRenderer content={notice.content} className="text-sm" />
+              </div>
             )}
           </div>
 
@@ -183,15 +183,11 @@ export default function NoticeCard({
         </div>
       </div>
 
-      {/* 펼쳐진 전체 내용 */}
+      {/* 펼쳐진 전체 내용 - 마크다운 렌더링 */}
       {isExpanded && (
         <div className="px-4 pb-4 border-t border-gray-100 bg-gray-50/50">
           <div className="pt-4">
-            <div className="prose prose-sm max-w-none">
-              <div className="whitespace-pre-wrap text-sm text-gray-700 leading-relaxed break-words">
-                {linkifyText(notice.content)}
-              </div>
-            </div>
+            <MarkdownRenderer content={notice.content} className="text-sm" />
           </div>
         </div>
       )}
