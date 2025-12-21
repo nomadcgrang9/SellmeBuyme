@@ -4056,3 +4056,186 @@ export async function fetchBookmarkedCards(userId: string): Promise<Card[]> {
   }
 }
 
+// ========================================
+// 크롤링 게시판 현황 (Admin Dashboard용)
+// ========================================
+
+export interface CrawlBoardRegionStat {
+  region: string;
+  boardCount: number;
+  boards: Array<{
+    id: string;
+    name: string;
+    isActive: boolean;
+    lastCrawledAt: string | null;
+  }>;
+}
+
+export interface TodayCrawlStatus {
+  success: number;
+  failed: number;
+  pending: number;
+  recentFailures: Array<{
+    name: string;
+    error: string;
+    time: string;
+  }>;
+}
+
+export interface CrawlBoardStats {
+  total: number;
+  active: number;
+  inactive: number;
+}
+
+export interface CrawlBoardStatusData {
+  todayStatus: TodayCrawlStatus;
+  registeredBoards: CrawlBoardRegionStat[];
+  boardStats: CrawlBoardStats;
+}
+
+/**
+ * 17개 시도별 크롤링 게시판 현황 조회
+ */
+export async function fetchCrawlBoardStatusData(): Promise<CrawlBoardStatusData> {
+  // 1. 승인된 게시판 목록 조회
+  const { data: boards, error: boardsError } = await supabase
+    .from('crawl_boards')
+    .select('id, name, is_active, region_code, region_display_name, last_crawled_at, approved_at')
+    .not('approved_at', 'is', null)
+    .order('region_code', { ascending: true });
+
+  if (boardsError) {
+    console.error('게시판 현황 조회 실패:', boardsError);
+    throw boardsError;
+  }
+
+  // 2. 오늘 크롤링 로그 조회
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const todayIso = today.toISOString();
+
+  const { data: todayLogs, error: logsError } = await supabase
+    .from('crawl_logs')
+    .select('id, board_id, status, error_log, started_at, completed_at')
+    .gte('started_at', todayIso)
+    .order('started_at', { ascending: false });
+
+  if (logsError) {
+    console.error('오늘 크롤링 로그 조회 실패:', logsError);
+    // 로그 조회 실패 시에도 게시판 현황은 표시
+  }
+
+  // 3. 지역별 게시판 그룹화
+  const regionMap = new Map<string, CrawlBoardRegionStat>();
+  const regionCodeToName: Record<string, string> = {
+    '11': '서울', '26': '부산', '27': '대구', '28': '인천',
+    '29': '광주', '30': '대전', '31': '울산', '36': '세종',
+    '41': '경기', '42': '강원', '43': '충북', '44': '충남',
+    '45': '전북', '46': '전남', '47': '경북', '48': '경남', '50': '제주',
+  };
+
+  (boards ?? []).forEach((board: any) => {
+    const regionCode = board.region_code || 'unknown';
+    const regionName = board.region_display_name?.split(' ')[0] || regionCodeToName[regionCode] || '기타';
+
+    if (!regionMap.has(regionName)) {
+      regionMap.set(regionName, {
+        region: regionName,
+        boardCount: 0,
+        boards: [],
+      });
+    }
+
+    const stat = regionMap.get(regionName)!;
+    stat.boardCount += 1;
+    stat.boards.push({
+      id: board.id,
+      name: board.name,
+      isActive: board.is_active,
+      lastCrawledAt: board.last_crawled_at,
+    });
+  });
+
+  const registeredBoards = Array.from(regionMap.values()).sort((a, b) =>
+    b.boardCount - a.boardCount
+  );
+
+  // 4. 오늘 크롤링 현황 집계
+  const boardIdSet = new Set((boards ?? []).map((b: any) => b.id));
+  const todayBoardLogs = new Map<string, { status: string; error?: string; time: string }>();
+
+  (todayLogs ?? []).forEach((log: any) => {
+    if (boardIdSet.has(log.board_id) && !todayBoardLogs.has(log.board_id)) {
+      // 가장 최근 로그만 사용
+      todayBoardLogs.set(log.board_id, {
+        status: log.status,
+        error: log.error_log,
+        time: log.started_at,
+      });
+    }
+  });
+
+  let successCount = 0;
+  let failedCount = 0;
+  const recentFailures: TodayCrawlStatus['recentFailures'] = [];
+
+  todayBoardLogs.forEach((logInfo, boardId) => {
+    if (logInfo.status === 'success' || logInfo.status === 'completed') {
+      successCount += 1;
+    } else if (logInfo.status === 'error' || logInfo.status === 'failed') {
+      failedCount += 1;
+      const board = (boards ?? []).find((b: any) => b.id === boardId);
+      if (board && recentFailures.length < 5) {
+        const timeAgo = getTimeAgo(new Date(logInfo.time));
+        recentFailures.push({
+          name: board.name,
+          error: logInfo.error || '알 수 없는 오류',
+          time: timeAgo,
+        });
+      }
+    }
+  });
+
+  // 오늘 로그가 없는 게시판 수 = pending
+  const pendingCount = (boards ?? []).filter((b: any) =>
+    b.is_active && !todayBoardLogs.has(b.id)
+  ).length;
+
+  // 5. 게시판 통계
+  const activeCount = (boards ?? []).filter((b: any) => b.is_active).length;
+
+  return {
+    todayStatus: {
+      success: successCount,
+      failed: failedCount,
+      pending: pendingCount,
+      recentFailures,
+    },
+    registeredBoards,
+    boardStats: {
+      total: (boards ?? []).length,
+      active: activeCount,
+      inactive: (boards ?? []).length - activeCount,
+    },
+  };
+}
+
+/**
+ * 시간 차이를 "N시간 전", "N분 전" 형태로 변환
+ */
+function getTimeAgo(date: Date): string {
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMinutes = Math.floor(diffMs / (1000 * 60));
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+
+  if (diffHours >= 1) {
+    return `${diffHours}시간 전`;
+  } else if (diffMinutes >= 1) {
+    return `${diffMinutes}분 전`;
+  } else {
+    return '방금 전';
+  }
+}
+

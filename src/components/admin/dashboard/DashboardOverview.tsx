@@ -1,75 +1,101 @@
 import { useState, useEffect } from 'react';
 import StatCard from './StatCard';
 import LineChart from './LineChart';
-import StatsTable from './StatsTable';
+import BarChart from './BarChart';
 import PieChart from './PieChart';
-import { fetchDashboardData, type DashboardData } from '@/lib/supabase/dashboard';
+import RegionStats from './RegionStats';
 
-// 임시 Mock 데이터 (나중에 실제 API로 교체)
+// 비로그인 알파 런칭용 Mock 데이터
 const MOCK_DATA = {
+  // KPI 4개: DAU, WAU, MAU, 재방문율
   kpi: {
-    dau: { value: 234, change: 12, trend: 'up' as const },
-    mau: { value: 1234, change: 8, trend: 'up' as const },
-    jobs: { value: 89, change: 15, trend: 'up' as const },
-    talents: { value: 456, change: 5, trend: 'up' as const },
+    dau: { value: 125, change: 12, trend: 'up' as const },
+    wau: { value: 892, change: 8, trend: 'up' as const },
+    mau: { value: 2340, change: 5, trend: 'up' as const },
+    retention: { value: 23.5, change: 2.1, trend: 'up' as const },
   },
+  // 일일 방문자 추이 (7일)
   traffic: [
-    { label: '11/1', value: 50 },
-    { label: '11/2', value: 100 },
-    { label: '11/3', value: 150 },
-    { label: '11/4', value: 200 },
-    { label: '11/5', value: 180 },
-    { label: '11/6', value: 220 },
-    { label: '11/7', value: 234 },
+    { label: '12/14', value: 98 },
+    { label: '12/15', value: 112 },
+    { label: '12/16', value: 89 },
+    { label: '12/17', value: 145 },
+    { label: '12/18', value: 132 },
+    { label: '12/19', value: 118 },
+    { label: '12/20', value: 125 },
   ],
-  topSearches: [
-    { rank: 1, label: '수원 중등 기간제', value: 234 },
-    { rank: 2, label: '성남 초등 방과후', value: 189 },
-    { rank: 3, label: '서울 강사', value: 156 },
-    { rank: 4, label: '인천 체험', value: 134 },
-    { rank: 5, label: '경기 교사', value: 123 },
-    { rank: 6, label: '부산 코딩', value: 112 },
-    { rank: 7, label: '대구 음악', value: 98 },
-    { rank: 8, label: '광주 미술', value: 87 },
-    { rank: 9, label: '대전 체육', value: 76 },
-    { rank: 10, label: '울산 영어', value: 65 },
+  // 시간대별 방문 분포 (0~23시)
+  hourlyVisits: [
+    { label: '0시', value: 12 },
+    { label: '1시', value: 8 },
+    { label: '2시', value: 5 },
+    { label: '3시', value: 3 },
+    { label: '4시', value: 2 },
+    { label: '5시', value: 4 },
+    { label: '6시', value: 15 },
+    { label: '7시', value: 28 },
+    { label: '8시', value: 45 },
+    { label: '9시', value: 78 },
+    { label: '10시', value: 95 },
+    { label: '11시', value: 88 },
+    { label: '12시', value: 72 },
+    { label: '13시', value: 85 },
+    { label: '14시', value: 112 },
+    { label: '15시', value: 98 },
+    { label: '16시', value: 87 },
+    { label: '17시', value: 76 },
+    { label: '18시', value: 65 },
+    { label: '19시', value: 58 },
+    { label: '20시', value: 48 },
+    { label: '21시', value: 42 },
+    { label: '22시', value: 32 },
+    { label: '23시', value: 18 },
   ],
-  gender: [
-    { label: '남', value: 556, percentage: 45, color: '#68B2FF' },
-    { label: '여', value: 678, percentage: 55, color: '#F4C96B' },
+  // 접속기기 분포
+  deviceDistribution: [
+    { label: '모바일', value: 1450, percentage: 62, color: '#68B2FF' },
+    { label: '데스크톱', value: 890, percentage: 38, color: '#7DB8A3' },
   ],
-  age: [
-    { label: '20대', value: 185, percentage: 15, color: '#68B2FF' },
-    { label: '30대', value: 432, percentage: 35, color: '#7DB8A3' },
-    { label: '40대', value: 494, percentage: 40, color: '#F4C96B' },
-    { label: '50대+', value: 123, percentage: 10, color: '#EF4444' },
+  // 지역별 접속현황 (17개 시도 전체)
+  regionDistribution: [
+    { rank: 1, label: '경기', value: 892 },
+    { rank: 2, label: '서울', value: 456 },
+    { rank: 3, label: '인천', value: 289 },
+    { rank: 4, label: '부산', value: 178 },
+    { rank: 5, label: '대구', value: 134 },
+    { rank: 6, label: '광주', value: 98 },
+    { rank: 7, label: '대전', value: 87 },
+    { rank: 8, label: '울산', value: 65 },
+    { rank: 9, label: '강원', value: 54 },
+    { rank: 10, label: '충남', value: 43 },
+    { rank: 11, label: '충북', value: 38 },
+    { rank: 12, label: '전남', value: 32 },
+    { rank: 13, label: '전북', value: 28 },
+    { rank: 14, label: '경남', value: 25 },
+    { rank: 15, label: '경북', value: 22 },
+    { rank: 16, label: '제주', value: 18 },
+    { rank: 17, label: '세종', value: 12 },
   ],
-  role: [
-    { label: '교사', value: 494, percentage: 40, color: '#68B2FF' },
-    { label: '강사', value: 432, percentage: 35, color: '#7DB8A3' },
-    { label: '행정', value: 185, percentage: 15, color: '#F4C96B' },
-    { label: '업체', value: 123, percentage: 10, color: '#EF4444' },
-  ],
-  region: [
-    { rank: 1, label: '경기', value: 432 },
-    { rank: 2, label: '서울', value: 309 },
-    { rank: 3, label: '인천', value: 123 },
-    { rank: 4, label: '부산', value: 99 },
-    { rank: 5, label: '대구', value: 86 },
-  ],
-  menuClicks: {
-    jobToggle: 456,
-    talentToggle: 389,
-    experienceToggle: 234,
-    search: 678,
-    filter: 234,
-    register: 123,
-  },
 };
+
+interface DashboardKPI {
+  dau: { value: number; change: number; trend: 'up' | 'down' };
+  wau: { value: number; change: number; trend: 'up' | 'down' };
+  mau: { value: number; change: number; trend: 'up' | 'down' };
+  retention: { value: number; change: number; trend: 'up' | 'down' };
+}
+
+interface DashboardDataNew {
+  kpi: DashboardKPI;
+  traffic: { label: string; value: number }[];
+  hourlyVisits: { label: string; value: number }[];
+  deviceDistribution: { label: string; value: number; percentage: number; color?: string }[];
+  regionDistribution: { rank: number; label: string; value: number }[];
+}
 
 export default function DashboardOverview() {
   const [loading, setLoading] = useState(true);
-  const [data, setData] = useState<DashboardData>(MOCK_DATA);
+  const [data, setData] = useState<DashboardDataNew>(MOCK_DATA);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -77,12 +103,16 @@ export default function DashboardOverview() {
       try {
         setLoading(true);
         setError(null);
-        const dashboardData = await fetchDashboardData();
-        setData(dashboardData);
+        // TODO: 실제 API 연동 시 여기서 데이터 fetch
+        // const dashboardData = await fetchDashboardData();
+        // setData(dashboardData);
+
+        // 현재는 Mock 데이터 사용
+        await new Promise(resolve => setTimeout(resolve, 500)); // 로딩 시뮬레이션
+        setData(MOCK_DATA);
       } catch (err) {
         console.error('대시보드 데이터 로딩 실패:', err);
         setError('데이터를 불러오는 중 오류가 발생했습니다.');
-        // 에러 시 Mock 데이터 사용
         setData(MOCK_DATA);
       } finally {
         setLoading(false);
@@ -93,7 +123,6 @@ export default function DashboardOverview() {
 
     // 5분마다 자동 새로고침
     const interval = setInterval(loadDashboardData, 5 * 60 * 1000);
-
     return () => clearInterval(interval);
   }, []);
 
@@ -110,125 +139,77 @@ export default function DashboardOverview() {
         </div>
       )}
 
-      {/* 핵심 지표 */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard
-          icon="📈"
-          label="일간 활성 사용자 (DAU)"
-          value={`${data.kpi.dau.value}명`}
-          change={data.kpi.dau.change}
-          trend={data.kpi.dau.trend}
-          loading={loading}
-        />
-        <StatCard
-          icon="👥"
-          label="월간 활성 사용자 (MAU)"
-          value={`${data.kpi.mau.value}명`}
-          change={data.kpi.mau.change}
-          trend={data.kpi.mau.trend}
-          loading={loading}
-        />
-        <StatCard
-          icon="📝"
-          label="공고 등록 수"
-          value={`${data.kpi.jobs.value}개`}
-          change={data.kpi.jobs.change}
-          trend={data.kpi.jobs.trend}
-          loading={loading}
-        />
-        <StatCard
-          icon="🧑"
-          label="인력 등록 수"
-          value={`${data.kpi.talents.value}명`}
-          change={data.kpi.talents.change}
-          trend={data.kpi.talents.trend}
-          loading={loading}
-        />
+      {/* 섹션 1: 핵심 KPI 4개 */}
+      <div>
+        <h2 className="text-lg font-semibold text-slate-800 mb-4">핵심 지표</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatCard
+            icon="📊"
+            label="일간 활성 사용자 (DAU)"
+            value={`${data.kpi.dau.value.toLocaleString()}명`}
+            change={data.kpi.dau.change}
+            trend={data.kpi.dau.trend}
+            loading={loading}
+          />
+          <StatCard
+            icon="📈"
+            label="주간 활성 사용자 (WAU)"
+            value={`${data.kpi.wau.value.toLocaleString()}명`}
+            change={data.kpi.wau.change}
+            trend={data.kpi.wau.trend}
+            loading={loading}
+          />
+          <StatCard
+            icon="👥"
+            label="월간 활성 사용자 (MAU)"
+            value={`${data.kpi.mau.value.toLocaleString()}명`}
+            change={data.kpi.mau.change}
+            trend={data.kpi.mau.trend}
+            loading={loading}
+          />
+          <StatCard
+            icon="🔄"
+            label="재방문율 (D7)"
+            value={`${data.kpi.retention.value}%`}
+            change={data.kpi.retention.change}
+            trend={data.kpi.retention.trend}
+            loading={loading}
+          />
+        </div>
       </div>
 
-      {/* 일일 방문자 추이 */}
+      {/* 섹션 2: 일일 방문자 추이 */}
       <LineChart
         title="📈 일일 방문자 추이 (최근 7일)"
         data={data.traffic}
         loading={loading}
       />
 
-      {/* 사용자 통계 */}
+      {/* 섹션 3: 시간대별 방문 분포 + 접속기기 분포 */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <PieChart title="👥 성별 분포" data={data.gender} loading={loading} />
-        <PieChart title="📅 연령대 분포" data={data.age} loading={loading} />
-        <PieChart title="💼 역할 분포" data={data.role} loading={loading} />
-        <StatsTable
-          title="🗺️ 지역 분포 TOP 5"
-          data={data.region}
-          maxRows={5}
+        <BarChart
+          title="⏰ 시간대별 방문 분포"
+          subtitle="최근 7일 기준"
+          data={data.hourlyVisits}
+          loading={loading}
+          color="#68B2FF"
+          highlightPeak={true}
+          unit="회"
+        />
+        <PieChart
+          title="📱 접속기기 분포"
+          data={data.deviceDistribution}
           loading={loading}
         />
       </div>
 
-      {/* 인기 검색어 */}
-      <StatsTable
-        title="🔥 인기 검색어 TOP 10"
-        data={data.topSearches}
-        maxRows={10}
+      {/* 섹션 4: 지역별 접속현황 */}
+      <RegionStats
+        title="📍 지역별 접속 현황"
+        data={data.regionDistribution}
         loading={loading}
+        initialDisplayCount={5}
       />
-
-      {/* 메뉴 클릭 통계 */}
-      <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-        <h3 className="text-lg font-semibold text-slate-900 mb-4">
-          🖱️ 메뉴 클릭 통계 (오늘)
-        </h3>
-        {loading ? (
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 animate-pulse">
-            {[...Array(6)].map((_, i) => (
-              <div key={i} className="p-4 rounded-lg bg-slate-50">
-                <div className="h-4 w-20 bg-slate-200 rounded mb-2" />
-                <div className="h-8 w-16 bg-slate-200 rounded" />
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-            <div className="p-4 rounded-lg bg-slate-50">
-              <div className="text-sm text-slate-600 mb-1">공고 토글</div>
-              <div className="text-2xl font-bold text-slate-900">
-                {data.menuClicks.jobToggle.toLocaleString()}회
-              </div>
-            </div>
-            <div className="p-4 rounded-lg bg-slate-50">
-              <div className="text-sm text-slate-600 mb-1">인력 토글</div>
-              <div className="text-2xl font-bold text-slate-900">
-                {data.menuClicks.talentToggle.toLocaleString()}회
-              </div>
-            </div>
-            <div className="p-4 rounded-lg bg-slate-50">
-              <div className="text-sm text-slate-600 mb-1">체험 토글</div>
-              <div className="text-2xl font-bold text-slate-900">
-                {data.menuClicks.experienceToggle.toLocaleString()}회
-              </div>
-            </div>
-            <div className="p-4 rounded-lg bg-slate-50">
-              <div className="text-sm text-slate-600 mb-1">검색 사용</div>
-              <div className="text-2xl font-bold text-slate-900">
-                {data.menuClicks.search.toLocaleString()}회
-              </div>
-            </div>
-            <div className="p-4 rounded-lg bg-slate-50">
-              <div className="text-sm text-slate-600 mb-1">필터 사용</div>
-              <div className="text-2xl font-bold text-slate-900">
-                {data.menuClicks.filter.toLocaleString()}회
-              </div>
-            </div>
-            <div className="p-4 rounded-lg bg-slate-50">
-              <div className="text-sm text-slate-600 mb-1">등록 버튼</div>
-              <div className="text-2xl font-bold text-slate-900">
-                {data.menuClicks.register.toLocaleString()}회
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
     </div>
   );
 }
