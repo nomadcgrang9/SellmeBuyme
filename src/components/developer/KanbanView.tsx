@@ -12,11 +12,12 @@ interface KanbanViewProps {
   onEdit: (project: DevProject) => void;
   onDelete: (id: string) => void;
   onStatusChange: (projectId: string, newStatus: ProjectStatus) => Promise<void>;
+  onViewDetail?: (project: DevProject) => void;
 }
 
 const STATUS_ORDER: ProjectStatus[] = ['active', 'paused', 'completed', 'difficult'];
 
-export default function KanbanView({ projects, onEdit, onDelete, onStatusChange }: KanbanViewProps) {
+export default function KanbanView({ projects, onEdit, onDelete, onStatusChange, onViewDetail }: KanbanViewProps) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const showToast = useToastStore((state) => state.showToast);
 
@@ -103,6 +104,7 @@ export default function KanbanView({ projects, onEdit, onDelete, onStatusChange 
                 project={project}
                 onEdit={onEdit}
                 onDelete={onDelete}
+                onViewDetail={onViewDetail}
               />
             ))}
           </KanbanColumn>

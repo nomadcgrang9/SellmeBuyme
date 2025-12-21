@@ -2,7 +2,7 @@
 
 import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
-import { Trash2, Edit2 } from 'lucide-react';
+import { Trash2, Edit2, Eye } from 'lucide-react';
 import type { DevProject } from '@/types/developer';
 import { PROJECT_STATUS_CONFIG } from '@/types/developer';
 
@@ -10,12 +10,14 @@ interface DraggableProjectCardProps {
   project: DevProject;
   onEdit: (project: DevProject) => void;
   onDelete: (id: string) => void;
+  onViewDetail?: (project: DevProject) => void;
 }
 
 export default function DraggableProjectCard({
   project,
   onEdit,
   onDelete,
+  onViewDetail,
 }: DraggableProjectCardProps) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: project.id,
@@ -60,6 +62,16 @@ export default function DraggableProjectCard({
             </div>
           </div>
           <div className="flex gap-1 flex-shrink-0">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onViewDetail?.(project);
+              }}
+              className="p-1.5 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded transition-colors"
+              title="상세보기"
+            >
+              <Eye className="w-3.5 h-3.5" />
+            </button>
             <button
               onClick={(e) => {
                 e.stopPropagation();
