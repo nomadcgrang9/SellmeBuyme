@@ -3,6 +3,7 @@ import { IconMenu2, IconLock } from '@tabler/icons-react';
 import CrawlBoardList from '@/components/admin/CrawlBoardList';
 import CrawlBoardForm from '@/components/admin/CrawlBoardForm';
 import CrawlLogViewer from '@/components/admin/CrawlLogViewer';
+import CrawlBoardStatus from '@/components/admin/CrawlBoardStatus';
 import PromoTabManager from '@/components/admin/PromoTabManager';
 import BoardSubmissionList from '@/components/admin/BoardSubmissionList';
 import BoardApprovalModal from '@/components/admin/BoardApprovalModal';
@@ -251,10 +252,20 @@ export default function TeamConsolePage() {
             )}
 
             <div className="space-y-4">
+              {/* 크롤링 게시판 현황 */}
+              <CollapsibleSection
+                title="크롤링 게시판 현황"
+                defaultOpen={true}
+              >
+                <div className="p-4">
+                  <CrawlBoardStatus refreshToken={refreshToken} />
+                </div>
+              </CollapsibleSection>
+
               {/* 승인대기 크롤링 게시판 */}
               <CollapsibleSection
                 title="승인대기 크롤링 게시판"
-                defaultOpen={true}
+                defaultOpen={false}
               >
                 <div className="p-4">
                   <BoardSubmissionList
