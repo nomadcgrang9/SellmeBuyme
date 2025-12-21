@@ -331,6 +331,10 @@ deno_version = 2
 [functions.download-attachment]
 verify_jwt = false
 
+# generate-crawler 함수도 익명 사용자 허용 (JWT 검증 비활성화)
+[functions.generate-crawler]
+verify_jwt = false
+
 [analytics]
 enabled = true
 port = 54327
