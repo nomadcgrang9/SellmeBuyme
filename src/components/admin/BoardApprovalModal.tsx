@@ -74,11 +74,9 @@ export default function BoardApprovalModal({
       setIsSubmitting(true);
       setError(null);
 
-      // Get current admin user ID
+      // Get current user ID (optional - anonymous allowed)
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        throw new Error('로그인이 필요합니다');
-      }
+      const adminUserId = user?.id || 'anonymous';
 
       // Extract region name from regionCode/subregionCode
       let regionName: string | null = null;
@@ -96,7 +94,7 @@ export default function BoardApprovalModal({
         submissionId: submission.id,
         boardName: submission.boardName,
         boardUrl: submission.boardUrl,
-        adminUserId: user.id,
+        adminUserId: adminUserId,
         regionCode: submission.regionCode,
         subregionCode: submission.subregionCode,
         regionName: regionName,
@@ -109,7 +107,7 @@ export default function BoardApprovalModal({
           submissionId: submission.id,
           boardName: submission.boardName,
           boardUrl: submission.boardUrl,
-          adminUserId: user.id,
+          adminUserId: adminUserId,
           region: regionName,
           isLocalGovernment: submission.isLocalGovernment,
         },
