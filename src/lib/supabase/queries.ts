@@ -4239,3 +4239,240 @@ function getTimeAgo(date: Date): string {
   }
 }
 
+// ========================================
+// 대시보드 분석 데이터 (DAU/WAU/MAU)
+// ========================================
+
+export interface DashboardKPI {
+  dau: { value: number; change: number; trend: 'up' | 'down' };
+  wau: { value: number; change: number; trend: 'up' | 'down' };
+  mau: { value: number; change: number; trend: 'up' | 'down' };
+  retention: { value: number; change: number; trend: 'up' | 'down' };
+}
+
+export interface HourlyVisit {
+  label: string;
+  value: number;
+}
+
+export interface RegionVisit {
+  rank: number;
+  label: string;
+  value: number;
+}
+
+export interface DeviceDistribution {
+  label: string;
+  value: number;
+  percentage: number;
+  color?: string;
+}
+
+export interface DailyTraffic {
+  label: string;
+  value: number;
+}
+
+export interface DashboardAnalyticsData {
+  kpi: DashboardKPI;
+  traffic: DailyTraffic[];
+  hourlyVisits: HourlyVisit[];
+  deviceDistribution: DeviceDistribution[];
+  regionDistribution: RegionVisit[];
+}
+
+/**
+ * 대시보드 분석 데이터 조회
+ * user_activity_logs 테이블 기반
+ */
+export async function fetchDashboardAnalytics(): Promise<DashboardAnalyticsData> {
+  const now = new Date();
+
+  // 날짜 범위 계산
+  const todayStart = new Date(now);
+  todayStart.setHours(0, 0, 0, 0);
+
+  const yesterdayStart = new Date(todayStart);
+  yesterdayStart.setDate(yesterdayStart.getDate() - 1);
+
+  const weekAgo = new Date(todayStart);
+  weekAgo.setDate(weekAgo.getDate() - 7);
+
+  const twoWeeksAgo = new Date(todayStart);
+  twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
+
+  const monthAgo = new Date(todayStart);
+  monthAgo.setDate(monthAgo.getDate() - 30);
+
+  const twoMonthsAgo = new Date(todayStart);
+  twoMonthsAgo.setDate(twoMonthsAgo.getDate() - 60);
+
+  // 1. 전체 page_view 로그 조회 (최근 60일)
+  const { data: logs, error: logsError } = await supabase
+    .from('user_activity_logs')
+    .select('id, user_id, action_type, metadata, created_at')
+    .eq('action_type', 'page_view')
+    .gte('created_at', twoMonthsAgo.toISOString())
+    .order('created_at', { ascending: false });
+
+  if (logsError) {
+    console.error('활동 로그 조회 실패:', logsError);
+    throw logsError;
+  }
+
+  const allLogs = logs ?? [];
+
+  // 2. 세션 기반 고유 방문자 계산 (session_id 사용)
+  const getUniqueVisitors = (logList: typeof allLogs, startDate: Date, endDate: Date): number => {
+    const sessionsInRange = new Set<string>();
+    logList.forEach(log => {
+      const logDate = new Date(log.created_at);
+      if (logDate >= startDate && logDate < endDate) {
+        const metadata = log.metadata as Record<string, unknown> | null;
+        const sessionId = (metadata?.session_id as string) || log.id;
+        sessionsInRange.add(sessionId);
+      }
+    });
+    return sessionsInRange.size;
+  };
+
+  // DAU 계산
+  const dauToday = getUniqueVisitors(allLogs, todayStart, now);
+  const dauYesterday = getUniqueVisitors(allLogs, yesterdayStart, todayStart);
+  const dauChange = dauYesterday > 0
+    ? Math.round(((dauToday - dauYesterday) / dauYesterday) * 100)
+    : (dauToday > 0 ? 100 : 0);
+
+  // WAU 계산
+  const wauThisWeek = getUniqueVisitors(allLogs, weekAgo, now);
+  const wauLastWeek = getUniqueVisitors(allLogs, twoWeeksAgo, weekAgo);
+  const wauChange = wauLastWeek > 0
+    ? Math.round(((wauThisWeek - wauLastWeek) / wauLastWeek) * 100)
+    : (wauThisWeek > 0 ? 100 : 0);
+
+  // MAU 계산
+  const mauThisMonth = getUniqueVisitors(allLogs, monthAgo, now);
+  const mauLastMonth = getUniqueVisitors(allLogs, twoMonthsAgo, monthAgo);
+  const mauChange = mauLastMonth > 0
+    ? Math.round(((mauThisMonth - mauLastMonth) / mauLastMonth) * 100)
+    : (mauThisMonth > 0 ? 100 : 0);
+
+  // 재방문율 계산 (7일 내 2회 이상 방문한 세션 비율)
+  const sessionsThisWeek = new Map<string, number>();
+  allLogs.forEach(log => {
+    const logDate = new Date(log.created_at);
+    if (logDate >= weekAgo) {
+      const metadata = log.metadata as Record<string, unknown> | null;
+      const sessionId = (metadata?.session_id as string) || log.id;
+      sessionsThisWeek.set(sessionId, (sessionsThisWeek.get(sessionId) || 0) + 1);
+    }
+  });
+  const totalSessions = sessionsThisWeek.size;
+  const returningSessions = Array.from(sessionsThisWeek.values()).filter(count => count > 1).length;
+  const retentionRate = totalSessions > 0
+    ? Math.round((returningSessions / totalSessions) * 1000) / 10
+    : 0;
+
+  // 3. 일일 방문자 추이 (최근 7일)
+  const traffic: DailyTraffic[] = [];
+  for (let i = 6; i >= 0; i--) {
+    const dayStart = new Date(todayStart);
+    dayStart.setDate(dayStart.getDate() - i);
+    const dayEnd = new Date(dayStart);
+    dayEnd.setDate(dayEnd.getDate() + 1);
+
+    const visitors = getUniqueVisitors(allLogs, dayStart, dayEnd);
+    traffic.push({
+      label: `${dayStart.getMonth() + 1}/${dayStart.getDate()}`,
+      value: visitors,
+    });
+  }
+
+  // 4. 시간대별 방문 분포 (최근 7일 기준)
+  const hourlyVisits: HourlyVisit[] = [];
+  const hourCounts = new Array(24).fill(0);
+  allLogs.forEach(log => {
+    const logDate = new Date(log.created_at);
+    if (logDate >= weekAgo) {
+      hourCounts[logDate.getHours()]++;
+    }
+  });
+  for (let h = 0; h < 24; h++) {
+    hourlyVisits.push({
+      label: `${h}시`,
+      value: hourCounts[h],
+    });
+  }
+
+  // 5. 접속기기 분포
+  let mobileCount = 0;
+  let desktopCount = 0;
+  allLogs.forEach(log => {
+    if (log.created_at && new Date(log.created_at) >= weekAgo) {
+      const metadata = log.metadata as Record<string, unknown> | null;
+      const deviceType = metadata?.device_type as string | undefined;
+      if (deviceType === 'mobile' || deviceType === 'tablet') {
+        mobileCount++;
+      } else {
+        desktopCount++;
+      }
+    }
+  });
+  const totalDevices = mobileCount + desktopCount;
+  const deviceDistribution: DeviceDistribution[] = [
+    {
+      label: '모바일',
+      value: mobileCount,
+      percentage: totalDevices > 0 ? Math.round((mobileCount / totalDevices) * 100) : 0,
+      color: '#68B2FF',
+    },
+    {
+      label: '데스크톱',
+      value: desktopCount,
+      percentage: totalDevices > 0 ? Math.round((desktopCount / totalDevices) * 100) : 0,
+      color: '#7DB8A3',
+    },
+  ];
+
+  // 6. 지역별 접속현황
+  const regionCounts = new Map<string, number>();
+  allLogs.forEach(log => {
+    if (log.created_at && new Date(log.created_at) >= monthAgo) {
+      const metadata = log.metadata as Record<string, unknown> | null;
+      const city = metadata?.region_city as string | undefined;
+      if (city) {
+        // "경기도" -> "경기", "서울특별시" -> "서울" 변환
+        const normalizedCity = city
+          .replace(/특별시$/, '')
+          .replace(/광역시$/, '')
+          .replace(/도$/, '')
+          .replace(/특별자치시$/, '')
+          .replace(/특별자치도$/, '');
+        regionCounts.set(normalizedCity, (regionCounts.get(normalizedCity) || 0) + 1);
+      }
+    }
+  });
+
+  const regionDistribution: RegionVisit[] = Array.from(regionCounts.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 17)
+    .map(([label, value], index) => ({
+      rank: index + 1,
+      label,
+      value,
+    }));
+
+  return {
+    kpi: {
+      dau: { value: dauToday, change: dauChange, trend: dauChange >= 0 ? 'up' : 'down' },
+      wau: { value: wauThisWeek, change: wauChange, trend: wauChange >= 0 ? 'up' : 'down' },
+      mau: { value: mauThisMonth, change: mauChange, trend: mauChange >= 0 ? 'up' : 'down' },
+      retention: { value: retentionRate, change: 0, trend: 'up' },
+    },
+    traffic,
+    hourlyVisits,
+    deviceDistribution,
+    regionDistribution,
+  };
+}
+

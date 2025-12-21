@@ -36,6 +36,7 @@ import { supabase } from '@/lib/supabase/client';
 import type { Card, PromoCardSettings, JobPostingCard, ExperienceCard } from '@/types';
 import { getRegisteredTalentFromLocalStorage, clearRegisteredTalentFromLocalStorage } from '@/lib/utils/landingTransform';
 import { useGeolocation } from '@/lib/hooks/useGeolocation';
+import { useActivityTracking } from '@/lib/hooks/useActivityTracking';
 
 /**
  * 마감 지난 공고 필터링 함수
@@ -190,6 +191,9 @@ export default function App() {
     enableTyping: false,      // 전역에서는 타이핑 불필요
     enablePresence: false,    // 전역에서는 온라인 상태 불필요
   });
+
+  // 사용자 활동 트래킹 (페이지뷰 자동 기록)
+  useActivityTracking();
 
   // 위치 기반 자동 추천 (익명 사용자용)
   const { address, loading: locationLoading, permissionDenied } = useGeolocation();
