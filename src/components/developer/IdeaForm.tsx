@@ -1,9 +1,9 @@
-// IdeaForm - 아이디어 작성 폼 (모달)
+// IdeaForm - 아이디어 작성/수정 폼 (모달)
 import { X, Loader2 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import ImageUploader from './ImageUploader';
 import CategoryBadge from './CategoryBadge';
-import type { IdeaCategory } from '@/types/developer';
+import type { IdeaCategory, DevIdea } from '@/types/developer';
 
 interface IdeaFormProps {
   onClose: () => void;
@@ -13,14 +13,33 @@ interface IdeaFormProps {
     category: IdeaCategory;
     images: File[];
   }) => Promise<void>;
+  editingIdea?: DevIdea | null;
 }
 
-export default function IdeaForm({ onClose, onSubmit }: IdeaFormProps) {
+export default function IdeaForm({ onClose, onSubmit, editingIdea }: IdeaFormProps) {
   const [authorName, setAuthorName] = useState('');
   const [content, setContent] = useState('');
   const [category, setCategory] = useState<IdeaCategory>('feature');
   const [images, setImages] = useState<File[]>([]);
+  const [existingImages, setExistingImages] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // 수정 모드일 때 초기값 설정
+  useEffect(() => {
+    if (editingIdea) {
+      setAuthorName(editingIdea.authorName);
+      setContent(editingIdea.content);
+      setCategory(editingIdea.category);
+      setExistingImages(editingIdea.images || []);
+    } else {
+      // 폼 초기화
+      setAuthorName('');
+      setContent('');
+      setCategory('feature');
+      setImages([]);
+      setExistingImages([]);
+    }
+  }, [editingIdea]);
 
   const categories: IdeaCategory[] = ['feature', 'bug', 'design', 'other'];
 
@@ -62,7 +81,7 @@ export default function IdeaForm({ onClose, onSubmit }: IdeaFormProps) {
         {/* 헤더 */}
         <div className="sticky top-0 bg-white border-b border-gray-200 px-4 py-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-gray-900">
-            새 아이디어 작성
+            {editingIdea ? '아이디어 수정' : '새 아이디어 작성'}
           </h2>
           <button
             onClick={onClose}
@@ -128,10 +147,37 @@ export default function IdeaForm({ onClose, onSubmit }: IdeaFormProps) {
             />
           </div>
 
+          {/* 기존 이미지 (수정 모드) */}
+          {editingIdea && existingImages.length > 0 && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                기존 이미지
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {existingImages.map((url, index) => (
+                  <div key={index} className="relative w-20 h-20">
+                    <img
+                      src={url}
+                      alt={`기존 이미지 ${index + 1}`}
+                      className="w-full h-full object-cover rounded-lg border border-gray-200"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setExistingImages(prev => prev.filter((_, i) => i !== index))}
+                      className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full text-xs flex items-center justify-center hover:bg-red-600"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* 이미지 업로드 */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              이미지 (선택)
+              {editingIdea ? '새 이미지 추가 (선택)' : '이미지 (선택)'}
             </label>
             <ImageUploader files={images} onChange={setImages} maxFiles={5} />
           </div>
@@ -154,10 +200,10 @@ export default function IdeaForm({ onClose, onSubmit }: IdeaFormProps) {
               {isSubmitting ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  등록 중...
+                  {editingIdea ? '수정 중...' : '등록 중...'}
                 </>
               ) : (
-                '작성 완료'
+                editingIdea ? '수정 완료' : '작성 완료'
               )}
             </button>
           </div>

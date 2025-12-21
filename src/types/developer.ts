@@ -8,6 +8,7 @@ export type IdeaCategory = 'feature' | 'bug' | 'design' | 'other';
 export type SubmissionStatus = 'pending' | 'approved';
 export type DeploymentStatus = 'pending' | 'success' | 'failure';
 export type ProjectStatus = 'active' | 'paused' | 'completed' | 'difficult';
+export type NoticeCategory = 'notice' | 'update' | 'event' | 'important';
 
 // =============================================================================
 // Database Row Types (matching snake_case from DB)
@@ -77,6 +78,18 @@ export interface GitHubDeploymentRow {
   created_at: string;
 }
 
+export interface DevNoticeRow {
+  id: string;
+  user_id: string | null;
+  author_name: string;
+  title: string;
+  content: string;
+  category: NoticeCategory;
+  is_pinned: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 // =============================================================================
 // Client-side Types (camelCase for easier use in React)
 // =============================================================================
@@ -119,7 +132,7 @@ export interface DevProject {
 // Comment Types (Frontend)
 // =============================================================================
 
-export type CommentTargetType = 'idea' | 'submission' | 'project';
+export type CommentTargetType = 'idea' | 'submission' | 'project' | 'notice';
 
 export interface DevComment {
   id: string;
@@ -176,6 +189,18 @@ export interface GitHubDeployment {
   createdAt: string;
 }
 
+export interface DevNotice {
+  id: string;
+  userId: string | null;
+  authorName: string;
+  title: string;
+  content: string;
+  category: NoticeCategory;
+  isPinned: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // =============================================================================
 // Form Input Types
 // =============================================================================
@@ -206,6 +231,14 @@ export interface BoardSubmissionFormData {
   isLocalGovernment: boolean;  // required: true=기초자치단체, false=광역자치단체
   description?: string;
   screenshot?: File | null;
+}
+
+export interface NoticeFormData {
+  authorName: string;
+  title: string;
+  content: string;
+  category: NoticeCategory;
+  isPinned: boolean;
 }
 
 // =============================================================================
@@ -307,6 +340,20 @@ export function convertDeploymentRowToDeployment(
     workflowRunId: row.workflow_run_id,
     deployedAt: row.deployed_at,
     createdAt: row.created_at,
+  };
+}
+
+export function convertNoticeRowToNotice(row: DevNoticeRow): DevNotice {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    authorName: row.author_name,
+    title: row.title,
+    content: row.content,
+    category: row.category,
+    isPinned: row.is_pinned,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
   };
 }
 

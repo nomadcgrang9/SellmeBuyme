@@ -15,6 +15,10 @@ import type {
   DevProject,
   ProjectFormData,
   ProjectStatus,
+  DevNoticeRow,
+  DevNotice,
+  NoticeFormData,
+  NoticeCategory,
 } from '@/types/developer';
 import type { CreateCrawlBoardInput, CrawlBoard } from '@/types';
 
@@ -24,6 +28,7 @@ import {
   convertIdeaRowToIdea,
   convertSubmissionRowToSubmission,
   convertProjectRowToProject,
+  convertNoticeRowToNotice,
 } from '@/types/developer';
 
 // =============================================================================
@@ -787,12 +792,12 @@ function getClientIpHash(): string {
 
 /**
  * 댓글 조회
- * @param targetType - 대상 타입 (idea, submission, project)
+ * @param targetType - 대상 타입 (idea, submission, project, notice)
  * @param targetId - 대상 ID
  * @returns 댓글 목록
  */
 export async function getComments(
-  targetType: 'idea' | 'submission' | 'project',
+  targetType: 'idea' | 'submission' | 'project' | 'notice',
   targetId: string
 ) {
   const { data, error } = await supabase
@@ -812,7 +817,7 @@ export async function getComments(
 
 /**
  * 댓글 작성
- * @param targetType - 대상 타입
+ * @param targetType - 대상 타입 (idea, submission, project, notice)
  * @param targetId - 대상 ID
  * @param content - 댓글 내용
  * @param authorName - 작성자 이름
@@ -820,7 +825,7 @@ export async function getComments(
  * @returns 생성된 댓글
  */
 export async function createComment(
-  targetType: 'idea' | 'submission' | 'project',
+  targetType: 'idea' | 'submission' | 'project' | 'notice',
   targetId: string,
   content: string,
   authorName: string,
@@ -936,4 +941,140 @@ export async function getAuthorInfo() {
   }
 
   return data?.author_name || '';
+}
+
+// =============================================================================
+// Dev Notices (공지사항)
+// =============================================================================
+
+/**
+ * 공지사항 생성
+ * @param notice - 공지사항 데이터
+ * @returns 생성된 공지사항
+ */
+export async function createNotice(notice: NoticeFormData): Promise<DevNotice> {
+  const { data, error } = await supabase
+    .from('dev_notices')
+    .insert({
+      title: notice.title,
+      content: notice.content,
+      category: notice.category,
+      is_pinned: notice.isPinned,
+      author_name: notice.authorName || '관리자',
+    })
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Failed to create notice:', error);
+    throw new Error(`공지사항 등록에 실패했습니다: ${error.message}`);
+  }
+
+  return convertNoticeRowToNotice(data as DevNoticeRow);
+}
+
+/**
+ * 공지사항 목록 조회
+ * @param limit - 조회할 공지사항 수
+ * @param offset - 시작 위치
+ * @returns 공지사항 목록 (고정된 공지 먼저, 최신순)
+ */
+export async function getNotices(
+  limit = 20,
+  offset = 0
+): Promise<DevNotice[]> {
+  const { data, error } = await supabase
+    .from('dev_notices')
+    .select('*')
+    .order('is_pinned', { ascending: false })
+    .order('created_at', { ascending: false })
+    .range(offset, offset + limit - 1);
+
+  if (error) {
+    console.error('Failed to fetch notices:', error);
+    throw new Error(`공지사항을 불러올 수 없습니다: ${error.message}`);
+  }
+
+  return data.map((row: DevNoticeRow) => convertNoticeRowToNotice(row));
+}
+
+/**
+ * 공지사항 상세 조회
+ * @param id - 공지사항 ID
+ * @returns 공지사항
+ */
+export async function getNoticeById(id: string): Promise<DevNotice> {
+  const { data, error } = await supabase
+    .from('dev_notices')
+    .select('*')
+    .eq('id', id)
+    .single();
+
+  if (error) {
+    console.error('Failed to fetch notice:', error);
+    throw new Error(`공지사항을 불러올 수 없습니다: ${error.message}`);
+  }
+
+  return convertNoticeRowToNotice(data as DevNoticeRow);
+}
+
+/**
+ * 공지사항 수정
+ * @param id - 공지사항 ID
+ * @param updates - 수정할 데이터
+ * @returns 수정된 공지사항
+ */
+export async function updateNotice(
+  id: string,
+  updates: Partial<NoticeFormData>
+): Promise<DevNotice> {
+  const updateData: Record<string, unknown> = {
+    updated_at: new Date().toISOString(),
+  };
+
+  if (updates.title !== undefined) updateData.title = updates.title;
+  if (updates.content !== undefined) updateData.content = updates.content;
+  if (updates.category !== undefined) updateData.category = updates.category;
+  if (updates.isPinned !== undefined) updateData.is_pinned = updates.isPinned;
+  if (updates.authorName !== undefined) updateData.author_name = updates.authorName;
+
+  const { data, error } = await supabase
+    .from('dev_notices')
+    .update(updateData)
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Failed to update notice:', error);
+    throw new Error(`공지사항 수정에 실패했습니다: ${error.message}`);
+  }
+
+  return convertNoticeRowToNotice(data as DevNoticeRow);
+}
+
+/**
+ * 공지사항 삭제
+ * @param id - 공지사항 ID
+ */
+export async function deleteNotice(id: string): Promise<void> {
+  const { error } = await supabase.from('dev_notices').delete().eq('id', id);
+
+  if (error) {
+    console.error('Failed to delete notice:', error);
+    throw new Error(`공지사항 삭제에 실패했습니다: ${error.message}`);
+  }
+}
+
+/**
+ * 공지사항 고정 토글
+ * @param id - 공지사항 ID
+ * @param isPinned - 고정 여부
+ * @returns 수정된 공지사항
+ */
+export async function toggleNoticePinned(
+  id: string,
+  isPinned: boolean
+): Promise<DevNotice> {
+  return updateNotice(id, { isPinned });
 }

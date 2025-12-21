@@ -7,12 +7,14 @@ interface FloatingActionButtonProps {
   onIdeaClick: () => void;
   onBoardClick: () => void;
   onProjectClick: () => void;
+  onNoticeClick: () => void;
 }
 
 export default function FloatingActionButton({
   onIdeaClick,
   onBoardClick,
   onProjectClick,
+  onNoticeClick,
 }: FloatingActionButtonProps) {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -42,6 +44,7 @@ export default function FloatingActionButton({
           onIdeaClick={onIdeaClick}
           onBoardClick={onBoardClick}
           onProjectClick={onProjectClick}
+          onNoticeClick={onNoticeClick}
         />
       )}
     </>

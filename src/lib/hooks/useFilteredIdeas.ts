@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import {
   getIdeas,
   createIdea,
+  updateIdea,
   uploadIdeaImage,
   deleteIdea,
 } from '../supabase/developer';
@@ -19,6 +20,12 @@ interface UseFilteredIdeasResult {
   loadMore: () => void;
   refetch: () => Promise<void>;
   createNewIdea: (data: {
+    authorName: string;
+    content: string;
+    category: IdeaCategory;
+    images: File[];
+  }) => Promise<void>;
+  updateIdeaItem: (id: string, data: {
     authorName: string;
     content: string;
     category: IdeaCategory;
@@ -104,6 +111,43 @@ export function useFilteredIdeas(): UseFilteredIdeasResult {
     }
   };
 
+  const updateIdeaItem = async (id: string, data: {
+    authorName: string;
+    content: string;
+    category: IdeaCategory;
+    images: File[];
+  }) => {
+    try {
+      // 새 이미지 업로드
+      const newImageUrls: string[] = [];
+      for (const file of data.images) {
+        try {
+          const url = await uploadIdeaImage(file, id);
+          newImageUrls.push(url);
+        } catch (err) {
+          console.error('Failed to upload image:', err);
+        }
+      }
+
+      // 기존 아이디어 찾기
+      const existingIdea = allIdeas.find(idea => idea.id === id);
+      const existingImages = existingIdea?.images || [];
+
+      // 아이디어 업데이트
+      const updatedIdea = await updateIdea(id, {
+        content: data.content,
+        category: data.category,
+        images: [...existingImages, ...newImageUrls],
+      });
+
+      // 목록 업데이트
+      setAllIdeas((prev) => prev.map(idea => idea.id === id ? updatedIdea : idea));
+    } catch (err) {
+      console.error('Failed to update idea:', err);
+      throw err;
+    }
+  };
+
   const deleteIdeaItem = async (id: string) => {
     try {
       await deleteIdea(id);
@@ -128,6 +172,7 @@ export function useFilteredIdeas(): UseFilteredIdeasResult {
     loadMore: () => setPage(prev => prev + 1),
     refetch: fetchAllIdeas,
     createNewIdea,
+    updateIdeaItem,
     deleteIdeaItem,
   };
 }

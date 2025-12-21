@@ -7,14 +7,12 @@ interface IdeaListProps {
   ideas: DevIdea[];
   loading: boolean;
   error: Error | null;
-  onIdeaClick?: (idea: DevIdea) => void;
 }
 
 export default function IdeaList({
   ideas,
   loading,
   error,
-  onIdeaClick,
 }: IdeaListProps) {
   // 로딩 상태
   if (loading) {
@@ -63,7 +61,6 @@ export default function IdeaList({
         <IdeaCard
           key={idea.id}
           idea={idea}
-          onClick={() => onIdeaClick?.(idea)}
         />
       ))}
     </div>

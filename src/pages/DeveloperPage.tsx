@@ -1,12 +1,13 @@
 // Developer Page - 셀바 개발자노트
 // Mobile-first design with max-width 640px
 import { useState, useEffect } from 'react';
-import { Lightbulb, Globe, Rocket, Home, FolderOpen, ExternalLink, Shield } from 'lucide-react';
+import { Lightbulb, Globe, Rocket, Home, FolderOpen, ExternalLink, Shield, Megaphone } from 'lucide-react';
 import DeploymentList from '@/components/developer/DeploymentList';
 import IdeaForm from '@/components/developer/IdeaForm';
 import BoardSubmissionForm from '@/components/developer/BoardSubmissionForm';
 import FloatingActionButton from '@/components/developer/FloatingActionButton';
-import { IdeaDetailModal } from '@/components/developer/IdeaDetailModal';
+// IdeaDetailModal 제거됨 - 인라인 펼침 방식으로 변경
+import { ProjectDetailModal } from '@/components/developer/ProjectDetailModal';
 import { CollapsibleSection } from '@/components/developer/CollapsibleSection';
 import FilterButton from '@/components/developer/FilterButton';
 import PaginationDots from '@/components/developer/PaginationDots';
@@ -17,11 +18,15 @@ import ProjectFormModal from '@/components/developer/ProjectFormModal';
 import ProjectDashboard from '@/components/developer/ProjectDashboard';
 import KanbanView from '@/components/developer/KanbanView';
 import ErrorLogSection from '@/components/developer/ErrorLogSection';
+import NoticeCard from '@/components/developer/NoticeCard';
+import NoticeForm from '@/components/developer/NoticeForm';
+// NoticeDetailModal 제거됨 - 인라인 펼침 방식으로 변경
 import { useDeployments } from '@/lib/hooks/useDeployments';
 import { useFilteredIdeas } from '@/lib/hooks/useFilteredIdeas';
 import { useFilteredSubmissions } from '@/lib/hooks/useFilteredSubmissions';
 import { useProjects } from '@/lib/hooks/useProjects';
-import type { DevIdea, DevProject, ProjectFormData } from '@/types/developer';
+import { useNotices } from '@/lib/hooks/useNotices';
+import type { DevIdea, DevProject, DevNotice, ProjectFormData, NoticeFormData } from '@/types/developer';
 
 // PWA 설치 프롬프트 인터페이스
 interface BeforeInstallPromptEvent extends Event {
@@ -40,6 +45,7 @@ export default function DeveloperPage() {
     hasMore: ideasHasMore,
     loadMore: loadMoreIdeas,
     createNewIdea,
+    updateIdeaItem,
     deleteIdeaItem,
   } = useFilteredIdeas();
   const {
@@ -67,11 +73,28 @@ export default function DeveloperPage() {
     completeStage,
   } = useProjects();
 
+  const {
+    notices,
+    loading: noticesLoading,
+    error: noticesError,
+    filter: noticeFilter,
+    setFilter: setNoticeFilter,
+    createNewNotice,
+    updateNoticeItem,
+    deleteNoticeItem,
+    togglePinned,
+  } = useNotices();
+
   const [showIdeaForm, setShowIdeaForm] = useState(false);
   const [showBoardForm, setShowBoardForm] = useState(false);
   const [showProjectForm, setShowProjectForm] = useState(false);
-  const [selectedIdea, setSelectedIdea] = useState<DevIdea | null>(null);
+  // selectedIdea 제거됨 - 인라인 펼침 방식으로 변경
+  const [selectedProject, setSelectedProject] = useState<DevProject | null>(null);
+  // selectedNotice 제거됨 - 인라인 펼침 방식으로 변경
   const [editingProject, setEditingProject] = useState<DevProject | null>(null);
+  const [editingNotice, setEditingNotice] = useState<DevNotice | null>(null);
+  const [editingIdea, setEditingIdea] = useState<DevIdea | null>(null);
+  const [showNoticeForm, setShowNoticeForm] = useState(false);
   const [sourceIdeaId, setSourceIdeaId] = useState<string | undefined>();
 
   // PWA 설치 관련 상태
@@ -168,6 +191,56 @@ export default function DeveloperPage() {
             error={deploymentsError}
           />
 
+          {/* 공지사항 */}
+          <CollapsibleSection
+            title="공지사항"
+            icon={<Megaphone className="w-5 h-5" />}
+            defaultOpen={true}
+            filterButton={
+              <FilterButton
+                options={[
+                  { value: 'all', label: '전체' },
+                  { value: 'notice', label: '📢 공지' },
+                  { value: 'update', label: '🔔 업데이트' },
+                  { value: 'event', label: '🎉 이벤트' },
+                  { value: 'important', label: '⚠️ 중요' },
+                ]}
+                value={noticeFilter}
+                onChange={(v) => setNoticeFilter(v as any)}
+              />
+            }
+          >
+            <div className="p-4 space-y-4">
+              {/* 공지사항 카드 리스트 */}
+              {noticesLoading ? (
+                <div className="text-center py-8 text-gray-500">로딩 중...</div>
+              ) : noticesError ? (
+                <div className="text-center py-8 text-red-500">
+                  공지사항을 불러올 수 없습니다
+                </div>
+              ) : notices.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  공지사항이 없습니다
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {notices.map((notice) => (
+                    <NoticeCard
+                      key={notice.id}
+                      notice={notice}
+                      onEdit={() => {
+                        setEditingNotice(notice);
+                        setShowNoticeForm(true);
+                      }}
+                      onDelete={() => deleteNoticeItem(notice.id)}
+                      onTogglePin={() => togglePinned(notice.id)}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          </CollapsibleSection>
+
           {/* 아이디어 목록 */}
           <CollapsibleSection 
             title="아이디어 살펴보기"
@@ -209,6 +282,10 @@ export default function DeveloperPage() {
                       onSendToProject={() => {
                         setSourceIdeaId(idea.id);
                         setShowProjectForm(true);
+                      }}
+                      onEdit={() => {
+                        setEditingIdea(idea);
+                        setShowIdeaForm(true);
                       }}
                       onDelete={() => deleteIdeaItem(idea.id)}
                     />
@@ -312,6 +389,7 @@ export default function DeveloperPage() {
                       await updateProjectItem(projectId, { ...project, sourceIdeaId: project.sourceIdeaId || undefined, status: newStatus });
                     }
                   }}
+                  onViewDetail={(p) => setSelectedProject(p)}
                 />
               )}
             </div>
@@ -365,20 +443,37 @@ export default function DeveloperPage() {
 
       {/* Floating Action Button */}
       <FloatingActionButton
-        onIdeaClick={() => setShowIdeaForm(true)}
+        onIdeaClick={() => {
+          setEditingIdea(null);
+          setShowIdeaForm(true);
+        }}
         onBoardClick={() => setShowBoardForm(true)}
         onProjectClick={() => {
           setEditingProject(null);
           setSourceIdeaId(undefined);
           setShowProjectForm(true);
         }}
+        onNoticeClick={() => {
+          setEditingNotice(null);
+          setShowNoticeForm(true);
+        }}
       />
 
-      {/* 아이디어 작성 폼 모달 */}
+      {/* 아이디어 작성/수정 폼 모달 */}
       {showIdeaForm && (
         <IdeaForm
-          onClose={() => setShowIdeaForm(false)}
-          onSubmit={createNewIdea}
+          onClose={() => {
+            setShowIdeaForm(false);
+            setEditingIdea(null);
+          }}
+          onSubmit={async (data) => {
+            if (editingIdea) {
+              await updateIdeaItem(editingIdea.id, data);
+            } else {
+              await createNewIdea(data);
+            }
+          }}
+          editingIdea={editingIdea}
         />
       )}
 
@@ -409,12 +504,48 @@ export default function DeveloperPage() {
         initialProject={editingProject || undefined}
       />
 
-      {/* 아이디어 상세 모달 */}
-      <IdeaDetailModal
-        idea={selectedIdea}
-        isOpen={!!selectedIdea}
-        onClose={() => setSelectedIdea(null)}
+      {/* 아이디어 상세 모달 제거됨 - 인라인 펼침 방식으로 변경 */}
+
+      {/* 프로젝트 상세 모달 */}
+      <ProjectDetailModal
+        project={selectedProject}
+        isOpen={!!selectedProject}
+        onClose={() => setSelectedProject(null)}
+        onCompleteStage={(stageId) => {
+          if (selectedProject) {
+            completeStage(selectedProject.id, stageId);
+            // 모달 내 프로젝트 상태 업데이트
+            const updatedProject: DevProject = {
+              ...selectedProject,
+              stages: selectedProject.stages.map(s =>
+                s.id === stageId
+                  ? { ...s, isCompleted: !s.isCompleted, completedAt: !s.isCompleted ? new Date().toISOString() : null }
+                  : s
+              )
+            };
+            setSelectedProject(updatedProject);
+          }
+        }}
       />
+
+      {/* 공지사항 작성/수정 폼 모달 */}
+      <NoticeForm
+        isOpen={showNoticeForm}
+        onClose={() => {
+          setShowNoticeForm(false);
+          setEditingNotice(null);
+        }}
+        onSubmit={async (data: NoticeFormData) => {
+          if (editingNotice) {
+            await updateNoticeItem(editingNotice.id, data);
+          } else {
+            await createNewNotice(data);
+          }
+        }}
+        editingNotice={editingNotice}
+      />
+
+      {/* 공지사항 상세 모달 제거됨 - 인라인 펼침 방식으로 변경 */}
     </div>
   );
 }
