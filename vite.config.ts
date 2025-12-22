@@ -151,6 +151,8 @@ export default defineConfig({
       workbox: {
         // ✅ 오래된 캐시 자동 정리 활성화
         cleanupOutdatedCaches: true,
+        // ✅ 큰 파일 캐싱 허용 (BlockNote 라이브러리 포함)
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5MB
         // ✅ /note 경로로의 네비게이션 폴백 설정
         navigateFallback: '/note',
         navigateFallbackDenylist: [/^\/api/, /^\/admin/, /^\/$/, /^\/landing/],  // API, 관리자, 메인, 랜딩 제외
