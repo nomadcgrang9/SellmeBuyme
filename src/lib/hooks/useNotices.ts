@@ -50,14 +50,19 @@ export function useNotices() {
       // 첨부파일 업로드
       const attachmentUrls: string[] = [];
       if (data.attachments && data.attachments.length > 0) {
+        console.log('[Notice] Uploading', data.attachments.length, 'files...');
         for (const file of data.attachments) {
           try {
+            console.log('[Notice] Uploading:', file.name, file.size, 'bytes');
             const url = await uploadNoticeFile(file, tempId);
+            console.log('[Notice] Upload success:', url);
             attachmentUrls.push(url);
           } catch (err) {
-            console.error('Failed to upload file:', file.name, err);
+            console.error('[Notice] Upload failed:', file.name, err);
+            alert(`파일 업로드 실패: ${file.name}\n${err instanceof Error ? err.message : '알 수 없는 오류'}`);
           }
         }
+        console.log('[Notice] Total uploaded:', attachmentUrls.length);
       }
 
       // 공지사항 생성 (URL 배열 전달)

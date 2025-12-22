@@ -245,6 +245,8 @@ export async function uploadIdeaImage(
   file: File,
   ideaId: string
 ): Promise<string> {
+  console.log('[uploadIdeaImage] 시작:', file.name, file.size, 'bytes');
+
   // 파일 크기 검증 (50MB)
   const maxSize = 50 * 1024 * 1024;
   if (file.size > maxSize) {
@@ -258,6 +260,8 @@ export async function uploadIdeaImage(
   const fileName = `${timestamp}-${randomStr}-${safeName}`;
   const filePath = `ideas/${ideaId}/${fileName}`;
 
+  console.log('[uploadIdeaImage] 경로:', filePath);
+
   // Storage에 업로드
   const { data, error } = await supabase.storage
     .from('developer')
@@ -267,14 +271,19 @@ export async function uploadIdeaImage(
     });
 
   if (error) {
-    console.error('Failed to upload file:', error);
+    console.error('[uploadIdeaImage] 업로드 실패:', error);
+    console.error('[uploadIdeaImage] 에러 상세:', JSON.stringify(error, null, 2));
     throw new Error(`파일 업로드에 실패했습니다: ${error.message}`);
   }
+
+  console.log('[uploadIdeaImage] 업로드 성공:', data);
 
   // Public URL 가져오기
   const {
     data: { publicUrl },
   } = supabase.storage.from('developer').getPublicUrl(data.path);
+
+  console.log('[uploadIdeaImage] Public URL:', publicUrl);
 
   return publicUrl;
 }
@@ -289,6 +298,8 @@ export async function uploadNoticeFile(
   file: File,
   noticeId: string
 ): Promise<string> {
+  console.log('[uploadNoticeFile] 시작:', file.name, file.size, 'bytes');
+
   // 파일 크기 검증 (50MB)
   const maxSize = 50 * 1024 * 1024;
   if (file.size > maxSize) {
@@ -304,6 +315,8 @@ export async function uploadNoticeFile(
     .substring(0, 50);
   const fileName = `${timestamp}-${randomStr}-${safeName}`;
   const filePath = `notices/${noticeId}/${fileName}`;
+
+  console.log('[uploadNoticeFile] 경로:', filePath);
 
   // Content-Type 결정
   let contentType = file.type;
@@ -325,6 +338,8 @@ export async function uploadNoticeFile(
     contentType = extMap[ext] || 'application/octet-stream';
   }
 
+  console.log('[uploadNoticeFile] Content-Type:', contentType);
+
   // Storage에 업로드
   const { data, error } = await supabase.storage
     .from('developer')
@@ -335,14 +350,19 @@ export async function uploadNoticeFile(
     });
 
   if (error) {
-    console.error('Failed to upload notice file:', error);
+    console.error('[uploadNoticeFile] 업로드 실패:', error);
+    console.error('[uploadNoticeFile] 에러 상세:', JSON.stringify(error, null, 2));
     throw new Error(`파일 업로드에 실패했습니다: ${error.message}`);
   }
+
+  console.log('[uploadNoticeFile] 업로드 성공:', data);
 
   // Public URL 가져오기
   const {
     data: { publicUrl },
   } = supabase.storage.from('developer').getPublicUrl(data.path);
+
+  console.log('[uploadNoticeFile] Public URL:', publicUrl);
 
   return publicUrl;
 }
