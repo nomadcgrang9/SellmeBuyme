@@ -253,14 +253,39 @@ export async function uploadIdeaImage(
     throw new Error('파일 크기는 50MB 이하여야 합니다');
   }
 
-  // 파일 이름 생성 (타임스탬프 + 랜덤 + 원본파일명)
+  // 파일 이름 생성 (타임스탬프 + 랜덤 + 확장자만)
+  // Supabase Storage는 한글 파일명을 지원하지 않으므로 URL 인코딩 사용
   const timestamp = Date.now();
   const randomStr = Math.random().toString(36).substring(2, 8);
-  const safeName = file.name.replace(/[^a-zA-Z0-9가-힣._-]/g, '_');
-  const fileName = `${timestamp}-${randomStr}-${safeName}`;
+  const ext = file.name.split('.').pop()?.toLowerCase() || 'bin';
+  // 원본 파일명은 URL 인코딩하여 보관 (나중에 표시용)
+  const encodedOriginalName = encodeURIComponent(file.name);
+  const fileName = `${timestamp}-${randomStr}-${encodedOriginalName}`;
   const filePath = `ideas/${ideaId}/${fileName}`;
 
   console.log('[uploadIdeaImage] 경로:', filePath);
+
+  // Content-Type 결정
+  let contentType = file.type;
+  if (!contentType || contentType === 'application/octet-stream') {
+    const extMap: Record<string, string> = {
+      pdf: 'application/pdf',
+      hwp: 'application/vnd.hancom.hwp',
+      hwpx: 'application/vnd.hancom.hwpx',
+      doc: 'application/msword',
+      docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      xls: 'application/vnd.ms-excel',
+      xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      jpg: 'image/jpeg',
+      jpeg: 'image/jpeg',
+      png: 'image/png',
+      gif: 'image/gif',
+      webp: 'image/webp',
+    };
+    contentType = extMap[ext] || 'application/octet-stream';
+  }
+
+  console.log('[uploadIdeaImage] Content-Type:', contentType);
 
   // Storage에 업로드
   const { data, error } = await supabase.storage
@@ -268,6 +293,7 @@ export async function uploadIdeaImage(
     .upload(filePath, file, {
       cacheControl: '3600',
       upsert: false,
+      contentType,
     });
 
   if (error) {
@@ -306,14 +332,14 @@ export async function uploadNoticeFile(
     throw new Error('파일 크기는 50MB 이하여야 합니다');
   }
 
-  // 파일 이름 생성 (타임스탬프 + 랜덤 + 원본명)
+  // 파일 이름 생성 (타임스탬프 + 랜덤 + 확장자만)
+  // Supabase Storage는 한글 파일명을 지원하지 않으므로 확장자만 사용
   const timestamp = Date.now();
   const randomStr = Math.random().toString(36).substring(2, 8);
   const ext = file.name.split('.').pop()?.toLowerCase() || 'bin';
-  const safeName = file.name
-    .replace(/[^a-zA-Z0-9가-힣._-]/g, '_')
-    .substring(0, 50);
-  const fileName = `${timestamp}-${randomStr}-${safeName}`;
+  // 원본 파일명은 URL 인코딩하여 메타데이터처럼 보관 (나중에 표시용)
+  const encodedOriginalName = encodeURIComponent(file.name);
+  const fileName = `${timestamp}-${randomStr}-${encodedOriginalName}`;
   const filePath = `notices/${noticeId}/${fileName}`;
 
   console.log('[uploadNoticeFile] 경로:', filePath);
