@@ -6,10 +6,21 @@ import * as dotenv from 'dotenv';
 dotenv.config();
 
 // SERVICE_ROLE_KEY 사용하여 RLS 우회
-const supabase = createClient(
-  process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || process.env.PROJECT_URL;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SERVICE_ROLE_KEY;
+
+if (!supabaseUrl || !supabaseServiceKey) {
+  console.error('❌ Supabase 환경변수 누락:');
+  console.error(`   SUPABASE_URL: ${supabaseUrl}`);
+  console.error(`   SUPABASE_SERVICE_ROLE_KEY: ${supabaseServiceKey ? '[설정됨]' : '[누락]'}`);
+  console.error('\n사용 가능한 환경변수:');
+  console.error(`   VITE_SUPABASE_URL: ${process.env.VITE_SUPABASE_URL}`);
+  console.error(`   SUPABASE_URL: ${process.env.SUPABASE_URL}`);
+  console.error(`   PROJECT_URL: ${process.env.PROJECT_URL}`);
+  process.exit(1);
+}
+
+const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 async function approveSubmissionAndUpdateDB() {
   const submissionId = process.env.SUBMISSION_ID;

@@ -13,6 +13,7 @@ interface ExtractedSelectors {
   date: string;
   link: string;
   location?: string;
+  organization?: string;
   detailContent?: string;
   attachment?: string;
 }
@@ -186,28 +187,64 @@ ${html}
 /**
  * Playwright로 셀렉터 검증
  */
-async function validateSelectors(
-  url: string,
+/**
+ * 다중 패턴 시스템: 패턴 조합 생성
+ */
+function generatePatternCombinations(aiSelectors: ExtractedSelectors): Array<{ name: string; selectors: ExtractedSelectors }> {
+  // 패턴 A: AI가 제안한 원본 셀렉터
+  const patternA: ExtractedSelectors = { ...aiSelectors };
+
+  // 패턴 B: 경남/경북 교육청 스타일 (table.frmbd-list-tbl 기반)
+  const patternB: ExtractedSelectors = {
+    listContainer: 'table.frmbd-list-tbl',
+    rows: 'table.frmbd-list-tbl tbody tr',
+    title: 'td.data-btn.tl span.tit a',
+    date: 'td.data-btn:nth-child(3) span:last-child',
+    link: 'td.data-btn.tl span.tit a',
+    organization: 'td.data-btn:nth-child(2) span:last-child'
+  };
+
+  // 패턴 C: 경기도 교육청 스타일 (일반 table 기반)
+  const patternC: ExtractedSelectors = {
+    listContainer: 'table.board-list',
+    rows: 'tbody tr',
+    title: 'td.tit a',
+    date: 'td.date',
+    link: 'td.tit a',
+    organization: 'td.org'
+  };
+
+  // 패턴 D: 범용 폴백 (최후의 수단)
+  const patternD: ExtractedSelectors = {
+    listContainer: 'table',
+    rows: 'tbody tr',
+    title: 'td a',
+    date: 'td:nth-child(3)',
+    link: 'td a',
+    organization: 'td:nth-child(2)'
+  };
+
+  return [
+    { name: 'Pattern A (AI Generated)', selectors: patternA },
+    { name: 'Pattern B (Gyeongnam/Gyeongbuk Style)', selectors: patternB },
+    { name: 'Pattern C (Gyeonggi Style)', selectors: patternC },
+    { name: 'Pattern D (Generic Fallback)', selectors: patternD }
+  ];
+}
+
+/**
+ * 단일 패턴 검증 함수
+ */
+async function testSinglePattern(
+  page: any,
   selectors: ExtractedSelectors
-): Promise<boolean> {
-  console.log('\n🔍 셀렉터 검증 중...');
-
-  const browser = await chromium.launch({ headless: true });
-  const page = await browser.newPage();
-
+): Promise<{ success: boolean; rowsCount: number; titleCount: number; dateCount: number; linkCount: number }> {
   try {
-    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
-    await page.waitForTimeout(2000);
-
     // rows 선택자로 요소 찾기
     const rowsCount = await page.locator(selectors.rows).count();
 
-    console.log(`  발견된 행: ${rowsCount}개`);
-
-    if (rowsCount < 3) {
-      console.warn(`  ⚠️  행이 너무 적음 (최소 3개 필요, 현재 ${rowsCount}개)`);
-      await browser.close();
-      return false;
+    if (rowsCount < 1) {
+      return { success: false, rowsCount: 0, titleCount: 0, dateCount: 0, linkCount: 0 };
     }
 
     // 첫 번째 행에서 title, date, link 확인
@@ -217,22 +254,58 @@ async function validateSelectors(
     const dateCount = await firstRow.locator(selectors.date.replace(/^.*?\s+/, '')).count();
     const linkCount = await firstRow.locator(selectors.link.replace(/^.*?\s+/, '')).count();
 
-    console.log(`  첫 행 요소: title=${titleCount}, date=${dateCount}, link=${linkCount}`);
+    // title과 link는 필수, date는 선택
+    const success = (titleCount > 0 && linkCount > 0);
 
-    if (titleCount === 0 || linkCount === 0) {
-      console.warn('  ⚠️  필수 요소 누락');
-      await browser.close();
-      return false;
-    }
-
-    console.log('  ✅ 셀렉터 검증 성공!');
-    await browser.close();
-    return true;
+    return { success, rowsCount, titleCount, dateCount, linkCount };
 
   } catch (error) {
-    console.error('  ❌ 검증 실패:', error instanceof Error ? error.message : error);
+    return { success: false, rowsCount: 0, titleCount: 0, dateCount: 0, linkCount: 0 };
+  }
+}
+
+/**
+ * 다중 패턴 검증: 순차적으로 시도하여 가장 적합한 패턴 반환
+ */
+async function validateSelectors(
+  url: string,
+  aiSelectors: ExtractedSelectors
+): Promise<{ isValid: boolean; bestPattern?: { name: string; selectors: ExtractedSelectors } }> {
+  console.log('\n🔍 다중 패턴 검증 시작...');
+
+  const browser = await chromium.launch({ headless: true });
+  const page = await browser.newPage();
+
+  try {
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
+    await page.waitForTimeout(2000);
+
+    const patterns = generatePatternCombinations(aiSelectors);
+
+    for (const pattern of patterns) {
+      console.log(`\n📋 시도 중: ${pattern.name}`);
+
+      const result = await testSinglePattern(page, pattern.selectors);
+
+      console.log(`  검증 결과: rows=${result.rowsCount}, title=${result.titleCount}, date=${result.dateCount}, link=${result.linkCount}`);
+
+      if (result.success) {
+        console.log(`  ✅ ${pattern.name} 검증 통과!`);
+        await browser.close();
+        return { isValid: true, bestPattern: pattern };
+      } else {
+        console.warn(`  ⚠️  ${pattern.name} 필수 요소 누락, 다음 패턴 시도...`);
+      }
+    }
+
+    console.error('\n❌ 모든 패턴 검증 실패');
     await browser.close();
-    return false;
+    return { isValid: false };
+
+  } catch (error) {
+    console.error('  ❌ 검증 프로세스 실패:', error instanceof Error ? error.message : error);
+    await browser.close();
+    return { isValid: false };
   }
 }
 
@@ -618,22 +691,24 @@ async function main() {
     const { screenshot, html } = await analyzePage(url);
 
     // 2. Gemini로 셀렉터 추출
-    const selectors = await extractSelectorsWithGemini(screenshot, html);
+    const aiSelectors = await extractSelectorsWithGemini(screenshot, html);
 
-    // 3. 셀렉터 검증
-    const isValid = await validateSelectors(url, selectors);
+    // 3. 다중 패턴 검증 (AI 셀렉터 → 패턴 B → 패턴 C → 패턴 D 순차 시도)
+    const validationResult = await validateSelectors(url, aiSelectors);
 
-    if (!isValid) {
-      console.warn('\n⚠️  셀렉터 검증 실패. 범용 템플릿 사용을 권장합니다.');
+    if (!validationResult.isValid || !validationResult.bestPattern) {
+      console.warn('\n⚠️  모든 패턴 검증 실패. 수동 확인이 필요합니다.');
       console.log('수동으로 crawler/sources/uijeongbu.js를 복사하여 수정하세요.');
       process.exit(1);
     }
 
-    // 4. 크롤러 코드 생성
+    console.log(`\n🎯 최적 패턴 선택됨: ${validationResult.bestPattern.name}`);
+
+    // 4. 크롤러 코드 생성 (검증된 최적 패턴 사용)
     const config: CrawlerConfig & { region?: string | null; isLocalGovernment?: boolean } = {
       name: boardName,
       baseUrl: url,
-      selectors,
+      selectors: validationResult.bestPattern.selectors,
       region,
       isLocalGovernment
     };
