@@ -22,16 +22,31 @@ function getFileIcon(url: string) {
   return <File className="w-4 h-4 text-gray-500" />;
 }
 
-// URL에서 파일명 추출
+// URL에서 파일명 추출 (Base64 디코딩)
 function getFileName(url: string): string {
   const parts = url.split('/');
   const fullName = parts[parts.length - 1];
-  // 타임스탬프-랜덤-원본명.ext 형식에서 원본명.ext 추출
-  const match = fullName.match(/^\d+-[a-z0-9]+-(.+)$/);
+  // 패턴: timestamp-randomStr-base64Name.ext
+  const match = fullName.match(/^\d+-[a-z0-9]+-(.+)\.([a-z0-9]+)$/i);
   if (match) {
-    return decodeURIComponent(match[1]);
+    const base64Part = match[1];
+    const ext = match[2];
+    try {
+      // URL-safe Base64를 표준 Base64로 변환 후 디코딩
+      const standardBase64 = base64Part.replace(/-/g, '+').replace(/_/g, '/');
+      const decoded = decodeURIComponent(escape(atob(standardBase64)));
+      return decoded;
+    } catch {
+      // Base64 디코딩 실패시 확장자만 반환
+      return `파일.${ext}`;
+    }
   }
-  return decodeURIComponent(fullName);
+  // 기존 형식 (URL 인코딩) 호환
+  try {
+    return decodeURIComponent(fullName);
+  } catch {
+    return fullName;
+  }
 }
 
 interface NoticeDetailModalProps {

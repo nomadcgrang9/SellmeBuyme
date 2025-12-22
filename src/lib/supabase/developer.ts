@@ -253,14 +253,17 @@ export async function uploadIdeaImage(
     throw new Error('파일 크기는 50MB 이하여야 합니다');
   }
 
-  // 파일 이름 생성 (타임스탬프 + 랜덤 + 확장자만)
-  // Supabase Storage는 한글 파일명을 지원하지 않으므로 URL 인코딩 사용
+  // 파일 이름 생성 (타임스탬프 + 랜덤 + 원본파일명 Base64)
+  // Supabase Storage는 특수문자/한글을 지원하지 않으므로 Base64 인코딩 사용
   const timestamp = Date.now();
   const randomStr = Math.random().toString(36).substring(2, 8);
   const ext = file.name.split('.').pop()?.toLowerCase() || 'bin';
-  // 원본 파일명은 URL 인코딩하여 보관 (나중에 표시용)
-  const encodedOriginalName = encodeURIComponent(file.name);
-  const fileName = `${timestamp}-${randomStr}-${encodedOriginalName}`;
+  // 원본 파일명을 Base64로 인코딩 (URL-safe)
+  const base64Name = btoa(unescape(encodeURIComponent(file.name)))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
+  const fileName = `${timestamp}-${randomStr}-${base64Name}.${ext}`;
   const filePath = `ideas/${ideaId}/${fileName}`;
 
   console.log('[uploadIdeaImage] 경로:', filePath);
@@ -332,14 +335,17 @@ export async function uploadNoticeFile(
     throw new Error('파일 크기는 50MB 이하여야 합니다');
   }
 
-  // 파일 이름 생성 (타임스탬프 + 랜덤 + 확장자만)
-  // Supabase Storage는 한글 파일명을 지원하지 않으므로 확장자만 사용
+  // 파일 이름 생성 (타임스탬프 + 랜덤 + 원본파일명 Base64)
+  // Supabase Storage는 특수문자/한글을 지원하지 않으므로 Base64 인코딩 사용
   const timestamp = Date.now();
   const randomStr = Math.random().toString(36).substring(2, 8);
   const ext = file.name.split('.').pop()?.toLowerCase() || 'bin';
-  // 원본 파일명은 URL 인코딩하여 메타데이터처럼 보관 (나중에 표시용)
-  const encodedOriginalName = encodeURIComponent(file.name);
-  const fileName = `${timestamp}-${randomStr}-${encodedOriginalName}`;
+  // 원본 파일명을 Base64로 인코딩 (URL-safe)
+  const base64Name = btoa(unescape(encodeURIComponent(file.name)))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
+  const fileName = `${timestamp}-${randomStr}-${base64Name}.${ext}`;
   const filePath = `notices/${noticeId}/${fileName}`;
 
   console.log('[uploadNoticeFile] 경로:', filePath);
