@@ -1,9 +1,37 @@
 // NoticeCard - 공지사항 카드 컴포넌트 (인라인 펼침 방식)
 import { useState } from 'react';
-import { User, Calendar, Trash2, Edit2, Pin, Megaphone, Bell, Gift, AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react';
+import { User, Calendar, Trash2, Edit2, Pin, Megaphone, Bell, Gift, AlertTriangle, ChevronDown, ChevronUp, Paperclip, Download, FileText, File } from 'lucide-react';
 import { CommentSection } from './comments/CommentSection';
 import MarkdownRenderer from './MarkdownRenderer';
+import ImageViewer from './ImageViewer';
 import type { DevNotice, NoticeCategory } from '@/types/developer';
+
+// 파일 확장자로 이미지 여부 확인
+function isImageUrl(url: string): boolean {
+  const ext = url.split('.').pop()?.toLowerCase();
+  return ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext || '');
+}
+
+// 파일 확장자로 아이콘 결정
+function getFileIcon(url: string) {
+  const ext = url.split('.').pop()?.toLowerCase();
+  if (ext === 'pdf') return <FileText className="w-4 h-4 text-red-500" />;
+  if (ext === 'hwp' || ext === 'hwpx') return <FileText className="w-4 h-4 text-blue-600" />;
+  if (ext === 'doc' || ext === 'docx') return <FileText className="w-4 h-4 text-blue-500" />;
+  if (ext === 'xls' || ext === 'xlsx') return <FileText className="w-4 h-4 text-green-600" />;
+  return <File className="w-4 h-4 text-gray-500" />;
+}
+
+// URL에서 파일명 추출
+function getFileName(url: string): string {
+  const parts = url.split('/');
+  const fullName = parts[parts.length - 1];
+  const match = fullName.match(/^\d+-[a-z0-9]+-(.+)$/);
+  if (match) {
+    return decodeURIComponent(match[1]);
+  }
+  return decodeURIComponent(fullName);
+}
 
 interface NoticeCardProps {
   notice: DevNotice;
@@ -41,6 +69,19 @@ export default function NoticeCard({
 }: NoticeCardProps) {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [viewerOpen, setViewerOpen] = useState(false);
+  const [viewerIndex, setViewerIndex] = useState(0);
+
+  // 첨부파일 분리 (이미지 vs 문서)
+  const attachments = notice.attachments || [];
+  const images = attachments.filter(isImageUrl);
+  const documents = attachments.filter((url) => !isImageUrl(url));
+
+  const handleImageClick = (url: string) => {
+    const index = images.indexOf(url);
+    setViewerIndex(index >= 0 ? index : 0);
+    setViewerOpen(true);
+  };
 
   // 시간 포맷팅
   const formatTimeAgo = (dateString: string) => {
@@ -75,8 +116,9 @@ export default function NoticeCard({
     }
   };
 
-  // 내용이 2줄 이상인지 체크 (대략 100자 기준)
+  // 내용이 2줄 이상인지 또는 첨부파일이 있는지 체크
   const isLongContent = notice.content.length > 100;
+  const hasAttachments = attachments.length > 0;
 
   return (
     <div className={`bg-white rounded-lg border overflow-hidden transition-shadow ${
@@ -167,7 +209,7 @@ export default function NoticeCard({
           </div>
 
           {/* 펼침/접기 버튼 */}
-          {isLongContent && (
+          {(isLongContent || hasAttachments) && (
             <button
               onClick={() => setIsExpanded(!isExpanded)}
               className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors"
@@ -183,11 +225,66 @@ export default function NoticeCard({
         </div>
       </div>
 
+      {/* 첨부파일 표시 (접힌 상태) */}
+      {!isExpanded && hasAttachments && (
+        <div className="px-4 py-2 bg-gray-50 border-t border-gray-100">
+          <div className="flex items-center gap-2 text-xs text-gray-500">
+            <Paperclip className="w-3 h-3" />
+            <span>첨부파일 {attachments.length}개</span>
+          </div>
+        </div>
+      )}
+
       {/* 펼쳐진 전체 내용 */}
       {isExpanded && (
         <div className="px-4 pb-4 border-t border-gray-100 bg-gray-50/50">
-          <div className="pt-4">
+          <div className="pt-4 space-y-4">
             <MarkdownRenderer content={notice.content} className="text-sm" />
+
+            {/* 이미지 갤러리 (클릭 시 확대) */}
+            {images.length > 0 && (
+              <div className="grid grid-cols-3 gap-2">
+                {images.map((url, index) => (
+                  <button
+                    key={index}
+                    onClick={() => handleImageClick(url)}
+                    className="relative aspect-square overflow-hidden rounded-lg border border-gray-200 hover:border-gray-300 transition-colors group"
+                  >
+                    <img
+                      src={url}
+                      alt={`첨부 이미지 ${index + 1}`}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                    />
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* 문서 파일 목록 */}
+            {documents.length > 0 && (
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 text-xs font-medium text-gray-600 mb-2">
+                  <Paperclip className="w-3.5 h-3.5" />
+                  <span>첨부파일 ({documents.length})</span>
+                </div>
+                {documents.map((url, index) => (
+                  <a
+                    key={index}
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    download
+                    className="flex items-center gap-2 px-3 py-2 bg-white hover:bg-gray-100 rounded-lg border border-gray-200 transition-colors group"
+                  >
+                    {getFileIcon(url)}
+                    <span className="flex-1 text-sm text-gray-700 truncate">
+                      {getFileName(url)}
+                    </span>
+                    <Download className="w-4 h-4 text-gray-400 group-hover:text-gray-600" />
+                  </a>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -196,6 +293,14 @@ export default function NoticeCard({
       <div className="border-t border-gray-100 bg-gray-50 px-4 py-3">
         <CommentSection targetType="notice" targetId={notice.id} />
       </div>
+
+      {/* 이미지 뷰어 */}
+      <ImageViewer
+        images={images}
+        initialIndex={viewerIndex}
+        isOpen={viewerOpen}
+        onClose={() => setViewerOpen(false)}
+      />
     </div>
   );
 }

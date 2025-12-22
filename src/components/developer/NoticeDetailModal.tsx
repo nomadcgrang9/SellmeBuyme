@@ -1,15 +1,20 @@
 // NoticeDetailModal - 공지사항 상세 보기 모달
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, User, Calendar, Pin, Megaphone, Bell, Gift, AlertTriangle, Paperclip, Download, FileText, File, Image as ImageIcon } from 'lucide-react';
+import { X, User, Calendar, Pin, Megaphone, Bell, Gift, AlertTriangle, Paperclip, Download, FileText, File } from 'lucide-react';
 import MarkdownRenderer from './MarkdownRenderer';
+import ImageViewer from './ImageViewer';
 import type { DevNotice, NoticeCategory } from '@/types/developer';
+
+// 파일 확장자로 이미지 여부 확인
+function isImageUrl(url: string): boolean {
+  const ext = url.split('.').pop()?.toLowerCase();
+  return ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext || '');
+}
 
 // 파일 확장자로 아이콘 결정
 function getFileIcon(url: string) {
   const ext = url.split('.').pop()?.toLowerCase();
-  if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext || '')) {
-    return <ImageIcon className="w-4 h-4 text-blue-500" />;
-  }
   if (ext === 'pdf') return <FileText className="w-4 h-4 text-red-500" />;
   if (ext === 'hwp' || ext === 'hwpx') return <FileText className="w-4 h-4 text-blue-600" />;
   if (ext === 'doc' || ext === 'docx') return <FileText className="w-4 h-4 text-blue-500" />;
@@ -61,7 +66,21 @@ export default function NoticeDetailModal({
   isOpen,
   onClose,
 }: NoticeDetailModalProps) {
+  const [viewerOpen, setViewerOpen] = useState(false);
+  const [viewerIndex, setViewerIndex] = useState(0);
+
   if (!notice) return null;
+
+  // 첨부파일 분리
+  const attachments = notice.attachments || [];
+  const images = attachments.filter(isImageUrl);
+  const documents = attachments.filter((url) => !isImageUrl(url));
+
+  const handleImageClick = (url: string) => {
+    const index = images.indexOf(url);
+    setViewerIndex(index >= 0 ? index : 0);
+    setViewerOpen(true);
+  };
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -144,30 +163,53 @@ export default function NoticeDetailModal({
               <MarkdownRenderer content={notice.content} />
 
               {/* 첨부파일 목록 */}
-              {notice.attachments && notice.attachments.length > 0 && (
+              {attachments.length > 0 && (
                 <div className="mt-6 pt-4 border-t border-gray-200">
                   <div className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-3">
                     <Paperclip className="w-4 h-4" />
-                    <span>첨부파일 ({notice.attachments.length})</span>
+                    <span>첨부파일 ({attachments.length})</span>
                   </div>
-                  <div className="space-y-2">
-                    {notice.attachments.map((url, index) => (
-                      <a
-                        key={index}
-                        href={url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        download
-                        className="flex items-center gap-3 px-3 py-2 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors group"
-                      >
-                        {getFileIcon(url)}
-                        <span className="flex-1 text-sm text-gray-700 truncate">
-                          {getFileName(url)}
-                        </span>
-                        <Download className="w-4 h-4 text-gray-400 group-hover:text-gray-600" />
-                      </a>
-                    ))}
-                  </div>
+
+                  {/* 이미지 갤러리 (클릭 시 확대) */}
+                  {images.length > 0 && (
+                    <div className="grid grid-cols-3 gap-2 mb-3">
+                      {images.map((url, index) => (
+                        <button
+                          key={index}
+                          onClick={() => handleImageClick(url)}
+                          className="relative aspect-square overflow-hidden rounded-lg border border-gray-200 hover:border-gray-300 transition-colors group"
+                        >
+                          <img
+                            src={url}
+                            alt={`첨부 이미지 ${index + 1}`}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                          />
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* 문서 파일 목록 */}
+                  {documents.length > 0 && (
+                    <div className="space-y-2">
+                      {documents.map((url, index) => (
+                        <a
+                          key={index}
+                          href={url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          download
+                          className="flex items-center gap-3 px-3 py-2 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors group"
+                        >
+                          {getFileIcon(url)}
+                          <span className="flex-1 text-sm text-gray-700 truncate">
+                            {getFileName(url)}
+                          </span>
+                          <Download className="w-4 h-4 text-gray-400 group-hover:text-gray-600" />
+                        </a>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -182,6 +224,14 @@ export default function NoticeDetailModal({
               </button>
             </div>
           </motion.div>
+
+          {/* 이미지 뷰어 */}
+          <ImageViewer
+            images={images}
+            initialIndex={viewerIndex}
+            isOpen={viewerOpen}
+            onClose={() => setViewerOpen(false)}
+          />
         </>
       )}
     </AnimatePresence>
