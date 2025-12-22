@@ -105,9 +105,9 @@ export default function NoticeCard({
               {notice.title}
             </h3>
 
-            {/* 내용 미리보기 (접힌 상태) - 마크다운 미리보기 */}
+            {/* 내용 미리보기 (접힌 상태) */}
             {!isExpanded && (
-              <div className="text-sm text-gray-700 line-clamp-2 break-words [&_.markdown-content]:inline">
+              <div className="text-sm text-gray-700 line-clamp-2 break-words">
                 <MarkdownRenderer content={notice.content} className="text-sm" />
               </div>
             )}
@@ -183,7 +183,7 @@ export default function NoticeCard({
         </div>
       </div>
 
-      {/* 펼쳐진 전체 내용 - 마크다운 렌더링 */}
+      {/* 펼쳐진 전체 내용 */}
       {isExpanded && (
         <div className="px-4 pb-4 border-t border-gray-100 bg-gray-50/50">
           <div className="pt-4">

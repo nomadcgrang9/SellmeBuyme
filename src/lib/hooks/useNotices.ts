@@ -6,6 +6,7 @@ import {
   updateNotice,
   deleteNotice,
   toggleNoticePinned,
+  uploadNoticeFile,
 } from '@/lib/supabase/developer';
 import type { DevNotice, NoticeFormData, NoticeCategory } from '@/types/developer';
 
@@ -40,10 +41,34 @@ export function useNotices() {
     ? notices
     : notices.filter(n => n.category === filter);
 
-  // 공지사항 생성
+  // 공지사항 생성 (파일 업로드 포함)
   const createNewNotice = useCallback(async (data: NoticeFormData) => {
     try {
-      const newNotice = await createNotice(data);
+      // 임시 ID 생성 (파일 업로드용)
+      const tempId = crypto.randomUUID();
+
+      // 첨부파일 업로드
+      const attachmentUrls: string[] = [];
+      if (data.attachments && data.attachments.length > 0) {
+        for (const file of data.attachments) {
+          try {
+            const url = await uploadNoticeFile(file, tempId);
+            attachmentUrls.push(url);
+          } catch (err) {
+            console.error('Failed to upload file:', file.name, err);
+          }
+        }
+      }
+
+      // 공지사항 생성 (URL 배열 전달)
+      const newNotice = await createNotice({
+        authorName: data.authorName,
+        title: data.title,
+        content: data.content,
+        category: data.category,
+        isPinned: data.isPinned,
+        attachments: attachmentUrls,
+      });
       setNotices(prev => [newNotice, ...prev]);
       return newNotice;
     } catch (err) {
@@ -52,10 +77,33 @@ export function useNotices() {
     }
   }, []);
 
-  // 공지사항 수정
-  const updateNoticeItem = useCallback(async (id: string, data: Partial<NoticeFormData>) => {
+  // 공지사항 수정 (새 파일 업로드 포함)
+  const updateNoticeItem = useCallback(async (
+    id: string,
+    data: Partial<NoticeFormData>,
+    existingAttachments: string[] = []
+  ) => {
     try {
-      const updatedNotice = await updateNotice(id, data);
+      // 새 첨부파일 업로드
+      const newAttachmentUrls: string[] = [];
+      if (data.attachments && data.attachments.length > 0) {
+        for (const file of data.attachments) {
+          try {
+            const url = await uploadNoticeFile(file, id);
+            newAttachmentUrls.push(url);
+          } catch (err) {
+            console.error('Failed to upload file:', file.name, err);
+          }
+        }
+      }
+
+      // 기존 + 새 첨부파일 합치기
+      const allAttachments = [...existingAttachments, ...newAttachmentUrls];
+
+      const updatedNotice = await updateNotice(id, {
+        ...data,
+        attachments: allAttachments.length > 0 ? allAttachments : undefined,
+      });
       setNotices(prev => prev.map(n => n.id === id ? updatedNotice : n));
       return updatedNotice;
     } catch (err) {

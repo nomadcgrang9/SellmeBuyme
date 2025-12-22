@@ -1,7 +1,7 @@
 // IdeaForm - 아이디어 작성/수정 폼 (모달)
 import { X, Loader2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import ImageUploader from './ImageUploader';
+import FileUploader from './FileUploader';
 import CategoryBadge from './CategoryBadge';
 import type { IdeaCategory, DevIdea } from '@/types/developer';
 
@@ -174,12 +174,12 @@ export default function IdeaForm({ onClose, onSubmit, editingIdea }: IdeaFormPro
             </div>
           )}
 
-          {/* 이미지 업로드 */}
+          {/* 파일 업로드 */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              {editingIdea ? '새 이미지 추가 (선택)' : '이미지 (선택)'}
+              {editingIdea ? '새 파일 추가 (선택)' : '첨부파일 (선택)'}
             </label>
-            <ImageUploader files={images} onChange={setImages} maxFiles={5} />
+            <FileUploader files={images} onChange={setImages} maxFiles={30} maxSizeMB={50} />
           </div>
 
           {/* 버튼 영역 */}

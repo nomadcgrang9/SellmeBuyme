@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { X, Megaphone, Bell, Gift, AlertTriangle, Pin } from 'lucide-react';
 import type { DevNotice, NoticeCategory, NoticeFormData } from '@/types/developer';
 import RichTextEditor from './RichTextEditor';
+import FileUploader from './FileUploader';
 
 interface NoticeFormProps {
   isOpen: boolean;
@@ -31,9 +32,10 @@ export default function NoticeForm({
 }: NoticeFormProps) {
   const [authorName, setAuthorName] = useState('');
   const [title, setTitle] = useState('');
-  const [content, setContent] = useState('');
   const [category, setCategory] = useState<NoticeCategory>('notice');
   const [isPinned, setIsPinned] = useState(false);
+  const [content, setContent] = useState('');
+  const [attachments, setAttachments] = useState<File[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // 수정 모드일 때 초기값 설정
@@ -44,6 +46,9 @@ export default function NoticeForm({
       setContent(editingNotice.content);
       setCategory(editingNotice.category);
       setIsPinned(editingNotice.isPinned);
+      // 수정 모드에서는 기존 첨부파일 URL만 있고 File 객체는 없음
+      // 새 파일만 추가 가능
+      setAttachments([]);
     } else {
       // 폼 초기화
       setAuthorName('');
@@ -51,14 +56,20 @@ export default function NoticeForm({
       setContent('');
       setCategory('notice');
       setIsPinned(false);
+      setAttachments([]);
     }
   }, [editingNotice, isOpen]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!title.trim() || !content.trim()) {
-      alert('제목과 내용을 입력해주세요');
+    if (!title.trim()) {
+      alert('제목을 입력해주세요');
+      return;
+    }
+
+    if (!content.trim()) {
+      alert('내용을 입력해주세요');
       return;
     }
 
@@ -70,6 +81,7 @@ export default function NoticeForm({
         content: content.trim(),
         category,
         isPinned,
+        attachments,
       });
       onClose();
     } catch (error) {
@@ -153,7 +165,7 @@ export default function NoticeForm({
             />
           </div>
 
-          {/* 내용 */}
+          {/* 내용 - 리치 텍스트 에디터 */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               내용 <span className="text-red-500">*</span>
@@ -161,8 +173,21 @@ export default function NoticeForm({
             <RichTextEditor
               value={content}
               onChange={setContent}
-              placeholder="공지 내용을 입력하세요. / 입력 시 토글 블록 생성"
+              placeholder="공지 내용을 입력하세요"
               rows={8}
+            />
+          </div>
+
+          {/* 첨부파일 */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              첨부파일
+            </label>
+            <FileUploader
+              files={attachments}
+              onChange={setAttachments}
+              maxFiles={30}
+              maxSizeMB={50}
             />
           </div>
 

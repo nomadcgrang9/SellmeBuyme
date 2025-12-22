@@ -245,16 +245,17 @@ export async function uploadIdeaImage(
   file: File,
   ideaId: string
 ): Promise<string> {
-  // 파일 크기 검증 (5MB)
-  if (file.size > 5 * 1024 * 1024) {
-    throw new Error('파일 크기는 5MB 이하여야 합니다');
+  // 파일 크기 검증 (50MB)
+  const maxSize = 50 * 1024 * 1024;
+  if (file.size > maxSize) {
+    throw new Error('파일 크기는 50MB 이하여야 합니다');
   }
 
-  // 파일 이름 생성 (타임스탬프 + 랜덤)
+  // 파일 이름 생성 (타임스탬프 + 랜덤 + 원본파일명)
   const timestamp = Date.now();
   const randomStr = Math.random().toString(36).substring(2, 8);
-  const ext = file.name.split('.').pop();
-  const fileName = `${timestamp}-${randomStr}.${ext}`;
+  const safeName = file.name.replace(/[^a-zA-Z0-9가-힣._-]/g, '_');
+  const fileName = `${timestamp}-${randomStr}-${safeName}`;
   const filePath = `ideas/${ideaId}/${fileName}`;
 
   // Storage에 업로드
@@ -266,8 +267,76 @@ export async function uploadIdeaImage(
     });
 
   if (error) {
-    console.error('Failed to upload image:', error);
-    throw new Error(`이미지 업로드에 실패했습니다: ${error.message}`);
+    console.error('Failed to upload file:', error);
+    throw new Error(`파일 업로드에 실패했습니다: ${error.message}`);
+  }
+
+  // Public URL 가져오기
+  const {
+    data: { publicUrl },
+  } = supabase.storage.from('developer').getPublicUrl(data.path);
+
+  return publicUrl;
+}
+
+/**
+ * 공지사항 파일을 Supabase Storage에 업로드
+ * @param file - 업로드할 파일
+ * @param noticeId - 공지사항 ID
+ * @returns 업로드된 파일의 public URL
+ */
+export async function uploadNoticeFile(
+  file: File,
+  noticeId: string
+): Promise<string> {
+  // 파일 크기 검증 (50MB)
+  const maxSize = 50 * 1024 * 1024;
+  if (file.size > maxSize) {
+    throw new Error('파일 크기는 50MB 이하여야 합니다');
+  }
+
+  // 파일 이름 생성 (타임스탬프 + 랜덤 + 원본명)
+  const timestamp = Date.now();
+  const randomStr = Math.random().toString(36).substring(2, 8);
+  const ext = file.name.split('.').pop()?.toLowerCase() || 'bin';
+  const safeName = file.name
+    .replace(/[^a-zA-Z0-9가-힣._-]/g, '_')
+    .substring(0, 50);
+  const fileName = `${timestamp}-${randomStr}-${safeName}`;
+  const filePath = `notices/${noticeId}/${fileName}`;
+
+  // Content-Type 결정
+  let contentType = file.type;
+  if (!contentType || contentType === 'application/octet-stream') {
+    const extMap: Record<string, string> = {
+      pdf: 'application/pdf',
+      hwp: 'application/vnd.hancom.hwp',
+      hwpx: 'application/vnd.hancom.hwpx',
+      doc: 'application/msword',
+      docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      xls: 'application/vnd.ms-excel',
+      xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      jpg: 'image/jpeg',
+      jpeg: 'image/jpeg',
+      png: 'image/png',
+      gif: 'image/gif',
+      webp: 'image/webp',
+    };
+    contentType = extMap[ext] || 'application/octet-stream';
+  }
+
+  // Storage에 업로드
+  const { data, error } = await supabase.storage
+    .from('developer')
+    .upload(filePath, file, {
+      cacheControl: '3600',
+      upsert: false,
+      contentType,
+    });
+
+  if (error) {
+    console.error('Failed to upload notice file:', error);
+    throw new Error(`파일 업로드에 실패했습니다: ${error.message}`);
   }
 
   // Public URL 가져오기
@@ -952,7 +1021,9 @@ export async function getAuthorInfo() {
  * @param notice - 공지사항 데이터
  * @returns 생성된 공지사항
  */
-export async function createNotice(notice: NoticeFormData): Promise<DevNotice> {
+export async function createNotice(
+  notice: Omit<NoticeFormData, 'attachments'> & { attachments?: string[] }
+): Promise<DevNotice> {
   const { data, error } = await supabase
     .from('dev_notices')
     .insert({
@@ -961,6 +1032,7 @@ export async function createNotice(notice: NoticeFormData): Promise<DevNotice> {
       category: notice.category,
       is_pinned: notice.isPinned,
       author_name: notice.authorName || '관리자',
+      attachments: notice.attachments || [],
     })
     .select()
     .single();
@@ -1026,7 +1098,7 @@ export async function getNoticeById(id: string): Promise<DevNotice> {
  */
 export async function updateNotice(
   id: string,
-  updates: Partial<NoticeFormData>
+  updates: Partial<Omit<NoticeFormData, 'attachments'> & { attachments?: string[] }>
 ): Promise<DevNotice> {
   const updateData: Record<string, unknown> = {
     updated_at: new Date().toISOString(),
@@ -1037,6 +1109,7 @@ export async function updateNotice(
   if (updates.category !== undefined) updateData.category = updates.category;
   if (updates.isPinned !== undefined) updateData.is_pinned = updates.isPinned;
   if (updates.authorName !== undefined) updateData.author_name = updates.authorName;
+  if (updates.attachments !== undefined) updateData.attachments = updates.attachments;
 
   const { data, error } = await supabase
     .from('dev_notices')

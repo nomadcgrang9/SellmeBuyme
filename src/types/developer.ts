@@ -86,6 +86,7 @@ export interface DevNoticeRow {
   content: string;
   category: NoticeCategory;
   is_pinned: boolean;
+  attachments: string[] | null;
   created_at: string;
   updated_at: string;
 }
@@ -197,6 +198,7 @@ export interface DevNotice {
   content: string;
   category: NoticeCategory;
   isPinned: boolean;
+  attachments: string[];
   createdAt: string;
   updatedAt: string;
 }
@@ -239,6 +241,7 @@ export interface NoticeFormData {
   content: string;
   category: NoticeCategory;
   isPinned: boolean;
+  attachments: File[];
 }
 
 // =============================================================================
@@ -352,6 +355,7 @@ export function convertNoticeRowToNotice(row: DevNoticeRow): DevNotice {
     content: row.content,
     category: row.category,
     isPinned: row.is_pinned,
+    attachments: row.attachments || [],
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
