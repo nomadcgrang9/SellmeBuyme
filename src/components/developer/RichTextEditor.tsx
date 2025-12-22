@@ -14,11 +14,11 @@ interface RichTextEditorProps {
 }
 
 const COLORS = [
-  { name: '빨강', value: 'red', bg: 'bg-red-500' },
-  { name: '파랑', value: 'blue', bg: 'bg-blue-500' },
-  { name: '초록', value: 'green', bg: 'bg-green-500' },
-  { name: '노랑', value: 'yellow', bg: 'bg-yellow-500' },
-  { name: '회색', value: 'gray', bg: 'bg-gray-500' },
+  { value: 'red', bg: 'bg-red-500' },
+  { value: 'blue', bg: 'bg-blue-500' },
+  { value: 'green', bg: 'bg-green-500' },
+  { value: 'yellow', bg: 'bg-yellow-500' },
+  { value: 'gray', bg: 'bg-gray-500' },
 ];
 
 export default function RichTextEditor({
@@ -32,6 +32,8 @@ export default function RichTextEditor({
   const [showToggleMenu, setShowToggleMenu] = useState(false);
   const [toggleMenuPosition, setToggleMenuPosition] = useState({ top: 0, left: 0 });
   const [slashPosition, setSlashPosition] = useState<number | null>(null);
+  // 색상 메뉴 열기 전 selection 저장 (메뉴 클릭 시 selection 해제 방지)
+  const [savedSelection, setSavedSelection] = useState<{ start: number; end: number; text: string } | null>(null);
 
   // 선택된 텍스트 가져오기
   const getSelection = () => {
@@ -182,14 +184,24 @@ export default function RichTextEditor({
     }
   };
 
-  // 외부 클릭 시 메뉴 닫기
+  // 외부 클릭 시 메뉴 닫기 (색상 메뉴, 토글 메뉴 제외)
+  const colorMenuRef = useRef<HTMLDivElement>(null);
+  const toggleMenuRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    const handleClickOutside = () => {
+    const handleClickOutside = (e: MouseEvent) => {
+      // 색상 메뉴 영역 클릭은 무시
+      if (colorMenuRef.current?.contains(e.target as Node)) {
+        return;
+      }
+      // 토글 메뉴 영역 클릭은 무시
+      if (toggleMenuRef.current?.contains(e.target as Node)) {
+        return;
+      }
       setShowColorMenu(false);
       setShowToggleMenu(false);
     };
-    document.addEventListener('click', handleClickOutside);
-    return () => document.removeEventListener('click', handleClickOutside);
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
   return (
@@ -253,11 +265,15 @@ export default function RichTextEditor({
         <div className="w-px h-5 bg-gray-300 mx-1" />
 
         {/* 색상 */}
-        <div className="relative">
+        <div className="relative" ref={colorMenuRef}>
           <button
             type="button"
-            onClick={(e) => {
+            onMouseDown={(e) => {
+              // 메뉴 열기 전에 selection 저장 (클릭하면 selection 해제되므로)
+              e.preventDefault();
               e.stopPropagation();
+              const sel = getSelection();
+              setSavedSelection(sel);
               setShowColorMenu(!showColorMenu);
             }}
             className="flex items-center gap-1 p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-200 rounded transition-colors"
@@ -269,22 +285,26 @@ export default function RichTextEditor({
 
           {showColorMenu && (
             <div
-              className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 py-1"
-              onClick={(e) => e.stopPropagation()}
+              className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 p-2 flex gap-2"
+              onMouseDown={(e) => e.stopPropagation()}
             >
               {COLORS.map((color) => (
                 <button
                   key={color.value}
                   type="button"
                   onClick={() => {
-                    wrapSelection(`::${color.value}::`, '::');
+                    // 저장된 selection 사용
+                    if (savedSelection && savedSelection.text) {
+                      const { start, end, text } = savedSelection;
+                      const newValue = value.substring(0, start) + `::${color.value}::` + text + '::' + value.substring(end);
+                      onChange(newValue);
+                    }
                     setShowColorMenu(false);
+                    setSavedSelection(null);
                   }}
-                  className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-left hover:bg-gray-100"
-                >
-                  <span className={`w-3 h-3 rounded-full ${color.bg}`} />
-                  {color.name}
-                </button>
+                  className={`w-7 h-7 rounded-full ${color.bg} hover:ring-2 hover:ring-offset-2 hover:ring-gray-400 transition-all cursor-pointer`}
+                  title={color.value}
+                />
               ))}
             </div>
           )}
@@ -311,13 +331,18 @@ export default function RichTextEditor({
         {/* 토글 메뉴 (/ 입력 시) */}
         {showToggleMenu && (
           <div
+            ref={toggleMenuRef}
             className="absolute bg-white border border-gray-200 rounded-lg shadow-lg z-20 py-1"
             style={{ top: toggleMenuPosition.top, left: toggleMenuPosition.left }}
-            onClick={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
           >
             <button
               type="button"
-              onClick={insertToggle}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                insertToggle();
+              }}
               className="flex items-center gap-2 w-full px-3 py-2 text-sm text-left hover:bg-blue-50 hover:text-blue-700"
             >
               <ChevronDown className="w-4 h-4" />

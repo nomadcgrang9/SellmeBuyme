@@ -4,17 +4,53 @@
  */
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import remarkBreaks from 'remark-breaks';
+import rehypeRaw from 'rehype-raw';
 
 interface MarkdownRendererProps {
   content: string;
   className?: string;
 }
 
+// 빈 줄 보존하면서 마크다운 블록 요소는 유지
+// 마크다운 블록 요소(제목, 목록, URL, HTML태그) 앞의 빈줄은 그대로 두고
+// 일반 텍스트 사이 빈줄만 <br>로 변환
+function preserveEmptyLines(content: string): string {
+  const lines = content.split('\n');
+  const result: string[] = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const nextLine = lines[i + 1];
+
+    // 현재 줄이 빈 줄이고, 다음 줄이 마크다운 블록 요소가 아닌 경우만 <br> 삽입
+    if (line.trim() === '' && nextLine !== undefined) {
+      const isNextBlockElement =
+        /^#{1,6}\s/.test(nextLine) ||           // 제목 (#, ##, ### 등)
+        /^-\s/.test(nextLine) ||                 // 목록
+        /^https?:\/\//.test(nextLine.trim()) ||  // URL
+        /^</.test(nextLine.trim()) ||            // HTML 태그
+        nextLine.trim() === '';                  // 연속 빈줄
+
+      if (isNextBlockElement) {
+        result.push('');  // 빈 줄 유지
+      } else {
+        result.push('<br>');  // 일반 텍스트 앞은 <br>
+      }
+    } else {
+      result.push(line);
+    }
+  }
+
+  return result.join('\n');
+}
+
 // 커스텀 색상 문법 처리: ::red::텍스트:: → <span style="color:red">텍스트</span>
+// 빈 텍스트 처리 추가: ::red:::: 같은 경우도 처리
 function processCustomSyntax(content: string): string {
-  // 색상 문법: ::color::텍스트::
+  // 색상 문법: ::color::텍스트:: (텍스트가 있는 경우)
   const colorPattern = /::(\w+)::([^:]+)::/g;
-  return content.replace(colorPattern, (_, color, text) => {
+  let processed = content.replace(colorPattern, (_, color, text) => {
     const colorMap: Record<string, string> = {
       red: '#ef4444',
       blue: '#3b82f6',
@@ -25,16 +61,24 @@ function processCustomSyntax(content: string): string {
     const hexColor = colorMap[color] || color;
     return `<span style="color:${hexColor}">${text}</span>`;
   });
+
+  // 잘못된 색상 문법 제거: ::color:::: 또는 ::color:: 만 있는 경우
+  processed = processed.replace(/::(\w+)::::/g, '');
+  processed = processed.replace(/::(\w+)::/g, '');
+
+  return processed;
 }
 
 export default function MarkdownRenderer({ content, className = '' }: MarkdownRendererProps) {
-  // 커스텀 문법 먼저 처리
-  const processedContent = processCustomSyntax(content);
+  // 1. 빈 줄 보존 (블록 요소 앞은 유지, 일반 텍스트 앞은 <br>)
+  // 2. 커스텀 문법 처리 (색상 등)
+  const withPreservedLines = preserveEmptyLines(content);
+  const processedContent = processCustomSyntax(withPreservedLines);
 
   return (
     <div className={`markdown-content ${className}`}>
       <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
+        remarkPlugins={[remarkGfm, remarkBreaks]}
         components={{
           // 제목 스타일
           h1: ({ children }) => (
@@ -89,9 +133,8 @@ export default function MarkdownRenderer({ content, className = '' }: MarkdownRe
             <p className="text-gray-700 my-1 leading-relaxed">{children}</p>
           ),
         }}
-        // HTML 태그 허용 (details, summary, span 등)
-        rehypePlugins={[]}
-        skipHtml={false}
+        // HTML 태그 렌더링 (details, summary, span 등)
+        rehypePlugins={[rehypeRaw]}
       >
         {processedContent}
       </ReactMarkdown>
