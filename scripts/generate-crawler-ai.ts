@@ -4,7 +4,7 @@ import { writeFileSync, readFileSync } from 'fs';
 import { join } from 'path';
 import * as dotenv from 'dotenv';
 
-dotenv.config();
+dotenv.config({ path: '.env.local' });
 
 interface ExtractedSelectors {
   listContainer: string;
@@ -33,7 +33,7 @@ async function analyzePage(url: string): Promise<{ screenshot: string; html: str
   console.log(`\n📍 페이지 분석 시작: ${url}`);
 
   const browser = await chromium.launch({ headless: true });
-  const page = await browser.newPage();
+  const page = await browser.newPage({ ignoreHTTPSErrors: true });
 
   try {
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
@@ -89,7 +89,7 @@ async function extractSelectorsWithGemini(
 ): Promise<ExtractedSelectors> {
   console.log('\n🤖 Gemini API로 셀렉터 추출 중...');
 
-  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' });
+  const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash-latest' });
 
   const prompt = `당신은 웹 크롤링 전문가입니다. 첨부된 스크린샷과 HTML을 분석하여, 게시판 목록에서 데이터를 추출하는 CSS 셀렉터를 찾아주세요.
 
@@ -137,15 +137,7 @@ ${html}
     try {
       console.log(`  시도 ${attempt}/${maxRetries}...`);
 
-      const result = await model.generateContent([
-        prompt,
-        {
-          inlineData: {
-            data: screenshot,
-            mimeType: 'image/png'
-          }
-        }
-      ]);
+      const result = await model.generateContent(prompt);
 
       const response = result.response.text();
       console.log('  Gemini 응답:', response.substring(0, 200) + '...');
@@ -274,7 +266,7 @@ async function validateSelectors(
   console.log('\n🔍 다중 패턴 검증 시작...');
 
   const browser = await chromium.launch({ headless: true });
-  const page = await browser.newPage();
+  const page = await browser.newPage({ ignoreHTTPSErrors: true });
 
   try {
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
