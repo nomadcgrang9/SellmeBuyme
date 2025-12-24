@@ -6,10 +6,21 @@ import * as dotenv from 'dotenv';
 dotenv.config();
 
 // SERVICE_ROLE_KEY 사용하여 RLS 우회
-const supabase = createClient(
-  process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || process.env.PROJECT_URL;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SERVICE_ROLE_KEY;
+
+if (!supabaseUrl || !supabaseServiceKey) {
+  console.error('❌ Supabase 환경변수 누락:');
+  console.error(`   SUPABASE_URL: ${supabaseUrl}`);
+  console.error(`   SUPABASE_SERVICE_ROLE_KEY: ${supabaseServiceKey ? '[설정됨]' : '[누락]'}`);
+  console.error('\n사용 가능한 환경변수:');
+  console.error(`   VITE_SUPABASE_URL: ${process.env.VITE_SUPABASE_URL}`);
+  console.error(`   SUPABASE_URL: ${process.env.SUPABASE_URL}`);
+  console.error(`   PROJECT_URL: ${process.env.PROJECT_URL}`);
+  process.exit(1);
+}
+
+const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 async function approveSubmissionAndUpdateDB() {
   const submissionId = process.env.SUBMISSION_ID;
@@ -17,20 +28,23 @@ async function approveSubmissionAndUpdateDB() {
   const boardUrl = process.env.BOARD_URL;
   const adminUserId = process.env.ADMIN_USER_ID;
 
-  if (!submissionId || !boardName || !boardUrl || !adminUserId) {
+  if (!submissionId || !boardName || !boardUrl) {
     console.error('❌ 필수 환경 변수 누락:');
     console.error(`   SUBMISSION_ID: ${submissionId}`);
     console.error(`   BOARD_NAME: ${boardName}`);
     console.error(`   BOARD_URL: ${boardUrl}`);
-    console.error(`   ADMIN_USER_ID: ${adminUserId}`);
     process.exit(1);
   }
+
+  // UUID 형식 검증 (approved_by는 UUID여야 함, 아니면 null 처리)
+  const isValidUuid = (str: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+  const approvedBy = adminUserId && isValidUuid(adminUserId) ? adminUserId : null;
 
   console.log('=== 게시판 승인 및 DB 업데이트 시작 ===\n');
   console.log(`제출 ID: ${submissionId}`);
   console.log(`게시판명: ${boardName}`);
   console.log(`URL: ${boardUrl}`);
-  console.log(`관리자 ID: ${adminUserId}\n`);
+  console.log(`관리자 ID: ${approvedBy || '(시스템 자동 승인)'}\n`);
 
   try {
     // 1. dev_board_submissions에서 region 정보 가져오기
@@ -110,7 +124,7 @@ async function approveSubmissionAndUpdateDB() {
           crawler_source_code: crawlerCode,
           region,
           is_local_government: isLocalGovernment,
-          approved_by: adminUserId,
+          approved_by: approvedBy,
           approved_at: new Date().toISOString(),
         })
         .eq('id', existingBoard.id);
@@ -137,7 +151,7 @@ async function approveSubmissionAndUpdateDB() {
           crawler_source_code: crawlerCode,
           region,
           is_local_government: isLocalGovernment,
-          approved_by: adminUserId,
+          approved_by: approvedBy,
           approved_at: new Date().toISOString(),
         })
         .select('id')
@@ -159,7 +173,7 @@ async function approveSubmissionAndUpdateDB() {
       .update({
         status: 'approved',
         crawl_board_id: crawlBoardId,
-        approved_by: adminUserId,
+        approved_by: approvedBy,
         approved_at: new Date().toISOString(),
       })
       .eq('id', submissionId);
