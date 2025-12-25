@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
-import { Search, X, ChevronLeft } from 'lucide-react';
+import { Search, X, ChevronLeft, Settings2 } from 'lucide-react';
 import CompactJobCard from '@/components/cards/CompactJobCard';
 import JobDetailModal from '@/components/cards/JobDetailModal';
+import FilterSidebar from '@/components/search/FilterSidebar';
+import { useSearchStore } from '@/stores/searchStore';
 import { searchCards } from '@/lib/supabase/queries';
 import {
   getSearchHistory,
@@ -16,6 +18,8 @@ import type { Card, JobPostingCard } from '@/types';
 export default function MobileSearch() {
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const { filters } = useSearchStore(); // Store에서 필터 가져오기
+
   const [searchInput, setSearchInput] = useState('');
   const [searchHistory, setSearchHistory] = useState(getSearchHistory());
   const [isSearching, setIsSearching] = useState(false);
@@ -23,6 +27,7 @@ export default function MobileSearch() {
   const [showResults, setShowResults] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const [selectedJob, setSelectedJob] = useState<JobPostingCard | null>(null);
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
 
   const popularKeywords = getPopularKeywords();
 
@@ -55,6 +60,7 @@ export default function MobileSearch() {
         // 검색 실행 - job 타입만 검색
         const response = await searchCards({
           searchQuery: keyword,
+          filters, // 필터 전달
           viewType: 'job',
           limit: 20,
           offset: 0
@@ -88,7 +94,7 @@ export default function MobileSearch() {
       active = false;
       clearTimeout(timeoutId);
     };
-  }, [searchInput]);
+  }, [searchInput, filters]); // filters 변경 시에도 재검색
 
   // 검색어 클릭 (검색은 useEffect에서 자동 실행)
   const handleKeywordClick = (keyword: string) => {
@@ -185,190 +191,213 @@ export default function MobileSearch() {
             </div>
           </div>
         </div>
+
+        {/* 필터 버튼 */}
+        <button
+          onClick={() => setIsFilterOpen(true)}
+          className={`p-2 ml-1 rounded-full transition-colors relative ${filters.region.length + filters.schoolLevel.length + filters.subject.length > 0
+            ? 'text-[#68B2FF] bg-[#68B2FF0D]'
+            : 'text-gray-400 hover:bg-gray-100'
+            }`}
+        >
+          <Settings2 className="w-6 h-6" />
+          {(filters.region.length + filters.schoolLevel.length + filters.subject.length > 0) && (
+            <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white" />
+          )}
+        </button>
       </div>
 
       {/* 검색 결과 */}
-      {showResults && hasSearched ? (
-        <div className="px-4 py-4">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-base font-bold text-gray-900">
-              {isSearching ? '검색 중...' : `검색 결과 ${searchResults.length}건`}
-            </h2>
-            {/* TODO: 정렬 옵션 추가 */}
-          </div>
+      {
+        showResults && hasSearched ? (
+          <div className="px-4 py-4">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-base font-bold text-gray-900">
+                {isSearching ? '검색 중...' : `검색 결과 ${searchResults.length}건`}
+              </h2>
+              {/* TODO: 정렬 옵션 추가 */}
+            </div>
 
-          {isSearching ? (
-            <div className="text-center py-16">
-              <div className="inline-block w-8 h-8 border-4 border-gray-200 border-t-[#68B2FF] rounded-full animate-spin mb-4"></div>
-              <p className="text-gray-500 text-sm">검색 중입니다...</p>
-            </div>
-          ) : searchResults.length > 0 ? (
-            <div className="space-y-3">
-              {searchResults
-                .filter((card): card is JobPostingCard => card.type === 'job')
-                .map((job) => (
-                  <CompactJobCard
-                    key={job.id}
-                    job={job}
-                    onClick={() => handleCardClick(job)}
-                  />
-                ))}
-            </div>
-          ) : (
-            <div className="text-center py-16">
-              <Search className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <p className="text-gray-500 mb-4">검색 결과가 없습니다</p>
-              <p className="text-sm text-gray-400 mb-6">다른 검색어로 시도해보세요</p>
-              <div className="flex flex-wrap justify-center gap-2">
-                {popularKeywords.slice(0, 4).map((keyword) => (
+            {isSearching ? (
+              <div className="text-center py-16">
+                <div className="inline-block w-8 h-8 border-4 border-gray-200 border-t-[#68B2FF] rounded-full animate-spin mb-4"></div>
+                <p className="text-gray-500 text-sm">검색 중입니다...</p>
+              </div>
+            ) : searchResults.length > 0 ? (
+              <div className="space-y-3">
+                {searchResults
+                  .filter((card): card is JobPostingCard => card.type === 'job')
+                  .map((job) => (
+                    <CompactJobCard
+                      key={job.id}
+                      job={job}
+                      onClick={() => handleCardClick(job)}
+                    />
+                  ))}
+              </div>
+            ) : (
+              <div className="text-center py-16">
+                <Search className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                <p className="text-gray-500 mb-4">검색 결과가 없습니다</p>
+                <p className="text-sm text-gray-400 mb-6">다른 검색어로 시도해보세요</p>
+                <div className="flex flex-wrap justify-center gap-2">
+                  {popularKeywords.slice(0, 4).map((keyword) => (
+                    <button
+                      key={keyword}
+                      onClick={() => handleKeywordClick(keyword)}
+                      className="px-4 py-2 bg-white border border-gray-200 rounded-full text-sm text-gray-700 hover:border-[#68B2FF] hover:bg-[#68B2FF0D] transition-colors"
+                    >
+                      {keyword}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          /* 검색 전 화면 */
+          <div className="px-4 py-4 space-y-6">
+            {/* 최근 검색어 */}
+            {searchHistory.length > 0 && (
+              <section>
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="text-sm font-bold text-gray-700">📝 최근 검색어</h2>
+                  <button
+                    onClick={handleClearHistory}
+                    className="text-xs text-gray-500 hover:text-gray-700 transition-colors"
+                  >
+                    전체삭제
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {searchHistory.map((item) => (
+                    <button
+                      key={item.keyword}
+                      onClick={() => handleKeywordClick(item.keyword)}
+                      className="group inline-flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 rounded-full text-sm text-gray-700 hover:border-[#68B2FF] hover:bg-[#68B2FF0D] transition-colors"
+                    >
+                      {item.keyword}
+                      <X
+                        className="w-3 h-3 text-gray-400 group-hover:text-gray-600"
+                        onClick={(e) => handleRemoveHistory(item.keyword, e)}
+                      />
+                    </button>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* 인기 검색어 */}
+            <section>
+              <h2 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-1">
+                🔥 인기 검색어
+              </h2>
+              <div className="grid grid-cols-2 gap-2">
+                {popularKeywords.map((keyword, index) => (
                   <button
                     key={keyword}
                     onClick={() => handleKeywordClick(keyword)}
-                    className="px-4 py-2 bg-white border border-gray-200 rounded-full text-sm text-gray-700 hover:border-[#68B2FF] hover:bg-[#68B2FF0D] transition-colors"
+                    className="flex items-center gap-2 px-3 py-2.5 bg-white border border-gray-200 rounded-lg text-left hover:border-[#68B2FF] hover:bg-[#68B2FF0D] transition-colors"
                   >
-                    {keyword}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      ) : (
-        /* 검색 전 화면 */
-        <div className="px-4 py-4 space-y-6">
-          {/* 최근 검색어 */}
-          {searchHistory.length > 0 && (
-            <section>
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-sm font-bold text-gray-700">📝 최근 검색어</h2>
-                <button
-                  onClick={handleClearHistory}
-                  className="text-xs text-gray-500 hover:text-gray-700 transition-colors"
-                >
-                  전체삭제
-                </button>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {searchHistory.map((item) => (
-                  <button
-                    key={item.keyword}
-                    onClick={() => handleKeywordClick(item.keyword)}
-                    className="group inline-flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 rounded-full text-sm text-gray-700 hover:border-[#68B2FF] hover:bg-[#68B2FF0D] transition-colors"
-                  >
-                    {item.keyword}
-                    <X
-                      className="w-3 h-3 text-gray-400 group-hover:text-gray-600"
-                      onClick={(e) => handleRemoveHistory(item.keyword, e)}
-                    />
+                    <span className="text-xs font-medium text-gray-400 w-5">
+                      {(index + 1).toString().padStart(2, '0')}
+                    </span>
+                    <span className="text-sm text-gray-900">{keyword}</span>
                   </button>
                 ))}
               </div>
             </section>
-          )}
 
-          {/* 인기 검색어 */}
-          <section>
-            <h2 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-1">
-              🔥 인기 검색어
-            </h2>
-            <div className="grid grid-cols-2 gap-2">
-              {popularKeywords.map((keyword, index) => (
-                <button
-                  key={keyword}
-                  onClick={() => handleKeywordClick(keyword)}
-                  className="flex items-center gap-2 px-3 py-2.5 bg-white border border-gray-200 rounded-lg text-left hover:border-[#68B2FF] hover:bg-[#68B2FF0D] transition-colors"
-                >
-                  <span className="text-xs font-medium text-gray-400 w-5">
-                    {(index + 1).toString().padStart(2, '0')}
-                  </span>
-                  <span className="text-sm text-gray-900">{keyword}</span>
-                </button>
-              ))}
-            </div>
-          </section>
+            {/* 추천 검색어 */}
+            <section>
+              <h2 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-1">
+                ✨ 추천 검색어
+              </h2>
+              <div className="space-y-4">
+                {/* 학교급 */}
+                <div>
+                  <h3 className="text-xs font-medium text-gray-500 mb-2">📚 학교급</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {RECOMMENDED_KEYWORDS.schoolLevel.map((keyword) => (
+                      <button
+                        key={keyword}
+                        onClick={() => handleKeywordClick(keyword)}
+                        className="px-3 py-1.5 bg-white border border-gray-200 text-gray-700 rounded-full text-sm hover:border-[#68B2FF] hover:bg-[#68B2FF0D] transition-colors"
+                      >
+                        {keyword}
+                      </button>
+                    ))}
+                  </div>
+                </div>
 
-          {/* 추천 검색어 */}
-          <section>
-            <h2 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-1">
-              ✨ 추천 검색어
-            </h2>
-            <div className="space-y-4">
-              {/* 학교급 */}
-              <div>
-                <h3 className="text-xs font-medium text-gray-500 mb-2">📚 학교급</h3>
-                <div className="flex flex-wrap gap-2">
-                  {RECOMMENDED_KEYWORDS.schoolLevel.map((keyword) => (
-                    <button
-                      key={keyword}
-                      onClick={() => handleKeywordClick(keyword)}
-                      className="px-3 py-1.5 bg-white border border-gray-200 text-gray-700 rounded-full text-sm hover:border-[#68B2FF] hover:bg-[#68B2FF0D] transition-colors"
-                    >
-                      {keyword}
-                    </button>
-                  ))}
+                {/* 지역 */}
+                <div>
+                  <h3 className="text-xs font-medium text-gray-500 mb-2">📍 지역</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {RECOMMENDED_KEYWORDS.regions.map((keyword) => (
+                      <button
+                        key={keyword}
+                        onClick={() => handleKeywordClick(keyword)}
+                        className="px-3 py-1.5 bg-white border border-gray-200 text-gray-700 rounded-full text-sm hover:border-[#68B2FF] hover:bg-[#68B2FF0D] transition-colors"
+                      >
+                        {keyword}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 교과목 */}
+                <div>
+                  <h3 className="text-xs font-medium text-gray-500 mb-2">📖 교과목</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {RECOMMENDED_KEYWORDS.subjects.map((keyword) => (
+                      <button
+                        key={keyword}
+                        onClick={() => handleKeywordClick(keyword)}
+                        className="px-3 py-1.5 bg-white border border-gray-200 text-gray-700 rounded-full text-sm hover:border-[#68B2FF] hover:bg-[#68B2FF0D] transition-colors"
+                      >
+                        {keyword}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 공고유형 */}
+                <div>
+                  <h3 className="text-xs font-medium text-gray-500 mb-2">💼 공고유형</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {RECOMMENDED_KEYWORDS.jobTypes.map((keyword) => (
+                      <button
+                        key={keyword}
+                        onClick={() => handleKeywordClick(keyword)}
+                        className="px-3 py-1.5 bg-white border border-gray-200 text-gray-700 rounded-full text-sm hover:border-[#68B2FF] hover:bg-[#68B2FF0D] transition-colors"
+                      >
+                        {keyword}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
-
-              {/* 지역 */}
-              <div>
-                <h3 className="text-xs font-medium text-gray-500 mb-2">📍 지역</h3>
-                <div className="flex flex-wrap gap-2">
-                  {RECOMMENDED_KEYWORDS.regions.map((keyword) => (
-                    <button
-                      key={keyword}
-                      onClick={() => handleKeywordClick(keyword)}
-                      className="px-3 py-1.5 bg-white border border-gray-200 text-gray-700 rounded-full text-sm hover:border-[#68B2FF] hover:bg-[#68B2FF0D] transition-colors"
-                    >
-                      {keyword}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* 교과목 */}
-              <div>
-                <h3 className="text-xs font-medium text-gray-500 mb-2">📖 교과목</h3>
-                <div className="flex flex-wrap gap-2">
-                  {RECOMMENDED_KEYWORDS.subjects.map((keyword) => (
-                    <button
-                      key={keyword}
-                      onClick={() => handleKeywordClick(keyword)}
-                      className="px-3 py-1.5 bg-white border border-gray-200 text-gray-700 rounded-full text-sm hover:border-[#68B2FF] hover:bg-[#68B2FF0D] transition-colors"
-                    >
-                      {keyword}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* 공고유형 */}
-              <div>
-                <h3 className="text-xs font-medium text-gray-500 mb-2">💼 공고유형</h3>
-                <div className="flex flex-wrap gap-2">
-                  {RECOMMENDED_KEYWORDS.jobTypes.map((keyword) => (
-                    <button
-                      key={keyword}
-                      onClick={() => handleKeywordClick(keyword)}
-                      className="px-3 py-1.5 bg-white border border-gray-200 text-gray-700 rounded-full text-sm hover:border-[#68B2FF] hover:bg-[#68B2FF0D] transition-colors"
-                    >
-                      {keyword}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </section>
-        </div>
-      )}
+            </section>
+          </div>
+        )
+      }
 
       {/* 상세보기 모달 */}
-      {selectedJob && (
-        <JobDetailModal
-          job={selectedJob}
-          isOpen={!!selectedJob}
-          onClose={() => setSelectedJob(null)}
-        />
-      )}
-    </div>
+      {
+        selectedJob && (
+          <JobDetailModal
+            job={selectedJob}
+            isOpen={!!selectedJob}
+            onClose={() => setSelectedJob(null)}
+          />
+        )
+      }
+      {/* 필터 사이드바 */}
+      <FilterSidebar
+        isOpen={isFilterOpen}
+        onClose={() => setIsFilterOpen(false)}
+      />
+    </div >
   );
 }
