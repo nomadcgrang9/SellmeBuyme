@@ -57,22 +57,31 @@ export default function MobileHeader({
     >
       {/* 로고 - 스크롤 전: 흰색, 스크롤 후: 그라데이션 */}
       <h1
-        className={logoStyle}
+        className={`${logoStyle} mr-2 shrink-0`}
         style={{ letterSpacing: '-0.5px' }}
       >
         셀미바이미
       </h1>
 
-      <div className="flex items-center gap-3">
-        {/* 검색 아이콘 */}
-        <button
-          onClick={onSearchClick}
-          className={`w-9 h-9 flex items-center justify-center rounded-full transition-colors ${hoverClass}`}
-          aria-label="검색"
-        >
-          <IconSearch size={22} stroke={1.5} className={iconColorClass} />
-        </button>
+      {/* 검색바 (Fake Input) */}
+      <button
+        onClick={onSearchClick}
+        className={`flex-1 h-9 mx-1 flex items-center px-3 rounded-full transition-colors ${effectiveIsScrolled ? 'bg-gray-100' : 'bg-white/20'
+          }`}
+        aria-label="검색"
+      >
+        <IconSearch
+          size={18}
+          stroke={1.5}
+          className={effectiveIsScrolled ? 'text-gray-500' : 'text-white/80'}
+        />
+        <span className={`ml-2 text-sm ${effectiveIsScrolled ? 'text-gray-400' : 'text-white/70'
+          }`}>
+          검색어를 입력하세요
+        </span>
+      </button>
 
+      <div className="flex items-center gap-1 shrink-0">
         {/* 알림 아이콘 */}
         <button
           onClick={onNotificationClick}
