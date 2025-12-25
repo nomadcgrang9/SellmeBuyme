@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Search, X, ChevronLeft, Settings2 } from 'lucide-react';
+import { Search, X, Settings2 } from 'lucide-react';
 import CompactJobCard from '@/components/cards/CompactJobCard';
 import JobDetailModal from '@/components/cards/JobDetailModal';
 import FilterSidebar from '@/components/search/FilterSidebar';
@@ -174,14 +174,15 @@ export default function MobileSearch() {
       {/* 검색 헤더 (모바일 전용) */}
       <div className="sticky top-0 z-50 bg-white border-b border-gray-200 md:hidden">
         <div className="flex items-center gap-2 p-3">
-          {/* 뒤로가기 버튼 */}
-          <button
-            onClick={() => window.history.back()}
-            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-            aria-label="뒤로가기"
-          >
-            <ChevronLeft className="w-6 h-6 text-gray-700" />
-          </button>
+          {/* 로고 - 홈으로 이동 */}
+          <a href="/" className="shrink-0">
+            <h1
+              className="text-sm font-extrabold bg-gradient-to-r from-[#9DD2FF] to-[#68B2FF] bg-clip-text text-transparent"
+              style={{ letterSpacing: '-0.5px' }}
+            >
+              셀바
+            </h1>
+          </a>
 
           {/* 검색 입력창 */}
           <div className="flex-1 relative">
@@ -225,17 +226,28 @@ export default function MobileSearch() {
       {/* 데스크탑 콘텐츠 컨테이너 */}
       <div className="max-w-container mx-auto px-4 md:px-6 md:pt-8">
 
-        {/* 데스크탑 상단 영역 (검색 결과 타이틀 및 필터 버튼) */}
+        {/* 데스크탑 상단 영역 (로고 + 검색 결과 타이틀 및 필터 버튼) */}
         <div className="hidden md:flex items-center justify-between mb-6">
-          <h2 className="text-xl font-bold text-gray-900">
-            {searchInput ? `'${searchInput}' 검색 결과` : '검색어를 입력해주세요'}
-          </h2>
+          <div className="flex items-center gap-4">
+            {/* 로고 - 홈으로 이동 */}
+            <a href="/" className="shrink-0">
+              <h1
+                className="text-xl font-extrabold bg-gradient-to-r from-[#9DD2FF] to-[#68B2FF] bg-clip-text text-transparent"
+                style={{ letterSpacing: '-0.5px' }}
+              >
+                셀미바이미
+              </h1>
+            </a>
+            <h2 className="text-xl font-bold text-gray-900">
+              {searchInput ? `'${searchInput}' 검색 결과` : '검색어를 입력해주세요'}
+            </h2>
+          </div>
 
           <button
             onClick={() => setIsFilterOpen(true)}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-colors ${activeFilterCount > 0
-                ? 'border-[#68B2FF] text-[#68B2FF] bg-[#68B2FF0D]'
-                : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+              ? 'border-[#68B2FF] text-[#68B2FF] bg-[#68B2FF0D]'
+              : 'border-gray-200 text-gray-600 hover:bg-gray-50'
               }`}
           >
             <Settings2 className="w-5 h-5" />

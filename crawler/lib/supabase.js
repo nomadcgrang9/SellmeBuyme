@@ -3,11 +3,13 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_ANON_KEY;
+// VITE_ prefix 변수들도 지원 (프론트엔드와 동일한 .env 사용)
+const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+// SERVICE_ROLE_KEY를 우선 사용 (RLS 우회), 없으면 ANON_KEY 폴백
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !supabaseKey) {
-  throw new Error('Supabase credentials not found in .env file');
+  throw new Error('Supabase credentials not found in .env file. Required: SUPABASE_URL (or VITE_SUPABASE_URL) and SUPABASE_SERVICE_ROLE_KEY');
 }
 
 export const supabase = createClient(supabaseUrl, supabaseKey);
