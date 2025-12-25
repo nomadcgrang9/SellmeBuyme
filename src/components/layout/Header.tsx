@@ -128,8 +128,10 @@ export default function Header({ onProfileClick, onChatClick, onBookmarkClick }:
   const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      setLocalSearchQuery(e.currentTarget.value);
-      setSearchQuery(e.currentTarget.value);
+      const query = e.currentTarget.value.trim();
+      if (query) {
+        window.location.href = `/search?q=${encodeURIComponent(query)}`;
+      }
     }
   };
 
@@ -187,22 +189,19 @@ export default function Header({ onProfileClick, onChatClick, onBookmarkClick }:
             <button
               onClick={handleToggle}
               title={`${toggleLabelMap[toggleOrder[(toggleOrder.indexOf(viewType) + 1) % toggleOrder.length]]} 보기`}
-              className={`relative w-[76px] h-6 rounded-full overflow-hidden transition-colors duration-300 flex items-center justify-center shrink-0 ${
-                viewType === 'all' ? 'bg-gray-500 hover:bg-gray-600' : 'bg-gray-300 hover:bg-gray-400'
-              }`}
+              className={`relative w-[76px] h-6 rounded-full overflow-hidden transition-colors duration-300 flex items-center justify-center shrink-0 ${viewType === 'all' ? 'bg-gray-500 hover:bg-gray-600' : 'bg-gray-300 hover:bg-gray-400'
+                }`}
             >
               <span
-                className={`absolute inset-0 flex items-center justify-center text-[9px] font-bold text-white leading-none pointer-events-none select-none transition-opacity duration-200 ${
-                  viewType === 'all' ? 'opacity-100' : 'opacity-0'
-                }`}
+                className={`absolute inset-0 flex items-center justify-center text-[9px] font-bold text-white leading-none pointer-events-none select-none transition-opacity duration-200 ${viewType === 'all' ? 'opacity-100' : 'opacity-0'
+                  }`}
               >
                 모두보기
               </span>
 
               <motion.div
-                className={`absolute top-0.5 w-5 h-5 rounded-full flex items-center justify-center pointer-events-none ${
-                  activeColorMap[viewType]
-                }`}
+                className={`absolute top-0.5 w-5 h-5 rounded-full flex items-center justify-center pointer-events-none ${activeColorMap[viewType]
+                  }`}
                 initial={false}
                 animate={{
                   x: sliderTranslateMap[viewType],
@@ -217,9 +216,8 @@ export default function Header({ onProfileClick, onChatClick, onBookmarkClick }:
                 }}
               >
                 <span
-                  className={`text-[8px] font-semibold text-white leading-none pointer-events-none select-none transition-opacity duration-150 ${
-                    viewType === 'all' ? 'opacity-0' : 'opacity-100'
-                  }`}
+                  className={`text-[8px] font-semibold text-white leading-none pointer-events-none select-none transition-opacity duration-150 ${viewType === 'all' ? 'opacity-0' : 'opacity-100'
+                    }`}
                 >
                   {viewType === 'all' ? '' : toggleLabelMap[viewType]}
                 </span>
