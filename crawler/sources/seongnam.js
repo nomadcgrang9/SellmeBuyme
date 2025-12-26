@@ -1,4 +1,4 @@
-import { loadPage, getTextBySelectors, getAttributeBySelectors, resolveUrl } from '../lib/playwright.js';
+import { loadPage, loadPageWithRetry, getTextBySelectors, getAttributeBySelectors, resolveUrl } from '../lib/playwright.js';
 
 /**
  * 성남교육지원청 크롤러
@@ -94,10 +94,14 @@ export async function crawlSeongnam(page, config) {
         
         console.log(`  ✅ ${i + 1}. 완료`);
         
-        // 목록 페이지로 돌아가기
+        // 목록 페이지로 돌아가기 (재시도 로직 포함)
         if (i < maxRows - 1) { // 마지막 행이 아니면
           console.log(`     목록으로 돌아가는 중...`);
-          await page.goto(config.baseUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+          const navResult = await loadPageWithRetry(page, config.baseUrl, { maxRetries: 3 });
+          if (!navResult.success) {
+            console.warn(`     ⚠️ 목록 페이지 복귀 실패: ${navResult.error}`);
+            // 실패해도 계속 진행 시도
+          }
           await page.waitForTimeout(1000);
         }
       } catch (error) {

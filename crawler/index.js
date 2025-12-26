@@ -8,6 +8,7 @@ import { crawlUijeongbu } from './sources/uijeongbu.js';
 import { crawlNamyangju } from './sources/namyangju.js';
 import { getTokenUsage, resetTokenUsage } from './lib/gemini.js';
 import { parseJobField, deriveJobAttributes } from './lib/jobFieldParser.js';
+import { checkRobotsTxt, validateAccess, exponentialBackoff } from './lib/accessChecker.js';
 import dotenv from 'dotenv';
 import { logInfo, logStep, logWarn, logError, logDebug } from './lib/logger.js';
 
@@ -384,6 +385,24 @@ async function main() {
   try {
     // 토큰 사용량 초기화
     resetTokenUsage();
+
+    // 2.5. robots.txt 사전 검증
+    logStep('access', 'robots.txt 검증 시작', { baseUrl: config.baseUrl });
+    const robotsCheck = await checkRobotsTxt(config.baseUrl);
+
+    if (!robotsCheck.allowed) {
+      logError('access', 'robots.txt에서 크롤링 차단됨', null, {
+        baseUrl: config.baseUrl,
+        reason: robotsCheck.reason,
+        rules: robotsCheck.rules
+      });
+      console.log('\n⚠️  크롤링 중단: ' + robotsCheck.reason);
+      console.log('   이 사이트는 robots.txt에서 봇 접근을 금지하고 있습니다.');
+      console.log('   합법적인 데이터 수집을 위해 해당 교육청에 공식 요청이 필요합니다.\n');
+      process.exit(0); // 정상 종료 (에러가 아님)
+    }
+
+    logInfo('access', 'robots.txt 검증 통과', { baseUrl: config.baseUrl, reason: robotsCheck.reason });
 
     // 3. Supabase에서 크롤링 소스 정보 가져오기
     const crawlSourceInfo = await getOrCreateCrawlSource(config.name, config.baseUrl);
