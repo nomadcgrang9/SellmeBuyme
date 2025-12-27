@@ -56,20 +56,42 @@ export async function crawlAdaptive(page, config) {
             // 날짜 파싱 및 검사
             let rowDate = null;
             if (dateStr) {
-                // YYYY.MM.DD or YYYY-MM-DD or YYYY/MM/DD
-                const cleanDate = dateStr.trim().replace(/\./g, '-').replace(/\//g, '-');
+                // Remove whitespaces
+                let cleanDate = dateStr.trim().replace(/[.\-/]+$/, '');
+
+                // Handle "YY.MM.DD" format (2-digit year) -> Prefix 20
+                if (/^\d{2}[.-]\d{2}[.-]\d{2}$/.test(cleanDate)) {
+                    cleanDate = '20' + cleanDate;
+                }
+
+                // Handle standard separators
+                cleanDate = cleanDate.replace(/\./g, '-').replace(/\//g, '-');
+
                 const parsed = new Date(cleanDate);
                 if (!isNaN(parsed.getTime())) {
+                    // Year sanity check (ignore years like 0133 or 1999 if clearly wrong context, but here we trust source mostly)
+                    // If year < 2000, it might be an issue, but let's accept for now unless it's very old.
+
+                    // Specific fix for "0133" issue: likely MM-DD parsed as YYYY without year? 
+                    // If the parsed year is suspiciously old (e.g. < 2020), assume current year if only MM-DD was provided?
+                    // But usually dateStr has year. 
+
                     rowDate = parsed;
+
+                    // Update oldest date logic
                     if (!currentPageOldestDate || rowDate < currentPageOldestDate) {
                         currentPageOldestDate = rowDate;
                     }
                 }
+            } else {
+                // If date is missing, assume it's new (pass the filter)
+                // But don't update currentPageOldestDate to avoid stopping early
             }
 
             // 날짜 필터링 (날짜가 없으면 최신으로 간주)
             if (rowDate && rowDate < cutoffDate) {
-                // 해당 행은 건너뜀
+                // 날짜가 확인되었는데 너무 오래된 경우만 스킵
+                // logDebug('crawler', `오래된 공고 스킵: ${titleData} (${dateStr})`);
                 continue;
             }
 

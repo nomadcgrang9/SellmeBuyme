@@ -153,5 +153,227 @@
       "type": "script",
       "functionName": "goPaging"
     }
+  },
+  "daegu": {
+    "name": "대구광역시교육청 채용",
+    "baseUrl": "https://www.dge.go.kr/main/na/ntt/selectNttList.do?mi=5191&bbsId=1048",
+    "detailUrlTemplate": "https://www.dge.go.kr/main/na/ntt/selectNttInfo.do?mi=5191&bbsId=1048&nttSn=",
+    "type": "table",
+    "parserType": "html",
+    "selectors": {
+      "listContainer": "table",
+      "row": "tbody tr",
+      "title": {
+        "selector": ".nttInfoBtn",
+        "extract": "text"
+      },
+      "date": {
+        "selector": "td:nth-child(4)",
+        "extract": "text"
+      },
+      "link": {
+        "selector": ".nttInfoBtn",
+        "extract": "attribute",
+        "attributeName": "data-id"
+      },
+      "attachment": "a[href*='fileDown'], a[href*='download']"
+    },
+    "region": "대구",
+    "isLocalGovernment": false,
+    "active": true,
+    "pagination": {
+      "type": "script",
+      "functionName": "fn_egov_select_linkPage"
+    }
+  },
+  "incheon": {
+    "name": "인천광역시교육청 채용공고",
+    "baseUrl": "https://www.ice.go.kr/ice/na/ntt/selectNttList.do?mi=10997&bbsId=1981",
+    "detailUrlTemplate": "https://www.ice.go.kr/ice/na/ntt/selectNttInfo.do?mi=10997&bbsId=1981&nttSn=",
+    "type": "table",
+    "parserType": "html",
+    "selectors": {
+      "listContainer": "table:has-text('등록일')",
+      "row": "tbody tr",
+      "title": {
+        "selector": "td:nth-child(5)",
+        "extract": "text"
+      },
+      "date": {
+        "selector": "td:nth-child(1)",
+        "extract": "text"
+      },
+      "link": {
+        "selector": "td:nth-child(5) a, .nttInfoBtn",
+        "extract": "attribute",
+        "attributeName": "data-id"
+      },
+      "attachment": "a[href*='fileDown']"
+    },
+    "region": "인천",
+    "isLocalGovernment": false,
+    "active": true,
+    "pagination": {
+      "type": "script",
+      "functionName": "fn_egov_select_linkPage"
+    }
+  },
+  "gwangju": {
+    "name": "광주광역시교육청 채용공고",
+    "baseUrl": "https://www.gen.go.kr/xboard/board.php?tbnum=32",
+    "detailUrlTemplate": "https://www.gen.go.kr/xboard/board.php?mode=view&tbnum=32&number=",
+    "type": "table",
+    "parserType": "html",
+    "selectors": {
+      "listContainer": "table",
+      "row": "tbody tr",
+      "title": {
+        "selector": "td:nth-child(3) a",
+        "extract": "text"
+      },
+      "date": {
+        "selector": "td:nth-child(5)",
+        "extract": "text"
+      },
+      "link": {
+        "selector": "td:nth-child(3) a",
+        "extract": "href"
+      },
+      "attachment": "a[href*='download']"
+    },
+    "region": "광주",
+    "isLocalGovernment": false,
+    "active": true,
+    "pagination": {
+      "type": "none"
+    }
+  },
+  "daejeon": {
+    "name": "대전광역시교육청 학교인력채용",
+    "baseUrl": "https://www.dje.go.kr/boardCnts/list.do?boardID=54&m=030202&s=dje",
+    "detailUrlTemplate": "https://www.dje.go.kr/boardCnts/view.do?boardID=54&m=030202&s=dje&boardSeq=",
+    "type": "table",
+    "parserType": "html",
+    "selectors": {
+      "listContainer": "table",
+      "row": "tbody tr",
+      "title": {
+        "selector": "td.subject a",
+        "extract": "text"
+      },
+      "date": {
+        "selector": "td:nth-child(5)",
+        "extract": "text"
+      },
+      "link": {
+        "selector": "td.subject a",
+        "extract": "onclick",
+        "regex": "bg0001_[0-9]+_([0-9]+)"
+      },
+      "attachment": "a[href*='FileDown']"
+    },
+    "region": "대전",
+    "isLocalGovernment": false,
+    "active": true,
+    "pagination": {
+      "type": "script",
+      "functionName": "goPage"
+    }
+  },
+  "chungnam": {
+    "name": "충청남도교육청 채용공고",
+    "baseUrl": "https://www.cne.go.kr/boardCnts/list.do?boardID=642&m=020201&s=cne",
+    "detailUrlTemplate": "https://www.cne.go.kr/boardCnts/view.do?boardID=642&m=020201&s=cne&boardSeq=",
+    "type": "table",
+    "parserType": "html",
+    "selectors": {
+      "listContainer": "table",
+      "row": "tbody tr",
+      "title": {
+        "selector": "td.link a",
+        "extract": "text"
+      },
+      "date": {
+        "selector": "td:nth-child(6)",
+        "extract": "text"
+      },
+      "link": {
+        "selector": "td.link a",
+        "extract": "onclick",
+        "regex": "view\\([0-9]+,([0-9]+)\\)"
+      },
+      "attachment": "a[href*='FileDown']"
+    },
+    "region": "충남",
+    "isLocalGovernment": false,
+    "active": true,
+    "pagination": {
+      "type": "script",
+      "functionName": "goPage"
+    }
+  },
+  "gangwon": {
+    "name": "강원특별자치도교육청 학교인력채용",
+    "baseUrl": "https://www.gwe.go.kr/main/bbs/list.do?key=bTIzMDcyMTA1ODU2MzM=",
+    "detailUrlTemplate": "https://www.gwe.go.kr/main/bbs/view.do?key=bTIzMDcyMTA1ODU2MzM=&bbsUuid=",
+    "type": "table",
+    "parserType": "html",
+    "selectors": {
+      "listContainer": "table",
+      "row": "tbody tr",
+      "title": {
+        "selector": "td.subject a",
+        "extract": "text"
+      },
+      "date": {
+        "selector": "td:nth-child(6)",
+        "extract": "text"
+      },
+      "link": {
+        "selector": "td.subject a",
+        "extract": "onclick",
+        "regex": "view\\('([^']+)'\\)"
+      },
+      "attachment": "a[href*='download']"
+    },
+    "region": "강원",
+    "isLocalGovernment": false,
+    "active": true,
+    "pagination": {
+      "type": "script",
+      "functionName": "fn_search"
+    }
+  },
+  "jeju": {
+    "name": "제주특별자치도교육청 채용정보",
+    "baseUrl": "https://www.jje.go.kr/board/list.jje?boardId=BBS_0000002&menuCd=DOM_000000103003002003",
+    "detailUrlTemplate": "https://www.jje.go.kr/board/view.jje?boardId=BBS_0000002&menuCd=DOM_000000103003002003&dataSid=",
+    "type": "table",
+    "parserType": "html",
+    "selectors": {
+      "listContainer": "table",
+      "row": "tbody tr",
+      "title": {
+        "selector": "td.subject a",
+        "extract": "text"
+      },
+      "date": {
+        "selector": "td:nth-child(5)",
+        "extract": "text"
+      },
+      "link": {
+        "selector": "td.subject a",
+        "extract": "href",
+        "regex": "dataSid=([0-9]+)"
+      },
+      "attachment": "a[href*='fileDown']"
+    },
+    "region": "제주",
+    "isLocalGovernment": false,
+    "active": true,
+    "pagination": {
+      "type": "script",
+      "functionName": "goPage"
+    }
   }
 }

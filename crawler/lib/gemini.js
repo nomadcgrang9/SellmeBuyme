@@ -84,7 +84,7 @@ ${rawContent}
 
   try {
     const result = await model.generateContent(prompt);
-    
+
     // 토큰 사용량 추적
     const usage = result.response.usageMetadata;
     if (usage) {
@@ -93,7 +93,7 @@ ${rawContent}
       tokenUsageStats.totalTokens += usage.totalTokenCount || 0;
       tokenUsageStats.apiCalls += 1;
     }
-    
+
     const text = result.response.text();
     const jsonMatch = text.match(/\{[\s\S]*\}/);
 
@@ -171,8 +171,8 @@ ${rawData.detailContent}
    - 예: ["유치원", "방과후"], ["중등", "영어"], ["초등", "돌봄교실"]
 
 5. **location**:
-   - 본문에서 학교 주소 추출 (예: "의정부시 녹양로 123" → "의정부")
-   - 주소 없으면 출처명에서 추출 (예: "${sourceName}" → "${sourceName.replace('교육지원청', '').replace('교육청', '')}")
+   - 본문에서 시/군/구 이름 추출 (예: "성남/분당", "부산/해운대", "대구/수성")
+   - 주소 없으면 출처명에서 추출 (예: "${sourceName}" → "${sourceName.replace('교육지원청', '').replace('교육청', '').replace('광역시', '').replace('특별자치도', '').trim()}")
    - 정보 없으면 → "미상"
 
 6. **compensation**:
@@ -198,7 +198,7 @@ ${rawData.detailContent}
 
   try {
     const result = await model.generateContent(prompt);
-    
+
     // 토큰 사용량 추적
     const usage = result.response.usageMetadata;
     if (usage) {
@@ -207,17 +207,24 @@ ${rawData.detailContent}
       tokenUsageStats.totalTokens += usage.totalTokenCount || 0;
       tokenUsageStats.apiCalls += 1;
     }
-    
+
     const text = result.response.text();
-    
+
     // JSON 추출 (마크다운 코드블록 제거)
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
+    let cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim();
+
+    // 혹시 모를 앞뒤 잡음 제거 (JSON 포맷 찾기)
+    const jsonStart = cleanText.indexOf('{');
+    const jsonEnd = cleanText.lastIndexOf('}');
+
+    if (jsonStart !== -1 && jsonEnd !== -1) {
+      cleanText = cleanText.substring(jsonStart, jsonEnd + 1);
+    } else {
       throw new Error('AI 응답에서 JSON을 찾을 수 없습니다');
     }
 
-    const normalized = JSON.parse(jsonMatch[0]);
-    
+    const normalized = JSON.parse(cleanText);
+
     console.log(`🤖 AI 정규화 완료: ${normalized.title}`);
     return normalized;
   } catch (error) {
@@ -306,7 +313,7 @@ export async function analyzePageScreenshot(imageBase64) {
     }
 
     const text = result.response.text();
-    
+
     // JSON 추출 (마크다운 코드블록 제거)
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
@@ -317,7 +324,7 @@ export async function analyzePageScreenshot(imageBase64) {
     console.log(`🤖 이미지 분석 완료: ${parsed.school_name} - ${parsed.job_title}`);
     console.log(`   급여: ${parsed.compensation}`);
     console.log(`   마감: ${parsed.deadline}`);
-    
+
     return parsed;
   } catch (error) {
     console.error(`❌ 이미지 분석 실패: ${error.message}`);
@@ -405,7 +412,7 @@ ${contentPreview || '정보 없음'}
 
   try {
     const result = await model.generateContent(prompt);
-    
+
     // 토큰 사용량 추적
     const usage = result.response.usageMetadata;
     if (usage) {
@@ -414,10 +421,10 @@ ${contentPreview || '정보 없음'}
       tokenUsageStats.totalTokens += usage.totalTokenCount || 0;
       tokenUsageStats.apiCalls += 1;
     }
-    
+
     const text = result.response.text();
     const jsonMatch = text.match(/\{[\s\S]*\}/);
-    
+
     if (!jsonMatch) {
       console.warn('⚠️  LLM Fallback: JSON 응답 없음');
       return {
@@ -429,12 +436,12 @@ ${contentPreview || '정보 없음'}
     }
 
     const inferred = JSON.parse(jsonMatch[0]);
-    
+
     console.log(`🤖 LLM Fallback 추론 완료 (confidence: ${inferred.confidence})`);
     console.log(`   학교급: ${currentSchoolLevel} → ${inferred.school_level}`);
     console.log(`   과목: ${currentSubject} → ${inferred.subject}`);
     console.log(`   지역: ${currentLocation} → ${inferred.location}`);
-    
+
     return {
       school_level: inferred.school_level || currentSchoolLevel,
       subject: inferred.subject || currentSubject,
@@ -465,7 +472,7 @@ ${JSON.stringify(jobData, null, 2)}
 
 검증 규칙:
 1. deadline은 미래 날짜여야 함 (과거면 null로 수정)
-2. location은 경기도 내 지역이어야 함
+2. location은 유효한 지역명이어야 함 (예: 경기, 부산, 서울 등)
 3. tags가 비어있으면 직무명에서 추출해서 1-5개 채우기
 4. title은 비어있으면 안됨
 5. 사소한 오류는 무시하고 is_valid를 true로 설정
@@ -480,7 +487,7 @@ ${JSON.stringify(jobData, null, 2)}
 
   try {
     const result = await model.generateContent(prompt);
-    
+
     // 토큰 사용량 추적
     const usage = result.response.usageMetadata;
     if (usage) {
@@ -489,20 +496,20 @@ ${JSON.stringify(jobData, null, 2)}
       tokenUsageStats.totalTokens += usage.totalTokenCount || 0;
       tokenUsageStats.apiCalls += 1;
     }
-    
+
     const text = result.response.text();
-    
+
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
       return { is_valid: true, corrected_data: jobData, errors: [] };
     }
 
     const validation = JSON.parse(jsonMatch[0]);
-    
+
     if (validation.errors.length > 0) {
       console.log(`⚠️  검증 경고: ${validation.errors.join(', ')}`);
     }
-    
+
     return validation;
   } catch (error) {
     console.error(`❌ AI 검증 실패: ${error.message}`);
