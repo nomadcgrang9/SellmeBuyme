@@ -77,6 +77,12 @@ jobs:
           elif [ "$BOARD_ID" = "5d7799d9-5d8d-47a2-b0df-6dd4f39449bd" ]; then
             echo "source=ai-generated" >> $GITHUB_OUTPUT
             exit 0
+          elif [ "$BOARD_ID" = "a54761b2-b9c6-4011-99f8-6f0ef8dd919a" ]; then
+            echo "source=incheon" >> $GITHUB_OUTPUT
+            exit 0
+          elif [ "$BOARD_ID" = "26ed4ae2-922f-42ef-ac38-176871668c0d" ]; then
+            echo "source=seoul" >> $GITHUB_OUTPUT
+            exit 0
           fi
 
           # 새로운 AI 생성 크롤러는 기본 source 사용
@@ -127,6 +133,12 @@ jobs:
               ;;
             "uijeongbu")
               node index.js --source=uijeongbu
+              ;;
+            "incheon")
+              node index.js --source=incheon
+              ;;
+            "seoul")
+              node index.js --source=seoul
               ;;
             "ai-generated")
               echo "🤖 Running AI-generated crawler for board: $BOARD_ID"
@@ -227,6 +239,15 @@ jobs:
           - board_id: 'de02eada-6569-45df-9f4d-45a4fcc51879'
             source: 'ai-generated'
             name: '가평교육지원청 기간제교원 구인구직'
+          - board_id: 'a54761b2-b9c6-4011-99f8-6f0ef8dd919a'
+            source: 'incheon'
+            name: '인천교육청 채용공고'
+          - board_id: '26ed4ae2-922f-42ef-ac38-176871668c0d'
+            source: 'seoul'
+            name: '서울교육일자리포털'
+          - board_id: '8b2fb1b5-bbb0-432a-9c84-d63b9e65b9e2'
+            source: 'ai-generated'
+            name: '강원 교육청 구인게시판'
 
     steps:
       - name: Checkout code
@@ -280,6 +301,12 @@ jobs:
               ;;
             "uijeongbu")
               node index.js --source=uijeongbu
+              ;;
+            "incheon")
+              node index.js --source=incheon
+              ;;
+            "seoul")
+              node index.js --source=seoul
               ;;
             "ai-generated")
               echo "🤖 Running AI-generated crawler for board: $BOARD_ID"
