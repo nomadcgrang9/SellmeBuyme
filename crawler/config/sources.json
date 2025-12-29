@@ -1,4 +1,130 @@
 {
+  "seoul": {
+    "name": "서울교육일자리포털",
+    "baseUrl": "https://work.sen.go.kr/recruit/job/pageListJob.do",
+    "detailUrlTemplate": "https://work.sen.go.kr/recruit/job/pageDetailJob.do?rcrtNo=",
+    "parserType": "html",
+    "region": "서울특별시",
+    "isLocalGovernment": false,
+    "active": true
+  },
+  "busan": {
+    "name": "부산광역시교육청 학교인력채용",
+    "baseUrl": "https://www.pen.go.kr/selectBbsNttList.do?bbsNo=397&key=1553",
+    "detailUrlTemplate": "https://www.pen.go.kr/selectBbsNttView.do?bbsNo=397&key=1553&nttNo=",
+    "parserType": "html",
+    "region": "부산광역시",
+    "isLocalGovernment": false,
+    "active": true
+  },
+  "daegu": {
+    "name": "대구광역시교육청 채용공고",
+    "baseUrl": "https://www.dge.go.kr/main/na/ntt/selectNttList.do?mi=8026&bbsId=4261",
+    "detailUrlTemplate": "https://www.dge.go.kr/main/na/ntt/selectNttInfo.do?mi=8026&bbsId=4261&nttSn=",
+    "parserType": "html",
+    "region": "대구광역시",
+    "isLocalGovernment": false,
+    "active": true
+  },
+  "incheon": {
+    "name": "인천광역시교육청 채용공고",
+    "baseUrl": "https://www.ice.go.kr/boardCnts/list.do?boardID=1639&m=040802&s=ice",
+    "detailUrlTemplate": "https://www.ice.go.kr/boardCnts/view.do?boardID=1639&m=040802&s=ice&boardSeq=",
+    "parserType": "html",
+    "region": "인천광역시",
+    "isLocalGovernment": false,
+    "active": true
+  },
+  "gwangju": {
+    "name": "광주광역시교육청 구인",
+    "baseUrl": "https://www.gen.go.kr/xboard/list.xboard?menuId=0001000000&searchOptYn=Y",
+    "detailUrlTemplate": "https://www.gen.go.kr/xboard/view.xboard?menuId=0001000000&bid=0000000056&seq=",
+    "parserType": "html",
+    "region": "광주광역시",
+    "isLocalGovernment": false,
+    "active": true
+  },
+  "daejeon": {
+    "name": "대전광역시교육청 채용공고",
+    "baseUrl": "https://www.edurecruit.go.kr/jobList.do",
+    "detailUrlTemplate": "https://www.edurecruit.go.kr/jobDetail.do?jobId=",
+    "parserType": "html",
+    "region": "대전광역시",
+    "isLocalGovernment": false,
+    "active": true
+  },
+  "ulsan": {
+    "name": "울산광역시교육청 인력풀",
+    "baseUrl": "https://www.use.go.kr/subPage.do?page=sub06_06_01&m=0606&s=use",
+    "detailUrlTemplate": "https://www.use.go.kr/subPage.do?page=sub06_06_01&m=0606&s=use&boardSeq=",
+    "parserType": "html",
+    "region": "울산광역시",
+    "isLocalGovernment": false,
+    "active": true
+  },
+  "sejong": {
+    "name": "세종특별자치시교육청 구인",
+    "baseUrl": "https://www.sje.go.kr/boardCnts/list.do?boardID=142&m=040602&s=sje",
+    "detailUrlTemplate": "https://www.sje.go.kr/boardCnts/view.do?boardID=142&m=040602&s=sje&boardSeq=",
+    "parserType": "html",
+    "region": "세종특별자치시",
+    "isLocalGovernment": false,
+    "active": true
+  },
+  "gangwon": {
+    "name": "강원특별자치도교육청 구인",
+    "baseUrl": "https://www.gwe.go.kr/gwe/na/ntt/selectNttList.do?mi=4879&bbsId=2530",
+    "detailUrlTemplate": "https://www.gwe.go.kr/gwe/na/ntt/selectNttInfo.do?mi=4879&bbsId=2530&nttSn=",
+    "parserType": "html",
+    "region": "강원특별자치도",
+    "isLocalGovernment": false,
+    "active": true
+  },
+  "chungbuk": {
+    "name": "충청북도교육청 학교구인정보",
+    "baseUrl": "https://www.cbe.go.kr/cbe/na/ntt/selectNttList.do?mi=12106&bbsId=10170",
+    "detailUrlTemplate": "https://www.cbe.go.kr/cbe/na/ntt/selectNttInfo.do?mi=12106&bbsId=10170&nttSn=",
+    "parserType": "html",
+    "region": "충청북도",
+    "isLocalGovernment": false,
+    "active": true
+  },
+  "chungnam": {
+    "name": "충청남도교육청 채용공고",
+    "baseUrl": "https://www.cne.go.kr/cne/na/ntt/selectNttList.do?mi=12126&bbsId=10143",
+    "detailUrlTemplate": "https://www.cne.go.kr/cne/na/ntt/selectNttInfo.do?mi=12126&bbsId=10143&nttSn=",
+    "parserType": "html",
+    "region": "충청남도",
+    "isLocalGovernment": false,
+    "active": true
+  },
+  "jeonbuk": {
+    "name": "전북특별자치도교육청 채용공고",
+    "baseUrl": "https://www.jbe.go.kr/board/list.jbe?boardId=BBS_0000357&menuCd=DOM_000000102003006000",
+    "detailUrlTemplate": "https://www.jbe.go.kr/board/view.jbe?boardId=BBS_0000357&menuCd=DOM_000000102003006000&dataSid=",
+    "parserType": "html",
+    "region": "전북특별자치도",
+    "isLocalGovernment": false,
+    "active": true
+  },
+  "jeonnam": {
+    "name": "전라남도교육청 채용정보",
+    "baseUrl": "https://www.jne.go.kr/main/na/ntt/selectNttList.do?mi=265&bbsId=117",
+    "detailUrlTemplate": "https://www.jne.go.kr/main/na/ntt/selectNttInfo.do?mi=265&bbsId=117&nttSn=",
+    "parserType": "html",
+    "region": "전라남도",
+    "isLocalGovernment": false,
+    "active": true
+  },
+  "jeju": {
+    "name": "제주특별자치도교육청 채용공고",
+    "baseUrl": "https://www.jje.go.kr/board/list.jje?boardId=BBS_0000017&menuCd=DOM_000000103001001000",
+    "detailUrlTemplate": "https://www.jje.go.kr/board/view.jje?boardId=BBS_0000017&menuCd=DOM_000000103001001000&dataSid=",
+    "parserType": "html",
+    "region": "제주특별자치도",
+    "isLocalGovernment": false,
+    "active": true
+  },
   "seongnam": {
     "name": "성남교육지원청 구인",
     "baseUrl": "https://www.goesn.kr/goesn/na/ntt/selectNttList.do?mi=23603&bbsId=17872",
