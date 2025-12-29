@@ -76,5 +76,38 @@
     "region": "구리남양주",
     "isLocalGovernment": true,
     "active": true
+  },
+  "gyeongbuk": {
+    "name": "경상북도교육청 구인",
+    "baseUrl": "https://www.gbe.kr/main/na/ntt/selectNttList.do?mi=3626&bbsId=1887",
+    "detailUrlTemplate": "https://www.gbe.kr/main/na/ntt/selectNttInfo.do?mi=3626&bbsId=1887&nttSn=",
+    "parserType": "html",
+    "selectors": {
+      "listContainer": "table, .board-list, .tbl_list",
+      "rows": "tbody tr",
+      "title": "a.nttInfoBtn, a[data-id]",
+      "date": "td:nth-child(6)",
+      "link": "a.nttInfoBtn",
+      "attachment": "a.listFileDown"
+    },
+    "region": "경상북도",
+    "isLocalGovernment": false,
+    "active": true
+  },
+  "gyeongnam": {
+    "name": "경상남도교육청 구인구직포털",
+    "baseUrl": "https://www.gne.go.kr/works/index.do",
+    "detailUrlTemplate": "https://www.gne.go.kr/works/user/recruitment/BD_recruitmentDetail.do?regSn=",
+    "parserType": "div",
+    "selectors": {
+      "listContainer": "body",
+      "rows": "a[href*='BD_recruitmentDetail.do']",
+      "title": "a",
+      "date": "a",
+      "link": "a"
+    },
+    "region": "경상남도",
+    "isLocalGovernment": false,
+    "active": true
   }
 }

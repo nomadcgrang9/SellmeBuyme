@@ -6,6 +6,8 @@ import { crawlSeongnam } from './sources/seongnam.js';
 import { crawlGyeonggi } from './sources/gyeonggi.js';
 import { crawlUijeongbu } from './sources/uijeongbu.js';
 import { crawlNamyangju } from './sources/namyangju.js';
+import { crawlGyeongbuk } from './sources/gyeongbuk.js';
+import { crawlGyeongnam } from './sources/gyeongnam.js';
 import { getTokenUsage, resetTokenUsage } from './lib/gemini.js';
 import { parseJobField, deriveJobAttributes } from './lib/jobFieldParser.js';
 import { checkRobotsTxt, validateAccess, exponentialBackoff } from './lib/accessChecker.js';
@@ -441,6 +443,12 @@ async function main() {
     } else if (targetSource === 'namyangju') {
       logStep('crawler', '구리남양주교육지원청 크롤링 호출');
       rawJobs = await crawlNamyangju(page, config);
+    } else if (targetSource === 'gyeongbuk') {
+      logStep('crawler', '경상북도교육청 크롤링 호출');
+      rawJobs = await crawlGyeongbuk(page, config);
+    } else if (targetSource === 'gyeongnam') {
+      logStep('crawler', '경상남도교육청 크롤링 호출');
+      rawJobs = await crawlGyeongnam(page, config);
     } else {
       throw new Error(`지원하지 않는 소스: ${targetSource}`);
     }
