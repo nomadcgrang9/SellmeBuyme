@@ -2,26 +2,9 @@ import { readFileSync, writeFileSync, unlinkSync } from 'fs';
 import { createBrowser } from './lib/playwright.js';
 import { normalizeJobData, validateJobData, analyzePageScreenshot, structureDetailContent, inferMissingJobAttributes } from './lib/gemini.js';
 import { getOrCreateCrawlSource, saveJobPosting, updateCrawlSuccess, incrementErrorCount, getExistingJobBySource, supabase } from './lib/supabase.js';
-import { crawlSeongnam } from './sources/seongnam.js';
 import { crawlGyeonggi } from './sources/gyeonggi.js';
-import { crawlUijeongbu } from './sources/uijeongbu.js';
-import { crawlNamyangju } from './sources/namyangju.js';
-import { crawlGyeongbuk } from './sources/gyeongbuk.js';
 import { crawlGyeongnam } from './sources/gyeongnam.js';
-import { crawlSeoul } from './sources/seoul.js';
-import { crawlBusan } from './sources/busan.js';
-import { crawlDaegu } from './sources/daegu.js';
-import { crawlIncheon } from './sources/incheon.js';
-import { crawlGwangju } from './sources/gwangju.js';
-import { crawlDaejeon } from './sources/daejeon.js';
-import { crawlUlsan } from './sources/ulsan.js';
-import { crawlSejong } from './sources/sejong.js';
-import { crawlGangwon } from './sources/gangwon.js';
-import { crawlChungbuk } from './sources/chungbuk.js';
-import { crawlChungnam } from './sources/chungnam.js';
-import { crawlJeonbuk } from './sources/jeonbuk.js';
-import { crawlJeonnam } from './sources/jeonnam.js';
-import { crawlJeju } from './sources/jeju.js';
+import { crawlNttPattern } from './sources/nttPattern.js';
 import { getTokenUsage, resetTokenUsage } from './lib/gemini.js';
 import { parseJobField, deriveJobAttributes } from './lib/jobFieldParser.js';
 import { checkRobotsTxt, validateAccess, exponentialBackoff } from './lib/accessChecker.js';
@@ -443,70 +426,28 @@ async function main() {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
     });
     
-    // 5. 크롤링 실행
-    if (targetSource === 'seongnam') {
-      logStep('crawler', '성남교육지원청 크롤링 호출');
-      const jobs = await crawlSeongnam(page, config);
-      rawJobs = jobs.map(job => ({ ...job, hasContentImages: job.hasContentImages }));
-    } else if (targetSource === 'gyeonggi') {
+    // 5. 크롤링 실행 (parserType 기반 라우팅)
+    const parserType = config.parserType || 'ntt';
+
+    if (parserType === 'ntt') {
+      // 범용 selectNttList.do 패턴 크롤러
+      logStep('crawler', `[NTT패턴] ${config.name} 크롤링 호출`);
+      rawJobs = await crawlNttPattern(page, config);
+    } else if (parserType === 'post' && targetSource === 'gyeonggi') {
+      // 경기도교육청 전용 (POST 기반)
       logStep('crawler', '경기도교육청 크롤링 호출');
       rawJobs = await crawlGyeonggi(page, config);
-    } else if (targetSource === 'uijeongbu') {
-      logStep('crawler', '의정부교육지원청 크롤링 호출');
-      rawJobs = await crawlUijeongbu(page, config);
-    } else if (targetSource === 'namyangju') {
-      logStep('crawler', '구리남양주교육지원청 크롤링 호출');
-      rawJobs = await crawlNamyangju(page, config);
-    } else if (targetSource === 'gyeongbuk') {
-      logStep('crawler', '경상북도교육청 크롤링 호출');
-      rawJobs = await crawlGyeongbuk(page, config);
-    } else if (targetSource === 'gyeongnam') {
+    } else if (parserType === 'custom' && targetSource === 'gyeongnam') {
+      // 경상남도교육청 전용 (div 카드 패턴)
       logStep('crawler', '경상남도교육청 크롤링 호출');
       rawJobs = await crawlGyeongnam(page, config);
-    } else if (targetSource === 'seoul') {
-      logStep('crawler', '서울특별시교육청 크롤링 호출');
-      rawJobs = await crawlSeoul(page, config);
-    } else if (targetSource === 'busan') {
-      logStep('crawler', '부산광역시교육청 크롤링 호출');
-      rawJobs = await crawlBusan(page, config);
-    } else if (targetSource === 'daegu') {
-      logStep('crawler', '대구광역시교육청 크롤링 호출');
-      rawJobs = await crawlDaegu(page, config);
-    } else if (targetSource === 'incheon') {
-      logStep('crawler', '인천광역시교육청 크롤링 호출');
-      rawJobs = await crawlIncheon(page, config);
-    } else if (targetSource === 'gwangju') {
-      logStep('crawler', '광주광역시교육청 크롤링 호출');
-      rawJobs = await crawlGwangju(page, config);
-    } else if (targetSource === 'daejeon') {
-      logStep('crawler', '대전광역시교육청 크롤링 호출');
-      rawJobs = await crawlDaejeon(page, config);
-    } else if (targetSource === 'ulsan') {
-      logStep('crawler', '울산광역시교육청 크롤링 호출');
-      rawJobs = await crawlUlsan(page, config);
-    } else if (targetSource === 'sejong') {
-      logStep('crawler', '세종특별자치시교육청 크롤링 호출');
-      rawJobs = await crawlSejong(page, config);
-    } else if (targetSource === 'gangwon') {
-      logStep('crawler', '강원특별자치도교육청 크롤링 호출');
-      rawJobs = await crawlGangwon(page, config);
-    } else if (targetSource === 'chungbuk') {
-      logStep('crawler', '충청북도교육청 크롤링 호출');
-      rawJobs = await crawlChungbuk(page, config);
-    } else if (targetSource === 'chungnam') {
-      logStep('crawler', '충청남도교육청 크롤링 호출');
-      rawJobs = await crawlChungnam(page, config);
-    } else if (targetSource === 'jeonbuk') {
-      logStep('crawler', '전북특별자치도교육청 크롤링 호출');
-      rawJobs = await crawlJeonbuk(page, config);
-    } else if (targetSource === 'jeonnam') {
-      logStep('crawler', '전라남도교육청 크롤링 호출');
-      rawJobs = await crawlJeonnam(page, config);
-    } else if (targetSource === 'jeju') {
-      logStep('crawler', '제주특별자치도교육청 크롤링 호출');
-      rawJobs = await crawlJeju(page, config);
+    } else if (parserType === 'custom') {
+      // 아직 구현되지 않은 custom 크롤러
+      logWarn('crawler', `${config.name}은 아직 크롤러가 구현되지 않았습니다`, { parserType });
+      logInfo('crawler', 'sources.json에서 active: false로 설정되어 있어야 합니다');
+      throw new Error(`미구현 크롤러: ${targetSource} (parserType: ${parserType})`);
     } else {
-      throw new Error(`지원하지 않는 소스: ${targetSource}`);
+      throw new Error(`지원하지 않는 parserType: ${parserType}`);
     }
     
     if (rawJobs.length === 0) {
