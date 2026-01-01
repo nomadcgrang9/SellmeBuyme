@@ -8,6 +8,7 @@ import { crawlUijeongbu } from './sources/uijeongbu.js';
 import { crawlNamyangju } from './sources/namyangju.js';
 import { crawlIncheon } from './sources/incheon.js';
 import { crawlSeoul } from './sources/seoul.js';
+import { crawlGangwon } from './sources/gangwon.js';
 import { getTokenUsage, resetTokenUsage } from './lib/gemini.js';
 import { parseJobField, deriveJobAttributes } from './lib/jobFieldParser.js';
 import dotenv from 'dotenv';
@@ -430,6 +431,9 @@ async function main() {
     } else if (targetSource === 'seoul') {
       logStep('crawler', '서울교육일자리포털 크롤링 호출');
       rawJobs = await crawlSeoul(page, config);
+    } else if (targetSource === 'gangwon') {
+      logStep('crawler', '강원특별자치도교육청 크롤링 호출');
+      rawJobs = await crawlGangwon(page, config);
     } else {
       throw new Error(`지원하지 않는 소스: ${targetSource}`);
     }

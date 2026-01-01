@@ -110,5 +110,23 @@
     "region": "서울",
     "isLocalGovernment": false,
     "active": true
+  },
+  "gangwon": {
+    "name": "강원특별자치도교육청 학교인력채용",
+    "baseUrl": "https://www.gwe.go.kr/main/bbs/list.do?key=bTIzMDcyMTA1ODU2MzM=",
+    "detailUrlTemplate": "https://www.gwe.go.kr/main/bbs/view.do?bbsSn=",
+    "boardKey": "m2307210585633",
+    "parserType": "html",
+    "selectors": {
+      "listContainer": "table",
+      "rows": "table tbody tr",
+      "title": "td:nth-child(2) a",
+      "date": "td:nth-child(3)",
+      "link": "td:nth-child(2) a",
+      "attachment": "a[href*='fileDown.do'], a[href*='download']"
+    },
+    "region": "강원",
+    "isLocalGovernment": false,
+    "active": true
   }
 }

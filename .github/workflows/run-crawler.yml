@@ -83,6 +83,9 @@ jobs:
           elif [ "$BOARD_ID" = "26ed4ae2-922f-42ef-ac38-176871668c0d" ]; then
             echo "source=seoul" >> $GITHUB_OUTPUT
             exit 0
+          elif [ "$BOARD_ID" = "cf81b8f5-0902-4cb7-8e2d-06b8f8b13a56" ]; then
+            echo "source=gangwon" >> $GITHUB_OUTPUT
+            exit 0
           fi
 
           # 새로운 AI 생성 크롤러는 기본 source 사용
@@ -139,6 +142,9 @@ jobs:
               ;;
             "seoul")
               node index.js --source=seoul
+              ;;
+            "gangwon")
+              node index.js --source=gangwon
               ;;
             "ai-generated")
               echo "🤖 Running AI-generated crawler for board: $BOARD_ID"
@@ -245,9 +251,9 @@ jobs:
           - board_id: '26ed4ae2-922f-42ef-ac38-176871668c0d'
             source: 'seoul'
             name: '서울교육일자리포털'
-          - board_id: '8b2fb1b5-bbb0-432a-9c84-d63b9e65b9e2'
-            source: 'ai-generated'
-            name: '강원 교육청 구인게시판'
+          - board_id: 'cf81b8f5-0902-4cb7-8e2d-06b8f8b13a56'
+            source: 'gangwon'
+            name: '강원특별자치도교육청 학교인력채용'
 
     steps:
       - name: Checkout code
@@ -307,6 +313,9 @@ jobs:
               ;;
             "seoul")
               node index.js --source=seoul
+              ;;
+            "gangwon")
+              node index.js --source=gangwon
               ;;
             "ai-generated")
               echo "🤖 Running AI-generated crawler for board: $BOARD_ID"
