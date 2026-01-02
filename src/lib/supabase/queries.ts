@@ -2974,7 +2974,7 @@ function filterTalentsByTokenGroups(talents: any[], tokenGroups: TokenGroup[]): 
         group.some(token => {
           const t = token.toLowerCase();
           // 단어 경계 체크: 토큰이 location의 시작이거나, 공백 뒤에 나타나야 함
-          return locations.some(loc =>
+          return locations.some((loc: string) =>
             loc.startsWith(t) ||
             loc.includes(` ${t}`) ||
             loc === t
