@@ -59,11 +59,19 @@ export async function getExistingJobBySource(sourceUrl) {
  * 공고 데이터 저장
  */
 export async function saveJobPosting(jobData, crawlSourceId, hasContentImages = false) {
-  // 본문 길이 검증 (300자 미만이고 본문 이미지도 없으면 정보 부족으로 간주)
+  // 본문 길이 검증 (300자 미만이고 본문 이미지도 없고 첨부파일도 없으면 정보 부족으로 간주)
+  // 첨부파일이 있는 경우 본문 길이 조건 완화 (첨부파일에 상세 정보가 있는 경우가 많음)
   const contentLength = (jobData.detail_content || '').trim().length;
-  if (contentLength < 300 && !hasContentImages) {
-    console.warn(`⚠️  본문 길이 부족 & 이미지 없음으로 저장 건너뜀: ${jobData.title} (${contentLength}자)`);
+  const hasAttachment = !!(jobData.attachment_url);
+
+  if (contentLength < 300 && !hasContentImages && !hasAttachment) {
+    console.warn(`⚠️  본문 길이 부족 & 이미지/첨부파일 없음으로 저장 건너뜀: ${jobData.title} (${contentLength}자)`);
     return null;
+  }
+
+  // 첨부파일만 있고 본문이 매우 짧은 경우 로깅 (정보 참고용)
+  if (contentLength < 300 && hasAttachment) {
+    console.log(`📎 본문 짧지만 첨부파일 있음 - 저장 진행: ${jobData.title} (${contentLength}자)`);
   }
 
   const existing = await getExistingJobBySource(jobData.source_url);

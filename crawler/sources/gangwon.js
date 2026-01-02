@@ -1,4 +1,5 @@
 import { loadPage, resolveUrl } from '../lib/playwright.js';
+import { getExistingJobBySource } from '../lib/supabase.js';
 
 /**
  * 강원특별자치도교육청 크롤러
@@ -27,6 +28,7 @@ export async function crawlGangwon(page, config) {
 
   // 3. 공고 목록 추출
   const jobs = [];
+  let skippedCount = 0;
 
   try {
     // 테이블 행 선택 (tbody tr)
@@ -44,11 +46,27 @@ export async function crawlGangwon(page, config) {
 
     console.log(`📋 발견된 공고 수: ${rows.length}개`);
 
-    // 4. 각 행에서 데이터 추출 (config.crawlBatchSize 또는 기본값 10개)
-    const batchSize = config.crawlBatchSize || 10;
-    const maxRows = Math.min(rows.length, batchSize);
+    // 4. 각 행에서 데이터 추출 (중복 발견 시 중단)
+    const SAFETY = {
+      maxItems: 100,           // 무한 루프 방지
+      duplicateThreshold: 3,   // 연속 중복 시 중단
+    };
 
-    for (let i = 0; i < maxRows; i++) {
+    let consecutiveDuplicates = 0;
+    let processedCount = 0;
+
+    for (let i = 0; i < rows.length; i++) {
+      // 안전장치 1: 최대 개수
+      if (processedCount >= SAFETY.maxItems) {
+        console.log(`  ⚠️ 최대 수집 개수(${SAFETY.maxItems}) 도달`);
+        break;
+      }
+
+      // 연속 중복으로 중단된 경우 루프 탈출
+      if (consecutiveDuplicates >= SAFETY.duplicateThreshold) {
+        break;
+      }
+
       try {
         // 매번 새로 rows를 가져와서 stale element 방지
         await page.goto(config.baseUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
@@ -144,6 +162,27 @@ export async function crawlGangwon(page, config) {
 
         console.log(`     bbsSn: "${bbsSn}"`);
 
+        // 중복 체크 (크롤러 단계에서 수행)
+        const existing = await getExistingJobBySource(currentUrl);
+
+        if (existing) {
+          consecutiveDuplicates++;
+          skippedCount++;
+          console.log(`  ⏭️ 중복 ${consecutiveDuplicates}/${SAFETY.duplicateThreshold}: ${listData.title?.substring(0, 30)}...`);
+
+          // 안전장치 2: 연속 중복 시 중단
+          if (consecutiveDuplicates >= SAFETY.duplicateThreshold) {
+            console.log(`  🛑 연속 ${SAFETY.duplicateThreshold}개 중복 - 기존 영역 도달, 크롤링 완료`);
+          }
+          continue;
+        }
+
+        // 신규 공고 발견 - 중복 카운터 리셋
+        consecutiveDuplicates = 0;
+        processedCount++;
+
+        console.log(`  📄 신규 ${processedCount}. ${listData.title}`);
+
         // 상세 페이지 크롤링
         const detailData = await crawlDetailPage(page, currentUrl, config);
 
@@ -169,7 +208,7 @@ export async function crawlGangwon(page, config) {
           manager: detailData.manager,
         });
 
-        console.log(`  ✅ ${i + 1}. 완료 (지역: ${location})`);
+        console.log(`  ✅ 신규 ${processedCount}. 완료 (지역: ${location})`);
 
       } catch (error) {
         console.warn(`  ⚠️  행 ${i + 1} 파싱 실패: ${error.message}`);
@@ -180,7 +219,10 @@ export async function crawlGangwon(page, config) {
     throw error;
   }
 
-  console.log(`✅ ${config.name} 크롤링 완료: ${jobs.length}개 수집\n`);
+  console.log(`\n✅ ${config.name} 크롤링 완료`);
+  console.log(`   - 신규: ${jobs.length}개`);
+  console.log(`   - 중복 스킵: ${skippedCount}개`);
+  console.log(`   - 총 처리: ${jobs.length + skippedCount}개\n`);
   return jobs;
 }
 

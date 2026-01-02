@@ -659,7 +659,22 @@ async function main() {
         }
 
         // 6-6-2. 최종 검증: school_level이 여전히 null이면 저장 안 함
-        if (!finalSchoolLevel || finalSchoolLevel === '미상') {
+        // 단, 비교사 직종(행정, 시설관리, 조리 등)은 학교급 없이도 저장 허용
+        const NON_TEACHER_JOB_TYPES = [
+          '교육공무직원(행정,교무)',
+          '교육공무직원(과학,정보,사서)',
+          '교육공무직원(돌봄)',
+          '교육공무직원(특수교육)',
+          '시설관리',
+          '조리사 및 조리실무사',
+          '당직전담',
+          '기타',
+        ];
+        const isNonTeacherJob = NON_TEACHER_JOB_TYPES.some(type =>
+          rawJob.jobField?.includes(type) || validation.corrected_data.job_type?.includes(type)
+        );
+
+        if ((!finalSchoolLevel || finalSchoolLevel === '미상') && !isNonTeacherJob) {
           logWarn('pipeline', '학교급 정보 누락 - 저장 건너뛰기', {
             title: rawJob.title,
             link: rawJob.link,
@@ -668,6 +683,15 @@ async function main() {
           });
           failCount++;
           continue;
+        }
+
+        // 비교사 직종인데 학교급 없으면 "미상"으로 설정 후 저장
+        if (isNonTeacherJob && (!finalSchoolLevel || finalSchoolLevel === '미상')) {
+          logInfo('pipeline', '비교사 직종 - 학교급 없이 저장 진행', {
+            title: rawJob.title,
+            jobField: rawJob.jobField
+          });
+          finalSchoolLevel = '미상';
         }
 
         // required_license 재계산 (LLM 결과 반영)
