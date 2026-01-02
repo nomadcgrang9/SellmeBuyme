@@ -1,28 +1,9 @@
-import { chromium } from 'playwright';
-import { supabase } from '../lib/supabase.js';
-import { fileURLToPath } from 'url';
 
-const config = {
-    name: "광주광역시교육청",
-    baseUrl: "https://www.gen.go.kr/xboard/board.php?tbnum=32",
-    region: "광주",
-};
-
-function getCutoffDate() {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const mode = process.env.CRAWL_MODE || 'initial';
-    const daysToSubtract = (mode === 'daily') ? 1 : 2;
-    const cutoffDate = new Date(today);
-    cutoffDate.setDate(today.getDate() - daysToSubtract);
-    return cutoffDate;
-}
-
-export async function crawl() {
+/**
+ * 광주광역시교육청 크롤러
+ */
+export async function crawlGwangju(page, config) {
     console.log(`\n📍 ${config.name} 크롤링 시작`);
-    const browser = await chromium.launch({ headless: true });
-    const context = await browser.newContext({ userAgent: 'Mozilla/5.0' });
-    const page = await context.newPage();
 
     // 헤더 설정 (봇 탐지 방지)
     await page.setExtraHTTPHeaders({
@@ -106,6 +87,9 @@ export async function crawl() {
         console.log(`✅ Phase 1 완료: 총 ${collectedItems.length}개 링크 식별`);
 
         // Phase 2: 상세 수집
+        const batchSize = config.crawlBatchSize || 10;
+        // 최대 batchSize만큼만 처리하도록 제한 (또는 전체 처리)
+        // 여기서는 전체 처리를 하되, 필요시 slice
         for (const item of collectedItems) {
             console.log(`  🔍 상세 크롤링: ${item.title}`);
             try {
@@ -123,18 +107,27 @@ export async function crawl() {
 
     } catch (error) {
         console.error(`❌ 크롤링 치명적 오류: ${error.message}`);
-    } finally {
-        await browser.close();
+        throw error;
     }
 
     return jobs;
 }
 
+function getCutoffDate() {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const mode = process.env.CRAWL_MODE || 'initial';
+    const daysToSubtract = (mode === 'daily') ? 1 : 2;
+    const cutoffDate = new Date(today);
+    cutoffDate.setDate(today.getDate() - daysToSubtract);
+    return cutoffDate;
+}
+
 async function crawlDetailPage(page, url) {
-    await page.goto(url, { waitUntil: 'domcontentloaded' });
+    await page.goto(url, { waitUntil: 'networkidle', timeout: 45000 });
 
     const content = await page.evaluate(() => {
-        const el = document.querySelector('#board_view') || document.querySelector('.board_view');
+        const el = document.querySelector('.view_con') || document.querySelector('#xb_view') || document.querySelector('#board_view') || document.querySelector('.board_view');
         return el ? el.innerText.trim() : '';
     });
 
@@ -154,15 +147,3 @@ async function crawlDetailPage(page, url) {
     };
 }
 
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
-    (async () => {
-        const results = await crawl();
-        if (results.length > 0) {
-            const { error } = await supabase.from('job_postings').upsert(results, { onConflict: 'link' });
-            if (error) console.error('DB Save Failed:', error);
-            else console.log(`✅ Saved ${results.length} items to DB`);
-        } else {
-            console.log('No items found to save.');
-        }
-    })();
-}

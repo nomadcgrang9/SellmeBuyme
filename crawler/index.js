@@ -6,7 +6,10 @@ import { crawlSeongnam } from './sources/seongnam.js';
 import { crawlGyeonggi } from './sources/gyeonggi.js';
 import { crawlUijeongbu } from './sources/uijeongbu.js';
 import { crawlNamyangju } from './sources/namyangju.js';
-import { crawlAdaptive } from './lib/adaptiveCrawler.js';
+import { crawlGwangju } from './sources/gwangju.js';
+import { crawlJeonbuk } from './sources/jeonbuk.js';
+import { crawlJeonnam } from './sources/jeonnam.js';
+import { crawlJeju } from './sources/jeju.js';
 import { getTokenUsage, resetTokenUsage } from './lib/gemini.js';
 import { parseJobField, deriveJobAttributes } from './lib/jobFieldParser.js';
 import dotenv from 'dotenv';
@@ -146,9 +149,17 @@ async function main() {
   logDebug('main', '실행 설정 로드', { argv: process.argv.slice(2) });
 
   // 1. 설정 파일 로드
-  const sourcesConfig = JSON.parse(
-    readFileSync('./config/sources.json', 'utf-8')
-  );
+  let sourcesConfig;
+  try {
+    sourcesConfig = JSON.parse(readFileSync('./crawler/config/sources.json', 'utf-8'));
+  } catch (e) {
+    try {
+      sourcesConfig = JSON.parse(readFileSync('./config/sources.json', 'utf-8'));
+    } catch (e2) {
+      console.error('Failed to load sources.json from ./crawler/config/ or ./config/');
+      process.exit(1);
+    }
+  }
 
   // 2. 크롤링 대상 선택
   let targetSource = 'seongnam'; // 기본값
@@ -410,10 +421,7 @@ async function main() {
     });
 
     // 5. 크롤링 실행
-    if (config.type) {
-      logStep('crawler', `적응형 크롤러 실행 (${config.type})`, { region: config.region });
-      rawJobs = await crawlAdaptive(page, config);
-    } else if (targetSource === 'seongnam') {
+    if (targetSource === 'seongnam') {
       logStep('crawler', '성남교육지원청 크롤링 호출 (Legacy)');
       const jobs = await crawlSeongnam(page, config);
       rawJobs = jobs.map(job => ({ ...job, hasContentImages: job.hasContentImages }));
@@ -426,6 +434,18 @@ async function main() {
     } else if (targetSource === 'namyangju') {
       logStep('crawler', '구리남양주교육지원청 크롤링 호출');
       rawJobs = await crawlNamyangju(page, config);
+    } else if (targetSource === 'gwangju') {
+      logStep('crawler', '광주광역시교육청 크롤링 호출');
+      rawJobs = await crawlGwangju(page, config);
+    } else if (targetSource === 'jeonbuk') {
+      logStep('crawler', '전북특별자치도교육청 크롤링 호출');
+      rawJobs = await crawlJeonbuk(page, config);
+    } else if (targetSource === 'jeonnam') {
+      logStep('crawler', '전라남도교육청 크롤링 호출');
+      rawJobs = await crawlJeonnam(page, config);
+    } else if (targetSource === 'jeju') {
+      logStep('crawler', '제주특별자치도교육청 크롤링 호출');
+      rawJobs = await crawlJeju(page, config);
     } else {
       throw new Error(`지원하지 않는 소스: ${targetSource}`);
     }
@@ -543,7 +563,12 @@ async function main() {
 
         // 6-6. 직무 속성 추론 (학교급, 과목, 라이센스)
         // organization 우선순위: AI 정리 > 크롤러 추출 > 기타
-        const bestOrganization = validation.corrected_data?.organization || rawJob.schoolName || normalized?.organization;
+        // schoolName이 일반명(교육청, 학교급 이름만)이면 AI 결과 우선
+        const genericNames = ['교육청', '교육지원청', '유치원', '초등학교', '중학교', '고등학교'];
+        const isGenericSchoolName = !rawJob.schoolName || genericNames.some(g => rawJob.schoolName === g || rawJob.schoolName?.endsWith('교육청') || rawJob.schoolName?.endsWith('교육지원청'));
+        const bestOrganization = isGenericSchoolName
+          ? (validation.corrected_data?.organization || normalized?.organization || rawJob.schoolName)
+          : (rawJob.schoolName || validation.corrected_data?.organization || normalized?.organization);
 
         const derivedJobAttributes = deriveJobAttributes({
           jobField: rawJob.jobField,
@@ -673,7 +698,7 @@ async function main() {
 
           // 게시판에서 추출한 구조화된 정보 우선 반영 (LLM Fallback 적용)
           location: finalLocation || '미상',
-          organization: rawJob.schoolName || validation.corrected_data.organization,
+          organization: bestOrganization,
 
           // 상세 정보
           detail_content: rawJob.detailContent,

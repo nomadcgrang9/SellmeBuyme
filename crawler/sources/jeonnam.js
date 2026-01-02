@@ -1,27 +1,9 @@
-import { chromium } from 'playwright';
-import { supabase } from '../lib/supabase.js';
-import { fileURLToPath } from 'url';
 
-const config = {
-    name: "전라남도교육청",
-    baseUrl: "https://www.jne.go.kr/main/na/ntt/selectNttList.do?mi=265&bbsId=117",
-    region: "전남",
-};
-
-function getCutoffDate() {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const mode = process.env.CRAWL_MODE || 'initial';
-    const daysToSubtract = (mode === 'daily') ? 1 : 2;
-    const cutoffDate = new Date(today);
-    cutoffDate.setDate(today.getDate() - daysToSubtract);
-    return cutoffDate;
-}
-
-export async function crawl() {
+/**
+ * 전라남도교육청 크롤러
+ */
+export async function crawlJeonnam(page, config) {
     console.log(`\n📍 ${config.name} 크롤링 시작`);
-    const browser = await chromium.launch({ headless: true });
-    const page = await browser.newPage();
     let jobs = [];
 
     try {
@@ -38,7 +20,7 @@ export async function crawl() {
             const listUrl = `${config.baseUrl}&pageIndex=${pageIndex}`;
             await page.goto(listUrl, { waitUntil: 'domcontentloaded' });
 
-            const rows = await page.$$('table.board_list tbody tr'); // selector 확인 필요 (browser subagent 결과: table.board_list)
+            const rows = await page.$$('.bbs_ListA table tbody tr');
             if (rows.length === 0) break;
 
             for (const row of rows) {
@@ -114,10 +96,19 @@ export async function crawl() {
 
     } catch (e) {
         console.error(e);
-    } finally {
-        await browser.close();
+        throw e;
     }
     return jobs;
+}
+
+function getCutoffDate() {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const mode = process.env.CRAWL_MODE || 'initial';
+    const daysToSubtract = (mode === 'daily') ? 1 : 2;
+    const cutoffDate = new Date(today);
+    cutoffDate.setDate(today.getDate() - daysToSubtract);
+    return cutoffDate;
 }
 
 async function crawlDetailPage(page, url) {
@@ -136,18 +127,9 @@ async function crawlDetailPage(page, url) {
         return {
             detailContent: content,
             attachments,
-            attachmentUrl: attachments[0]?.url
+            attachmentUrl: attachments[0]?.url,
+            attachmentFilename: attachments[0]?.name || null
         };
     } catch { return {}; }
 }
 
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
-    (async () => {
-        const results = await crawl();
-        if (results.length > 0) {
-            const { error } = await supabase.from('job_postings').upsert(results, { onConflict: 'link' });
-            if (error) console.error('DB Save Failed:', error);
-            else console.log(`Saved ${results.length} items`);
-        }
-    })();
-}

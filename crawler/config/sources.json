@@ -148,7 +148,7 @@
     },
     "region": "부산",
     "isLocalGovernment": false,
-    "active": true,
+    "active": false,
     "pagination": {
       "type": "script",
       "functionName": "goPaging"
@@ -180,7 +180,7 @@
     },
     "region": "대구",
     "isLocalGovernment": false,
-    "active": true,
+    "active": false,
     "pagination": {
       "type": "script",
       "functionName": "fn_egov_select_linkPage"
@@ -212,7 +212,7 @@
     },
     "region": "인천",
     "isLocalGovernment": false,
-    "active": true,
+    "active": false,
     "pagination": {
       "type": "script",
       "functionName": "fn_egov_select_linkPage"
@@ -274,7 +274,7 @@
     },
     "region": "대전",
     "isLocalGovernment": false,
-    "active": true,
+    "active": false,
     "pagination": {
       "type": "script",
       "functionName": "goPage"
@@ -306,7 +306,7 @@
     },
     "region": "충남",
     "isLocalGovernment": false,
-    "active": true,
+    "active": false,
     "pagination": {
       "type": "script",
       "functionName": "goPage"
@@ -338,16 +338,28 @@
     },
     "region": "강원",
     "isLocalGovernment": false,
-    "active": true,
+    "active": false,
     "pagination": {
       "type": "script",
       "functionName": "fn_search"
     }
   },
+  "jeonbuk": {
+    "name": "전북특별자치도교육청",
+    "baseUrl": "https://www.jbe.go.kr/board/list.jbe?boardId=BBS_0000130&menuCd=DOM_000000103004006000",
+    "region": "전북",
+    "active": true
+  },
+  "jeonnam": {
+    "name": "전라남도교육청",
+    "baseUrl": "https://www.jne.go.kr/main/na/ntt/selectNttList.do?mi=265&bbsId=117",
+    "region": "전남",
+    "active": false
+  },
   "jeju": {
     "name": "제주특별자치도교육청 채용정보",
-    "baseUrl": "https://www.jje.go.kr/board/list.jje?boardId=BBS_0000002&menuCd=DOM_000000103003002003",
-    "detailUrlTemplate": "https://www.jje.go.kr/board/view.jje?boardId=BBS_0000002&menuCd=DOM_000000103003002003&dataSid=",
+    "baseUrl": "https://www.jje.go.kr/board/list.jje?boardId=BBS_0000507&menuCd=DOM_000000103003009000",
+    "detailUrlTemplate": "https://www.jje.go.kr/board/view.jje?boardId=BBS_0000507&menuCd=DOM_000000103003009000&dataSid=",
     "type": "table",
     "parserType": "html",
     "selectors": {

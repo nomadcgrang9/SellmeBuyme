@@ -1,27 +1,9 @@
-import { chromium } from 'playwright';
-import { supabase } from '../lib/supabase.js';
-import { fileURLToPath } from 'url';
 
-const config = {
-    name: "제주특별자치도교육청",
-    baseUrl: "https://www.jje.go.kr/board/list.jje?boardId=BBS_0000002&menuCd=DOM_000000103003002003",
-    region: "제주",
-};
-
-function getCutoffDate() {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const mode = process.env.CRAWL_MODE || 'initial';
-    const daysToSubtract = (mode === 'daily') ? 1 : 2;
-    const cutoffDate = new Date(today);
-    cutoffDate.setDate(today.getDate() - daysToSubtract);
-    return cutoffDate;
-}
-
-export async function crawl() {
+/**
+ * 제주특별자치도교육청 크롤러
+ */
+export async function crawlJeju(page, config) {
     console.log(`\n📍 ${config.name} 크롤링 시작`);
-    const browser = await chromium.launch({ headless: true });
-    const page = await browser.newPage();
     let jobs = [];
 
     try {
@@ -48,7 +30,8 @@ export async function crawl() {
 
                 const numText = await columns[0].innerText().then(t => t.trim());
                 const titleText = await columns[1].innerText().then(t => t.trim());
-                const dateText = await columns[4].innerText().then(t => t.trim()); // 2025-01-02
+                const schoolName = await columns[2].innerText().then(t => t.trim()); // 학교명 (Column index 2)
+                const dateText = await columns[3].innerText().then(t => t.trim()); // 날짜 (Column index 3)
                 const linkEl = await columns[1].$('a');
 
                 if (!linkEl) continue;
@@ -75,20 +58,38 @@ export async function crawl() {
                     if (fullLink.startsWith('javascript')) {
                         // javascript:view('1234') 형태라면 어렵지만, 보통 dataSid가 URL에 있거나 함.
                         // 제주교육청은 href에 javascript: 처리를 많이 함.
-                        // 만약 href="javascript:void(0);" 이고 onclick="..."
-                        // 여기선 일단 href가 유효한 경우만 처리하거나,
-                        // dataSid 추출을 시도해야 함.
-                        // 제주교육청 소스 확인결과: <a href="/board/view.jje?..." ...> 형태가 많음.
+                        const detailUrlTemplate = config.detailUrlTemplate || "https://www.jje.go.kr/board/view.jje?boardId=BBS_0000002&menuCd=DOM_000000103003002003&dataSid=";
+                        // 정규식으로 dataSid 등 추출 시도 (Sources.json에 regex가 있을 수도 있으나 여기서는 hardcoded logic 사용 가능)
+                        // 제주 js 파일에서 regex를 가져오거나, href에서 추출 시도
+                        // 간단히 onclick이나 href에서 숫자 추출
+                        const regex = /dataSid=([0-9]+)/;
+                        const match = fullLink.match(regex);
+                        if (match) {
+                            fullLink = detailUrlTemplate + match[1];
+                        } else {
+                            // href가 javascript면 onclick 확인 필요
+                            const onclick = await linkEl.getAttribute('onclick');
+                            const matchClick = onclick?.match(/dataSid=([0-9]+)/);
+                            if (matchClick) {
+                                fullLink = detailUrlTemplate + matchClick[1];
+                            }
+                        }
                     } else {
                         fullLink = new URL(linkHref, "https://www.jje.go.kr/board/list.jje").href;
                     }
+                }
+
+                // 만약 여전히 javascript라면 스킵 (실패)
+                if (fullLink && fullLink.startsWith('javascript')) {
+                    console.warn(`  ⚠️ 링크 파싱 실패: ${titleText}`);
+                    continue;
                 }
 
                 collectedItems.push({
                     title: titleText,
                     date: dateText,
                     link: fullLink,
-                    schoolName: "제주특별자치도교육청",
+                    schoolName: schoolName || "제주특별자치도교육청",
                 });
             }
 
@@ -112,17 +113,26 @@ export async function crawl() {
 
     } catch (e) {
         console.error(e);
-    } finally {
-        await browser.close();
+        throw e;
     }
     return jobs;
+}
+
+function getCutoffDate() {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const mode = process.env.CRAWL_MODE || 'initial';
+    const daysToSubtract = (mode === 'daily') ? 1 : 2;
+    const cutoffDate = new Date(today);
+    cutoffDate.setDate(today.getDate() - daysToSubtract);
+    return cutoffDate;
 }
 
 async function crawlDetailPage(page, url) {
     try {
         await page.goto(url, { waitUntil: 'domcontentloaded' });
         const content = await page.evaluate(() => {
-            const el = document.querySelector('.board_view_con') || document.querySelector('.view_content');
+            const el = document.querySelector('.boardViewWrap') || document.querySelector('.board_view_con') || document.querySelector('.view_content');
             return el ? el.innerText.trim() : '';
         });
         const attachments = await page.evaluate(() => {
@@ -134,18 +144,9 @@ async function crawlDetailPage(page, url) {
         return {
             detailContent: content,
             attachments,
-            attachmentUrl: attachments[0]?.url
+            attachmentUrl: attachments[0]?.url,
+            attachmentFilename: attachments[0]?.name || null
         };
     } catch { return {}; }
 }
 
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
-    (async () => {
-        const results = await crawl();
-        if (results.length > 0) {
-            const { error } = await supabase.from('job_postings').upsert(results, { onConflict: 'link' });
-            if (error) console.error('DB Save Failed:', error);
-            else console.log(`Saved ${results.length} items`);
-        }
-    })();
-}
