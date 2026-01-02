@@ -1,0 +1,56 @@
+name: Daily Regions Crawl
+
+on:
+  schedule:
+    # 7:00 AM KST = 22:00 UTC (previous day)
+    - cron: '0 22 * * *'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Crawl mode (initial, daily)'
+        required: false
+        default: 'daily'
+        type: choice
+        options:
+          - initial
+          - daily
+
+jobs:
+  crawl-regions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    
+    strategy:
+      fail-fast: false
+      matrix:
+        region: [gwangju, jeonbuk, jeonnam, jeju]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: crawler/package-lock.json
+
+      - name: Install dependencies
+        working-directory: crawler
+        run: npm ci
+
+      - name: Install Playwright browsers
+        working-directory: crawler
+        run: npx playwright install chromium --with-deps
+
+      - name: Run Crawler
+        working-directory: crawler
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          CRAWL_MODE: ${{ github.event.inputs.mode || 'daily' }}
+        run: |
+          echo "🚀 Running crawler for region: ${{ matrix.region }}"
+          echo "📅 Mode: $CRAWL_MODE"
+          node sources/${{ matrix.region }}.js
