@@ -398,6 +398,13 @@ async function main() {
     resetTokenUsage();
 
     // 3. Supabase에서 크롤링 소스 정보 가져오기
+    if (!config) {
+      if (targetSource === 'ai-generated') {
+        throw new Error('AI Crawler 실행을 위해서는 --board-id 파라미터가 필수입니다. (워크플로우 입력에서 Board ID를 확인해주세요)');
+      }
+      throw new Error(`소스 설정(${targetSource})을 찾을 수 없습니다. sources.json을 확인해주세요.`);
+    }
+
     const crawlSourceInfo = await getOrCreateCrawlSource(config);
     const crawlSourceId = crawlSourceInfo.id;
     const crawlBatchSize = crawlSourceInfo.crawlBatchSize || 10;
