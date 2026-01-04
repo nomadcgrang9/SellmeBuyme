@@ -1,5 +1,6 @@
 import { chromium } from 'playwright';
-import { logStep, logWarn, logDebug } from './logger.js';
+import { logStep, logWarn, logDebug, logError } from './logger.js';
+import { validateHttpResponse, detectBlockedPage, validateAccess } from './accessChecker.js';
 
 /**
  * Playwright 브라우저 인스턴스 생성
@@ -13,12 +14,23 @@ export async function createBrowser() {
 
 /**
  * 페이지 로딩 및 안정화 대기
+ * @param {Page} page - Playwright 페이지 객체
+ * @param {string} url - 로딩할 URL
+ * @param {string} waitForSelector - 대기할 선택자 (옵션)
+ * @param {object} options - 추가 옵션
+ * @param {boolean} options.validateResponse - HTTP 응답 검증 여부 (기본: true)
+ * @param {boolean} options.detectBlock - 차단 페이지 감지 여부 (기본: true)
+ * @returns {Promise<{success: boolean, response: Response|null, blockInfo: object|null}>}
  */
-export async function loadPage(page, url, waitForSelector = null) {
+export async function loadPage(page, url, waitForSelector = null, options = {}) {
+  const { validateResponse = true, detectBlock = true } = options;
+
   logStep('playwright.loadPage', '페이지 로딩 시작', { url, waitForSelector });
-  
+
+  let response = null;
+
   try {
-    await page.goto(url, {
+    response = await page.goto(url, {
       waitUntil: 'networkidle',
       timeout: 30000
     });
@@ -38,11 +50,49 @@ export async function loadPage(page, url, waitForSelector = null) {
         logDebug('playwright.loadPage', 'load 대기 결과 (fallback)', { url });
       }
     } else {
-      await page.goto(url, {
+      response = await page.goto(url, {
         waitUntil: 'domcontentloaded',
         timeout: 60000
       });
       logStep('playwright.loadPage', 'domcontentloaded 재호출 성공', { url });
+    }
+  }
+
+  // HTTP 응답 검증
+  if (validateResponse && response) {
+    const httpResult = validateHttpResponse(response);
+    if (!httpResult.ok) {
+      logError('playwright.loadPage', 'HTTP 응답 오류', null, {
+        url,
+        status: httpResult.status,
+        reason: httpResult.reason,
+        retryable: httpResult.retryable
+      });
+      return {
+        success: false,
+        response,
+        error: httpResult.reason,
+        retryable: httpResult.retryable,
+        blockInfo: null
+      };
+    }
+  }
+
+  // 차단 페이지 감지
+  if (detectBlock) {
+    const blockResult = await detectBlockedPage(page);
+    if (blockResult.blocked) {
+      logError('playwright.loadPage', '차단 페이지 감지', null, {
+        url,
+        reason: blockResult.reason
+      });
+      return {
+        success: false,
+        response,
+        error: blockResult.reason,
+        retryable: false,
+        blockInfo: blockResult
+      };
     }
   }
 
@@ -58,6 +108,14 @@ export async function loadPage(page, url, waitForSelector = null) {
   // 추가 안정화 대기
   await page.waitForTimeout(2000);
   logStep('playwright.loadPage', '페이지 로딩 완료', { url });
+
+  return {
+    success: true,
+    response,
+    error: null,
+    retryable: false,
+    blockInfo: null
+  };
 }
 
 /**
@@ -140,4 +198,60 @@ export function resolveUrl(baseUrl, relativeUrl) {
 
 function isTimeoutError(error) {
   return error?.name === 'TimeoutError' || (typeof error?.message === 'string' && error.message.includes('Timeout'));
+}
+
+/**
+ * 재시도 가능한 안전한 페이지 로딩 (지수 백오프 포함)
+ * @param {Page} page - Playwright 페이지 객체
+ * @param {string} url - 로딩할 URL
+ * @param {object} options - 옵션
+ * @param {number} options.maxRetries - 최대 재시도 횟수 (기본: 3)
+ * @param {string} options.waitForSelector - 대기할 선택자
+ * @returns {Promise<{success: boolean, error: string|null}>}
+ */
+export async function loadPageWithRetry(page, url, options = {}) {
+  const { maxRetries = 3, waitForSelector = null } = options;
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    logStep('playwright.loadPageWithRetry', `페이지 로딩 시도 ${attempt}/${maxRetries}`, { url });
+
+    const result = await loadPage(page, url, waitForSelector);
+
+    if (result.success) {
+      return result;
+    }
+
+    // 재시도 불가능한 오류
+    if (!result.retryable) {
+      logError('playwright.loadPageWithRetry', '재시도 불가능한 오류', null, {
+        url,
+        error: result.error,
+        attempt
+      });
+      return result;
+    }
+
+    // 마지막 시도가 아니면 지수 백오프 대기
+    if (attempt < maxRetries) {
+      const delay = Math.min(1000 * Math.pow(2, attempt - 1), 30000);
+      const jitter = Math.random() * 1000;
+      const totalDelay = delay + jitter;
+
+      logWarn('playwright.loadPageWithRetry', `재시도 대기 중 (${Math.round(totalDelay)}ms)`, {
+        url,
+        attempt,
+        nextAttempt: attempt + 1
+      });
+
+      await new Promise(resolve => setTimeout(resolve, totalDelay));
+    }
+  }
+
+  return {
+    success: false,
+    error: `최대 재시도 횟수(${maxRetries}) 초과`,
+    retryable: false,
+    response: null,
+    blockInfo: null
+  };
 }

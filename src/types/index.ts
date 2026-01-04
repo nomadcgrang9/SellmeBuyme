@@ -154,8 +154,10 @@ export type RegionOption = (typeof REGION_OPTIONS)[number];
 export type CategoryOption = (typeof CATEGORY_OPTIONS)[number];
 
 export interface SearchFilters {
-  region: RegionOption;
-  category: CategoryOption;
+  region: string[];
+  category: string[];
+  schoolLevel: string[];
+  subject: string[];
   sort: SortOptionValue;
 }
 
@@ -170,6 +172,10 @@ export interface SearchStoreState {
   setSearchQuery: (value: string) => void;
   setFilters: (filters: Partial<SearchFilters>) => void;
   setFilter: <K extends keyof SearchFilters>(key: K, value: SearchFilters[K]) => void;
+  toggleFilter: <K extends keyof Pick<SearchFilters, 'region' | 'category' | 'schoolLevel' | 'subject'>>(
+    key: K,
+    value: string
+  ) => void;
   setViewType: (viewType: ViewType) => void;
   loadMore: () => void;
   setPagination: (pagination: Partial<SearchPagination>) => void;
