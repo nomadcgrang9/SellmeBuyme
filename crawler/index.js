@@ -151,9 +151,17 @@ async function main() {
   logDebug('main', '실행 설정 로드', { argv: process.argv.slice(2) });
 
   // 1. 설정 파일 로드
-  const sourcesConfig = JSON.parse(
-    readFileSync('./config/sources.json', 'utf-8')
-  );
+  let sourcesConfig;
+  try {
+    sourcesConfig = JSON.parse(readFileSync('./crawler/config/sources.json', 'utf-8'));
+  } catch (e) {
+    try {
+      sourcesConfig = JSON.parse(readFileSync('./config/sources.json', 'utf-8'));
+    } catch (e2) {
+      console.error('Failed to load sources.json from ./crawler/config/ or ./config/');
+      process.exit(1);
+    }
+  }
 
   // 2. 크롤링 대상 선택
   let targetSource = 'seongnam'; // 기본값
@@ -392,7 +400,14 @@ async function main() {
     resetTokenUsage();
 
     // 3. Supabase에서 크롤링 소스 정보 가져오기
-    const crawlSourceInfo = await getOrCreateCrawlSource(config.name, config.baseUrl);
+    if (!config) {
+      if (targetSource === 'ai-generated') {
+        throw new Error('AI Crawler 실행을 위해서는 --board-id 파라미터가 필수입니다. (워크플로우 입력에서 Board ID를 확인해주세요)');
+      }
+      throw new Error(`소스 설정(${targetSource})을 찾을 수 없습니다. sources.json을 확인해주세요.`);
+    }
+
+    const crawlSourceInfo = await getOrCreateCrawlSource(config);
     const crawlSourceId = crawlSourceInfo.id;
     const crawlBatchSize = crawlSourceInfo.crawlBatchSize || 10;
 
@@ -416,7 +431,7 @@ async function main() {
 
     // 5. 크롤링 실행
     if (targetSource === 'seongnam') {
-      logStep('crawler', '성남교육지원청 크롤링 호출');
+      logStep('crawler', '성남교육지원청 크롤링 호출 (Legacy)');
       const jobs = await crawlSeongnam(page, config);
       rawJobs = jobs.map(job => ({ ...job, hasContentImages: job.hasContentImages }));
     } else if (targetSource === 'gyeonggi') {
@@ -563,7 +578,12 @@ async function main() {
 
         // 6-6. 직무 속성 추론 (학교급, 과목, 라이센스)
         // organization 우선순위: AI 정리 > 크롤러 추출 > 기타
-        const bestOrganization = validation.corrected_data?.organization || rawJob.schoolName || normalized?.organization;
+        // schoolName이 일반명(교육청, 학교급 이름만)이면 AI 결과 우선
+        const genericNames = ['교육청', '교육지원청', '유치원', '초등학교', '중학교', '고등학교'];
+        const isGenericSchoolName = !rawJob.schoolName || genericNames.some(g => rawJob.schoolName === g || rawJob.schoolName?.endsWith('교육청') || rawJob.schoolName?.endsWith('교육지원청'));
+        const bestOrganization = isGenericSchoolName
+          ? (validation.corrected_data?.organization || normalized?.organization || rawJob.schoolName)
+          : (rawJob.schoolName || validation.corrected_data?.organization || normalized?.organization);
 
         const derivedJobAttributes = deriveJobAttributes({
           jobField: rawJob.jobField,
@@ -693,7 +713,7 @@ async function main() {
 
           // 게시판에서 추출한 구조화된 정보 우선 반영 (LLM Fallback 적용)
           location: finalLocation || '미상',
-          organization: rawJob.schoolName || validation.corrected_data.organization,
+          organization: bestOrganization,
 
           // 상세 정보
           detail_content: rawJob.detailContent,

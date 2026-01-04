@@ -1,0 +1,188 @@
+deploy	Set up job	﻿2026-01-03T05:18:08.6719750Z Current runner version: '2.330.0'
+deploy	Set up job	2026-01-03T05:18:08.6753080Z ##[group]Runner Image Provisioner
+deploy	Set up job	2026-01-03T05:18:08.6754750Z Hosted Compute Agent
+deploy	Set up job	2026-01-03T05:18:08.6755608Z Version: 20251211.462
+deploy	Set up job	2026-01-03T05:18:08.6756497Z Commit: 6cbad8c2bb55d58165063d031ccabf57e2d2db61
+deploy	Set up job	2026-01-03T05:18:08.6757662Z Build Date: 2025-12-11T16:28:49Z
+deploy	Set up job	2026-01-03T05:18:08.6758608Z Worker ID: {60f5c334-1b2a-4d5e-8725-272bde5b5b9e}
+deploy	Set up job	2026-01-03T05:18:08.6759614Z ##[endgroup]
+deploy	Set up job	2026-01-03T05:18:08.6760487Z ##[group]Operating System
+deploy	Set up job	2026-01-03T05:18:08.6761298Z Ubuntu
+deploy	Set up job	2026-01-03T05:18:08.6762040Z 24.04.3
+deploy	Set up job	2026-01-03T05:18:08.6762738Z LTS
+deploy	Set up job	2026-01-03T05:18:08.6763413Z ##[endgroup]
+deploy	Set up job	2026-01-03T05:18:08.6764448Z ##[group]Runner Image
+deploy	Set up job	2026-01-03T05:18:08.6765344Z Image: ubuntu-24.04
+deploy	Set up job	2026-01-03T05:18:08.6766148Z Version: 20251215.174.1
+deploy	Set up job	2026-01-03T05:18:08.6767864Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20251215.174/images/ubuntu/Ubuntu2404-Readme.md
+deploy	Set up job	2026-01-03T05:18:08.6770165Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20251215.174
+deploy	Set up job	2026-01-03T05:18:08.6772009Z ##[endgroup]
+deploy	Set up job	2026-01-03T05:18:08.6773460Z ##[group]GITHUB_TOKEN Permissions
+deploy	Set up job	2026-01-03T05:18:08.6776506Z Contents: read
+deploy	Set up job	2026-01-03T05:18:08.6777343Z Metadata: read
+deploy	Set up job	2026-01-03T05:18:08.6778111Z ##[endgroup]
+deploy	Set up job	2026-01-03T05:18:08.6781051Z Secret source: Actions
+deploy	Set up job	2026-01-03T05:18:08.6782113Z Prepare workflow directory
+deploy	Set up job	2026-01-03T05:18:08.7312553Z Prepare all required actions
+deploy	Set up job	2026-01-03T05:18:08.7370208Z Getting action download info
+deploy	Set up job	2026-01-03T05:18:09.1417866Z Download action repository 'actions/checkout@v4' (SHA:34e114876b0b11c390a56381ad16ebd13914f8d5)
+deploy	Set up job	2026-01-03T05:18:09.2496055Z Download action repository 'supabase/setup-cli@v1' (SHA:b60b5899c73b63a2d2d651b1e90db8d4c9392f51)
+deploy	Set up job	2026-01-03T05:18:10.0950700Z Complete job name: deploy
+deploy	Checkout repo	﻿2026-01-03T05:18:10.1574366Z ##[group]Run actions/checkout@v4
+deploy	Checkout repo	2026-01-03T05:18:10.1575448Z with:
+deploy	Checkout repo	2026-01-03T05:18:10.1576090Z   repository: nomadcgrang9/SellmeBuyme
+deploy	Checkout repo	2026-01-03T05:18:10.1576962Z   token: ***
+deploy	Checkout repo	2026-01-03T05:18:10.1577491Z   ssh-strict: true
+deploy	Checkout repo	2026-01-03T05:18:10.1578107Z   ssh-user: git
+deploy	Checkout repo	2026-01-03T05:18:10.1578634Z   persist-credentials: true
+deploy	Checkout repo	2026-01-03T05:18:10.1579158Z   clean: true
+deploy	Checkout repo	2026-01-03T05:18:10.1579724Z   sparse-checkout-cone-mode: true
+deploy	Checkout repo	2026-01-03T05:18:10.1580339Z   fetch-depth: 1
+deploy	Checkout repo	2026-01-03T05:18:10.1580887Z   fetch-tags: false
+deploy	Checkout repo	2026-01-03T05:18:10.1581417Z   show-progress: true
+deploy	Checkout repo	2026-01-03T05:18:10.1581944Z   lfs: false
+deploy	Checkout repo	2026-01-03T05:18:10.1582411Z   submodules: false
+deploy	Checkout repo	2026-01-03T05:18:10.1582979Z   set-safe-directory: true
+deploy	Checkout repo	2026-01-03T05:18:10.1584061Z ##[endgroup]
+deploy	Checkout repo	2026-01-03T05:18:10.2659791Z Syncing repository: nomadcgrang9/SellmeBuyme
+deploy	Checkout repo	2026-01-03T05:18:10.2661882Z ##[group]Getting Git version info
+deploy	Checkout repo	2026-01-03T05:18:10.2663169Z Working directory is '/home/runner/work/SellmeBuyme/SellmeBuyme'
+deploy	Checkout repo	2026-01-03T05:18:10.2666331Z [command]/usr/bin/git version
+deploy	Checkout repo	2026-01-03T05:18:10.2728612Z git version 2.52.0
+deploy	Checkout repo	2026-01-03T05:18:10.2752321Z ##[endgroup]
+deploy	Checkout repo	2026-01-03T05:18:10.2766230Z Temporarily overriding HOME='/home/runner/work/_temp/a2deccba-981b-4cfe-b5c3-6f9efd1fbb4e' before making global git config changes
+deploy	Checkout repo	2026-01-03T05:18:10.2770565Z Adding repository directory to the temporary git global config as a safe directory
+deploy	Checkout repo	2026-01-03T05:18:10.2782685Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/SellmeBuyme/SellmeBuyme
+deploy	Checkout repo	2026-01-03T05:18:10.2821965Z Deleting the contents of '/home/runner/work/SellmeBuyme/SellmeBuyme'
+deploy	Checkout repo	2026-01-03T05:18:10.2826597Z ##[group]Initializing the repository
+deploy	Checkout repo	2026-01-03T05:18:10.2831595Z [command]/usr/bin/git init /home/runner/work/SellmeBuyme/SellmeBuyme
+deploy	Checkout repo	2026-01-03T05:18:10.2939224Z hint: Using 'master' as the name for the initial branch. This default branch name
+deploy	Checkout repo	2026-01-03T05:18:10.2941900Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+deploy	Checkout repo	2026-01-03T05:18:10.2945206Z hint: to use in all of your new repositories, which will suppress this warning,
+deploy	Checkout repo	2026-01-03T05:18:10.2946773Z hint: call:
+deploy	Checkout repo	2026-01-03T05:18:10.2947721Z hint:
+deploy	Checkout repo	2026-01-03T05:18:10.2949201Z hint: 	git config --global init.defaultBranch <name>
+deploy	Checkout repo	2026-01-03T05:18:10.2950354Z hint:
+deploy	Checkout repo	2026-01-03T05:18:10.2951506Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+deploy	Checkout repo	2026-01-03T05:18:10.2953686Z hint: 'development'. The just-created branch can be renamed via this command:
+deploy	Checkout repo	2026-01-03T05:18:10.2955164Z hint:
+deploy	Checkout repo	2026-01-03T05:18:10.2956033Z hint: 	git branch -m <name>
+deploy	Checkout repo	2026-01-03T05:18:10.2957019Z hint:
+deploy	Checkout repo	2026-01-03T05:18:10.2958276Z hint: Disable this message with "git config set advice.defaultBranchName false"
+deploy	Checkout repo	2026-01-03T05:18:10.2960435Z Initialized empty Git repository in /home/runner/work/SellmeBuyme/SellmeBuyme/.git/
+deploy	Checkout repo	2026-01-03T05:18:10.2964536Z [command]/usr/bin/git remote add origin https://github.com/nomadcgrang9/SellmeBuyme
+deploy	Checkout repo	2026-01-03T05:18:10.2998433Z ##[endgroup]
+deploy	Checkout repo	2026-01-03T05:18:10.3000169Z ##[group]Disabling automatic garbage collection
+deploy	Checkout repo	2026-01-03T05:18:10.3001523Z [command]/usr/bin/git config --local gc.auto 0
+deploy	Checkout repo	2026-01-03T05:18:10.3028950Z ##[endgroup]
+deploy	Checkout repo	2026-01-03T05:18:10.3030739Z ##[group]Setting up auth
+deploy	Checkout repo	2026-01-03T05:18:10.3034831Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+deploy	Checkout repo	2026-01-03T05:18:10.3062927Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+deploy	Checkout repo	2026-01-03T05:18:10.3364250Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+deploy	Checkout repo	2026-01-03T05:18:10.3391384Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+deploy	Checkout repo	2026-01-03T05:18:10.3603776Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+deploy	Checkout repo	2026-01-03T05:18:10.3615362Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+deploy	Checkout repo	2026-01-03T05:18:10.3792917Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+deploy	Checkout repo	2026-01-03T05:18:10.3822245Z ##[endgroup]
+deploy	Checkout repo	2026-01-03T05:18:10.3826186Z ##[group]Fetching the repository
+deploy	Checkout repo	2026-01-03T05:18:10.3833105Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +639bbe0b549c7fbce124983309e1ac435c7c72ce:refs/remotes/origin/feature/crawler-4-regions
+deploy	Checkout repo	2026-01-03T05:18:13.7451384Z From https://github.com/nomadcgrang9/SellmeBuyme
+deploy	Checkout repo	2026-01-03T05:18:13.7453308Z  * [new ref]         639bbe0b549c7fbce124983309e1ac435c7c72ce -> origin/feature/crawler-4-regions
+deploy	Checkout repo	2026-01-03T05:18:13.7479041Z ##[endgroup]
+deploy	Checkout repo	2026-01-03T05:18:13.7481370Z ##[group]Determining the checkout info
+deploy	Checkout repo	2026-01-03T05:18:13.7482602Z ##[endgroup]
+deploy	Checkout repo	2026-01-03T05:18:13.7485481Z [command]/usr/bin/git sparse-checkout disable
+deploy	Checkout repo	2026-01-03T05:18:13.7522625Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+deploy	Checkout repo	2026-01-03T05:18:13.7547371Z ##[group]Checking out the ref
+deploy	Checkout repo	2026-01-03T05:18:13.7550478Z [command]/usr/bin/git checkout --progress --force -B feature/crawler-4-regions refs/remotes/origin/feature/crawler-4-regions
+deploy	Checkout repo	2026-01-03T05:18:14.2084954Z Switched to a new branch 'feature/crawler-4-regions'
+deploy	Checkout repo	2026-01-03T05:18:14.2124964Z branch 'feature/crawler-4-regions' set up to track 'origin/feature/crawler-4-regions'.
+deploy	Checkout repo	2026-01-03T05:18:14.2127533Z ##[endgroup]
+deploy	Checkout repo	2026-01-03T05:18:14.2164007Z [command]/usr/bin/git log -1 --format=%H
+deploy	Checkout repo	2026-01-03T05:18:14.2209058Z 639bbe0b549c7fbce124983309e1ac435c7c72ce
+deploy	Setup Supabase CLI	﻿2026-01-03T05:18:14.2362341Z ##[group]Run supabase/setup-cli@v1
+deploy	Setup Supabase CLI	2026-01-03T05:18:14.2362642Z with:
+deploy	Setup Supabase CLI	2026-01-03T05:18:14.2362820Z   version: 2.20.3
+deploy	Setup Supabase CLI	2026-01-03T05:18:14.2363016Z ##[endgroup]
+deploy	Setup Supabase CLI	2026-01-03T05:18:14.7675114Z [command]/usr/bin/tar xz --warning=no-unknown-keyword --overwrite -C /home/runner/work/_temp/067c480e-4674-44a3-b0f9-785a3cb5b209 -f /home/runner/work/_temp/b9eb9c45-66ab-4967-a1bf-342273ed9597
+deploy	Link project	﻿2026-01-03T05:18:15.3519282Z ##[group]Run supabase link --project-ref "$SUPABASE_PROJECT_REF"
+deploy	Link project	2026-01-03T05:18:15.3519955Z [36;1msupabase link --project-ref "$SUPABASE_PROJECT_REF"[0m
+deploy	Link project	2026-01-03T05:18:15.3546138Z shell: /usr/bin/bash -e {0}
+deploy	Link project	2026-01-03T05:18:15.3546417Z env:
+deploy	Link project	2026-01-03T05:18:15.3546633Z   SUPABASE_INTERNAL_IMAGE_REGISTRY: ghcr.io
+deploy	Link project	2026-01-03T05:18:15.3547227Z   SUPABASE_ACCESS_TOKEN: ***
+deploy	Link project	2026-01-03T05:18:15.3547499Z   SUPABASE_PROJECT_REF: ***
+deploy	Link project	2026-01-03T05:18:15.3547716Z ##[endgroup]
+deploy	Link project	2026-01-03T05:18:17.6189990Z 
+deploy	Link project	2026-01-03T05:18:17.6196322Z Finished supabase link.
+deploy	Link project	2026-01-03T05:18:17.6197778Z Enter your database password (or leave blank to skip): WARNING: Local config differs from linked project. Try updating supabase/config.toml
+deploy	Link project	2026-01-03T05:18:17.6200483Z A new version of Supabase CLI is available: v2.67.1 (currently installed v2.20.3)
+deploy	Link project	2026-01-03T05:18:17.6202135Z We recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli
+deploy	Link project	2026-01-03T05:18:17.6203933Z diff supabase/config.toml ***
+deploy	Link project	2026-01-03T05:18:17.6204485Z --- supabase/config.toml
+deploy	Link project	2026-01-03T05:18:17.6204985Z +++ ***
+deploy	Link project	2026-01-03T05:18:17.6205335Z @@ -52,8 +52,8 @@
+deploy	Link project	2026-01-03T05:18:17.6205707Z  
+deploy	Link project	2026-01-03T05:18:17.6206036Z  [auth]
+deploy	Link project	2026-01-03T05:18:17.6206375Z  enabled = true
+deploy	Link project	2026-01-03T05:18:17.6206812Z -site_url = "http://127.0.0.1:3000"
+deploy	Link project	2026-01-03T05:18:17.6207436Z -additional_redirect_urls = ["https://127.0.0.1:3000"]
+deploy	Link project	2026-01-03T05:18:17.6208096Z +site_url = "http://localhost:3000"
+deploy	Link project	2026-01-03T05:18:17.6209534Z +additional_redirect_urls = ["https://sellmebuyme.pages.dev/**", "https://sellmebuyme.pages.dev/auth/callback", "http://localhost:5173/**", "http://localhost:5173/auth/callback"]
+deploy	Link project	2026-01-03T05:18:17.6210651Z  jwt_expiry = 3600
+deploy	Link project	2026-01-03T05:18:17.6210989Z  enable_refresh_token_rotation = true
+deploy	Link project	2026-01-03T05:18:17.6211448Z  refresh_token_reuse_interval = 10
+deploy	Link project	2026-01-03T05:18:17.6211877Z @@ -73,8 +73,8 @@
+deploy	Link project	2026-01-03T05:18:17.6212204Z  [auth.mfa]
+deploy	Link project	2026-01-03T05:18:17.6212527Z  max_enrolled_factors = 10
+deploy	Link project	2026-01-03T05:18:17.6212872Z  [auth.mfa.totp]
+deploy	Link project	2026-01-03T05:18:17.6213127Z -enroll_enabled = false
+deploy	Link project	2026-01-03T05:18:17.6213419Z -verify_enabled = false
+deploy	Link project	2026-01-03T05:18:17.6214065Z +enroll_enabled = true
+deploy	Link project	2026-01-03T05:18:17.6214369Z +verify_enabled = true
+deploy	Link project	2026-01-03T05:18:17.6214644Z  [auth.mfa.phone]
+deploy	Link project	2026-01-03T05:18:17.6214998Z  enroll_enabled = false
+deploy	Link project	2026-01-03T05:18:17.6215288Z  verify_enabled = false
+deploy	Link project	2026-01-03T05:18:17.6215580Z @@ -90,9 +90,9 @@
+deploy	Link project	2026-01-03T05:18:17.6215847Z  [auth.email]
+deploy	Link project	2026-01-03T05:18:17.6216138Z  enable_signup = true
+deploy	Link project	2026-01-03T05:18:17.6216469Z  double_confirm_changes = true
+deploy	Link project	2026-01-03T05:18:17.6216851Z -enable_confirmations = false
+deploy	Link project	2026-01-03T05:18:17.6217360Z +enable_confirmations = true
+deploy	Link project	2026-01-03T05:18:17.6217710Z  secure_password_change = false
+deploy	Link project	2026-01-03T05:18:17.6218055Z -max_frequency = "1s"
+deploy	Link project	2026-01-03T05:18:17.6218375Z +max_frequency = "1m0s"
+deploy	Link project	2026-01-03T05:18:17.6218700Z  otp_length = 6
+deploy	Link project	2026-01-03T05:18:17.6218985Z  otp_expiry = 3600
+deploy	Link project	2026-01-03T05:18:17.6219321Z  [auth.email.template]
+deploy	Link project	2026-01-03T05:18:17.6219535Z 
+deploy	Set function secrets (idempotent)	﻿2026-01-03T05:18:17.6249591Z ##[group]Run supabase secrets set
+deploy	Set function secrets (idempotent)	2026-01-03T05:18:17.6249917Z [36;1msupabase secrets set[0m
+deploy	Set function secrets (idempotent)	2026-01-03T05:18:17.6250163Z [36;1mSUPABASE_URL="$SUPABASE_URL"[0m
+deploy	Set function secrets (idempotent)	2026-01-03T05:18:17.6250487Z [36;1mSUPABASE_SERVICE_ROLE_KEY="$SUPABASE_SERVICE_ROLE_KEY"[0m
+deploy	Set function secrets (idempotent)	2026-01-03T05:18:17.6250805Z [36;1mGITHUB_TOKEN="$GITHUB_TOKEN"[0m
+deploy	Set function secrets (idempotent)	2026-01-03T05:18:17.6269675Z shell: /usr/bin/bash -e {0}
+deploy	Set function secrets (idempotent)	2026-01-03T05:18:17.6269956Z env:
+deploy	Set function secrets (idempotent)	2026-01-03T05:18:17.6270163Z   SUPABASE_INTERNAL_IMAGE_REGISTRY: ghcr.io
+deploy	Set function secrets (idempotent)	2026-01-03T05:18:17.6270603Z   SUPABASE_URL: ***
+deploy	Set function secrets (idempotent)	2026-01-03T05:18:17.6270905Z   SUPABASE_SERVICE_ROLE_KEY: ***
+deploy	Set function secrets (idempotent)	2026-01-03T05:18:17.6271281Z   GITHUB_TOKEN: ***
+deploy	Set function secrets (idempotent)	2026-01-03T05:18:17.6271476Z ##[endgroup]
+deploy	Set function secrets (idempotent)	2026-01-03T05:18:17.6817329Z Access token not provided. Supply an access token by running supabase login or setting the SUPABASE_ACCESS_TOKEN environment variable.
+deploy	Set function secrets (idempotent)	2026-01-03T05:18:17.6819187Z Try rerunning the command with --debug to troubleshoot the error.
+deploy	Set function secrets (idempotent)	2026-01-03T05:18:17.6840213Z ##[error]Process completed with exit code 1.
+deploy	Post Checkout repo	﻿2026-01-03T05:18:17.6935530Z Post job cleanup.
+deploy	Post Checkout repo	2026-01-03T05:18:17.7809151Z [command]/usr/bin/git version
+deploy	Post Checkout repo	2026-01-03T05:18:17.7844398Z git version 2.52.0
+deploy	Post Checkout repo	2026-01-03T05:18:17.7885651Z Temporarily overriding HOME='/home/runner/work/_temp/94aeed4e-625b-4f68-912d-4223d50af8ab' before making global git config changes
+deploy	Post Checkout repo	2026-01-03T05:18:17.7888309Z Adding repository directory to the temporary git global config as a safe directory
+deploy	Post Checkout repo	2026-01-03T05:18:17.7892003Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/SellmeBuyme/SellmeBuyme
+deploy	Post Checkout repo	2026-01-03T05:18:17.7931759Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+deploy	Post Checkout repo	2026-01-03T05:18:17.7961976Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+deploy	Post Checkout repo	2026-01-03T05:18:17.8148258Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+deploy	Post Checkout repo	2026-01-03T05:18:17.8167281Z http.https://github.com/.extraheader
+deploy	Post Checkout repo	2026-01-03T05:18:17.8180346Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+deploy	Post Checkout repo	2026-01-03T05:18:17.8214066Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+deploy	Post Checkout repo	2026-01-03T05:18:17.8503995Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+deploy	Post Checkout repo	2026-01-03T05:18:17.8545882Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+deploy	Complete job	﻿2026-01-03T05:18:17.8965879Z Cleaning up orphan processes
