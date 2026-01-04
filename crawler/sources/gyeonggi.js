@@ -1,4 +1,5 @@
 import { resolveUrl } from '../lib/playwright.js';
+import { getExistingJobBySource } from '../lib/supabase.js';
 
 /**
  * 교육지원청 도메인 → 관할 지역 매핑
@@ -107,6 +108,7 @@ export async function crawlGyeonggi(page, config) {
   console.log(`\n📍 ${config.name} 크롤링 시작`);
 
   const jobs = [];
+  let skippedCount = 0;
 
   try {
     // 1. 목록 페이지 POST 요청으로 로드
@@ -239,15 +241,46 @@ export async function crawlGyeonggi(page, config) {
       return [];
     }
     
-    // 3. 각 공고 상세 페이지 크롤링 (config.crawlBatchSize 또는 기본값 10개)
-    const batchSize = config.crawlBatchSize || 10;
-    const maxJobs = Math.min(jobListData.length, batchSize);
-    
-    for (let i = 0; i < maxJobs; i++) {
-      const listInfo = jobListData[i];
+    // 3. 각 공고 상세 페이지 크롤링 (중복 발견 시 중단)
+    const SAFETY = {
+      maxItems: 100,           // 무한 루프 방지
+      duplicateThreshold: 3,   // 연속 중복 시 중단
+    };
+
+    let consecutiveDuplicates = 0;
+    let processedCount = 0;
+
+    for (const listInfo of jobListData) {
+      // 안전장치 1: 최대 개수
+      if (processedCount >= SAFETY.maxItems) {
+        console.log(`  ⚠️ 최대 수집 개수(${SAFETY.maxItems}) 도달`);
+        break;
+      }
+
       const pbancSn = listInfo.pbancSn;
-      
-      console.log(`\n  🔍 공고 ${i + 1}/${maxJobs} (ID: ${pbancSn})`);
+      const jobUrl = `${config.detailEndpoint}?pbancSn=${pbancSn}`;
+
+      // 중복 체크 (크롤러 단계에서 수행)
+      const existing = await getExistingJobBySource(jobUrl);
+
+      if (existing) {
+        consecutiveDuplicates++;
+        skippedCount++;
+        console.log(`  ⏭️ 중복 ${consecutiveDuplicates}/${SAFETY.duplicateThreshold}: ${listInfo.title?.substring(0, 30)}...`);
+
+        // 안전장치 2: 연속 중복 시 중단
+        if (consecutiveDuplicates >= SAFETY.duplicateThreshold) {
+          console.log(`  🛑 연속 ${SAFETY.duplicateThreshold}개 중복 - 기존 영역 도달, 크롤링 완료`);
+          break;
+        }
+        continue;
+      }
+
+      // 신규 공고 발견 - 중복 카운터 리셋
+      consecutiveDuplicates = 0;
+      processedCount++;
+
+      console.log(`\n  🔍 신규 공고 ${processedCount} (ID: ${pbancSn})`);
       console.log(`     게시판 정보: ${listInfo.schoolName} - ${listInfo.title}`);
       
       try {
@@ -321,7 +354,10 @@ export async function crawlGyeonggi(page, config) {
     throw error;
   }
   
-  console.log(`✅ ${config.name} 크롤링 완료: ${jobs.length}개 수집\n`);
+  console.log(`\n✅ ${config.name} 크롤링 완료`);
+  console.log(`   - 신규: ${jobs.length}개`);
+  console.log(`   - 중복 스킵: ${skippedCount}개`);
+  console.log(`   - 총 처리: ${jobs.length + skippedCount}개\n`);
   return jobs;
 }
 

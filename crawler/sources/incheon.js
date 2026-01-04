@@ -1,4 +1,5 @@
 import { loadPage, getTextBySelectors, getAttributeBySelectors, resolveUrl } from '../lib/playwright.js';
+import { getExistingJobBySource } from '../lib/supabase.js';
 
 /**
  * 인천교육청 크롤러
@@ -24,6 +25,7 @@ export async function crawlIncheon(page, config) {
 
   // 3. 공고 목록 추출
   const jobs = [];
+  let skippedCount = 0;
 
   try {
     // 여러 선택자 시도
@@ -41,11 +43,22 @@ export async function crawlIncheon(page, config) {
 
     console.log(`📋 발견된 공고 수: ${rows.length}개`);
 
-    // 4. 각 행에서 데이터 추출 (config.crawlBatchSize 또는 기본값 10개)
-    const batchSize = config.crawlBatchSize || 10;
-    const maxRows = Math.min(rows.length, batchSize);
+    // 4. 각 행에서 데이터 추출 (중복 발견 시 중단)
+    const SAFETY = {
+      maxItems: 100,           // 무한 루프 방지
+      duplicateThreshold: 3,   // 연속 중복 시 중단
+    };
 
-    for (let i = 0; i < maxRows; i++) {
+    let consecutiveDuplicates = 0;
+    let processedCount = 0;
+
+    for (let i = 0; i < rows.length; i++) {
+      // 안전장치 1: 최대 개수
+      if (processedCount >= SAFETY.maxItems) {
+        console.log(`  ⚠️ 최대 수집 개수(${SAFETY.maxItems}) 도달`);
+        break;
+      }
+
       try {
         // 매번 새로 rows를 가져와서 stale element 방지
         const currentRows = await page.$$(config.selectors.rows);
@@ -95,7 +108,27 @@ export async function crawlIncheon(page, config) {
         // data-id로 상세 페이지 URL 생성
         const absoluteLink = config.detailUrlTemplate + dataId;
 
-        console.log(`  📄 ${i + 1}. ${title}`);
+        // 중복 체크 (크롤러 단계에서 수행)
+        const existing = await getExistingJobBySource(absoluteLink);
+
+        if (existing) {
+          consecutiveDuplicates++;
+          skippedCount++;
+          console.log(`  ⏭️ 중복 ${consecutiveDuplicates}/${SAFETY.duplicateThreshold}: ${title?.substring(0, 30)}...`);
+
+          // 안전장치 2: 연속 중복 시 중단
+          if (consecutiveDuplicates >= SAFETY.duplicateThreshold) {
+            console.log(`  🛑 연속 ${SAFETY.duplicateThreshold}개 중복 - 기존 영역 도달, 크롤링 완료`);
+            break;
+          }
+          continue;
+        }
+
+        // 신규 공고 발견 - 중복 카운터 리셋
+        consecutiveDuplicates = 0;
+        processedCount++;
+
+        console.log(`  📄 신규 ${processedCount}. ${title}`);
         console.log(`     상세 페이지 접속 중...`);
 
         // 상세 페이지 크롤링 (텍스트 + 스크린샷)
@@ -118,10 +151,10 @@ export async function crawlIncheon(page, config) {
           screenshotBase64: detailData.screenshot,
         });
 
-        console.log(`  ✅ ${i + 1}. 완료 (지역: ${location})`);
+        console.log(`  ✅ 신규 ${processedCount}. 완료 (지역: ${location})`);
 
         // 목록 페이지로 돌아가기
-        if (i < maxRows - 1) {
+        if (processedCount < SAFETY.maxItems) {
           console.log(`     목록으로 돌아가는 중...`);
           await page.goto(config.baseUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
           await page.waitForTimeout(1000);
@@ -135,7 +168,10 @@ export async function crawlIncheon(page, config) {
     throw error;
   }
 
-  console.log(`✅ ${config.name} 크롤링 완료: ${jobs.length}개 수집\n`);
+  console.log(`\n✅ ${config.name} 크롤링 완료`);
+  console.log(`   - 신규: ${jobs.length}개`);
+  console.log(`   - 중복 스킵: ${skippedCount}개`);
+  console.log(`   - 총 처리: ${jobs.length + skippedCount}개\n`);
   return jobs;
 }
 

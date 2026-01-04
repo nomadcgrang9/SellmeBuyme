@@ -18,6 +18,7 @@ on:
           - jeju
           - incheon
           - seoul
+          - gangwon
       mode:
         description: 'Crawl mode (run or test)'
         required: false
@@ -95,6 +96,7 @@ jobs:
           - jeju
           - incheon
           - seoul
+          - gangwon
 
     steps:
       - name: Checkout code
