@@ -3,7 +3,7 @@ name: Run Crawler
 on:
   workflow_dispatch:
     inputs:
-      crawler_source:
+      source:
         description: 'Crawler source to run'
         required: true
         type: choice
@@ -28,8 +28,7 @@ on:
           - run
           - test
   schedule:
-    # 매일 KST 07:00 (UTC 22:00)
-    - cron: '0 22 * * *'
+    - cron: '0 1 * * *'
 
 jobs:
   crawl-manual:
@@ -70,8 +69,8 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          CRAWLER_SOURCE: ${{ github.event.inputs.crawler_source }}
           CRAWL_MODE: ${{ github.event.inputs.mode }}
+          CRAWLER_SOURCE: ${{ github.event.inputs.source }}
         run: |
           echo "🚀 Starting crawler: $CRAWLER_SOURCE"
           echo "🔧 Mode: $CRAWL_MODE"
@@ -126,11 +125,13 @@ jobs:
         run: npx playwright install chromium --with-deps
 
       - name: Run crawler
+        shell: bash
         working-directory: crawler
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          CRAWL_MODE: 'run'
         run: |
           echo "🚀 Starting crawler: ${{ matrix.source }}"
           node index.js --source=${{ matrix.source }}

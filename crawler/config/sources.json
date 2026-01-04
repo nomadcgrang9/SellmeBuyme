@@ -546,7 +546,7 @@
     "isLocalGovernment": false,
     "active": true
   },
-  "gangwon": {
+  "gangwon_v2": {
     "name": "강원특별자치도교육청 학교인력채용",
     "baseUrl": "https://www.gwe.go.kr/main/bbs/list.do?key=bTIzMDcyMTA1ODU2MzM=",
     "detailUrlTemplate": "https://www.gwe.go.kr/main/bbs/view.do?bbsSn=",

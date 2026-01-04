@@ -12,7 +12,9 @@ import {
 } from '@/lib/constants/filters';
 import {
   expandProvinceToAllCities,
-  isProvinceWideSearch
+  isProvinceWideSearch,
+  PROVINCE_TO_CITIES,
+  PROVINCE_NAMES
 } from '@/lib/constants/regionHierarchy';
 import type {
   Card,
@@ -2712,6 +2714,8 @@ function buildTokenGroups(tokens: string[]): TokenGroup[] {
   return tokens.map((token) => {
     const variants = new Set<string>();
     variants.add(token);
+
+    // 1. 기존 synonymMap 확장
     const synonyms = synonymMap[token];
     if (Array.isArray(synonyms)) {
       synonyms.forEach((synonym) => {
@@ -2721,6 +2725,24 @@ function buildTokenGroups(tokens: string[]): TokenGroup[] {
         }
       });
     }
+
+    // 2. 광역시도 키워드인 경우 하위 도시들로 확장
+    // 예: "경기" → 의정부, 수원, 성남, 고양 등 경기도 내 모든 도시 포함
+    const provinceCities = PROVINCE_TO_CITIES[token];
+    if (Array.isArray(provinceCities)) {
+      // 광역시도 자체도 검색 패턴에 포함
+      variants.add(token);
+      variants.add(`${token}도`);
+      variants.add(`${token}시`);
+      // 하위 도시들 추가
+      provinceCities.forEach((city) => {
+        const trimmed = city.trim();
+        if (trimmed.length > 0) {
+          variants.add(trimmed);
+        }
+      });
+    }
+
     return Array.from(variants);
   });
 }
@@ -2742,10 +2764,23 @@ function flattenTokenGroups(groups: TokenGroup[]): string[] {
 // 토큰 타입 정의
 const TOKEN_TYPES = {
   location: [
+    // 광역시도 (17개)
+    ...PROVINCE_NAMES,
+    // 경기도 주요 도시
     '수원', '성남', '고양', '화성', '용인', '부천', '안산', '남양주', '평택', '의정부',
-    '안양', '군포', '의왕', '오산', '광주', '이천', '여주', '양평', '김포', '시흥',
-    '하남', '구리', '과천', '광명', '양주', '포천', '인천', '서울', '경기',
-    '춘천', '원주', '홍천', '청주', '세종', '대전', '논산', '천안', '아산'
+    '안양', '군포', '의왕', '오산', '이천', '여주', '양평', '김포', '시흥',
+    '하남', '구리', '과천', '광명', '양주', '포천', '파주', '안성', '동두천',
+    // 강원도 주요 도시
+    '춘천', '원주', '강릉', '동해', '태백', '속초', '삼척', '홍천', '횡성', '영월',
+    '평창', '정선', '철원', '화천', '양구', '인제', '고성', '양양',
+    // 충청도 주요 도시
+    '청주', '충주', '제천', '천안', '아산', '논산', '공주', '보령', '서산', '당진',
+    // 전라도 주요 도시
+    '전주', '군산', '익산', '목포', '여수', '순천', '광양',
+    // 경상도 주요 도시
+    '포항', '경주', '김천', '안동', '구미', '창원', '진주', '김해', '양산',
+    // 제주
+    '제주시', '서귀포'
   ],
   schoolLevel: ['초등', '중등', '고등', '유치원', '특수', '초등학교', '중학교', '고등학교', '특수학교', '유아'],
   subject: [
@@ -2840,24 +2875,36 @@ function filterJobsByTokenGroups(jobs: any[], tokenGroups: TokenGroup[]): any[] 
   // 토큰을 타입별로 분류
   const classified = classifyTokenGroups(tokenGroups);
 
-  return jobs.filter((job) => {
+  const result = jobs.filter((job) => {
     const title = (job?.title ?? '').toLowerCase();
     const organization = (job?.organization ?? '').toLowerCase();
     const location = (job?.location ?? '').toLowerCase();
+    const subject = (job?.subject ?? '').toLowerCase();
     const tags = Array.isArray(job?.tags)
       ? job.tags.map((tag: string) => (tag ?? '').toLowerCase())
       : [];
 
-    const fields = [title, organization, location, ...tags];
+    // ILIKE 쿼리와 동일한 필드 검색: title, organization, location, subject, tags
+    const fields = [title, organization, location, subject, ...tags];
 
     // 각 타입별로 매칭 검사 (같은 타입끼리는 OR, 다른 타입끼리는 AND)
 
-    // 지역: 여러 지역 중 하나라도 매칭 (OR)
+    // 지역: location 필드에서만 검색, 단어 경계 고려
+    // "양구"가 "계양구"에 매칭되는 것을 방지 (양구는 강원, 계양구는 인천)
     const locationMatch = classified.location.length === 0 ||
       classified.location.some(group =>
-        group.some(token =>
-          fields.some(field => field.includes(token.toLowerCase()))
-        )
+        group.some(token => {
+          const t = token.toLowerCase();
+          // 단어 경계 체크: 토큰이 location의 시작이거나, 공백 뒤에 나타나야 함
+          // 예: "양구군".startsWith("양구") → true
+          // 예: "계양구".startsWith("양구") → false
+          return location.startsWith(t) ||
+                 location.includes(` ${t}`) ||
+                 location === t ||
+                 // organization에서도 확인 (지역명이 기관명에 포함된 경우)
+                 organization.startsWith(t) ||
+                 organization.includes(` ${t}`);
+        })
       );
 
     // 학교급: 여러 학교급 중 하나라도 매칭 (OR)
@@ -2897,6 +2944,7 @@ function filterJobsByTokenGroups(jobs: any[], tokenGroups: TokenGroup[]): any[] 
     // "수원 성남" = 지역(수원 OR 성남) → 수원 또는 성남
     return locationMatch && schoolLevelMatch && subjectMatch && roleMatch && otherMatch;
   });
+  return result;
 }
 
 function filterTalentsByTokenGroups(talents: any[], tokenGroups: TokenGroup[]): any[] {
@@ -2921,12 +2969,22 @@ function filterTalentsByTokenGroups(talents: any[], tokenGroups: TokenGroup[]): 
 
     // 각 타입별로 매칭 검사 (같은 타입끼리는 OR, 다른 타입끼리는 AND)
 
-    // 지역: 여러 지역 중 하나라도 매칭 (OR)
+    // 지역: location 필드에서만 검색, 단어 경계 고려
+    // "양구"가 "계양구"에 매칭되는 것을 방지 (양구는 강원, 계양구는 인천)
     const locationMatch = classified.location.length === 0 ||
       classified.location.some(group =>
-        group.some(token =>
-          fields.some(field => field.includes(token.toLowerCase()))
-        )
+        group.some(token => {
+          const t = token.toLowerCase();
+          // 단어 경계 체크: 토큰이 location의 시작이거나, 공백 뒤에 나타나야 함
+          return locations.some((loc: string) =>
+            loc.startsWith(t) ||
+            loc.includes(` ${t}`) ||
+            loc === t
+          ) ||
+          // name에서도 확인 (지역명이 이름에 포함된 경우)
+          name.startsWith(t) ||
+          name.includes(` ${t}`);
+        })
       );
 
     // 학교급: 여러 학교급 중 하나라도 매칭 (OR)
@@ -3227,8 +3285,13 @@ async function executeJobSearch({
 }: JobSearchArgs): Promise<SearchResponse> {
   const trimmedQuery = searchQuery.trim();
 
-  // PGroonga 검색 사용 (텍스트 검색이 있을 때)
-  if (trimmedQuery.length > 0) {
+  // 광역시도 키워드가 포함되어 있는지 확인
+  // 광역시도 키워드(경기, 서울 등)가 있으면 하위 도시로 확장해야 하므로 PGroonga 대신 ILIKE 사용
+  const baseTokens = trimmedQuery.split(/\s+/).filter(t => t.length > 0);
+  const containsProvinceKeyword = baseTokens.some(token => PROVINCE_NAMES.includes(token));
+
+  // PGroonga 검색 사용 (텍스트 검색이 있을 때, 단 광역시도 키워드가 없을 때만)
+  if (trimmedQuery.length > 0 && !containsProvinceKeyword) {
     try {
       // PGroonga RPC 함수 호출
       const { data: pgroongaData, error: pgroongaError } = await supabase
