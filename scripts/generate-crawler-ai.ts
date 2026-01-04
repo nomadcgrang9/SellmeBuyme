@@ -89,7 +89,7 @@ async function extractSelectorsWithGemini(
 ): Promise<ExtractedSelectors> {
   console.log('\n🤖 Gemini API로 셀렉터 추출 중...');
 
-  const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash-latest' });
+  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' });
 
   const prompt = `당신은 웹 크롤링 전문가입니다. 첨부된 스크린샷과 HTML을 분석하여, 게시판 목록에서 데이터를 추출하는 CSS 셀렉터를 찾아주세요.
 

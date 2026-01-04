@@ -56,7 +56,7 @@ export async function logSearch(
 
     await supabase.from('search_logs').insert({
       user_id: user?.id || null,
-      search_query: searchQuery,
+      query: searchQuery,
       filters: filters || {},
       result_count: resultCount,
     });

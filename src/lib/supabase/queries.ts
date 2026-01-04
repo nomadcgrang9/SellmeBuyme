@@ -219,8 +219,8 @@ function buildJobContent(input: CreateJobPostingInput): string {
   const recruitmentRange = input.isOngoing
     ? '상시 모집'
     : [input.recruitmentStart, input.recruitmentEnd]
-        .filter(Boolean)
-        .join(' ~ ');
+      .filter(Boolean)
+      .join(' ~ ');
 
   if (recruitmentRange) {
     lines.push(`모집기간: ${recruitmentRange}`);
@@ -229,8 +229,8 @@ function buildJobContent(input: CreateJobPostingInput): string {
   const workRange = input.isNegotiable
     ? '협의 가능'
     : [input.workStart, input.workEnd]
-        .filter(Boolean)
-        .join(' ~ ');
+      .filter(Boolean)
+      .join(' ~ ');
 
   if (workRange) {
     lines.push(`근무기간: ${workRange}`);
@@ -387,8 +387,7 @@ export async function updateJobPosting(input: UpdateJobPostingInput) {
  * 사용자가 업로드한 공고 삭제
  * - 소유권 확인 후 첨부파일이 있으면 Storage에서 함께 제거
  */
-export async function deleteJobPosting(jobId: string): Promise<{ id: string }>
-{
+export async function deleteJobPosting(jobId: string): Promise<{ id: string }> {
   const {
     data: { user },
     error: userError
@@ -578,41 +577,42 @@ function mapExperienceRowToCard(row: any): ExperienceCard {
   };
 }
 
-function applyExperienceRegionFilter(cards: ExperienceCard[], region: string): ExperienceCard[] {
-  if (!hasFilterValue(region, DEFAULT_REGION)) {
+function applyExperienceRegionFilter(cards: ExperienceCard[], regions: string[]): ExperienceCard[] {
+  if (regions.length === 0) {
     return cards;
   }
 
-  if (region === '서울 전체') {
-    return cards.filter((card) => card.regionSeoul.length > 0);
-  }
-
-  if (region === '경기도 전체') {
-    return cards.filter((card) => card.regionGyeonggi.length > 0);
-  }
-
-  const normalized = region.replace(/\s+/g, '').toLowerCase();
-
   return cards.filter((card) => {
-    const seoulMatch = card.regionSeoul.some((name) => name.replace(/\s+/g, '').toLowerCase().includes(normalized));
-    const gyeonggiMatch = card.regionGyeonggi.some((name) => name.replace(/\s+/g, '').toLowerCase().includes(normalized));
-    const summaryMatch = card.locationSummary.replace(/\s+/g, '').toLowerCase().includes(normalized);
-    return seoulMatch || gyeonggiMatch || summaryMatch;
+    return regions.some((region) => {
+      if (region === '서울 전체') {
+        return card.regionSeoul.length > 0;
+      }
+      if (region === '경기도 전체') {
+        return card.regionGyeonggi.length > 0;
+      }
+
+      const normalized = region.replace(/\s+/g, '').toLowerCase();
+      const seoulMatch = card.regionSeoul.some((name) => name.replace(/\s+/g, '').toLowerCase().includes(normalized));
+      const gyeonggiMatch = card.regionGyeonggi.some((name) => name.replace(/\s+/g, '').toLowerCase().includes(normalized));
+      const summaryMatch = card.locationSummary.replace(/\s+/g, '').toLowerCase().includes(normalized);
+      return seoulMatch || gyeonggiMatch || summaryMatch;
+    });
   });
 }
 
-function applyExperienceCategoryFilter(cards: ExperienceCard[], category: string): ExperienceCard[] {
-  if (!hasFilterValue(category, DEFAULT_CATEGORY)) {
+function applyExperienceCategoryFilter(cards: ExperienceCard[], categories: string[]): ExperienceCard[] {
+  if (categories.length === 0) {
     return cards;
   }
 
-  const normalized = category.trim().toLowerCase();
-
   return cards.filter((card) => {
-    const titleMatch = card.programTitle.toLowerCase().includes(normalized);
-    const introMatch = card.introduction.toLowerCase().includes(normalized);
-    const categoryMatch = card.categories.some((item) => item.toLowerCase().includes(normalized));
-    return titleMatch || introMatch || categoryMatch;
+    return categories.some((category) => {
+      const normalized = category.trim().toLowerCase();
+      const titleMatch = card.programTitle.toLowerCase().includes(normalized);
+      const introMatch = card.introduction.toLowerCase().includes(normalized);
+      const categoryMatch = card.categories.some((item) => item.toLowerCase().includes(normalized));
+      return titleMatch || introMatch || categoryMatch;
+    });
   });
 }
 
@@ -780,7 +780,7 @@ export async function createExperience(data: ExperienceRegistrationFormData): Pr
   } else {
     console.log('[DEBUG] INSERT 실패 - inserted가 null/undefined');
   }
-  
+
   if (error) {
     console.log('[DEBUG] INSERT 에러 발생');
     console.log('[DEBUG] 에러 메시지:', String(error.message || ''));
@@ -923,8 +923,8 @@ export async function createTalent(data: TalentRegistrationFormData): Promise<Ta
   const experienceYears = mapExperienceToYears(data.experience);
 
   // location: 선택 지역을 텍스트 배열로 저장 (서울/경기 전체 포함)
-  const allSeoul = ['강남구','강동구','강북구','강서구','관악구','광진구','구로구','금천구','노원구','도봉구','동대문구','동작구','마포구','서대문구','서초구','성동구','성북구','송파구','양천구','영등포구','용산구','은평구','종로구','중구','중랑구'];
-  const allGyeonggi = ['가평군','고양시','과천시','광명시','광주시','구리시','군포시','김포시','남양주시','동두천시','부천시','성남시','수원시','시흥시','안산시','안성시','안양시','양주시','양평군','여주시','연천군','오산시','용인시','의왕시','의정부시','이천시','파주시','평택시','포천시','하남시','화성시'];
+  const allSeoul = ['강남구', '강동구', '강북구', '강서구', '관악구', '광진구', '구로구', '금천구', '노원구', '도봉구', '동대문구', '동작구', '마포구', '서대문구', '서초구', '성동구', '성북구', '송파구', '양천구', '영등포구', '용산구', '은평구', '종로구', '중구', '중랑구'];
+  const allGyeonggi = ['가평군', '고양시', '과천시', '광명시', '광주시', '구리시', '군포시', '김포시', '남양주시', '동두천시', '부천시', '성남시', '수원시', '시흥시', '안산시', '안성시', '안양시', '양주시', '양평군', '여주시', '연천군', '오산시', '용인시', '의왕시', '의정부시', '이천시', '파주시', '평택시', '포천시', '하남시', '화성시'];
   const locations: string[] = [];
   if (data.location?.seoulAll) {
     locations.push(...allSeoul.map((s) => `서울-${s}`));
@@ -982,8 +982,8 @@ export async function updateTalent(input: UpdateTalentInput): Promise<TalentCard
   const { summary, tags } = summarizeTalentSpecialty(input.specialty);
   const experienceYears = mapExperienceToYears(input.experience);
 
-  const allSeoul = ['강남구','강동구','강북구','강서구','관악구','광진구','구로구','금천구','노원구','도봉구','동대문구','동작구','마포구','서대문구','서초구','성동구','성북구','송파구','양천구','영등포구','용산구','은평구','종로구','중구','중랑구'];
-  const allGyeonggi = ['가평군','고양시','과천시','광명시','광주시','구리시','군포시','김포시','남양주시','동두천시','부천시','성남시','수원시','시흥시','안산시','안성시','안양시','양주시','양평군','여주시','연천군','오산시','용인시','의왕시','의정부시','이천시','파주시','평택시','포천시','하남시','화성시'];
+  const allSeoul = ['강남구', '강동구', '강북구', '강서구', '관악구', '광진구', '구로구', '금천구', '노원구', '도봉구', '동대문구', '동작구', '마포구', '서대문구', '서초구', '성동구', '성북구', '송파구', '양천구', '영등포구', '용산구', '은평구', '종로구', '중구', '중랑구'];
+  const allGyeonggi = ['가평군', '고양시', '과천시', '광명시', '광주시', '구리시', '군포시', '김포시', '남양주시', '동두천시', '부천시', '성남시', '수원시', '시흥시', '안산시', '안성시', '안양시', '양주시', '양평군', '여주시', '연천군', '오산시', '용인시', '의왕시', '의정부시', '이천시', '파주시', '평택시', '포천시', '하남시', '화성시'];
   const locations: string[] = [];
   if (input.location?.seoulAll) {
     locations.push(...allSeoul.map((s) => `서울-${s}`));
@@ -1257,7 +1257,7 @@ export function hasProfileChanged(
   currentProfile: Record<string, unknown> | null
 ): boolean {
   if (!cachedProfile || !currentProfile) return true;
-  
+
   // 추천에 영향을 주는 필드들
   const criticalFields = [
     'interest_regions',
@@ -1266,7 +1266,7 @@ export function hasProfileChanged(
     'preferred_subjects',
     'roles'
   ];
-  
+
   for (const field of criticalFields) {
     const cached = JSON.stringify(cachedProfile[field]);
     const current = JSON.stringify(currentProfile[field]);
@@ -1274,7 +1274,7 @@ export function hasProfileChanged(
       return true;
     }
   }
-  
+
   return false;
 }
 
@@ -1509,20 +1509,20 @@ export function filterByExperience(
 
   return jobCards.filter((card) => {
     if (card.type !== 'job') return true;
-    
+
     const jobCard = card as any;
     const cardContent = `${jobCard.title ?? ''} ${jobCard.detail_content ?? ''} ${(jobCard.tags ?? []).join(' ')}`.toLowerCase();
-    
+
     // 경력 요구사항 추출 (예: "3년 이상", "5년 경력", "경력 무관")
     const experienceMatch = cardContent.match(/(\d+)\s*년\s*(?:이상|경력|근무)/);
-    
+
     if (!experienceMatch) {
       // 경력 요구사항이 명시되지 않으면 포함
       return true;
     }
-    
+
     const requiredExperience = parseInt(experienceMatch[1], 10);
-    
+
     // 사용자 경력이 요구사항을 충족하면 포함 (여유 1년)
     return experienceYears + 1 >= requiredExperience;
   });
@@ -1857,7 +1857,7 @@ export async function applyPromoCardSettings(
   }
 
   // 카드 upsert
-  const { data: cardRow, error: cardError} = await supabase
+  const { data: cardRow, error: cardError } = await supabase
     .from('promo_cards')
     .upsert(
       {
@@ -2646,8 +2646,10 @@ export async function searchCards(params: SearchQueryParams = {}): Promise<Searc
 
 function mergeFilters(overrides?: Partial<SearchFilters>): SearchFilters {
   return {
-    region: overrides?.region ?? DEFAULT_REGION,
-    category: overrides?.category ?? DEFAULT_CATEGORY,
+    region: overrides?.region ?? [],
+    category: overrides?.category ?? [],
+    schoolLevel: overrides?.schoolLevel ?? [],
+    subject: overrides?.subject ?? [],
     sort: overrides?.sort ?? DEFAULT_SORT,
   };
 }
@@ -3166,13 +3168,13 @@ async function executeAllSearch({
       const scoreA = a.type === 'job'
         ? calculateJobRelevance(a, tokens, searchQuery)
         : a.type === 'talent'
-        ? calculateTalentRelevance(a, tokens, searchQuery)
-        : calculateExperienceRelevance(a, tokens, searchQuery);
+          ? calculateTalentRelevance(a, tokens, searchQuery)
+          : calculateExperienceRelevance(a, tokens, searchQuery);
       const scoreB = b.type === 'job'
         ? calculateJobRelevance(b, tokens, searchQuery)
         : b.type === 'talent'
-        ? calculateTalentRelevance(b, tokens, searchQuery)
-        : calculateExperienceRelevance(b, tokens, searchQuery);
+          ? calculateTalentRelevance(b, tokens, searchQuery)
+          : calculateExperienceRelevance(b, tokens, searchQuery);
       return scoreB - scoreA;
     });
   } else if (filters.sort === '최신순') {
@@ -3232,17 +3234,17 @@ async function executeJobSearch({
         // PGroonga 검색 성공 - 필터 적용
         let filteredData = pgroongaData;
 
-        // 지역 필터
-        if (hasFilterValue(filters.region, DEFAULT_REGION)) {
+        // 지역 필터 (하나라도 포함되면 매칭)
+        if (filters.region.length > 0) {
           filteredData = filteredData.filter((job: any) =>
-            job.location?.includes(filters.region)
+            filters.region.some((r) => job.location?.includes(r))
           );
         }
 
-        // 카테고리 필터
-        if (hasFilterValue(filters.category, DEFAULT_CATEGORY)) {
+        // 카테고리 필터 (하나라도 포함되면 매칭)
+        if (filters.category.length > 0) {
           filteredData = filteredData.filter((job: any) =>
-            job.tags?.includes(filters.category)
+            filters.category.some((c) => job.tags?.includes(c))
           );
         }
 
@@ -3307,16 +3309,40 @@ async function executeJobSearch({
     }
   }
 
-  // 지역 필터 (검색어가 지역명이면 location 필드에서 정확하게 매칭)
-  // "남양주" → "남양주", "남양주시" 모두 매칭되도록
-  if (hasFilterValue(filters.region, DEFAULT_REGION)) {
-    const regionPattern = buildIlikePattern(filters.region);
-    // OR 조건으로 지역명과 지역명+시 모두 포함
-    query = query.or(`location.ilike.${regionPattern},location.ilike.%${filters.region}시%`);
+  // 지역 필터 (하나라도 포함되면 매칭)
+  if (filters.region.length > 0) {
+    const regionConditions = filters.region.map((r) => {
+      const pattern = buildIlikePattern(r);
+      // "남양주" → "남양주", "남양주시" 모두 매칭
+      return `location.ilike.${pattern},location.ilike.%${r}시%`;
+    });
+    query = query.or(regionConditions.join(','));
   }
 
-  if (hasFilterValue(filters.category, DEFAULT_CATEGORY)) {
-    query = query.contains('tags', [filters.category]);
+  // 카테고리 필터 (tags 배열에 하나라도 포함되면 매칭)
+  if (filters.category.length > 0) {
+    // tags column is array, so we check intersection
+    // Postgres '&&' operator checks for overlap
+    query = query.overlaps('tags', filters.category);
+  }
+
+  // 학교급 필터 (school_level에 포함되거나 ilike)
+  if (filters.schoolLevel.length > 0) {
+    const levelConditions = filters.schoolLevel.map((level) => {
+      // school_level 컬럼이 텍스트(예: "초등, 중등")라고 가정하면 ilike 사용
+      const pattern = buildIlikePattern(level);
+      return `school_level.ilike.${pattern}`;
+    });
+    query = query.or(levelConditions.join(','));
+  }
+
+  // 과목 필터 (subject 컬럼 ilike)
+  if (filters.subject.length > 0) {
+    const subjectConditions = filters.subject.map((sub) => {
+      const pattern = buildIlikePattern(sub);
+      return `subject.ilike.${pattern}`;
+    });
+    query = query.or(subjectConditions.join(','));
   }
 
   if (jobType) {
@@ -3326,7 +3352,7 @@ async function executeJobSearch({
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const todayIso = today.toISOString();
-  
+
   query = query.or(`deadline.is.null,deadline.gte.${todayIso}`);
 
   query = applyJobSort(query, filters.sort);
@@ -3340,7 +3366,7 @@ async function executeJobSearch({
     console.error('공고 검색 실패:', error);
     return createEmptySearchResponse(limit, offset);
   }
-  
+
   const shouldSortByRelevance = filters.sort === '추천순' && (tokens.length > 0 || trimmedQuery.length > 0);
   const filteredData = filterJobsByTokenGroups(data, tokenGroups);
   const orderedData = shouldSortByRelevance
@@ -3385,7 +3411,7 @@ async function executeExperienceSearch({
   offset,
 }: ExperienceSearchArgs): Promise<SearchResponse> {
   console.log('[DEBUG] executeExperienceSearch 시작:', { searchQuery, tokens, filters, limit, offset });
-  
+
   const trimmedQuery = searchQuery.trim();
 
   let query = supabase
@@ -3426,18 +3452,20 @@ async function executeExperienceSearch({
     }
   }
 
-  if (hasFilterValue(filters.region, DEFAULT_REGION)) {
-    const regionPattern = buildIlikePattern(filters.region);
-    query = query.or(
-      `region_seoul.ilike.${regionPattern},region_gyeonggi.ilike.${regionPattern},program_title.ilike.${regionPattern}`
-    );
+  if (filters.region.length > 0) {
+    const regionConditions = filters.region.map((r) => {
+      const regionPattern = buildIlikePattern(r);
+      return `region_seoul.ilike.${regionPattern},region_gyeonggi.ilike.${regionPattern},program_title.ilike.${regionPattern}`;
+    });
+    query = query.or(regionConditions.join(','));
   }
 
-  if (hasFilterValue(filters.category, DEFAULT_CATEGORY)) {
-    const categoryPattern = buildIlikePattern(filters.category);
-    query = query.or(
-      `categories.ilike.${categoryPattern},program_title.ilike.${categoryPattern},introduction.ilike.${categoryPattern}`
-    );
+  if (filters.category.length > 0) {
+    const categoryConditions = filters.category.map((c) => {
+      const categoryPattern = buildIlikePattern(c);
+      return `categories.ilike.${categoryPattern},program_title.ilike.${categoryPattern},introduction.ilike.${categoryPattern}`;
+    });
+    query = query.or(categoryConditions.join(','));
   }
 
   query = query.order('created_at', { ascending: false });
@@ -3526,13 +3554,21 @@ async function executeTalentSearch({
     }
   }
 
-  if (hasFilterValue(filters.region, DEFAULT_REGION)) {
-    const regionPattern = buildIlikePattern(filters.region + '시');
-    query = query.ilike('location', regionPattern);
+  if (filters.region.length > 0) {
+    const regionConditions = filters.region.map((r) => {
+      const regionPattern = buildIlikePattern(r + '시');
+      return `location.ilike.${regionPattern}`;
+    });
+    query = query.or(regionConditions.join(','));
   }
 
-  if (hasFilterValue(filters.category, DEFAULT_CATEGORY)) {
-    query = query.contains('tags', [filters.category]);
+  if (filters.category.length > 0) {
+    // tags column contains category strings
+    // Postgres contains operator @> works if tags is JSONB array, or text array
+    // supabase .contains works for array columns usually.
+    // But for multiple categories (OR), we can't use single .contains call unless we mean AND.
+    // If we want OR (any of categories), we can use overlaps '&&' via .overlaps()
+    query = query.overlaps('tags', filters.category);
   }
 
   query = applyTalentSort(query, filters.sort);
@@ -3661,7 +3697,7 @@ export function mapJobPostingToCard(job: any): JobPostingCard {
   const structured = (job?.structured_content ?? null) as StructuredJobContent | null;
   const overview = structured?.overview ?? null;
   const formPayload = job?.form_payload ?? null;
-  
+
   // 연락처 정보 조합 (우선순위: DB contact > form_payload > structured)
   let combinedContact = job?.contact;
   if (!combinedContact && formPayload) {
@@ -3912,7 +3948,7 @@ export async function removeBookmark(
   cardType: 'job' | 'talent' | 'experience'
 ): Promise<void> {
   console.log('[removeBookmark] 시작:', { userId, cardId, cardType });
-  
+
   try {
     const { error } = await supabase
       .from('bookmarks')
