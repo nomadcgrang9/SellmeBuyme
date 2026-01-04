@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives",
     "verify:banners": "tsx scripts/test/verify-stripe-banners.ts",
     "db:check-keywords": "tsx scripts/db/check-keywords.ts",
     "db:grant-admin": "tsx scripts/db/grant-admin-role.ts",

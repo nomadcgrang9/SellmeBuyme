@@ -3,29 +3,40 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_ANON_KEY;
+// VITE_ prefix 변수들도 지원 (프론트엔드와 동일한 .env 사용)
+const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+// SERVICE_ROLE_KEY를 우선 사용 (RLS 우회), 없으면 ANON_KEY 폴백
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !supabaseKey) {
-  throw new Error('Supabase credentials not found in .env file');
+  throw new Error('Supabase credentials not found in .env file. Required: SUPABASE_URL (or VITE_SUPABASE_URL) and SUPABASE_SERVICE_ROLE_KEY');
 }
 
 export const supabase = createClient(supabaseUrl, supabaseKey);
 
-/**
- * 크롤링 소스 정보 조회 또는 생성
- */
-export async function getOrCreateCrawlSource(name, baseUrl) {
-  // crawl_boards에서 직접 ID 가져오기 (crawl_sources 테이블은 더 이상 사용하지 않음)
-  const { data: board } = await supabase
+// 크롤링 소스 정보 조회 또는 생성
+export async function getOrCreateCrawlSource(config) {
+  const { name, baseUrl, region, isLocalGovernment } = config;
+
+  // 1. URL로 먼저 검색 (이미 등록된 URL인지 확인)
+  let { data: board } = await supabase
     .from('crawl_boards')
-    .select('id, crawl_batch_size, region, is_local_government')
-    .eq('name', name)
-    .eq('status', 'active')  // is_active 대신 status 사용
+    .select('id, crawl_batch_size, region, is_local_government, name')
+    .eq('board_url', baseUrl)
     .maybeSingle();
 
+  // 2. 없으면 이름으로 검색
+  if (!board) {
+    const { data: boardByName } = await supabase
+      .from('crawl_boards')
+      .select('id, crawl_batch_size, region, is_local_government, name')
+      .eq('name', name)
+      .maybeSingle();
+    board = boardByName;
+  }
+
   if (board) {
-    // crawl_boards에 있으면 해당 ID 반환
+    console.log(`✅ 기존 게시판 사용: ${board.name} (ID: ${board.id})`);
     return {
       id: board.id,
       crawlBatchSize: board.crawl_batch_size ?? 10,
@@ -34,8 +45,31 @@ export async function getOrCreateCrawlSource(name, baseUrl) {
     };
   }
 
-  // crawl_boards에 없으면 에러 (크롤러는 반드시 crawl_boards에 등록되어야 함)
-  throw new Error(`crawl_boards에 "${name}" 게시판이 없습니다. 먼저 관리자 페이지에서 등록해주세요.`);
+  // 없으면 새로 생성
+  console.log(`✨ 새 게시판 생성 중: ${name}`);
+  const { data: newBoard, error } = await supabase
+    .from('crawl_boards')
+    .insert({
+      name: name,
+      board_url: baseUrl,
+      region: region || '기타',
+      is_local_government: isLocalGovernment || false,
+      crawl_batch_size: 10,
+      status: 'active'
+    })
+    .select()
+    .single();
+
+  if (error) {
+    throw new Error(`게시판 생성 실패: ${error.message}`);
+  }
+
+  return {
+    id: newBoard.id,
+    crawlBatchSize: newBoard.crawl_batch_size,
+    region: newBoard.region,
+    isLocalGovernment: newBoard.is_local_government
+  };
 }
 
 /**
