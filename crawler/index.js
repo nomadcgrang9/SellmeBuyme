@@ -2,8 +2,9 @@ import { readFileSync, writeFileSync, unlinkSync } from 'fs';
 import { createBrowser } from './lib/playwright.js';
 import { normalizeJobData, validateJobData, analyzePageScreenshot, structureDetailContent, inferMissingJobAttributes } from './lib/gemini.js';
 import { getOrCreateCrawlSource, saveJobPosting, updateCrawlSuccess, incrementErrorCount, getExistingJobBySource, supabase } from './lib/supabase.js';
-import { crawlSeongnam } from './sources/seongnam.js';
 import { crawlGyeonggi } from './sources/gyeonggi.js';
+import { crawlGyeongnam } from './sources/gyeongnam.js';
+import { crawlNttPattern } from './sources/nttPattern.js';
 import { crawlUijeongbu } from './sources/uijeongbu.js';
 import { crawlNamyangju } from './sources/namyangju.js';
 import { crawlIncheon } from './sources/incheon.js';
@@ -14,6 +15,7 @@ import { crawlJeonnam } from './sources/jeonnam.js';
 import { crawlJeju } from './sources/jeju.js';
 import { getTokenUsage, resetTokenUsage } from './lib/gemini.js';
 import { parseJobField, deriveJobAttributes } from './lib/jobFieldParser.js';
+import { checkRobotsTxt, validateAccess, exponentialBackoff } from './lib/accessChecker.js';
 import dotenv from 'dotenv';
 import { logInfo, logStep, logWarn, logError, logDebug } from './lib/logger.js';
 
@@ -399,6 +401,24 @@ async function main() {
     // 토큰 사용량 초기화
     resetTokenUsage();
 
+    // 2.5. robots.txt 사전 검증
+    logStep('access', 'robots.txt 검증 시작', { baseUrl: config.baseUrl });
+    const robotsCheck = await checkRobotsTxt(config.baseUrl);
+
+    if (!robotsCheck.allowed) {
+      logError('access', 'robots.txt에서 크롤링 차단됨', null, {
+        baseUrl: config.baseUrl,
+        reason: robotsCheck.reason,
+        rules: robotsCheck.rules
+      });
+      console.log('\n⚠️  크롤링 중단: ' + robotsCheck.reason);
+      console.log('   이 사이트는 robots.txt에서 봇 접근을 금지하고 있습니다.');
+      console.log('   합법적인 데이터 수집을 위해 해당 교육청에 공식 요청이 필요합니다.\n');
+      process.exit(0); // 정상 종료 (에러가 아님)
+    }
+
+    logInfo('access', 'robots.txt 검증 통과', { baseUrl: config.baseUrl, reason: robotsCheck.reason });
+
     // 3. Supabase에서 크롤링 소스 정보 가져오기
     if (!config) {
       if (targetSource === 'ai-generated') {
@@ -429,14 +449,16 @@ async function main() {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
     });
 
-    // 5. 크롤링 실행
-    if (targetSource === 'seongnam') {
-      logStep('crawler', '성남교육지원청 크롤링 호출 (Legacy)');
-      const jobs = await crawlSeongnam(page, config);
-      rawJobs = jobs.map(job => ({ ...job, hasContentImages: job.hasContentImages }));
-    } else if (targetSource === 'gyeonggi') {
+    // 5. 크롤링 실행 (parserType 기반 라우팅 + 개별 크롤러 지원)
+    const parserType = config.parserType || 'html';
+
+    // 개별 크롤러가 있는 경우 우선 사용
+    if (targetSource === 'gyeonggi') {
       logStep('crawler', '경기도교육청 크롤링 호출');
       rawJobs = await crawlGyeonggi(page, config);
+    } else if (targetSource === 'gyeongnam') {
+      logStep('crawler', '경상남도교육청 크롤링 호출');
+      rawJobs = await crawlGyeongnam(page, config);
     } else if (targetSource === 'uijeongbu') {
       logStep('crawler', '의정부교육지원청 크롤링 호출');
       rawJobs = await crawlUijeongbu(page, config);
@@ -461,8 +483,12 @@ async function main() {
     } else if (targetSource === 'jeju') {
       logStep('crawler', '제주특별자치도교육청 크롤링 호출');
       rawJobs = await crawlJeju(page, config);
+    } else if (parserType === 'ntt') {
+      // 범용 selectNttList.do 패턴 크롤러
+      logStep('crawler', `[NTT패턴] ${config.name} 크롤링 호출`);
+      rawJobs = await crawlNttPattern(page, config);
     } else {
-      throw new Error(`지원하지 않는 소스: ${targetSource}`);
+      throw new Error(`지원하지 않는 크롤러: ${targetSource} (parserType: ${parserType})`);
     }
 
     if (rawJobs.length === 0) {
