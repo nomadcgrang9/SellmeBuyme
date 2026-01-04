@@ -2,13 +2,20 @@ import { readFileSync, writeFileSync, unlinkSync } from 'fs';
 import { createBrowser } from './lib/playwright.js';
 import { normalizeJobData, validateJobData, analyzePageScreenshot, structureDetailContent, inferMissingJobAttributes } from './lib/gemini.js';
 import { getOrCreateCrawlSource, saveJobPosting, updateCrawlSuccess, incrementErrorCount, getExistingJobBySource, supabase } from './lib/supabase.js';
-import { crawlSeongnam } from './sources/seongnam.js';
 import { crawlGyeonggi } from './sources/gyeonggi.js';
+import { crawlGyeongnam } from './sources/gyeongnam.js';
+import { crawlNttPattern } from './sources/nttPattern.js';
 import { crawlUijeongbu } from './sources/uijeongbu.js';
 import { crawlNamyangju } from './sources/namyangju.js';
-import { crawlAdaptive } from './lib/adaptiveCrawler.js';
+import { crawlIncheon } from './sources/incheon.js';
+import { crawlSeoul } from './sources/seoul.js';
+import { crawlGwangju } from './sources/gwangju.js';
+import { crawlJeonbuk } from './sources/jeonbuk.js';
+import { crawlJeonnam } from './sources/jeonnam.js';
+import { crawlJeju } from './sources/jeju.js';
 import { getTokenUsage, resetTokenUsage } from './lib/gemini.js';
 import { parseJobField, deriveJobAttributes } from './lib/jobFieldParser.js';
+import { checkRobotsTxt, validateAccess, exponentialBackoff } from './lib/accessChecker.js';
 import dotenv from 'dotenv';
 import { logInfo, logStep, logWarn, logError, logDebug } from './lib/logger.js';
 
@@ -146,9 +153,17 @@ async function main() {
   logDebug('main', '실행 설정 로드', { argv: process.argv.slice(2) });
 
   // 1. 설정 파일 로드
-  const sourcesConfig = JSON.parse(
-    readFileSync('./config/sources.json', 'utf-8')
-  );
+  let sourcesConfig;
+  try {
+    sourcesConfig = JSON.parse(readFileSync('./crawler/config/sources.json', 'utf-8'));
+  } catch (e) {
+    try {
+      sourcesConfig = JSON.parse(readFileSync('./config/sources.json', 'utf-8'));
+    } catch (e2) {
+      console.error('Failed to load sources.json from ./crawler/config/ or ./config/');
+      process.exit(1);
+    }
+  }
 
   // 2. 크롤링 대상 선택
   let targetSource = 'seongnam'; // 기본값
@@ -386,7 +401,32 @@ async function main() {
     // 토큰 사용량 초기화
     resetTokenUsage();
 
+    // 2.5. robots.txt 사전 검증
+    logStep('access', 'robots.txt 검증 시작', { baseUrl: config.baseUrl });
+    const robotsCheck = await checkRobotsTxt(config.baseUrl);
+
+    if (!robotsCheck.allowed) {
+      logError('access', 'robots.txt에서 크롤링 차단됨', null, {
+        baseUrl: config.baseUrl,
+        reason: robotsCheck.reason,
+        rules: robotsCheck.rules
+      });
+      console.log('\n⚠️  크롤링 중단: ' + robotsCheck.reason);
+      console.log('   이 사이트는 robots.txt에서 봇 접근을 금지하고 있습니다.');
+      console.log('   합법적인 데이터 수집을 위해 해당 교육청에 공식 요청이 필요합니다.\n');
+      process.exit(0); // 정상 종료 (에러가 아님)
+    }
+
+    logInfo('access', 'robots.txt 검증 통과', { baseUrl: config.baseUrl, reason: robotsCheck.reason });
+
     // 3. Supabase에서 크롤링 소스 정보 가져오기
+    if (!config) {
+      if (targetSource === 'ai-generated') {
+        throw new Error('AI Crawler 실행을 위해서는 --board-id 파라미터가 필수입니다. (워크플로우 입력에서 Board ID를 확인해주세요)');
+      }
+      throw new Error(`소스 설정(${targetSource})을 찾을 수 없습니다. sources.json을 확인해주세요.`);
+    }
+
     const crawlSourceInfo = await getOrCreateCrawlSource(config);
     const crawlSourceId = crawlSourceInfo.id;
     const crawlBatchSize = crawlSourceInfo.crawlBatchSize || 10;
@@ -409,25 +449,46 @@ async function main() {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
     });
 
-    // 5. 크롤링 실행
-    if (config.type) {
-      logStep('crawler', `적응형 크롤러 실행 (${config.type})`, { region: config.region });
-      rawJobs = await crawlAdaptive(page, config);
-    } else if (targetSource === 'seongnam') {
-      logStep('crawler', '성남교육지원청 크롤링 호출 (Legacy)');
-      const jobs = await crawlSeongnam(page, config);
-      rawJobs = jobs.map(job => ({ ...job, hasContentImages: job.hasContentImages }));
-    } else if (targetSource === 'gyeonggi') {
+    // 5. 크롤링 실행 (parserType 기반 라우팅 + 개별 크롤러 지원)
+    const parserType = config.parserType || 'html';
+
+    // 개별 크롤러가 있는 경우 우선 사용
+    if (targetSource === 'gyeonggi') {
       logStep('crawler', '경기도교육청 크롤링 호출');
       rawJobs = await crawlGyeonggi(page, config);
+    } else if (targetSource === 'gyeongnam') {
+      logStep('crawler', '경상남도교육청 크롤링 호출');
+      rawJobs = await crawlGyeongnam(page, config);
     } else if (targetSource === 'uijeongbu') {
       logStep('crawler', '의정부교육지원청 크롤링 호출');
       rawJobs = await crawlUijeongbu(page, config);
     } else if (targetSource === 'namyangju') {
       logStep('crawler', '구리남양주교육지원청 크롤링 호출');
       rawJobs = await crawlNamyangju(page, config);
+    } else if (targetSource === 'incheon') {
+      logStep('crawler', '인천교육청 크롤링 호출');
+      rawJobs = await crawlIncheon(page, config);
+    } else if (targetSource === 'seoul') {
+      logStep('crawler', '서울교육일자리포털 크롤링 호출');
+      rawJobs = await crawlSeoul(page, config);
+    } else if (targetSource === 'gwangju') {
+      logStep('crawler', '광주광역시교육청 크롤링 호출');
+      rawJobs = await crawlGwangju(page, config);
+    } else if (targetSource === 'jeonbuk') {
+      logStep('crawler', '전북특별자치도교육청 크롤링 호출');
+      rawJobs = await crawlJeonbuk(page, config);
+    } else if (targetSource === 'jeonnam') {
+      logStep('crawler', '전라남도교육청 크롤링 호출');
+      rawJobs = await crawlJeonnam(page, config);
+    } else if (targetSource === 'jeju') {
+      logStep('crawler', '제주특별자치도교육청 크롤링 호출');
+      rawJobs = await crawlJeju(page, config);
+    } else if (parserType === 'ntt') {
+      // 범용 selectNttList.do 패턴 크롤러
+      logStep('crawler', `[NTT패턴] ${config.name} 크롤링 호출`);
+      rawJobs = await crawlNttPattern(page, config);
     } else {
-      throw new Error(`지원하지 않는 소스: ${targetSource}`);
+      throw new Error(`지원하지 않는 크롤러: ${targetSource} (parserType: ${parserType})`);
     }
 
     if (rawJobs.length === 0) {
@@ -543,7 +604,12 @@ async function main() {
 
         // 6-6. 직무 속성 추론 (학교급, 과목, 라이센스)
         // organization 우선순위: AI 정리 > 크롤러 추출 > 기타
-        const bestOrganization = validation.corrected_data?.organization || rawJob.schoolName || normalized?.organization;
+        // schoolName이 일반명(교육청, 학교급 이름만)이면 AI 결과 우선
+        const genericNames = ['교육청', '교육지원청', '유치원', '초등학교', '중학교', '고등학교'];
+        const isGenericSchoolName = !rawJob.schoolName || genericNames.some(g => rawJob.schoolName === g || rawJob.schoolName?.endsWith('교육청') || rawJob.schoolName?.endsWith('교육지원청'));
+        const bestOrganization = isGenericSchoolName
+          ? (validation.corrected_data?.organization || normalized?.organization || rawJob.schoolName)
+          : (rawJob.schoolName || validation.corrected_data?.organization || normalized?.organization);
 
         const derivedJobAttributes = deriveJobAttributes({
           jobField: rawJob.jobField,
@@ -673,7 +739,7 @@ async function main() {
 
           // 게시판에서 추출한 구조화된 정보 우선 반영 (LLM Fallback 적용)
           location: finalLocation || '미상',
-          organization: rawJob.schoolName || validation.corrected_data.organization,
+          organization: bestOrganization,
 
           // 상세 정보
           detail_content: rawJob.detailContent,

@@ -91,8 +91,9 @@ export default function MobileSearch() {
         console.error('Search failed:', error);
         setSearchResults([]);
       } finally {
-        if (!active) return;
-        setIsSearching(false);
+        if (active) {
+          setIsSearching(false);
+        }
       }
     };
 
