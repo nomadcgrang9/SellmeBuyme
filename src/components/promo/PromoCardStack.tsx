@@ -23,10 +23,6 @@ export default function PromoCardStack({ cards, className = '' }: PromoCardStack
     [cards]
   );
 
-  if (activeCards.length === 0) {
-    return null;
-  }
-
   const currentCard = activeCards[currentIndex];
 
   // 다음 카드로 전환 (페이드 아웃 → 인덱스 변경 → 페이드 인)
@@ -44,8 +40,8 @@ export default function PromoCardStack({ cards, className = '' }: PromoCardStack
 
   // 자동 재생 타이머
   useEffect(() => {
-    // 카드가 1개 이하이거나 자동 재생이 꺼져있으면 타이머 설정 안 함
-    if (activeCards.length <= 1 || !currentCard.autoPlay) {
+    // 카드가 없거나 자동 재생이 꺼져있으면 타이머 설정 안 함
+    if (!currentCard || activeCards.length <= 1 || !currentCard.autoPlay) {
       return;
     }
 
@@ -63,19 +59,23 @@ export default function PromoCardStack({ cards, className = '' }: PromoCardStack
     }, currentCard.duration);
 
     return () => clearTimeout(timer);
-  }, [currentIndex, activeCards.length, currentCard.autoPlay, currentCard.duration, isTransitioning]);
+  }, [currentIndex, activeCards.length, currentCard?.autoPlay, currentCard?.duration, isTransitioning, currentCard]);
+
+  if (!currentCard) {
+    return null;
+  }
 
   // 배지 바 스타일
   const badgeBarStyle = currentCard.badgeColorMode === 'gradient'
     ? {
-        backgroundImage: `linear-gradient(90deg, ${pickGradientValue(
-          currentCard.badgeGradientStart,
-          DEFAULT_BADGE_GRADIENT[0]
-        )} 0%, ${pickGradientValue(
-          currentCard.badgeGradientEnd,
-          DEFAULT_BADGE_GRADIENT[1]
-        )} 100%)`
-      }
+      backgroundImage: `linear-gradient(90deg, ${pickGradientValue(
+        currentCard.badgeGradientStart,
+        DEFAULT_BADGE_GRADIENT[0]
+      )} 0%, ${pickGradientValue(
+        currentCard.badgeGradientEnd,
+        DEFAULT_BADGE_GRADIENT[1]
+      )} 100%)`
+    }
     : { backgroundImage: createBadgeGradient(currentCard.badgeColor) };
 
   // 배경 스타일 - 데스크톱은 항상 흰색 배경

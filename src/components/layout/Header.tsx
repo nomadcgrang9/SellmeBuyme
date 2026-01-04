@@ -2,13 +2,8 @@
 
 import { IconSearch, IconHeart } from '@tabler/icons-react';
 import { MessageCircle } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import {
-  CATEGORY_OPTIONS,
-  REGION_OPTIONS,
-  SORT_OPTIONS
-} from '@/lib/constants/filters';
 import { useDebounce } from '@/lib/hooks/useDebounce';
 import { useSearchStore } from '@/stores/searchStore';
 import { useChatStore } from '@/stores/chatStore';
@@ -16,14 +11,7 @@ import { useBookmarkStore } from '@/stores/bookmarkStore';
 import SocialSignupModal, { type AuthProvider } from '@/components/auth/SocialSignupModal';
 import { supabase } from '@/lib/supabase/client';
 import { useAuthStore } from '@/stores/authStore';
-import type {
-  CategoryOption,
-  RegionOption,
-  SortOptionValue,
-  ViewType
-} from '@/types';
-
-type FilterKey = 'region' | 'category' | 'sort';
+import type { ViewType } from '@/types';
 
 const toggleOrder: ViewType[] = ['all', 'job', 'talent', 'experience'];
 
@@ -56,7 +44,6 @@ interface HeaderProps {
 }
 
 export default function Header({ onProfileClick, onChatClick, onBookmarkClick }: HeaderProps) {
-  const [openFilter, setOpenFilter] = useState<FilterKey | null>(null);
   const [localSearchQuery, setLocalSearchQuery] = useState('');
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authModalMode, setAuthModalMode] = useState<'signup' | 'login'>('signup');
@@ -71,45 +58,20 @@ export default function Header({ onProfileClick, onChatClick, onBookmarkClick }:
   const debouncedSearchQuery = useDebounce(localSearchQuery, 500);
   const {
     searchQuery,
-    filters,
     viewType,
     setSearchQuery,
-    setFilter,
-    setViewType,
-    resetFilters
+    setViewType
   } = useSearchStore((state) => ({
     searchQuery: state.searchQuery,
-    filters: state.filters,
     viewType: state.viewType,
     setSearchQuery: state.setSearchQuery,
-    setFilter: state.setFilter,
-    setViewType: state.setViewType,
-    resetFilters: state.resetFilters
+    setViewType: state.setViewType
   }));
 
   const handleToggle = () => {
     const currentIndex = toggleOrder.indexOf(viewType);
     const nextToggle = toggleOrder[(currentIndex + 1) % toggleOrder.length];
     setViewType(nextToggle);
-  };
-
-  const handleFilterClick = (filterType: FilterKey) => {
-    setOpenFilter((prev) => (prev === filterType ? null : filterType));
-  };
-
-  const handleRegionSelect = (region: RegionOption) => {
-    setFilter('region', region);
-    setOpenFilter(null);
-  };
-
-  const handleCategorySelect = (category: CategoryOption) => {
-    setFilter('category', category);
-    setOpenFilter(null);
-  };
-
-  const handleSortSelect = (sort: SortOptionValue) => {
-    setFilter('sort', sort);
-    setOpenFilter(null);
   };
 
   useEffect(() => {
@@ -128,12 +90,14 @@ export default function Header({ onProfileClick, onChatClick, onBookmarkClick }:
   const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      setLocalSearchQuery(e.currentTarget.value);
-      setSearchQuery(e.currentTarget.value);
+      const query = e.currentTarget.value.trim();
+      if (query) {
+        window.location.href = `/search?q=${encodeURIComponent(query)}`;
+      }
     }
   };
 
-  const sortOptions = useMemo(() => Array.from(SORT_OPTIONS), []);
+
 
   const handleLoginClick = () => {
     setAuthModalMode('login');
@@ -176,33 +140,32 @@ export default function Header({ onProfileClick, onChatClick, onBookmarkClick }:
         <div className="max-w-container mx-auto px-6 py-2.5">
           <div className="flex items-center gap-3">
             {/* 로고 */}
-            <h1
-              className="text-xl font-extrabold bg-gradient-to-r from-[#9DD2FF] to-[#68B2FF] bg-clip-text text-transparent shrink-0"
-              style={{ letterSpacing: '-0.5px' }}
-            >
-              셀미바이미
-            </h1>
+            <a href="/" className="shrink-0">
+              <h1
+                className="text-xl font-extrabold bg-gradient-to-r from-[#9DD2FF] to-[#68B2FF] bg-clip-text text-transparent"
+                style={{ letterSpacing: '-0.5px' }}
+              >
+                셀미바이미
+              </h1>
+            </a>
 
             {/* 스위치 토글 */}
             <button
               onClick={handleToggle}
               title={`${toggleLabelMap[toggleOrder[(toggleOrder.indexOf(viewType) + 1) % toggleOrder.length]]} 보기`}
-              className={`relative w-[76px] h-6 rounded-full overflow-hidden transition-colors duration-300 flex items-center justify-center shrink-0 ${
-                viewType === 'all' ? 'bg-gray-500 hover:bg-gray-600' : 'bg-gray-300 hover:bg-gray-400'
-              }`}
+              className={`relative w-[76px] h-6 rounded-full overflow-hidden transition-colors duration-300 flex items-center justify-center shrink-0 ${viewType === 'all' ? 'bg-gray-500 hover:bg-gray-600' : 'bg-gray-300 hover:bg-gray-400'
+                }`}
             >
               <span
-                className={`absolute inset-0 flex items-center justify-center text-[9px] font-bold text-white leading-none pointer-events-none select-none transition-opacity duration-200 ${
-                  viewType === 'all' ? 'opacity-100' : 'opacity-0'
-                }`}
+                className={`absolute inset-0 flex items-center justify-center text-[9px] font-bold text-white leading-none pointer-events-none select-none transition-opacity duration-200 ${viewType === 'all' ? 'opacity-100' : 'opacity-0'
+                  }`}
               >
                 모두보기
               </span>
 
               <motion.div
-                className={`absolute top-0.5 w-5 h-5 rounded-full flex items-center justify-center pointer-events-none ${
-                  activeColorMap[viewType]
-                }`}
+                className={`absolute top-0.5 w-5 h-5 rounded-full flex items-center justify-center pointer-events-none ${activeColorMap[viewType]
+                  }`}
                 initial={false}
                 animate={{
                   x: sliderTranslateMap[viewType],
@@ -217,9 +180,8 @@ export default function Header({ onProfileClick, onChatClick, onBookmarkClick }:
                 }}
               >
                 <span
-                  className={`text-[8px] font-semibold text-white leading-none pointer-events-none select-none transition-opacity duration-150 ${
-                    viewType === 'all' ? 'opacity-0' : 'opacity-100'
-                  }`}
+                  className={`text-[8px] font-semibold text-white leading-none pointer-events-none select-none transition-opacity duration-150 ${viewType === 'all' ? 'opacity-0' : 'opacity-100'
+                    }`}
                 >
                   {viewType === 'all' ? '' : toggleLabelMap[viewType]}
                 </span>
@@ -328,12 +290,14 @@ export default function Header({ onProfileClick, onChatClick, onBookmarkClick }:
         <div className="max-w-container mx-auto px-4 py-2">
           <div className="flex items-center gap-2">
             {/* 로고 */}
-            <h1
-              className="text-sm font-extrabold bg-gradient-to-r from-[#9DD2FF] to-[#68B2FF] bg-clip-text text-transparent shrink-0"
-              style={{ letterSpacing: '-0.5px' }}
-            >
-              셀바
-            </h1>
+            <a href="/" className="shrink-0">
+              <h1
+                className="text-sm font-extrabold bg-gradient-to-r from-[#9DD2FF] to-[#68B2FF] bg-clip-text text-transparent"
+                style={{ letterSpacing: '-0.5px' }}
+              >
+                셀바
+              </h1>
+            </a>
 
             {/* 검색창 - 로그아웃시만 60% 제한, 로그인시 넓게 */}
             <div className={`flex-1 min-w-0 ${status !== 'authenticated' ? 'max-w-[60%]' : ''}`}>
@@ -404,14 +368,6 @@ export default function Header({ onProfileClick, onChatClick, onBookmarkClick }:
           </div>
         </div>
       </div>
-
-      {/* 오버레이 (필터 외부 클릭 감지) */}
-      {openFilter && (
-        <div
-          className="fixed inset-0 z-40"
-          onClick={() => setOpenFilter(null)}
-        />
-      )}
 
       <SocialSignupModal
         isOpen={isAuthModalOpen}

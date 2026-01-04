@@ -22,6 +22,7 @@ async function backfillSearchVectors() {
   let offset = 0;
   let updatedCount = 0;
 
+  // eslint-disable-next-line no-constant-condition
   while (true) {
     const { data: jobs, error: fetchError } = await supabase
       .from('job_postings')
@@ -52,7 +53,7 @@ async function backfillSearchVectors() {
       // 이번에는 각 row를 개별적으로 업데이트하는 방식으로 진행합니다.
       return supabase
         .from('job_postings')
-        .update({ 
+        .update({
           search_vector: supabase.sql`to_tsvector('korean', ${searchText})`
         })
         .eq('id', job.id);
