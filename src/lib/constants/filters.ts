@@ -7,6 +7,13 @@ export const GYEONGGI_SUBREGIONS = [
   '과천시', '가평군', '연천군'
 ];
 
+// 강원도 하위 지역 (18개 시군)
+export const GANGWON_SUBREGIONS = [
+  '춘천시', '원주시', '강릉시', '동해시', '태백시', '속초시', '삼척시',
+  '홍천군', '횡성군', '영월군', '평창군', '정선군', '철원군', '화천군',
+  '양구군', '인제군', '고성군', '양양군'
+];
+
 // 계층적 지역 옵션 인터페이스
 export interface RegionWithSubregions {
   name: string;
@@ -24,7 +31,7 @@ export const REGION_OPTIONS_HIERARCHICAL: RegionWithSubregions[] = [
   { name: '울산' },
   { name: '세종' },
   { name: '경기', subregions: GYEONGGI_SUBREGIONS },
-  { name: '강원' },
+  { name: '강원', subregions: GANGWON_SUBREGIONS },
   { name: '충북' },
   { name: '충남' },
   { name: '전북' },

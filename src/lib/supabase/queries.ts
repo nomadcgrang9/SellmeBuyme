@@ -10,6 +10,10 @@ import {
   DEFAULT_REGION,
   DEFAULT_SORT
 } from '@/lib/constants/filters';
+import {
+  expandProvinceToAllCities,
+  isProvinceWideSearch
+} from '@/lib/constants/regionHierarchy';
 import type {
   Card,
   CrawlBoard,
@@ -3310,13 +3314,29 @@ async function executeJobSearch({
   }
 
   // 지역 필터 (하나라도 포함되면 매칭)
+  // 광역시도 전체 검색 시 해당 광역시도 내 모든 기초자치단체도 포함
   if (filters.region.length > 0) {
-    const regionConditions = filters.region.map((r) => {
-      const pattern = buildIlikePattern(r);
-      // "남양주" → "남양주", "남양주시" 모두 매칭
-      return `location.ilike.${pattern},location.ilike.%${r}시%`;
-    });
-    query = query.or(regionConditions.join(','));
+    const regionConditions: string[] = [];
+
+    for (const r of filters.region) {
+      if (isProvinceWideSearch(r)) {
+        // 광역시도 전체 검색: 광역시도명 + 모든 기초자치단체명 OR 조건
+        const allLocations = expandProvinceToAllCities(r);
+        for (const loc of allLocations) {
+          regionConditions.push(`location.ilike.%${loc}%`);
+        }
+      } else {
+        // 기존 로직: 특정 지역 검색 (예: "의정부", "남양주")
+        const pattern = buildIlikePattern(r);
+        // OR 조건으로 지역명과 지역명+시 모두 포함
+        regionConditions.push(`location.ilike.${pattern}`);
+        regionConditions.push(`location.ilike.%${r}시%`);
+      }
+    }
+
+    if (regionConditions.length > 0) {
+      query = query.or(regionConditions.join(','));
+    }
   }
 
   // 카테고리 필터 (tags 배열에 하나라도 포함되면 매칭)
