@@ -110,5 +110,53 @@
     "region": "서울",
     "isLocalGovernment": false,
     "active": true
+  },
+  "gwangju": {
+    "name": "광주광역시교육청 채용공고",
+    "baseUrl": "https://www.gen.go.kr/xboard/board.php?tbnum=32",
+    "detailUrlTemplate": "https://www.gen.go.kr/xboard/board.php?mode=view&tbnum=32&number=",
+    "parserType": "html",
+    "selectors": {
+      "listContainer": "table",
+      "rows": "tbody tr",
+      "title": "td:nth-child(3) a",
+      "date": "td:nth-child(5)",
+      "link": "td:nth-child(3) a",
+      "attachment": "a[href*='download']"
+    },
+    "region": "광주",
+    "isLocalGovernment": false,
+    "active": true
+  },
+  "jeonbuk": {
+    "name": "전북특별자치도교육청",
+    "baseUrl": "https://www.jbe.go.kr/board/list.jbe?boardId=BBS_0000130&menuCd=DOM_000000103004006000",
+    "region": "전북",
+    "isLocalGovernment": false,
+    "active": true
+  },
+  "jeonnam": {
+    "name": "전라남도교육청",
+    "baseUrl": "https://www.jne.go.kr/main/na/ntt/selectNttList.do?mi=265&bbsId=117",
+    "region": "전남",
+    "isLocalGovernment": false,
+    "active": true
+  },
+  "jeju": {
+    "name": "제주특별자치도교육청 채용정보",
+    "baseUrl": "https://www.jje.go.kr/board/list.jje?boardId=BBS_0000507&menuCd=DOM_000000103003009000",
+    "detailUrlTemplate": "https://www.jje.go.kr/board/view.jje?boardId=BBS_0000507&menuCd=DOM_000000103003009000&dataSid=",
+    "parserType": "html",
+    "selectors": {
+      "listContainer": "table",
+      "rows": "tbody tr",
+      "title": "td.subject a",
+      "date": "td:nth-child(5)",
+      "link": "td.subject a",
+      "attachment": "a[href*='fileDown']"
+    },
+    "region": "제주",
+    "isLocalGovernment": false,
+    "active": true
   }
 }

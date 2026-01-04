@@ -8,6 +8,10 @@ import { crawlUijeongbu } from './sources/uijeongbu.js';
 import { crawlNamyangju } from './sources/namyangju.js';
 import { crawlIncheon } from './sources/incheon.js';
 import { crawlSeoul } from './sources/seoul.js';
+import { crawlGwangju } from './sources/gwangju.js';
+import { crawlJeonbuk } from './sources/jeonbuk.js';
+import { crawlJeonnam } from './sources/jeonnam.js';
+import { crawlJeju } from './sources/jeju.js';
 import { getTokenUsage, resetTokenUsage } from './lib/gemini.js';
 import { parseJobField, deriveJobAttributes } from './lib/jobFieldParser.js';
 import dotenv from 'dotenv';
@@ -28,7 +32,7 @@ function extractFilenameFromUrl(url) {
     const urlObj = new URL(url);
     const pathname = urlObj.pathname;
     const filename = pathname.split('/').pop();
-    
+
     // 파일 확장자가 있는 경우만 반환
     if (filename && /\.(hwp|hwpx|pdf|doc|docx|xls|xlsx)$/i.test(filename)) {
       return filename;
@@ -129,12 +133,12 @@ function summarizeCompensation(text) {
     const match = text.match(/(\d{1,3}(,\d{3})*)\s*원/);
     return match ? `월 ${match[1]}원` : '월급여';
   }
-  
+
   // 30자 이내면 그대로 반환
   if (text.length <= 30) {
     return text;
   }
-  
+
   // 그 외는 "협의"
   return '급여 협의';
 }
@@ -145,38 +149,38 @@ function summarizeCompensation(text) {
 async function main() {
   logInfo('main', '셀미바이미 크롤러 시작');
   logDebug('main', '실행 설정 로드', { argv: process.argv.slice(2) });
-  
+
   // 1. 설정 파일 로드
   const sourcesConfig = JSON.parse(
     readFileSync('./config/sources.json', 'utf-8')
   );
-  
+
   // 2. 크롤링 대상 선택
   let targetSource = 'seongnam'; // 기본값
   let boardId = null; // AI 생성 크롤러용
-  
+
   const sourceArg = process.argv.find(arg => arg.startsWith('--source='));
   if (sourceArg) {
     targetSource = sourceArg.split('=')[1];
   }
-  
+
   const boardIdArg = process.argv.find(arg => arg.startsWith('--board-id='));
   if (boardIdArg) {
     boardId = boardIdArg.split('=')[1];
     targetSource = 'ai-generated'; // AI 생성 크롤러로 표시
   }
-  
+
   const config = sourcesConfig[targetSource];
-  
+
   if (!config && targetSource !== 'ai-generated') {
     logError('main', '소스를 찾을 수 없거나 비활성화됨', null, { targetSource });
     process.exit(1);
   }
-  
+
   // AI 생성 크롤러인 경우 board_id 환경변수에서 크롤러 코드 로드
   if (targetSource === 'ai-generated' && boardId) {
     logStep('main', 'AI 생성 크롤러 실행', { boardId });
-    
+
     try {
       // 1. Supabase에서 crawler_source_code 로드
       logStep('ai-crawler', 'DB에서 크롤러 코드 로드 중...', { boardId });
@@ -185,17 +189,17 @@ async function main() {
         .select('id, name, board_url, crawler_source_code, crawl_batch_size, region, is_local_government')
         .eq('id', boardId)
         .single();
-      
+
       if (boardError || !board) {
         logError('ai-crawler', 'crawl_boards 조회 실패', boardError, { boardId });
         process.exit(1);
       }
-      
+
       if (!board.crawler_source_code) {
         logError('ai-crawler', 'crawler_source_code가 null입니다', null, { boardId, boardName: board.name });
         process.exit(1);
       }
-      
+
       logStep('ai-crawler', '크롤러 코드 로드 완료', {
         boardName: board.name,
         codeLength: board.crawler_source_code.length
@@ -213,15 +217,15 @@ async function main() {
       // 3. 동적 import로 크롤러 함수 로드
       const crawlerModule = await import(tempFileUrl.href + `?t=${Date.now()}`);
       const crawlerFunc = Object.values(crawlerModule)[0]; // export된 첫 함수
-      
+
       if (typeof crawlerFunc !== 'function') {
         logError('ai-crawler', '크롤러 함수를 찾을 수 없습니다', null, { tempFilePath });
-        try { unlinkSync(tempFilePath); } catch (e) {}
+        try { unlinkSync(tempFilePath); } catch (e) { }
         process.exit(1);
       }
-      
+
       logStep('ai-crawler', '크롤러 함수 로드 완료');
-      
+
       // 4. 브라우저 시작
       resetTokenUsage();
       logStep('browser', 'Playwright 브라우저 생성 시작');
@@ -231,7 +235,7 @@ async function main() {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
       });
       logStep('browser', '새 페이지 생성 완료');
-      
+
       // 5. 크롤러 실행
       logStep('ai-crawler', '크롤링 시작', { boardName: board.name, url: board.board_url });
       const jobs = await crawlerFunc(page, {
@@ -241,13 +245,13 @@ async function main() {
         region: board.region,
         isLocalGovernment: board.is_local_government,
       });
-      
+
       logStep('ai-crawler', '크롤링 완료', { jobCount: jobs.length });
-      
+
       // 6. crawl_sources 정보 가져오기 (또는 생성)
       const crawlSourceInfo = await getOrCreateCrawlSource(board.name, board.board_url);
       const crawlSourceId = crawlSourceInfo.id;
-      
+
       // 7. DB에 저장 (Gemini AI 정규화 적용)
       let successCount = 0;
       let skippedCount = 0;
@@ -354,14 +358,14 @@ async function main() {
           logError('ai-crawler', '공고 저장 실패', saveError, { title: job.title });
         }
       }
-      
+
       // 8. 크롤링 성공 업데이트
       await updateCrawlSuccess(crawlSourceId);
-      
+
       // 9. 정리
       await browser.close();
-      try { unlinkSync(tempFilePath); } catch (e) {}
-      
+      try { unlinkSync(tempFilePath); } catch (e) { }
+
       const tokenUsage = getTokenUsage();
       logStep('ai-crawler', 'AI 크롤러 실행 완료', {
         total: jobs.length,
@@ -369,14 +373,14 @@ async function main() {
         skipped: skippedCount,
         tokens: tokenUsage
       });
-      
+
       process.exit(0);
     } catch (error) {
       logError('ai-crawler', 'AI 크롤러 실행 중 오류', error);
       process.exit(1);
     }
   }
-  
+
   let browser;
   let successCount = 0;
   let failCount = 0;
@@ -398,18 +402,18 @@ async function main() {
     config.crawlBatchSize = crawlBatchSize;
     config.region = crawlSourceInfo.region;
     config.isLocalGovernment = crawlSourceInfo.isLocalGovernment;
-    
+
     // 4. 브라우저 시작
     logStep('browser', 'Playwright 브라우저 생성 시작');
     browser = await createBrowser();
     const page = await browser.newPage();
     logStep('browser', '새 페이지 생성 완료');
-    
+
     // User-Agent 설정 (봇 감지 우회)
     await page.setExtraHTTPHeaders({
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
     });
-    
+
     // 5. 크롤링 실행
     if (targetSource === 'seongnam') {
       logStep('crawler', '성남교육지원청 크롤링 호출');
@@ -430,19 +434,31 @@ async function main() {
     } else if (targetSource === 'seoul') {
       logStep('crawler', '서울교육일자리포털 크롤링 호출');
       rawJobs = await crawlSeoul(page, config);
+    } else if (targetSource === 'gwangju') {
+      logStep('crawler', '광주광역시교육청 크롤링 호출');
+      rawJobs = await crawlGwangju(page, config);
+    } else if (targetSource === 'jeonbuk') {
+      logStep('crawler', '전북특별자치도교육청 크롤링 호출');
+      rawJobs = await crawlJeonbuk(page, config);
+    } else if (targetSource === 'jeonnam') {
+      logStep('crawler', '전라남도교육청 크롤링 호출');
+      rawJobs = await crawlJeonnam(page, config);
+    } else if (targetSource === 'jeju') {
+      logStep('crawler', '제주특별자치도교육청 크롤링 호출');
+      rawJobs = await crawlJeju(page, config);
     } else {
       throw new Error(`지원하지 않는 소스: ${targetSource}`);
     }
-    
+
     if (rawJobs.length === 0) {
       logWarn('crawler', '수집된 공고 없음, HTML 구조 변경 의심', { targetSource });
       await incrementErrorCount(crawlSourceId);
       process.exit(0);
     }
-    
+
     // 6. 중복 체크 및 AI 정규화
     logStep('pipeline', '중복 체크 및 AI 정규화 시작', { jobCount: rawJobs.length });
-    
+
     for (const rawJob of rawJobs) {
       try {
         // 6-1. 중복 체크 (AI 처리 전)
@@ -487,15 +503,15 @@ async function main() {
           visionData = await analyzePageScreenshot(rawJob.screenshotBase64);
           logDebug('pipeline', 'Gemini Vision 분석 완료', { title: rawJob.title, visionData });
         }
-        
+
         // 6-3. AI 정규화 (텍스트 기반)
         const normalized = await normalizeJobData(rawJob, config.name);
-        
+
         if (!normalized) {
           failCount++;
           continue;
         }
-        
+
         // 6-4. Vision 데이터로 보강 (우선순위: Vision > 텍스트)
         if (visionData) {
           normalized.organization = visionData.school_name || normalized.organization;
@@ -517,10 +533,10 @@ async function main() {
             logDebug('pipeline', '급여 요약 완료', { title: normalized.title, summarized: normalized.compensation });
           }
         }
-        
+
         // 6-4. AI 검증
         const validation = await validateJobData(normalized);
-        
+
         if (!validation.is_valid) {
           logWarn('pipeline', '검증 실패', { title: normalized.title });
           failCount++;
@@ -548,7 +564,7 @@ async function main() {
         // 6-6. 직무 속성 추론 (학교급, 과목, 라이센스)
         // organization 우선순위: AI 정리 > 크롤러 추출 > 기타
         const bestOrganization = validation.corrected_data?.organization || rawJob.schoolName || normalized?.organization;
-        
+
         const derivedJobAttributes = deriveJobAttributes({
           jobField: rawJob.jobField,
           title: rawJob.title,
@@ -674,29 +690,29 @@ async function main() {
         // 6-7. 원본 데이터 병합 (우선순위: 게시판 정보 > AI 분석 > Vision)
         const finalData = {
           ...validation.corrected_data,
-          
+
           // 게시판에서 추출한 구조화된 정보 우선 반영 (LLM Fallback 적용)
           location: finalLocation || '미상',
           organization: rawJob.schoolName || validation.corrected_data.organization,
-          
+
           // 상세 정보
           detail_content: rawJob.detailContent,
           attachment_url: attachmentUrlWithFilename,
-          
+
           // 날짜 및 기간 정보 (게시판 > AI > Vision)
-          application_period: rawJob.applicationStart && rawJob.applicationEnd 
+          application_period: rawJob.applicationStart && rawJob.applicationEnd
             ? `${rawJob.applicationStart} ~ ${rawJob.applicationEnd}`
             : normalized.application_period || visionData?.application_period || null,
           work_period: rawJob.employmentStart && rawJob.employmentEnd
             ? `${rawJob.employmentStart} ~ ${rawJob.employmentEnd}`
             : normalized.work_period || visionData?.work_period || null,
-          
+
           // 기타 정보
           work_time: normalized.work_time || visionData?.work_time || null,
           contact: rawJob.phone || normalized.contact || visionData?.contact || null,
           qualifications: normalized.qualifications || visionData?.qualifications || [],
           structured_content: structuredContent,
-          
+
           // 학교급, 과목, 라이센스 정보 (LLM Fallback 적용)
           school_level: finalSchoolLevel,
           subject: finalSubject,
@@ -715,16 +731,16 @@ async function main() {
           failCount++;
           logWarn('pipeline', '저장 실패', { title: finalData.title });
         }
-        
+
         // API 호출 제한 방지 (1초 대기)
         await new Promise(resolve => setTimeout(resolve, 1000));
-        
+
       } catch (error) {
         logError('pipeline', '공고 처리 실패', error, { title: rawJob.title, link: rawJob.link });
         failCount++;
       }
     }
-    
+
     // 7. 성공 시간 업데이트
     logStep('supabase', '크롤링 성공 시간 업데이트', { crawlSourceId });
     await updateCrawlSuccess(crawlSourceId);
@@ -738,7 +754,7 @@ async function main() {
       await browser.close();
     }
   }
-  
+
   // 8. 결과 출력
   const processedCount = rawJobs.length - skippedCount;
   const efficiency = processedCount > 0
@@ -777,7 +793,7 @@ async function main() {
     // Exit code 0: 신규 공고가 없는 것은 정상 상황 (워크플로우 실패로 처리하지 않음)
     process.exit(0);
   }
-  
+
   logInfo('main', '크롤링 완료', {
     targetSource,
     successCount,
