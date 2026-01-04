@@ -79,6 +79,8 @@ export default function DeveloperPage() {
     error: noticesError,
     filter: noticeFilter,
     setFilter: setNoticeFilter,
+    hasMore: noticesHasMore,
+    loadMore: loadMoreNotices,
     createNewNotice,
     updateNoticeItem,
     deleteNoticeItem,
@@ -238,6 +240,13 @@ export default function DeveloperPage() {
                   ))}
                 </div>
               )}
+
+              {/* 페이지네이션 (일반 공지가 3개 초과일 때만) */}
+              <PaginationDots
+                hasMore={noticesHasMore}
+                onLoadMore={loadMoreNotices}
+                isLoading={noticesLoading}
+              />
             </div>
           </CollapsibleSection>
 

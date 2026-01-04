@@ -16,6 +16,8 @@ on:
           - jeonbuk
           - jeonnam
           - jeju
+          - incheon
+          - seoul
       mode:
         description: 'Crawl mode (run or test)'
         required: false
@@ -90,6 +92,8 @@ jobs:
           - jeonbuk
           - jeonnam
           - jeju
+          - incheon
+          - seoul
 
     steps:
       - name: Checkout code

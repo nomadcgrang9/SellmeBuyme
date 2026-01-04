@@ -6,6 +6,8 @@ import { crawlSeongnam } from './sources/seongnam.js';
 import { crawlGyeonggi } from './sources/gyeonggi.js';
 import { crawlUijeongbu } from './sources/uijeongbu.js';
 import { crawlNamyangju } from './sources/namyangju.js';
+import { crawlIncheon } from './sources/incheon.js';
+import { crawlSeoul } from './sources/seoul.js';
 import { crawlGwangju } from './sources/gwangju.js';
 import { crawlJeonbuk } from './sources/jeonbuk.js';
 import { crawlJeonnam } from './sources/jeonnam.js';
@@ -441,6 +443,12 @@ async function main() {
     } else if (targetSource === 'namyangju') {
       logStep('crawler', '구리남양주교육지원청 크롤링 호출');
       rawJobs = await crawlNamyangju(page, config);
+    } else if (targetSource === 'incheon') {
+      logStep('crawler', '인천교육청 크롤링 호출');
+      rawJobs = await crawlIncheon(page, config);
+    } else if (targetSource === 'seoul') {
+      logStep('crawler', '서울교육일자리포털 크롤링 호출');
+      rawJobs = await crawlSeoul(page, config);
     } else if (targetSource === 'gwangju') {
       logStep('crawler', '광주광역시교육청 크롤링 호출');
       rawJobs = await crawlGwangju(page, config);
