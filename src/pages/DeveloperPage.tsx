@@ -21,11 +21,21 @@ import ErrorLogSection from '@/components/developer/ErrorLogSection';
 import NoticeCard from '@/components/developer/NoticeCard';
 import NoticeForm from '@/components/developer/NoticeForm';
 // NoticeDetailModal 제거됨 - 인라인 펼침 방식으로 변경
+import IOSInstallGuide from '@/components/developer/pwa/IOSInstallGuide';
+import KakaoTalkGuide from '@/components/developer/pwa/KakaoTalkGuide';
 import { useDeployments } from '@/lib/hooks/useDeployments';
 import { useFilteredIdeas } from '@/lib/hooks/useFilteredIdeas';
 import { useFilteredSubmissions } from '@/lib/hooks/useFilteredSubmissions';
 import { useProjects } from '@/lib/hooks/useProjects';
 import { useNotices } from '@/lib/hooks/useNotices';
+import {
+  isKakaoTalk,
+  isIOS,
+  isStandalone,
+  isDismissed,
+  setDismissed,
+  markVisited,
+} from '@/lib/utils/pwaUtils';
 import type { DevIdea, DevProject, DevNotice, ProjectFormData, NoticeFormData } from '@/types/developer';
 
 // PWA 설치 프롬프트 인터페이스
@@ -103,9 +113,31 @@ export default function DeveloperPage() {
   // PWA 설치 관련 상태
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [showInstallBanner, setShowInstallBanner] = useState(false);
+  const [showIOSGuide, setShowIOSGuide] = useState(false);
+  const [showKakaoGuide, setShowKakaoGuide] = useState(false);
 
   useEffect(() => {
-    // PWA 설치 프롬프트 이벤트 캡처
+    // 최초 방문 기록
+    markVisited();
+
+    // 이미 설치되었거나 다시 보지 않기 설정했으면 스킵
+    if (isStandalone() || isDismissed()) {
+      return;
+    }
+
+    // 카카오톡 인앱 브라우저인 경우
+    if (isKakaoTalk()) {
+      setShowKakaoGuide(true);
+      return;
+    }
+
+    // iOS Safari인 경우 (beforeinstallprompt 미지원)
+    if (isIOS()) {
+      setShowIOSGuide(true);
+      return;
+    }
+
+    // Chrome/Edge 등 beforeinstallprompt 지원 브라우저
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e as BeforeInstallPromptEvent);
@@ -113,11 +145,6 @@ export default function DeveloperPage() {
     };
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-
-    // 이미 설치되었는지 확인
-    if (window.matchMedia('(display-mode: standalone)').matches) {
-      setShowInstallBanner(false);
-    }
 
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
@@ -131,13 +158,15 @@ export default function DeveloperPage() {
     const { outcome } = await deferredPrompt.userChoice;
 
     if (outcome === 'accepted') {
-      console.log('✅ 사용자가 PWA 설치를 수락했습니다');
-    } else {
-      console.log('❌ 사용자가 PWA 설치를 거부했습니다');
+      console.log('PWA 설치 수락');
     }
 
     setDeferredPrompt(null);
     setShowInstallBanner(false);
+  };
+
+  const handleDismissPWA = () => {
+    setDismissed();
   };
 
   return (
@@ -158,13 +187,13 @@ export default function DeveloperPage() {
         </div>
       </header>
 
-      {/* PWA 설치 배너 */}
+      {/* PWA 설치 배너 (Chrome/Edge 등) */}
       {showInstallBanner && (
         <div className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-[#a8c5e0] to-[#7aa3cc] text-white shadow-lg">
           <div className="max-w-screen-sm mx-auto px-4 py-3 flex items-center justify-between">
             <div className="flex-1">
-              <p className="text-sm font-medium">📱 앱으로 설치하기</p>
-              <p className="text-xs opacity-90">홈 화면에 추가하여 빠르게 접속하세요</p>
+              <p className="text-sm font-medium">앱으로 설치</p>
+              <p className="text-xs opacity-90">홈 화면에 추가</p>
             </div>
             <div className="flex gap-2">
               <button
@@ -174,7 +203,10 @@ export default function DeveloperPage() {
                 설치
               </button>
               <button
-                onClick={() => setShowInstallBanner(false)}
+                onClick={() => {
+                  setShowInstallBanner(false);
+                  handleDismissPWA();
+                }}
                 className="px-3 py-2 text-white hover:bg-white/20 rounded-lg transition-colors"
               >
                 ✕
@@ -182,6 +214,22 @@ export default function DeveloperPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* iOS 설치 가이드 모달 */}
+      {showIOSGuide && (
+        <IOSInstallGuide
+          onClose={() => setShowIOSGuide(false)}
+          onDismiss={handleDismissPWA}
+        />
+      )}
+
+      {/* 카카오톡 브라우저 전환 안내 모달 */}
+      {showKakaoGuide && (
+        <KakaoTalkGuide
+          onClose={() => setShowKakaoGuide(false)}
+          onDismiss={handleDismissPWA}
+        />
       )}
 
       {/* Content Area */}
