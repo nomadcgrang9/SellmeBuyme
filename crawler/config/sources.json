@@ -89,21 +89,23 @@
   },
   "chungbuk": {
     "name": "충청북도교육청 학교구인정보",
-    "baseUrl": "https://www.cbe.go.kr/cbe/na/ntt/selectNttList.do?mi=12106&bbsId=10170",
-    "detailUrlTemplate": "https://www.cbe.go.kr/cbe/na/ntt/selectNttInfo.do?mi=12106&bbsId=10170&nttSn=",
-    "parserType": "ntt",
+    "baseUrl": "https://www.cbe.go.kr/cbe/na/ntt/selectNttList.do?mi=11716&bbsId=1798",
+    "detailUrlTemplate": "https://www.cbe.go.kr/cbe/na/ntt/selectNttInfo.do?mi=11716&bbsId=1798&nttSn=",
+    "parserType": "custom",
     "region": "충청북도",
     "isLocalGovernment": false,
-    "active": true
+    "active": true,
+    "note": "별도 크롤러 사용 (chungbuk.js) - ntt 패턴 + goFileDown 첨부파일"
   },
   "chungnam": {
     "name": "충청남도교육청 채용공고",
-    "baseUrl": "https://www.cne.go.kr/cne/na/ntt/selectNttList.do?mi=12126&bbsId=10143",
-    "detailUrlTemplate": "https://www.cne.go.kr/cne/na/ntt/selectNttInfo.do?mi=12126&bbsId=10143&nttSn=",
-    "parserType": "ntt",
+    "baseUrl": "https://www.cne.go.kr/boardCnts/list.do?boardID=642&m=020201&s=cne",
+    "detailUrlTemplate": "https://www.cne.go.kr/boardCnts/view.do?m=020201&s=cne&boardSeq=",
+    "parserType": "custom",
     "region": "충청남도",
     "isLocalGovernment": false,
-    "active": true
+    "active": true,
+    "note": "별도 크롤러 사용 (chungnam.js) - 7개 카테고리 보드 크롤링"
   },
   "jeonbuk": {
     "name": "전북특별자치도교육청 채용공고",
@@ -408,38 +410,6 @@
       "attachment": "a[href*='FileDown']"
     },
     "region": "대전",
-    "isLocalGovernment": false,
-    "active": false,
-    "pagination": {
-      "type": "script",
-      "functionName": "goPage"
-    }
-  },
-  "chungnam": {
-    "name": "충청남도교육청 채용공고",
-    "baseUrl": "https://www.cne.go.kr/boardCnts/list.do?boardID=642&m=020201&s=cne",
-    "detailUrlTemplate": "https://www.cne.go.kr/boardCnts/view.do?boardID=642&m=020201&s=cne&boardSeq=",
-    "type": "table",
-    "parserType": "html",
-    "selectors": {
-      "listContainer": "table",
-      "row": "tbody tr",
-      "title": {
-        "selector": "td.link a",
-        "extract": "text"
-      },
-      "date": {
-        "selector": "td:nth-child(6)",
-        "extract": "text"
-      },
-      "link": {
-        "selector": "td.link a",
-        "extract": "onclick",
-        "regex": "view\\([0-9]+,([0-9]+)\\)"
-      },
-      "attachment": "a[href*='FileDown']"
-    },
-    "region": "충남",
     "isLocalGovernment": false,
     "active": false,
     "pagination": {

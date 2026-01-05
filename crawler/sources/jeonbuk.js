@@ -90,7 +90,14 @@ function getCutoffDate() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const mode = process.env.CRAWL_MODE || 'initial';
-    const daysToSubtract = (mode === 'daily') ? 1 : 2;
+
+    // test 모드: 날짜 필터 없음
+    if (mode === 'test') {
+        return new Date('2020-01-01');
+    }
+
+    // daily 모드: 오늘만, initial 모드: 2일 전부터
+    const daysToSubtract = (mode === 'daily') ? 0 : 2;
     const cutoffDate = new Date(today);
     cutoffDate.setDate(today.getDate() - daysToSubtract);
     return cutoffDate;
