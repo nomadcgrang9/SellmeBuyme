@@ -5,8 +5,6 @@ import { getOrCreateCrawlSource, saveJobPosting, updateCrawlSuccess, incrementEr
 import { crawlGyeonggi } from './sources/gyeonggi.js';
 import { crawlGyeongnam } from './sources/gyeongnam.js';
 import { crawlNttPattern } from './sources/nttPattern.js';
-import { crawlUijeongbu } from './sources/uijeongbu.js';
-import { crawlNamyangju } from './sources/namyangju.js';
 import { crawlIncheon } from './sources/incheon.js';
 import { crawlSeoul } from './sources/seoul.js';
 import { crawlGangwon } from './sources/gangwon.js';
@@ -14,6 +12,7 @@ import { crawlGwangju } from './sources/gwangju.js';
 import { crawlJeonbuk } from './sources/jeonbuk.js';
 import { crawlJeonnam } from './sources/jeonnam.js';
 import { crawlJeju } from './sources/jeju.js';
+import { crawlSejong } from './sources/sejong.js';
 import { getTokenUsage, resetTokenUsage } from './lib/gemini.js';
 import { parseJobField, deriveJobAttributes } from './lib/jobFieldParser.js';
 import { checkRobotsTxt, validateAccess, exponentialBackoff } from './lib/accessChecker.js';
@@ -460,12 +459,6 @@ async function main() {
     } else if (targetSource === 'gyeongnam') {
       logStep('crawler', '경상남도교육청 크롤링 호출');
       rawJobs = await crawlGyeongnam(page, config);
-    } else if (targetSource === 'uijeongbu') {
-      logStep('crawler', '의정부교육지원청 크롤링 호출');
-      rawJobs = await crawlUijeongbu(page, config);
-    } else if (targetSource === 'namyangju') {
-      logStep('crawler', '구리남양주교육지원청 크롤링 호출');
-      rawJobs = await crawlNamyangju(page, config);
     } else if (targetSource === 'incheon') {
       logStep('crawler', '인천교육청 크롤링 호출');
       rawJobs = await crawlIncheon(page, config);
@@ -487,6 +480,9 @@ async function main() {
     } else if (targetSource === 'jeju') {
       logStep('crawler', '제주특별자치도교육청 크롤링 호출');
       rawJobs = await crawlJeju(page, config);
+    } else if (targetSource === 'sejong') {
+      logStep('crawler', '세종특별자치시교육청 크롤링 호출');
+      rawJobs = await crawlSejong(page, config);
     } else if (parserType === 'ntt') {
       // 범용 selectNttList.do 패턴 크롤러
       logStep('crawler', `[NTT패턴] ${config.name} 크롤링 호출`);
