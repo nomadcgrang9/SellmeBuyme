@@ -2,7 +2,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, RotateCcw, ChevronDown, ChevronUp } from 'lucide-react';
 import { useState } from 'react';
 import { useSearchStore } from '@/stores/searchStore';
-import { REGION_OPTIONS_HIERARCHICAL, GYEONGGI_SUBREGIONS } from '@/lib/constants/filters';
+import { REGION_OPTIONS_HIERARCHICAL } from '@/lib/constants/filters';
 import { RECOMMENDED_KEYWORDS } from '@/lib/utils/searchHistory';
 
 interface FilterSidebarProps {
@@ -33,21 +33,18 @@ export default function FilterSidebar({ isOpen, onClose }: FilterSidebarProps) {
     const isRegionSelected = (regionName: string) => {
         // 시도 자체가 선택된 경우
         if (filters.region.includes(regionName)) return true;
-        // 해당 시도의 하위지역이 선택된 경우 (경기도만)
-        if (regionName === '경기') {
-            return filters.region.some(r => r.startsWith('경기-'));
-        }
-        return false;
+        // 해당 시도의 하위지역이 선택된 경우
+        return filters.region.some(r => r.startsWith(`${regionName}-`));
     };
 
-    // 하위지역 선택 여부 확인
-    const isSubregionSelected = (subregion: string) => {
-        return filters.region.includes(`경기-${subregion}`);
+    // 하위지역 선택 여부 확인 (모든 광역시도에 대해 동작)
+    const isSubregionSelected = (provinceName: string, subregion: string) => {
+        return filters.region.includes(`${provinceName}-${subregion}`);
     };
 
-    // 경기 전체 선택 여부 확인
-    const isGyeonggiAllSelected = () => {
-        return filters.region.includes('경기');
+    // 광역시도 전체 선택 여부 확인
+    const isProvinceAllSelected = (provinceName: string) => {
+        return filters.region.includes(provinceName);
     };
 
     // 시도 클릭 핸들러
@@ -61,36 +58,36 @@ export default function FilterSidebar({ isOpen, onClose }: FilterSidebarProps) {
         }
     };
 
-    // 경기 전체 선택 핸들러
-    const handleGyeonggiAllClick = () => {
-        const currentGyeonggiFilters = filters.region.filter(r => r === '경기' || r.startsWith('경기-'));
-
-        if (filters.region.includes('경기')) {
-            // 경기 전체가 이미 선택된 경우 → 해제
-            setFilter('region', filters.region.filter(r => r !== '경기'));
+    // 광역시도 전체 선택 핸들러 (모든 광역시도에 대해 동작)
+    const handleProvinceAllClick = (provinceName: string) => {
+        if (filters.region.includes(provinceName)) {
+            // 해당 시도 전체가 이미 선택된 경우 → 해제
+            setFilter('region', filters.region.filter(r => r !== provinceName));
         } else {
-            // 경기 전체 선택 → 기존 경기 하위지역 모두 제거하고 '경기'만 추가
-            const otherRegions = filters.region.filter(r => !r.startsWith('경기-') && r !== '경기');
-            setFilter('region', [...otherRegions, '경기']);
+            // 전체 선택 → 기존 해당 시도 하위지역 모두 제거하고 시도명만 추가
+            const otherRegions = filters.region.filter(r => !r.startsWith(`${provinceName}-`) && r !== provinceName);
+            setFilter('region', [...otherRegions, provinceName]);
         }
     };
 
-    // 경기 하위지역 선택 핸들러
-    const handleSubregionClick = (subregion: string) => {
-        const subregionKey = `경기-${subregion}`;
+    // 하위지역 선택 핸들러 (모든 광역시도에 대해 동작)
+    const handleSubregionClick = (provinceName: string, subregion: string) => {
+        const subregionKey = `${provinceName}-${subregion}`;
 
         if (filters.region.includes(subregionKey)) {
             // 이미 선택된 하위지역 해제
             setFilter('region', filters.region.filter(r => r !== subregionKey));
         } else {
-            // 하위지역 추가 (경기 전체가 선택되어 있으면 제거)
-            const newRegions = filters.region.filter(r => r !== '경기');
+            // 하위지역 추가 (해당 시도 전체가 선택되어 있으면 제거)
+            const newRegions = filters.region.filter(r => r !== provinceName);
             setFilter('region', [...newRegions, subregionKey]);
         }
     };
 
-    // 선택된 경기 하위지역 개수
-    const selectedGyeonggiSubregionsCount = filters.region.filter(r => r.startsWith('경기-')).length;
+    // 선택된 해당 시도 하위지역 개수
+    const getSelectedSubregionsCount = (provinceName: string) => {
+        return filters.region.filter(r => r.startsWith(`${provinceName}-`)).length;
+    };
 
     return (
         <AnimatePresence>
@@ -143,7 +140,7 @@ export default function FilterSidebar({ isOpen, onClose }: FilterSidebarProps) {
                                 <h3 className="text-sm font-bold text-gray-900 mb-3">📍 지역</h3>
                                 <div className="flex flex-wrap gap-2">
                                     {REGION_OPTIONS_HIERARCHICAL.map((region) => {
-                                        const hasSubregions = !!region.subregions;
+                                        const hasSubregions = !!region.subregions && region.subregions.length > 0;
                                         const isSelected = isRegionSelected(region.name);
                                         const isExpanded = expandedRegion === region.name;
 
@@ -170,9 +167,9 @@ export default function FilterSidebar({ isOpen, onClose }: FilterSidebarProps) {
                                     })}
                                 </div>
 
-                                {/* 경기도 하위 지역 (확장 시 표시) */}
+                                {/* 모든 광역시도 하위 지역 (확장 시 표시) */}
                                 <AnimatePresence>
-                                    {expandedRegion === '경기' && (
+                                    {expandedRegion && REGION_OPTIONS_HIERARCHICAL.find(r => r.name === expandedRegion)?.subregions && (
                                         <motion.div
                                             initial={{ opacity: 0, height: 0 }}
                                             animate={{ opacity: 1, height: 'auto' }}
@@ -183,21 +180,21 @@ export default function FilterSidebar({ isOpen, onClose }: FilterSidebarProps) {
                                             <div className="p-3 bg-gray-50 rounded-xl border border-gray-100">
                                                 <div className="flex items-center justify-between mb-2">
                                                     <span className="text-xs text-gray-500">
-                                                        경기도 시군 선택
-                                                        {selectedGyeonggiSubregionsCount > 0 && (
+                                                        {expandedRegion} 시군구 선택
+                                                        {getSelectedSubregionsCount(expandedRegion) > 0 && (
                                                             <span className="text-[#68B2FF] font-medium ml-1">
-                                                                ({selectedGyeonggiSubregionsCount}개 선택)
+                                                                ({getSelectedSubregionsCount(expandedRegion)}개 선택)
                                                             </span>
                                                         )}
                                                     </span>
                                                 </div>
                                                 <div className="flex flex-wrap gap-1.5">
-                                                    {/* 경기 전체 버튼 */}
+                                                    {/* 전체 버튼 */}
                                                     <button
-                                                        onClick={handleGyeonggiAllClick}
+                                                        onClick={() => handleProvinceAllClick(expandedRegion)}
                                                         className={`
                                                             px-2.5 py-1 rounded-full text-xs font-medium transition-all duration-200 border
-                                                            ${isGyeonggiAllSelected()
+                                                            ${isProvinceAllSelected(expandedRegion)
                                                                 ? 'bg-[#68B2FF] border-[#68B2FF] text-white shadow-sm'
                                                                 : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-100'
                                                             }
@@ -205,17 +202,17 @@ export default function FilterSidebar({ isOpen, onClose }: FilterSidebarProps) {
                                                     >
                                                         전체
                                                     </button>
-                                                    {/* 개별 시군 버튼 */}
-                                                    {GYEONGGI_SUBREGIONS.map((subregion) => (
+                                                    {/* 개별 시군구 버튼 */}
+                                                    {REGION_OPTIONS_HIERARCHICAL.find(r => r.name === expandedRegion)?.subregions?.map((subregion) => (
                                                         <button
                                                             key={subregion}
-                                                            onClick={() => handleSubregionClick(subregion)}
-                                                            disabled={isGyeonggiAllSelected()}
+                                                            onClick={() => handleSubregionClick(expandedRegion, subregion)}
+                                                            disabled={isProvinceAllSelected(expandedRegion)}
                                                             className={`
                                                                 px-2.5 py-1 rounded-full text-xs font-medium transition-all duration-200 border
-                                                                ${isGyeonggiAllSelected()
+                                                                ${isProvinceAllSelected(expandedRegion)
                                                                     ? 'bg-blue-50 border-blue-100 text-blue-400 cursor-not-allowed'
-                                                                    : isSubregionSelected(subregion)
+                                                                    : isSubregionSelected(expandedRegion, subregion)
                                                                         ? 'bg-[#5aa0eb] border-[#5aa0eb] text-white shadow-sm'
                                                                         : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-100'
                                                                 }

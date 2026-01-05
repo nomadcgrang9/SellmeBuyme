@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Search, X, Settings2 } from 'lucide-react';
 import CompactJobCard from '@/components/cards/CompactJobCard';
 import JobDetailModal from '@/components/cards/JobDetailModal';
@@ -15,19 +15,25 @@ import {
 } from '@/lib/utils/searchHistory';
 import type { Card, JobPostingCard } from '@/types';
 
+const ITEMS_PER_PAGE = 20;
+
 export default function MobileSearch() {
   const inputRef = useRef<HTMLInputElement>(null);
+  const sentinelRef = useRef<HTMLDivElement>(null);
 
   const { filters } = useSearchStore(); // Store에서 필터 가져오기
 
   const [searchInput, setSearchInput] = useState('');
   const [searchHistory, setSearchHistory] = useState(getSearchHistory());
   const [isSearching, setIsSearching] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [searchResults, setSearchResults] = useState<Card[]>([]);
   const [showResults, setShowResults] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const [selectedJob, setSelectedJob] = useState<JobPostingCard | null>(null);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [totalCount, setTotalCount] = useState(0);
+  const [currentOffset, setCurrentOffset] = useState(0);
 
   const popularKeywords = getPopularKeywords();
 
@@ -59,6 +65,8 @@ export default function MobileSearch() {
         setShowResults(false);
         setHasSearched(false);
         setSearchResults([]);
+        setTotalCount(0);
+        setCurrentOffset(0);
         return;
       }
 
@@ -66,6 +74,7 @@ export default function MobileSearch() {
       setIsSearching(true);
       setHasSearched(true);
       setShowResults(true);
+      setCurrentOffset(0); // 새 검색 시 offset 초기화
 
       try {
         // 검색 실행 - job 타입만 검색
@@ -73,13 +82,14 @@ export default function MobileSearch() {
           searchQuery: keyword,
           filters, // 필터 전달
           viewType: 'job',
-          limit: 20,
+          limit: ITEMS_PER_PAGE,
           offset: 0
         });
 
         if (!active) return;
 
         setSearchResults(response.cards);
+        setTotalCount(response.totalCount);
 
         // 검색어 저장 (결과가 있을 때만)
         if (response.cards.length > 0) {
@@ -90,6 +100,7 @@ export default function MobileSearch() {
         if (!active) return;
         console.error('Search failed:', error);
         setSearchResults([]);
+        setTotalCount(0);
       } finally {
         if (active) {
           setIsSearching(false);
@@ -107,6 +118,59 @@ export default function MobileSearch() {
       clearTimeout(timeoutId);
     };
   }, [searchInput, filters]); // filters 변경 시에도 재검색
+
+  // 더 많은 결과 로드 함수
+  const loadMoreResults = useCallback(async () => {
+    const keyword = searchInput.trim();
+    if (!keyword || isLoadingMore || isSearching) return;
+
+    const nextOffset = currentOffset + ITEMS_PER_PAGE;
+    if (nextOffset >= totalCount) return; // 더 이상 로드할 데이터 없음
+
+    setIsLoadingMore(true);
+
+    try {
+      const response = await searchCards({
+        searchQuery: keyword,
+        filters,
+        viewType: 'job',
+        limit: ITEMS_PER_PAGE,
+        offset: nextOffset
+      });
+
+      setSearchResults(prev => [...prev, ...response.cards]);
+      setCurrentOffset(nextOffset);
+    } catch (error) {
+      console.error('Load more failed:', error);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [searchInput, filters, currentOffset, totalCount, isLoadingMore, isSearching]);
+
+  // 무한 스크롤 - IntersectionObserver
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+
+    const hasMore = searchResults.length < totalCount;
+    if (!hasMore || isSearching || isLoadingMore) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (entry?.isIntersecting) {
+          loadMoreResults();
+        }
+      },
+      { rootMargin: '200px 0px 0px 0px', threshold: 0.1 }
+    );
+
+    observer.observe(sentinel);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [searchResults.length, totalCount, isSearching, isLoadingMore, loadMoreResults]);
 
   // 검색어 클릭 (검색은 useEffect에서 자동 실행)
   const handleKeywordClick = (keyword: string) => {
@@ -267,7 +331,7 @@ export default function MobileSearch() {
             {/* 모바일용 결과 카운트 (데스크탑은 상단에 포함됨) */}
             <div className="flex items-center justify-between mb-4 md:hidden">
               <h2 className="text-base font-bold text-gray-900 px-4">
-                {isSearching ? '검색 중...' : `검색 결과 ${searchResults.length}건`}
+                {isSearching ? '검색 중...' : `검색 결과 ${totalCount}건`}
               </h2>
             </div>
 
@@ -277,17 +341,38 @@ export default function MobileSearch() {
                 <p className="text-gray-500 text-sm">검색 중입니다...</p>
               </div>
             ) : searchResults.length > 0 ? (
-              <div className="space-y-3 px-4 md:px-0 md:grid md:grid-cols-2 lg:grid-cols-3 md:gap-4 md:space-y-0">
-                {searchResults
-                  .filter((card): card is JobPostingCard => card.type === 'job')
-                  .map((job) => (
-                    <CompactJobCard
-                      key={job.id}
-                      job={job}
-                      onClick={() => handleCardClick(job)}
-                    />
-                  ))}
-              </div>
+              <>
+                <div className="space-y-3 px-4 md:px-0 md:grid md:grid-cols-2 lg:grid-cols-3 md:gap-4 md:space-y-0">
+                  {searchResults
+                    .filter((card): card is JobPostingCard => card.type === 'job')
+                    .map((job) => (
+                      <CompactJobCard
+                        key={job.id}
+                        job={job}
+                        onClick={() => handleCardClick(job)}
+                      />
+                    ))}
+                </div>
+
+                {/* 무한 스크롤 sentinel 및 로딩 인디케이터 */}
+                {searchResults.length < totalCount && (
+                  <div ref={sentinelRef} className="py-8 text-center">
+                    {isLoadingMore && (
+                      <div className="flex items-center justify-center gap-2">
+                        <div className="w-5 h-5 border-2 border-gray-200 border-t-[#68B2FF] rounded-full animate-spin"></div>
+                        <span className="text-sm text-gray-500">더 불러오는 중...</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* 모든 결과 로드 완료 메시지 */}
+                {searchResults.length >= totalCount && searchResults.length > 0 && (
+                  <div className="py-6 text-center">
+                    <p className="text-sm text-gray-400">모든 검색 결과를 불러왔습니다</p>
+                  </div>
+                )}
+              </>
             ) : (
               <div className="text-center py-16">
                 <Search className="w-16 h-16 text-gray-300 mx-auto mb-4" />

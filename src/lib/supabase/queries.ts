@@ -12,7 +12,9 @@ import {
 } from '@/lib/constants/filters';
 import {
   expandProvinceToAllCities,
-  isProvinceWideSearch
+  isProvinceWideSearch,
+  PROVINCE_NAMES,
+  PROVINCE_TO_CITIES
 } from '@/lib/constants/regionHierarchy';
 import type {
   Card,
@@ -2852,12 +2854,33 @@ function filterJobsByTokenGroups(jobs: any[], tokenGroups: TokenGroup[]): any[] 
 
     // 각 타입별로 매칭 검사 (같은 타입끼리는 OR, 다른 타입끼리는 AND)
 
-    // 지역: 여러 지역 중 하나라도 매칭 (OR)
+// 지역: location 필드에서만 검색, 단어 경계 고려
+    // "양구"가 "계양구"에 매칭되는 것을 방지 (양구는 강원, 계양구는 인천)
+    // 광역시도 이름 소문자 목록 (성능 최적화를 위해 상수로 사용)
+    const provinceNamesLower = PROVINCE_NAMES.map(p => p.toLowerCase());
     const locationMatch = classified.location.length === 0 ||
       classified.location.some(group =>
-        group.some(token =>
-          fields.some(field => field.includes(token.toLowerCase()))
-        )
+        group.some(token => {
+          const t = token.toLowerCase();
+
+          // 광역시도 키워드인 경우 includes 사용 (하위 지자체 매칭을 위해)
+          // 예: "강원"은 "강원특별자치도 원주시"와 매칭되어야 함
+          // 예: "경기"는 "경기도 수원시", "수원시" 모두와 매칭되어야 함
+          if (provinceNamesLower.includes(t)) {
+            return location.includes(t) || organization.includes(t);
+          }
+
+          // 기초자치단체 키워드는 기존 단어 경계 체크 유지
+          // 단어 경계 체크: 토큰이 location의 시작이거나, 공백 뒤에 나타나야 함
+          // 예: "양구군".startsWith("양구") → true
+          // 예: "계양구".startsWith("양구") → false
+          return location.startsWith(t) ||
+                 location.includes(` ${t}`) ||
+                 location === t ||
+                 // organization에서도 확인 (지역명이 기관명에 포함된 경우)
+                 organization.startsWith(t) ||
+                 organization.includes(` ${t}`);
+        })
       );
 
     // 학교급: 여러 학교급 중 하나라도 매칭 (OR)
@@ -2921,12 +2944,34 @@ function filterTalentsByTokenGroups(talents: any[], tokenGroups: TokenGroup[]): 
 
     // 각 타입별로 매칭 검사 (같은 타입끼리는 OR, 다른 타입끼리는 AND)
 
-    // 지역: 여러 지역 중 하나라도 매칭 (OR)
+// 지역: location 필드에서만 검색, 단어 경계 고려
+    // "양구"가 "계양구"에 매칭되는 것을 방지 (양구는 강원, 계양구는 인천)
+    // 광역시도 이름 소문자 목록 (성능 최적화를 위해 상수로 사용)
+    const provinceNamesLower = PROVINCE_NAMES.map(p => p.toLowerCase());
     const locationMatch = classified.location.length === 0 ||
       classified.location.some(group =>
-        group.some(token =>
-          fields.some(field => field.includes(token.toLowerCase()))
-        )
+        group.some(token => {
+          const t = token.toLowerCase();
+
+          // 광역시도 키워드인 경우 includes 사용 (하위 지자체 매칭을 위해)
+          // 예: "강원"은 "강원특별자치도 원주시"와 매칭되어야 함
+          // 예: "경기"는 "경기도 수원시", "수원시" 모두와 매칭되어야 함
+          if (provinceNamesLower.includes(t)) {
+            return locations.some((loc: string) => loc.includes(t)) ||
+                   name.includes(t);
+          }
+
+          // 기초자치단체 키워드는 기존 단어 경계 체크 유지
+          // 단어 경계 체크: 토큰이 location의 시작이거나, 공백 뒤에 나타나야 함
+          return locations.some((loc: string) =>
+            loc.startsWith(t) ||
+            loc.includes(` ${t}`) ||
+            loc === t
+          ) ||
+          // name에서도 확인 (지역명이 이름에 포함된 경우)
+          name.startsWith(t) ||
+          name.includes(` ${t}`);
+        })
       );
 
     // 학교급: 여러 학교급 중 하나라도 매칭 (OR)
@@ -3239,10 +3284,25 @@ async function executeJobSearch({
         let filteredData = pgroongaData;
 
         // 지역 필터 (하나라도 포함되면 매칭)
+        // 지원 형식: "경기" (광역시도 전체), "경기-성남시" (특정 시군구), "의정부" (기존 형식)
         if (filters.region.length > 0) {
-          filteredData = filteredData.filter((job: any) =>
-            filters.region.some((r) => job.location?.includes(r))
-          );
+          filteredData = filteredData.filter((job: any) => {
+            const location = job.location?.toLowerCase() || '';
+            return filters.region.some((r) => {
+              if (r.includes('-')) {
+                // {province}-{city} 형식 (예: "경기-성남시")
+                const city = r.split('-').slice(1).join('-');
+                return location.includes(city.toLowerCase());
+              } else if (PROVINCE_NAMES.includes(r)) {
+                // 광역시도 전체 검색 (예: "경기", "서울")
+                const allLocations = [r, ...(PROVINCE_TO_CITIES[r] || [])];
+                return allLocations.some(loc => location.includes(loc.toLowerCase()));
+              } else {
+                // 기존 형식 (특정 지역명)
+                return location.includes(r.toLowerCase());
+              }
+            });
+          });
         }
 
         // 카테고리 필터 (하나라도 포함되면 매칭)
@@ -3288,6 +3348,9 @@ async function executeJobSearch({
     }
   }
 
+  // 광역시도 키워드 포함 여부 확인
+  const containsProvinceKeyword = tokens.some(token => PROVINCE_NAMES.includes(token));
+
   // Fallback: 기존 방식 (PGroonga 실패 시 또는 검색어 없을 때)
   let query = supabase
     .from('job_postings')
@@ -3295,8 +3358,14 @@ async function executeJobSearch({
 
   // 검색어가 있으면 ilike 사용
   if (trimmedQuery.length > 0) {
-    if (tokens.length > 0) {
-      const orConditions = tokens.flatMap((token) => {
+    // 광역시도 키워드가 포함된 경우, 확장된 토큰(의정부, 수원 등)을 사용하여
+    // 해당 광역시도 내 모든 기초자치단체 공고도 검색되도록 함
+    const searchTokens = containsProvinceKeyword
+      ? flattenTokenGroups(tokenGroups)
+      : tokens;
+
+    if (searchTokens.length > 0) {
+      const orConditions = searchTokens.flatMap((token) => {
         const pattern = buildIlikePattern(token);
         return ['title', 'organization', 'location', 'subject'].map((column) => `${column}.ilike.${pattern}`);
       });
@@ -3314,14 +3383,31 @@ async function executeJobSearch({
   }
 
   // 지역 필터 (하나라도 포함되면 매칭)
-  // 광역시도 전체 검색 시 해당 광역시도 내 모든 기초자치단체도 포함
+  // 지원 형식:
+  // 1. "경기" - 광역시도 전체 (해당 광역시도 내 모든 기초자치단체 포함)
+  // 2. "경기-성남시" - 특정 시군구만 (하이픈으로 구분된 형식)
+  // 3. "의정부" - 기존 특정 지역 검색
   if (filters.region.length > 0) {
     const regionConditions: string[] = [];
 
     for (const r of filters.region) {
-      if (isProvinceWideSearch(r)) {
-        // 광역시도 전체 검색: 광역시도명 + 모든 기초자치단체명 OR 조건
+      // {province}-{city} 형식 확인 (예: "경기-성남시", "서울-강남구")
+      if (r.includes('-')) {
+        const parts = r.split('-');
+        if (parts.length >= 2) {
+          const city = parts.slice(1).join('-'); // 하이픈이 여러 개인 경우 대비
+          // 시군구명으로 검색
+          regionConditions.push(`location.ilike.%${city}%`);
+        }
+      } else if (isProvinceWideSearch(r)) {
+        // "경기 전체" 형식의 광역시도 전체 검색
         const allLocations = expandProvinceToAllCities(r);
+        for (const loc of allLocations) {
+          regionConditions.push(`location.ilike.%${loc}%`);
+        }
+      } else if (PROVINCE_NAMES.includes(r)) {
+        // 광역시도명만 있는 경우 (예: "경기", "서울") - 해당 광역시도 전체 검색
+        const allLocations = [r, ...(PROVINCE_TO_CITIES[r] || [])];
         for (const loc of allLocations) {
           regionConditions.push(`location.ilike.%${loc}%`);
         }
@@ -3388,7 +3474,9 @@ async function executeJobSearch({
   }
 
   const shouldSortByRelevance = filters.sort === '추천순' && (tokens.length > 0 || trimmedQuery.length > 0);
+
   const filteredData = filterJobsByTokenGroups(data, tokenGroups);
+
   const orderedData = shouldSortByRelevance
     ? sortJobsByRelevance(filteredData, tokens, trimmedQuery)
     : filteredData;
