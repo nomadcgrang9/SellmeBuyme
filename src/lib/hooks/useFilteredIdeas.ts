@@ -6,8 +6,9 @@ import {
   updateIdea,
   uploadIdeaImage,
   deleteIdea,
+  toggleIdeaTodo as toggleIdeaTodoApi,
 } from '../supabase/developer';
-import type { DevIdea, IdeaCategory } from '@/types/developer';
+import type { DevIdea, IdeaCategory, IdeaTodo } from '@/types/developer';
 
 interface UseFilteredIdeasResult {
   ideas: DevIdea[];
@@ -24,14 +25,17 @@ interface UseFilteredIdeasResult {
     content: string;
     category: IdeaCategory;
     images: File[];
+    todos?: IdeaTodo[];
   }) => Promise<void>;
   updateIdeaItem: (id: string, data: {
     authorName: string;
     content: string;
     category: IdeaCategory;
     images: File[];
+    todos?: IdeaTodo[];
   }) => Promise<void>;
   deleteIdeaItem: (id: string) => Promise<void>;
+  toggleIdeaTodo: (ideaId: string, todoId: string) => Promise<void>;
 }
 
 const ITEMS_PER_PAGE = 3;
@@ -79,6 +83,7 @@ export function useFilteredIdeas(): UseFilteredIdeasResult {
     content: string;
     category: IdeaCategory;
     images: File[];
+    todos?: IdeaTodo[];
   }) => {
     try {
       const tempId = crypto.randomUUID();
@@ -101,6 +106,7 @@ export function useFilteredIdeas(): UseFilteredIdeasResult {
         category: data.category,
         images: imageUrls,
         authorName: data.authorName,
+        todos: data.todos,
       });
 
       // 목록에 추가
@@ -116,6 +122,7 @@ export function useFilteredIdeas(): UseFilteredIdeasResult {
     content: string;
     category: IdeaCategory;
     images: File[];
+    todos?: IdeaTodo[];
   }) => {
     try {
       // 새 이미지 업로드
@@ -138,6 +145,7 @@ export function useFilteredIdeas(): UseFilteredIdeasResult {
         content: data.content,
         category: data.category,
         images: [...existingImages, ...newImageUrls],
+        todos: data.todos,
       });
 
       // 목록 업데이트
@@ -158,6 +166,17 @@ export function useFilteredIdeas(): UseFilteredIdeasResult {
     }
   };
 
+  const toggleIdeaTodo = async (ideaId: string, todoId: string) => {
+    try {
+      const updatedIdea = await toggleIdeaTodoApi(ideaId, todoId);
+      // 목록 업데이트
+      setAllIdeas((prev) => prev.map(idea => idea.id === ideaId ? updatedIdea : idea));
+    } catch (err) {
+      console.error('Failed to toggle todo:', err);
+      throw err;
+    }
+  };
+
   return {
     ideas: paginatedIdeas,
     loading,
@@ -174,5 +193,6 @@ export function useFilteredIdeas(): UseFilteredIdeasResult {
     createNewIdea,
     updateIdeaItem,
     deleteIdeaItem,
+    toggleIdeaTodo,
   };
 }

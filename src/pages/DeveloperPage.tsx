@@ -47,6 +47,7 @@ export default function DeveloperPage() {
     createNewIdea,
     updateIdeaItem,
     deleteIdeaItem,
+    toggleIdeaTodo,
   } = useFilteredIdeas();
   const {
     submissions,
@@ -288,15 +289,12 @@ export default function DeveloperPage() {
                     <IdeaCard
                       key={idea.id}
                       idea={idea}
-                      onSendToProject={() => {
-                        setSourceIdeaId(idea.id);
-                        setShowProjectForm(true);
-                      }}
                       onEdit={() => {
                         setEditingIdea(idea);
                         setShowIdeaForm(true);
                       }}
                       onDelete={() => deleteIdeaItem(idea.id)}
+                      onToggleTodo={(todoId) => toggleIdeaTodo(idea.id, todoId)}
                     />
                   ))}
                 </div>
@@ -362,47 +360,49 @@ export default function DeveloperPage() {
             </div>
           </CollapsibleSection>
 
-          {/* 프로젝트 관리 */}
-          <CollapsibleSection
-            title="프로젝트 관리하기"
-            icon={<Rocket className="w-5 h-5" />}
-            defaultOpen={false}
-          >
-            <div className="p-4 space-y-4">
+          {/* 프로젝트 관리 - 임시 숨김 (로직/데이터 유지) */}
+          {false && (
+            <CollapsibleSection
+              title="프로젝트 관리하기"
+              icon={<Rocket className="w-5 h-5" />}
+              defaultOpen={false}
+            >
+              <div className="p-4 space-y-4">
 
-              {/* 프로젝트 요약 대시보드 */}
-              {!projectsLoading && !projectsError && <ProjectDashboard projects={projects} />}
+                {/* 프로젝트 요약 대시보드 */}
+                {!projectsLoading && !projectsError && <ProjectDashboard projects={projects} />}
 
-              {/* 칸반뷰 (기본) */}
-              {projectsLoading ? (
-                <div className="text-center py-8 text-gray-500">로딩 중...</div>
-              ) : projectsError ? (
-                <div className="text-center py-8 text-red-500">
-                  프로젝트를 불러올 수 없습니다
-                </div>
-              ) : projects.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  프로젝트가 없습니다
-                </div>
-              ) : (
-                <KanbanView
-                  projects={projects}
-                  onEdit={(p) => {
-                    setEditingProject(p);
-                    setShowProjectForm(true);
-                  }}
-                  onDelete={deleteProjectItem}
-                  onStatusChange={async (projectId, newStatus) => {
-                    const project = projects.find(p => p.id === projectId);
-                    if (project) {
-                      await updateProjectItem(projectId, { ...project, sourceIdeaId: project.sourceIdeaId || undefined, status: newStatus });
-                    }
-                  }}
-                  onViewDetail={(p) => setSelectedProject(p)}
-                />
-              )}
-            </div>
-          </CollapsibleSection>
+                {/* 칸반뷰 (기본) */}
+                {projectsLoading ? (
+                  <div className="text-center py-8 text-gray-500">로딩 중...</div>
+                ) : projectsError ? (
+                  <div className="text-center py-8 text-red-500">
+                    프로젝트를 불러올 수 없습니다
+                  </div>
+                ) : projects.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">
+                    프로젝트가 없습니다
+                  </div>
+                ) : (
+                  <KanbanView
+                    projects={projects}
+                    onEdit={(p) => {
+                      setEditingProject(p);
+                      setShowProjectForm(true);
+                    }}
+                    onDelete={deleteProjectItem}
+                    onStatusChange={async (projectId, newStatus) => {
+                      const project = projects.find(p => p.id === projectId);
+                      if (project) {
+                        await updateProjectItem(projectId, { ...project, sourceIdeaId: project.sourceIdeaId || undefined, status: newStatus });
+                      }
+                    }}
+                    onViewDetail={(p) => setSelectedProject(p)}
+                  />
+                )}
+              </div>
+            </CollapsibleSection>
+          )}
 
           {/* 공유폴더 */}
           <CollapsibleSection
@@ -424,7 +424,7 @@ export default function DeveloperPage() {
                       개발팀원끼리 파일을 자유롭게 업로드하고 공유할 수 있는 폴더입니다.
                     </p>
                     <a
-                      href="https://1drv.ms/f/c/7b77903722d22f5c/EpELl7nggVhFi9xqiFedGfcBXhs1_PW1C_6wLE2HzECHJA?e=cMEvbY"
+                      href="https://1drv.ms/f/c/7b77903722d22f5c/IgBcL9IiN5B3IIB7zQ8BAAAAAUtiq-3c79WPvYJB3qbGk0Q?e=0AWZlr"
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-2 px-4 py-2 bg-[#0078D4] text-white rounded-lg hover:bg-[#106EBE] transition-colors font-medium"
@@ -439,14 +439,16 @@ export default function DeveloperPage() {
             </div>
           </CollapsibleSection>
 
-          {/* 모바일 오류기록 */}
-          <CollapsibleSection
-            title="모바일 오류기록"
-            icon={<Shield className="w-5 h-5" />}
-            defaultOpen={false}
-          >
-            <ErrorLogSection />
-          </CollapsibleSection>
+          {/* 모바일 오류기록 - 임시 숨김 (기능은 유지) */}
+          {false && (
+            <CollapsibleSection
+              title="모바일 오류기록"
+              icon={<Shield className="w-5 h-5" />}
+              defaultOpen={false}
+            >
+              <ErrorLogSection />
+            </CollapsibleSection>
+          )}
         </div>
       </main>
 

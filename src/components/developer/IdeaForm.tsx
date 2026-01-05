@@ -1,9 +1,15 @@
 // IdeaForm - 아이디어 작성/수정 폼 (모달)
-import { X, Loader2 } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { X, Loader2, Trash2, Plus, CheckSquare } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
 import FileUploader from './FileUploader';
 import CategoryBadge from './CategoryBadge';
-import type { IdeaCategory, DevIdea } from '@/types/developer';
+import type { IdeaCategory, DevIdea, IdeaTodo } from '@/types/developer';
+
+interface TodoInput {
+  id: string;
+  content: string;
+  isCompleted: boolean;
+}
 
 interface IdeaFormProps {
   onClose: () => void;
@@ -12,6 +18,7 @@ interface IdeaFormProps {
     content: string;
     category: IdeaCategory;
     images: File[];
+    todos: IdeaTodo[];
   }) => Promise<void>;
   editingIdea?: DevIdea | null;
 }
@@ -22,7 +29,10 @@ export default function IdeaForm({ onClose, onSubmit, editingIdea }: IdeaFormPro
   const [category, setCategory] = useState<IdeaCategory>('feature');
   const [images, setImages] = useState<File[]>([]);
   const [existingImages, setExistingImages] = useState<string[]>([]);
+  const [todos, setTodos] = useState<TodoInput[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [focusNewTodo, setFocusNewTodo] = useState(false);
+  const lastTodoInputRef = useRef<HTMLInputElement>(null);
 
   // 수정 모드일 때 초기값 설정
   useEffect(() => {
@@ -31,6 +41,14 @@ export default function IdeaForm({ onClose, onSubmit, editingIdea }: IdeaFormPro
       setContent(editingIdea.content);
       setCategory(editingIdea.category);
       setExistingImages(editingIdea.images || []);
+      // 기존 Todo 로드
+      setTodos(
+        (editingIdea.todos || []).map((t) => ({
+          id: t.id,
+          content: t.content,
+          isCompleted: t.isCompleted,
+        }))
+      );
     } else {
       // 폼 초기화
       setAuthorName('');
@@ -38,10 +56,43 @@ export default function IdeaForm({ onClose, onSubmit, editingIdea }: IdeaFormPro
       setCategory('feature');
       setImages([]);
       setExistingImages([]);
+      setTodos([]);
     }
   }, [editingIdea]);
 
   const categories: IdeaCategory[] = ['feature', 'bug', 'design', 'other'];
+
+  // 새 Todo 추가 후 포커스 이동
+  useEffect(() => {
+    if (focusNewTodo && lastTodoInputRef.current) {
+      lastTodoInputRef.current.focus();
+      setFocusNewTodo(false);
+    }
+  }, [focusNewTodo, todos]);
+
+  // Todo 추가
+  const handleAddTodo = () => {
+    setTodos([
+      ...todos,
+      { id: `todo-${Date.now()}`, content: '', isCompleted: false },
+    ]);
+    setFocusNewTodo(true);
+  };
+
+  // Todo 삭제
+  const handleRemoveTodo = (id: string) => {
+    setTodos(todos.filter((t) => t.id !== id));
+  };
+
+  // Todo 내용 변경
+  const handleTodoChange = (id: string, content: string) => {
+    setTodos(todos.map((t) => (t.id === id ? { ...t, content } : t)));
+  };
+
+  // Todo 완료 상태 토글 (수정 모드에서만)
+  const handleTodoToggle = (id: string) => {
+    setTodos(todos.map((t) => (t.id === id ? { ...t, isCompleted: !t.isCompleted } : t)));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,9 +107,19 @@ export default function IdeaForm({ onClose, onSubmit, editingIdea }: IdeaFormPro
       return;
     }
 
+    // 빈 Todo 항목 필터링
+    const validTodos: IdeaTodo[] = todos
+      .filter((t) => t.content.trim())
+      .map((t, index) => ({
+        id: t.id,
+        content: t.content.trim(),
+        isCompleted: t.isCompleted,
+        completedAt: t.isCompleted ? new Date().toISOString() : null,
+      }));
+
     setIsSubmitting(true);
     try {
-      await onSubmit({ authorName, content, category, images });
+      await onSubmit({ authorName, content, category, images, todos: validTodos });
       onClose();
     } catch (error) {
       console.error('Failed to submit idea:', error);
@@ -145,6 +206,70 @@ export default function IdeaForm({ onClose, onSubmit, editingIdea }: IdeaFormPro
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#a8c5e0] focus:border-transparent resize-none"
               required
             />
+          </div>
+
+          {/* Todo 체크리스트 */}
+          <div>
+            <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
+              <CheckSquare className="w-4 h-4" />
+              <span>할 일 (선택)</span>
+              <button
+                type="button"
+                onClick={handleAddTodo}
+                className="w-5 h-5 flex items-center justify-center text-gray-400 hover:text-[#7aa3cc] hover:bg-gray-100 rounded transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+              </button>
+            </label>
+            {todos.length > 0 && (
+              <div className="space-y-2">
+                {todos.map((todo) => (
+                  <div key={todo.id} className="flex items-center gap-2">
+                    {/* 수정 모드에서만 체크박스 표시 */}
+                    {editingIdea && (
+                      <button
+                        type="button"
+                        onClick={() => handleTodoToggle(todo.id)}
+                        className={`flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
+                          todo.isCompleted
+                            ? 'bg-[#a8c5e0] border-[#a8c5e0] text-white'
+                            : 'border-gray-300 hover:border-[#a8c5e0]'
+                        }`}
+                      >
+                        {todo.isCompleted && (
+                          <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
+                        )}
+                      </button>
+                    )}
+                    <input
+                      ref={todos.indexOf(todo) === todos.length - 1 ? lastTodoInputRef : null}
+                      type="text"
+                      value={todo.content}
+                      onChange={(e) => handleTodoChange(todo.id, e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleAddTodo();
+                        }
+                      }}
+                      placeholder="할 일을 입력하세요"
+                      className={`flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#a8c5e0] focus:border-transparent text-sm ${
+                        todo.isCompleted ? 'line-through text-gray-400' : ''
+                      }`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveTodo(todo.id)}
+                      className="flex-shrink-0 p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* 기존 이미지 (수정 모드) */}

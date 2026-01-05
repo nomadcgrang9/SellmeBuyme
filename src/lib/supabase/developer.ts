@@ -8,6 +8,7 @@ import type {
   DevIdeaRow,
   DevIdea,
   IdeaCategory,
+  IdeaTodo,
   DevBoardSubmissionRow,
   DevBoardSubmission,
   BoardSubmissionFormData,
@@ -124,7 +125,16 @@ export async function createIdea(idea: {
   category: IdeaCategory;
   images: string[];
   authorName?: string;
+  todos?: IdeaTodo[];
 }): Promise<DevIdea> {
+  // todos를 DB 형식으로 변환
+  const dbTodos = (idea.todos || []).map((t) => ({
+    id: t.id,
+    content: t.content,
+    is_completed: t.isCompleted,
+    completed_at: t.completedAt,
+  }));
+
   const { data, error } = await supabase
     .from('dev_ideas')
     .insert({
@@ -133,6 +143,7 @@ export async function createIdea(idea: {
       category: idea.category,
       images: idea.images,
       author_name: idea.authorName || '익명',
+      todos: dbTodos,
     })
     .select()
     .single();
@@ -202,14 +213,30 @@ export async function updateIdea(
     content?: string;
     category?: IdeaCategory;
     images?: string[];
+    todos?: IdeaTodo[];
   }
 ): Promise<DevIdea> {
+  // todos가 있으면 DB 형식으로 변환
+  const updateData: Record<string, unknown> = {
+    updated_at: new Date().toISOString(),
+  };
+
+  if (updates.title !== undefined) updateData.title = updates.title;
+  if (updates.content !== undefined) updateData.content = updates.content;
+  if (updates.category !== undefined) updateData.category = updates.category;
+  if (updates.images !== undefined) updateData.images = updates.images;
+  if (updates.todos !== undefined) {
+    updateData.todos = updates.todos.map((t) => ({
+      id: t.id,
+      content: t.content,
+      is_completed: t.isCompleted,
+      completed_at: t.completedAt,
+    }));
+  }
+
   const { data, error } = await supabase
     .from('dev_ideas')
-    .update({
-      ...updates,
-      updated_at: new Date().toISOString(),
-    })
+    .update(updateData)
     .eq('id', id)
     .select()
     .single();
@@ -233,6 +260,34 @@ export async function deleteIdea(id: string): Promise<void> {
     console.error('Failed to delete idea:', error);
     throw new Error(`아이디어 삭제에 실패했습니다: ${error.message}`);
   }
+}
+
+/**
+ * 아이디어 Todo 완료 상태 토글
+ * @param ideaId - 아이디어 ID
+ * @param todoId - Todo ID
+ * @returns 업데이트된 아이디어
+ */
+export async function toggleIdeaTodo(
+  ideaId: string,
+  todoId: string
+): Promise<DevIdea> {
+  // 현재 아이디어 조회
+  const idea = await getIdeaById(ideaId);
+
+  // todo 토글
+  const updatedTodos = idea.todos.map((t) =>
+    t.id === todoId
+      ? {
+          ...t,
+          isCompleted: !t.isCompleted,
+          completedAt: !t.isCompleted ? new Date().toISOString() : null,
+        }
+      : t
+  );
+
+  // 업데이트
+  return updateIdea(ideaId, { todos: updatedTodos });
 }
 
 /**

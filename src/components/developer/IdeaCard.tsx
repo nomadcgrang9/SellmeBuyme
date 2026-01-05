@@ -1,11 +1,11 @@
-// IdeaCard - 아이디어 카드 컴포넌트 (인라인 펼침 방식)
+// IdeaCard - 아이디어 카드 컴포넌트 (인라인 펼침 방식 + Todo 체크리스트)
 import { useState } from 'react';
-import { User, Calendar, Trash2, Send, Edit2, ChevronDown, ChevronUp, Paperclip, Download, FileText, File } from 'lucide-react';
+import { User, Calendar, Trash2, Edit2, ChevronDown, ChevronUp, Paperclip, Download, FileText, File, CheckSquare } from 'lucide-react';
 import { CommentSection } from './comments/CommentSection';
 import CategoryBadge from './CategoryBadge';
 import ImageViewer from './ImageViewer';
 import { linkifyText } from '@/lib/utils/linkify.tsx';
-import type { DevIdea } from '@/types/developer';
+import type { DevIdea, IdeaTodo } from '@/types/developer';
 
 // 파일 확장자로 이미지 여부 확인
 function isImageUrl(url: string): boolean {
@@ -52,16 +52,16 @@ function getFileName(url: string): string {
 
 interface IdeaCardProps {
   idea: DevIdea;
-  onSendToProject?: () => void;
   onEdit?: () => void;
   onDelete?: () => void;
+  onToggleTodo?: (todoId: string) => void;
 }
 
 export default function IdeaCard({
   idea,
-  onSendToProject,
   onEdit,
   onDelete,
+  onToggleTodo,
 }: IdeaCardProps) {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -71,6 +71,12 @@ export default function IdeaCard({
   // 이미지와 문서 분리
   const images = idea.images.filter(isImageUrl);
   const documents = idea.images.filter((url) => !isImageUrl(url));
+
+  // Todo 통계
+  const todos = idea.todos || [];
+  const completedTodos = todos.filter((t) => t.isCompleted).length;
+  const totalTodos = todos.length;
+  const hasTodos = totalTodos > 0;
 
   const handleImageClick = (url: string) => {
     const index = images.indexOf(url);
@@ -133,15 +139,8 @@ export default function IdeaCard({
             )}
           </div>
 
-          {/* 우측 상단 버튼 (프로젝트 보내기 + 수정 + 삭제) */}
+          {/* 우측 상단 버튼 (수정 + 삭제) - 프로젝트로 보내기 버튼 제거됨 */}
           <div className="flex gap-1 flex-shrink-0">
-            <button
-              onClick={onSendToProject}
-              className="p-2 text-[#7aa3cc] hover:text-[#5a8ab0] hover:bg-blue-50 rounded-lg transition-colors"
-              title="프로젝트로 보내기"
-            >
-              <Send className="w-4 h-4" />
-            </button>
             <button
               onClick={onEdit}
               className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
@@ -274,6 +273,46 @@ export default function IdeaCard({
           <div className="flex items-center gap-2 text-xs text-gray-500">
             <Paperclip className="w-3 h-3" />
             <span>첨부파일 {documents.length}개</span>
+          </div>
+        </div>
+      )}
+
+      {/* Todo 체크리스트 (Todo가 있을 때만 표시) */}
+      {hasTodos && (
+        <div className="px-4 py-3 border-t border-gray-100 bg-blue-50/30">
+          <div className="flex items-center gap-2 text-xs font-medium text-gray-700 mb-2">
+            <CheckSquare className="w-3.5 h-3.5 text-[#7aa3cc]" />
+            <span>할 일 ({completedTodos}/{totalTodos})</span>
+          </div>
+          <div className="space-y-1.5">
+            {todos.map((todo) => (
+              <div
+                key={todo.id}
+                className="flex items-start gap-2"
+              >
+                <button
+                  onClick={() => onToggleTodo?.(todo.id)}
+                  className={`flex-shrink-0 w-4 h-4 mt-0.5 rounded border-2 flex items-center justify-center transition-colors ${
+                    todo.isCompleted
+                      ? 'bg-[#a8c5e0] border-[#a8c5e0] text-white'
+                      : 'border-gray-300 hover:border-[#a8c5e0]'
+                  }`}
+                >
+                  {todo.isCompleted && (
+                    <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                  )}
+                </button>
+                <span
+                  className={`text-sm leading-tight ${
+                    todo.isCompleted ? 'line-through text-gray-400' : 'text-gray-700'
+                  }`}
+                >
+                  {todo.content}
+                </span>
+              </div>
+            ))}
           </div>
         </div>
       )}

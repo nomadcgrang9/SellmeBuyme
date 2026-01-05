@@ -22,6 +22,7 @@ export interface DevIdeaRow {
   content: string;
   category: IdeaCategory;
   images: string[];
+  todos: Array<{ id: string; content: string; is_completed: boolean; completed_at: string | null }>;
   created_at: string;
   updated_at: string;
 }
@@ -95,6 +96,13 @@ export interface DevNoticeRow {
 // Client-side Types (camelCase for easier use in React)
 // =============================================================================
 
+export interface IdeaTodo {
+  id: string;
+  content: string;
+  isCompleted: boolean;
+  completedAt: string | null;
+}
+
 export interface DevIdea {
   id: string;
   userId: string | null;
@@ -103,6 +111,7 @@ export interface DevIdea {
   content: string;
   category: IdeaCategory;
   images: string[];
+  todos: IdeaTodo[];
   createdAt: string;
   updatedAt: string;
 }
@@ -273,6 +282,12 @@ export function convertIdeaRowToIdea(row: DevIdeaRow): DevIdea {
     content: row.content,
     category: row.category,
     images: row.images,
+    todos: (row.todos || []).map((t) => ({
+      id: t.id,
+      content: t.content,
+      isCompleted: t.is_completed,
+      completedAt: t.completed_at,
+    })),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
