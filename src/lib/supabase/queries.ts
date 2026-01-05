@@ -2714,6 +2714,8 @@ function buildTokenGroups(tokens: string[]): TokenGroup[] {
   return tokens.map((token) => {
     const variants = new Set<string>();
     variants.add(token);
+
+    // 1. synonymMap에서 동의어 추가
     const synonyms = synonymMap[token];
     if (Array.isArray(synonyms)) {
       synonyms.forEach((synonym) => {
@@ -2723,6 +2725,22 @@ function buildTokenGroups(tokens: string[]): TokenGroup[] {
         }
       });
     }
+
+    // 2. 광역시도 키워드인 경우 하위 시군구 모두 추가
+    // 예: "경기" → ["경기", "경기도", "수원", "수원시", "성남", "성남시", ...]
+    if (PROVINCE_NAMES.includes(token)) {
+      const cities = PROVINCE_TO_CITIES[token];
+      if (cities) {
+        // 광역시도 + "도/시" 변형 추가
+        variants.add(`${token}도`);  // 경기 → 경기도
+        variants.add(`${token}시`);  // 부산 → 부산시
+        // 모든 하위 시군구 추가
+        cities.forEach((city) => {
+          variants.add(city);
+        });
+      }
+    }
+
     return Array.from(variants);
   });
 }
