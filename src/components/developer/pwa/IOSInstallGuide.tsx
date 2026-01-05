@@ -11,12 +11,12 @@ interface IOSInstallGuideProps {
 
 export default function IOSInstallGuide({ onClose, onDismiss }: IOSInstallGuideProps) {
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* 배경 */}
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
 
       {/* 모달 */}
-      <div className="relative w-full max-w-sm bg-white rounded-t-2xl sm:rounded-2xl shadow-xl mx-4 sm:mx-0">
+      <div className="relative w-full max-w-sm bg-white rounded-2xl shadow-xl">
         {/* 헤더 */}
         <div className="flex items-center justify-between p-4 border-b border-gray-100">
           <h3 className="text-base font-semibold text-gray-900">홈 화면에 추가</h3>
