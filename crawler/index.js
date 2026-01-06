@@ -5,8 +5,8 @@ import { getOrCreateCrawlSource, saveJobPosting, updateCrawlSuccess, incrementEr
 import { crawlGyeonggi } from './sources/gyeonggi.js';
 import { crawlGyeongnam } from './sources/gyeongnam.js';
 import { crawlNttPattern } from './sources/nttPattern.js';
-import { crawlUijeongbu } from './sources/uijeongbu.js';
-import { crawlNamyangju } from './sources/namyangju.js';
+// import { crawlUijeongbu } from './sources/uijeongbu.js';  // 파일 없음
+// import { crawlNamyangju } from './sources/namyangju.js';  // 파일 없음
 import { crawlIncheon } from './sources/incheon.js';
 import { crawlSeoul } from './sources/seoul.js';
 import { crawlGangwon } from './sources/gangwon.js';
@@ -462,12 +462,12 @@ async function main() {
     } else if (targetSource === 'gyeongnam') {
       logStep('crawler', '경상남도교육청 크롤링 호출');
       rawJobs = await crawlGyeongnam(page, config);
-    } else if (targetSource === 'uijeongbu') {
-      logStep('crawler', '의정부교육지원청 크롤링 호출');
-      rawJobs = await crawlUijeongbu(page, config);
-    } else if (targetSource === 'namyangju') {
-      logStep('crawler', '구리남양주교육지원청 크롤링 호출');
-      rawJobs = await crawlNamyangju(page, config);
+    // } else if (targetSource === 'uijeongbu') {
+    //   logStep('crawler', '의정부교육지원청 크롤링 호출');
+    //   rawJobs = await crawlUijeongbu(page, config);
+    // } else if (targetSource === 'namyangju') {
+    //   logStep('crawler', '구리남양주교육지원청 크롤링 호출');
+    //   rawJobs = await crawlNamyangju(page, config);
     } else if (targetSource === 'incheon') {
       logStep('crawler', '인천교육청 크롤링 호출');
       rawJobs = await crawlIncheon(page, config);
