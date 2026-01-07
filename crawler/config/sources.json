@@ -9,16 +9,6 @@
     "active": false,
     "note": "별도 크롤러 필요 (HTML 구조 다름)"
   },
-  "busan": {
-    "name": "부산광역시교육청 학교인력채용",
-    "baseUrl": "https://www.pen.go.kr/selectBbsNttList.do?bbsNo=397&key=1553",
-    "detailUrlTemplate": "https://www.pen.go.kr/selectBbsNttView.do?bbsNo=397&key=1553&nttNo=",
-    "parserType": "custom",
-    "region": "부산광역시",
-    "isLocalGovernment": false,
-    "active": false,
-    "note": "별도 크롤러 필요 (selectBbsNttList 패턴)"
-  },
   "daegu": {
     "name": "대구광역시교육청 채용공고",
     "baseUrl": "https://www.dge.go.kr/main/na/ntt/selectNttList.do?mi=8026&bbsId=4261",
@@ -261,33 +251,15 @@
     "name": "부산광역시교육청 학교인력채용",
     "baseUrl": "https://www.pen.go.kr/main/na/ntt/selectNttList.do?mi=30367&bbsId=2364",
     "detailUrlTemplate": "https://www.pen.go.kr/main/na/ntt/selectNttInfo.do?mi=30367&bbsId=2364&nttSn=",
-    "type": "table",
-    "parserType": "html",
+    "parserType": "ntt",
     "selectors": {
-      "listContainer": "table:has(.nttInfoBtn)",
-      "row": "tbody tr",
-      "title": {
-        "selector": "td.bbs_tit a, .nttInfoBtn",
-        "extract": "text"
-      },
-      "date": {
-        "selector": "td:nth-child(5)",
-        "extract": "text"
-      },
-      "link": {
-        "selector": ".nttInfoBtn",
-        "extract": "attribute",
-        "attributeName": "data-id"
-      },
-      "attachment": "a[href*='fileDown'], a[href*='download']"
+      "rows": "table tbody tr",
+      "link": "a.nttInfoBtn, a[data-id]",
+      "date": "td:nth-child(5)"
     },
-    "region": "부산",
+    "region": "부산광역시",
     "isLocalGovernment": false,
-    "active": false,
-    "pagination": {
-      "type": "script",
-      "functionName": "goPaging"
-    }
+    "active": true
   },
   "daegu": {
     "name": "대구광역시교육청 채용",

@@ -12,6 +12,7 @@ on:
           - seongnam
           - uijeongbu
           - namyangju
+          - busan
           - gwangju
           - jeonbuk
           - jeonnam
@@ -89,6 +90,7 @@ jobs:
           - seongnam
           - uijeongbu
           - namyangju
+          - busan
           - gwangju
           - jeonbuk
           - jeonnam
