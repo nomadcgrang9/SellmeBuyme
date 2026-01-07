@@ -491,16 +491,17 @@
   },
   "gyeongnam": {
     "name": "경상남도교육청 구인구직포털",
-    "baseUrl": "https://www.gne.go.kr/works/index.do",
+    "baseUrl": "https://www.gne.go.kr/works/user/recruitment/BD_recruitmentList.do?q_searchStatus=1004",
     "detailUrlTemplate": "https://www.gne.go.kr/works/user/recruitment/BD_recruitmentDetail.do?regSn=",
     "parserType": "custom",
     "selectors": {
-      "rows": "a[href*='BD_recruitmentDetail.do']"
+      "rows": "table tbody tr",
+      "onclick": "openDetail"
     },
     "region": "경상남도",
     "isLocalGovernment": false,
     "active": true,
-    "note": "별도 크롤러 사용 (gyeongnam.js)"
+    "note": "별도 크롤러 사용 (gyeongnam.js) - onclick 패턴"
   },
   "incheon_v2": {
     "name": "인천교육청 채용공고",

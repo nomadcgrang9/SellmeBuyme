@@ -20,6 +20,7 @@ on:
           - jeonnam
           - jeju
           - gyeongbuk
+          - gyeongnam
           - incheon
           - seoul
           - gangwon
@@ -101,6 +102,7 @@ jobs:
           - jeonnam
           - jeju
           - gyeongbuk
+          - gyeongnam
           - incheon
           - seoul
           - gangwon

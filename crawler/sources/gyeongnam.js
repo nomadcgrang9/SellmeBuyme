@@ -2,8 +2,8 @@ import { loadPageWithRetry } from '../lib/playwright.js';
 
 /**
  * 경상남도교육청 구인구직포털 크롤러
- * 패턴: E (div 카드 기반) - 새로운 패턴
- * URL: https://www.gne.go.kr/works/index.do
+ * 패턴: onclick 이벤트 기반
+ * URL: https://www.gne.go.kr/works/user/recruitment/BD_recruitmentList.do?q_searchStatus=1004
  * @param {import('playwright').Page} page - Playwright Page 객체
  * @param {object} config - 크롤러 설정 객체
  * @returns {Promise<object[]>} - 크롤링된 채용 정보 배열
@@ -13,7 +13,7 @@ export async function crawlGyeongnam(page, config) {
 
   const jobs = [];
   const baseUrl = 'https://www.gne.go.kr';
-  const listUrl = `${baseUrl}/works/index.do`;
+  const listUrl = config.baseUrl || `${baseUrl}/works/user/recruitment/BD_recruitmentList.do?q_searchStatus=1004`;
 
   try {
     // 1. 목록 페이지 로드
@@ -29,110 +29,58 @@ export async function crawlGyeongnam(page, config) {
 
     // 2. 게시글 목록 추출
     console.log('📋 게시글 목록 추출 중...');
-    const jobListData = await page.evaluate((baseUrl) => {
+    const jobListData = await page.evaluate(() => {
       const results = [];
 
-      // 경상남도교육청 구인구직포털은 <a> 링크 블록으로 구성
-      // href 패턴: /works/user/recruitment/BD_recruitmentDetail.do?regSn=번호
-      const jobLinks = document.querySelectorAll('a[href*="BD_recruitmentDetail.do"]');
+      // 테이블 행에서 onclick 이벤트로 ID 추출
+      const rows = document.querySelectorAll('table tbody tr');
 
-      jobLinks.forEach((link, idx) => {
+      rows.forEach((row, idx) => {
         try {
-          const href = link.getAttribute('href');
-          if (!href) return;
+          // onclick="openDetail('1798048')" 패턴에서 ID 추출
+          const titleLink = row.querySelector('a[onclick*="openDetail"]');
+          if (!titleLink) return;
 
-          // regSn 파라미터 추출
-          const regSnMatch = href.match(/regSn=(\d+)/);
-          if (!regSnMatch) return;
+          const onclick = titleLink.getAttribute('onclick') || '';
+          const idMatch = onclick.match(/openDetail\('(\d+)'\)/);
+          if (!idMatch) return;
 
-          const regSn = regSnMatch[1];
+          const regSn = idMatch[1];
+          const title = titleLink.textContent.trim();
 
-          // 링크 내부 텍스트에서 정보 추출
-          const fullText = link.textContent.trim();
-
-          // 제목 추출 (보통 가장 긴 텍스트)
-          const lines = fullText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-
-          // 첫 번째 줄은 보통 상태/지역/직종 배지
-          // 두 번째 줄이 제목
-          // 마지막 줄이 기간
-          let title = '';
+          // 지역 정보 추출 (cate span)
+          const cate = row.querySelector('.cate');
           let region = '';
-          let dateRange = '';
-
-          if (lines.length >= 2) {
-            // 배지 줄에서 지역 추출 (진주, 김해, 창원 등)
-            const badgeLine = lines[0];
-            const regionPatterns = [
-              '진주', '김해', '창원', '양산', '밀양', '거제', '사천',
-              '통영', '거창', '함안', '창녕', '고성', '남해', '하동',
-              '산청', '함양', '합천', '의령'
-            ];
-            for (const r of regionPatterns) {
-              if (badgeLine.includes(r)) {
-                region = r;
-                break;
-              }
-            }
-
-            // 제목 찾기 (배지가 아닌 가장 긴 라인)
-            for (const line of lines) {
-              if (line.length > title.length && !line.includes('~') && !regionPatterns.some(r => line === r)) {
-                title = line;
-              }
-            }
-
-            // 날짜 범위 찾기 (YYYY.MM.DD ~ YYYY.MM.DD 형식)
-            for (const line of lines) {
-              if (line.includes('~')) {
-                dateRange = line;
-                break;
-              }
-            }
+          if (cate) {
+            const cateText = cate.textContent.trim();
+            region = cateText.split('｜')[0].trim();
           }
 
-          if (!title || title.length < 5) {
-            title = fullText.substring(0, 100); // 폴백
+          // 날짜 정보 추출
+          const dateCells = row.querySelectorAll('td');
+          let dateText = '';
+          if (dateCells.length > 2) {
+            dateText = dateCells[dateCells.length - 2].textContent.trim();
           }
-
-          // 배지/상태 정보 추출
-          let status = '';
-          if (fullText.includes('접수중')) status = '접수중';
-          else if (fullText.includes('접수예정')) status = '접수예정';
-          else if (fullText.includes('마감')) status = '마감';
 
           results.push({
             regSn,
-            title: title.replace(/\s+/g, ' ').trim(),
+            title,
             region,
-            dateRange,
-            status,
-            fullUrl: href.startsWith('http') ? href : baseUrl + href
+            dateText
           });
         } catch (e) {
-          console.error('항목 처리 중 오류:', e.message);
+          console.error(`행 ${idx} 처리 오류:`, e.message);
         }
       });
 
       return results;
-    }, baseUrl);
+    });
 
     console.log(`📊 발견된 공고 수: ${jobListData.length}개`);
 
     if (jobListData.length === 0) {
       console.warn('⚠️  공고 목록을 찾을 수 없습니다.');
-
-      // 디버깅: 페이지 구조 확인
-      const debugInfo = await page.evaluate(() => {
-        return {
-          title: document.title,
-          allLinks: document.querySelectorAll('a').length,
-          worksLinks: document.querySelectorAll('a[href*="works"]').length,
-          recruitLinks: document.querySelectorAll('a[href*="recruitment"]').length,
-          bodyText: document.body.textContent.substring(0, 500)
-        };
-      });
-      console.log('🔍 디버그 정보:', debugInfo);
       return [];
     }
 
@@ -147,7 +95,6 @@ export async function crawlGyeongnam(page, config) {
       console.log(`\n  🔍 공고 ${i + 1}/${maxJobs} (ID: ${regSn})`);
       console.log(`     제목: ${listInfo.title}`);
       console.log(`     지역: ${listInfo.region || '미지정'}`);
-      console.log(`     상태: ${listInfo.status || '미지정'}`);
 
       try {
         // 상세 페이지 URL 구성
@@ -190,61 +137,29 @@ export async function crawlGyeongnam(page, config) {
             content = body.textContent.trim().substring(0, 5000);
           }
 
-          // 상세 정보 테이블에서 추가 정보 추출
-          const infoTable = {};
-          const tableRows = document.querySelectorAll('table tr, dl dt, dl dd');
-          let currentKey = '';
+          // 첨부파일 추출
+          const attachments = [];
+          const attachLinks = document.querySelectorAll('a[href*="download"], a[href*="fileDown"], a[onclick*="file"]');
 
-          tableRows.forEach(row => {
-            if (row.tagName === 'TR') {
-              const th = row.querySelector('th');
-              const td = row.querySelector('td');
-              if (th && td) {
-                infoTable[th.textContent.trim()] = td.textContent.trim();
-              }
-            } else if (row.tagName === 'DT') {
-              currentKey = row.textContent.trim();
-            } else if (row.tagName === 'DD' && currentKey) {
-              infoTable[currentKey] = row.textContent.trim();
-              currentKey = '';
+          attachLinks.forEach(link => {
+            let fileName = link.textContent.trim();
+            const href = link.getAttribute('href') || '';
+            const onclick = link.getAttribute('onclick') || '';
+
+            if (!fileName) {
+              fileName = link.getAttribute('title') || '첨부파일';
+            }
+
+            if (fileName && (href || onclick) && fileName.length > 2) {
+              attachments.push({
+                fileName,
+                url: href || onclick
+              });
             }
           });
 
-          // 첨부파일 추출
-          const attachments = [];
-          const attachSelectors = [
-            'a[href*="download"]',
-            'a[href*="fileDown"]',
-            'a[onclick*="file"]',
-            '.file-list a',
-            '.attach a'
-          ];
-
-          for (const selector of attachSelectors) {
-            const attachLinks = document.querySelectorAll(selector);
-            attachLinks.forEach(link => {
-              let fileName = link.textContent.trim();
-              const href = link.getAttribute('href') || '';
-              const onclick = link.getAttribute('onclick') || '';
-
-              if (!fileName) {
-                fileName = link.getAttribute('title') || '첨부파일';
-              }
-
-              if (fileName && (href || onclick) &&
-                  !fileName.includes('목록') &&
-                  fileName.length > 2) {
-                attachments.push({
-                  fileName,
-                  url: href || onclick
-                });
-              }
-            });
-          }
-
           return {
             content,
-            infoTable,
             attachments
           };
         });
@@ -261,15 +176,6 @@ export async function crawlGyeongnam(page, config) {
         // 지역 정보 결정
         const location = listInfo.region ? `경상남도 ${listInfo.region}` : '경상남도';
 
-        // 마감일 파싱 (dateRange에서 추출)
-        let deadline = null;
-        if (listInfo.dateRange) {
-          const dateMatch = listInfo.dateRange.match(/~\s*(\d{4}[.\-\/]\d{2}[.\-\/]\d{2})/);
-          if (dateMatch) {
-            deadline = dateMatch[1].replace(/\./g, '-');
-          }
-        }
-
         // 데이터 병합
         const jobData = {
           organization: '경상남도교육청',
@@ -277,8 +183,8 @@ export async function crawlGyeongnam(page, config) {
           tags: ['교육청', '구인구직포털'],
           location: location,
           compensation: null,
-          deadline: deadline,
-          isUrgent: listInfo.status === '마감' ? false : true,
+          deadline: listInfo.dateText,
+          isUrgent: true,
           schoolLevel: 'mixed',
           subject: null,
           requiredLicense: null,
@@ -286,11 +192,8 @@ export async function crawlGyeongnam(page, config) {
           crawledAt: new Date().toISOString(),
           structuredContent: {
             regSn: regSn,
-            dateRange: listInfo.dateRange,
-            status: listInfo.status,
             region: listInfo.region,
             content: detailData.content,
-            infoTable: detailData.infoTable,
             attachments: detailData.attachments
           },
           screenshotBase64
