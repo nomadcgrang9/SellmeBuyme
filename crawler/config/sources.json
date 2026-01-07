@@ -18,6 +18,20 @@
     "isLocalGovernment": false,
     "active": true
   },
+  "daegu-teachers": {
+    "name": "대구광역시교육청 기간제교사·강사",
+    "baseUrl": "https://www.dge.go.kr/main/na/ntt/selectNttList.do?mi=5186&bbsId=1047",
+    "detailUrlTemplate": "https://www.dge.go.kr/main/na/ntt/selectNttInfo.do?mi=5186&bbsId=1047&nttSn=",
+    "parserType": "ntt",
+    "selectors": {
+      "rows": "table tbody tr",
+      "link": "a.nttInfoBtn, a[data-id]",
+      "date": "td:nth-child(5)"
+    },
+    "region": "대구광역시",
+    "isLocalGovernment": false,
+    "active": true
+  },
   "incheon": {
     "name": "인천광역시교육청 채용공고",
     "baseUrl": "https://www.ice.go.kr/boardCnts/list.do?boardID=1639&m=040802&s=ice",
