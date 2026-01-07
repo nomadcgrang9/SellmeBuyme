@@ -41,12 +41,12 @@ async function main() {
   console.log('🧹 잘못된 지역 데이터 정리 시작\n');
   console.log('='.repeat(60));
 
-  // 삭제할 organization 목록
+  // 삭제할 organization 목록 (실제로 문제가 있는 것만)
   const organizationsToClean = [
     '대전광역시교육청',
     '경상남도교육청',
-    '경상북도교육청',
-    '울산광역시교육청'
+    '경상북도교육청'
+    // 울산, 부산은 정상 작동하므로 제외
   ];
 
   for (const org of organizationsToClean) {
