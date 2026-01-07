@@ -656,13 +656,19 @@ async function main() {
         const attachmentUrlWithFilename = rawJob.attachmentUrl;
 
         // 6-6. 직무 속성 추론 (학교급, 과목, 라이센스)
-        // organization 우선순위: AI 정리 > 크롤러 추출 > 기타
-        // schoolName이 일반명(교육청, 학교급 이름만)이면 AI 결과 우선
-        const genericNames = ['교육청', '교육지원청', '유치원', '초등학교', '중학교', '고등학교'];
-        const isGenericSchoolName = !rawJob.schoolName || genericNames.some(g => rawJob.schoolName === g || rawJob.schoolName?.endsWith('교육청') || rawJob.schoolName?.endsWith('교육지원청'));
-        const bestOrganization = isGenericSchoolName
-          ? (validation.corrected_data?.organization || normalized?.organization || rawJob.schoolName)
-          : (rawJob.schoolName || validation.corrected_data?.organization || normalized?.organization);
+        // organization 우선순위: Supabase 형식일 때는 크롤러 값 절대 우선
+        let bestOrganization;
+        if (hasSupabaseFormat) {
+          // Supabase 형식: 크롤러가 제공한 organization을 절대 신뢰
+          bestOrganization = rawJob.organization;
+        } else {
+          // 기존 로직: AI 정리 > 크롤러 추출 > 기타
+          const genericNames = ['교육청', '교육지원청', '유치원', '초등학교', '중학교', '고등학교'];
+          const isGenericSchoolName = !rawJob.schoolName || genericNames.some(g => rawJob.schoolName === g || rawJob.schoolName?.endsWith('교육청') || rawJob.schoolName?.endsWith('교육지원청'));
+          bestOrganization = isGenericSchoolName
+            ? (validation.corrected_data?.organization || normalized?.organization || rawJob.schoolName)
+            : (rawJob.schoolName || validation.corrected_data?.organization || normalized?.organization);
+        }
 
         const derivedJobAttributes = deriveJobAttributes({
           jobField: rawJob.jobField,
@@ -685,9 +691,17 @@ async function main() {
         let finalSchoolLevel = derivedJobAttributes.schoolLevel;
         let finalSubject = derivedJobAttributes.subject;
 
-        // Location 처리: 기초/광역 자치단체 구분 ⭐
+        // Location 처리: Supabase 형식일 때는 크롤러 값 절대 우선
         let finalLocation;
-        if (config.isLocalGovernment) {
+        if (hasSupabaseFormat) {
+          // Supabase 형식: 크롤러가 제공한 location을 절대 신뢰
+          finalLocation = rawJob.location || config.region || '미상';
+          logDebug('pipeline', 'Supabase 형식 location (크롤러 값 사용)', {
+            rawLocation: rawJob.location,
+            configRegion: config.region,
+            final: finalLocation
+          });
+        } else if (config.isLocalGovernment) {
           // 기초자치단체: 크롤러 하드코딩(rawJob.location) > DB(config.region) 순서
           finalLocation = rawJob.location || config.region || '미상';
           logDebug('pipeline', '기초자치단체 location 하드코딩', {
