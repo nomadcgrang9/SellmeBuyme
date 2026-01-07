@@ -156,17 +156,27 @@ export async function crawlUlsan(page, config) {
         const screenshot = await page.screenshot({ fullPage: true, type: 'png' });
         const screenshotBase64 = screenshot.toString('base64');
 
-        // 데이터 병합
+        // 데이터 병합 (Supabase 형식)
         const jobData = {
+          organization: '울산광역시교육청',
           title: listInfo.title,
-          date: listInfo.registeredDate || new Date().toISOString().split('T')[0],
-          link: detailUrl,
+          tags: ['교육청', '인력풀'],
           location: config.region || '울산광역시',
-          detailContent: detailData.content,
-          attachmentUrl: detailData.attachmentUrl,
-          attachmentFilename: detailData.attachmentFilename,
-          screenshotBase64: screenshotBase64,
-          hasContentImages: false,
+          compensation: null,
+          deadline: listInfo.registeredDate,
+          isUrgent: true,
+          schoolLevel: 'mixed',
+          subject: null,
+          requiredLicense: null,
+          sourceUrl: detailUrl,
+          crawledAt: new Date().toISOString(),
+          structuredContent: {
+            docNo: docNo,
+            content: detailData.content,
+            attachmentUrl: detailData.attachmentUrl,
+            attachmentFilename: detailData.attachmentFilename
+          },
+          screenshotBase64
         };
 
         jobs.push(jobData);

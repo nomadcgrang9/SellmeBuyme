@@ -163,17 +163,28 @@ export async function crawlNttPattern(page, config) {
         const screenshot = await page.screenshot({ fullPage: true, type: 'png' });
         const screenshotBase64 = screenshot.toString('base64');
 
-        // 데이터 병합
+        // 데이터 병합 (Supabase 형식)
         const jobData = {
+          organization: config.name || '교육청',
           title: listInfo.title,
-          date: listInfo.registeredDate || new Date().toISOString().split('T')[0],
-          link: detailUrl,
+          tags: ['교육청', 'NTT패턴'],
           location: config.region || '미상',
-          detailContent: detailData.content,
-          attachmentUrl: detailData.attachmentUrl,
-          attachmentFilename: detailData.attachmentFilename,
-          screenshotBase64: screenshotBase64,
-          hasContentImages: detailData.hasContentImages,
+          compensation: null,
+          deadline: listInfo.registeredDate,
+          isUrgent: true,
+          schoolLevel: 'mixed',
+          subject: null,
+          requiredLicense: null,
+          sourceUrl: detailUrl,
+          crawledAt: new Date().toISOString(),
+          structuredContent: {
+            nttId: nttId,
+            content: detailData.content,
+            attachmentUrl: detailData.attachmentUrl,
+            attachmentFilename: detailData.attachmentFilename,
+            hasContentImages: detailData.hasContentImages
+          },
+          screenshotBase64
         };
 
         jobs.push(jobData);
