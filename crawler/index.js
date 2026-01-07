@@ -762,8 +762,8 @@ async function main() {
             finalSchoolLevel = llmResult.school_level;
             finalSubject = llmResult.subject || finalSubject; // subject는 선택적 업데이트
 
-            // Location은 기초자치단체가 아닐 때만 LLM 결과 반영
-            if (!config.isLocalGovernment) {
+            // Location은 Supabase 형식이 아니고, 기초자치단체가 아닐 때만 LLM 결과 반영
+            if (!hasSupabaseFormat && !config.isLocalGovernment) {
               finalLocation = llmResult.location || finalLocation;
             }
 
@@ -825,12 +825,30 @@ async function main() {
           : null;
 
         // 6-7. 원본 데이터 병합 (우선순위: 게시판 정보 > AI 분석 > Vision)
-        const finalData = {
-          ...validation.corrected_data,
+        const baseData = hasSupabaseFormat
+          ? {
+              // Supabase 형식: AI 값 무시, 크롤러+수동 설정값만 사용
+              organization: bestOrganization,
+              title: normalized.title,
+              job_type: normalized.job_type || validation.corrected_data.job_type,
+              tags: normalized.tags || [],
+              location: finalLocation || '미상',
+              compensation: normalized.compensation,
+              deadline: normalized.deadline,
+              is_urgent: normalized.is_urgent || false,
+              source_url: normalized.source_url,
+            }
+          : {
+              // 기존 로직: AI 정규화 결과 사용
+              ...validation.corrected_data,
 
-          // 게시판에서 추출한 구조화된 정보 우선 반영 (LLM Fallback 적용)
-          location: finalLocation || '미상',
-          organization: bestOrganization,
+              // 게시판에서 추출한 구조화된 정보 우선 반영 (LLM Fallback 적용)
+              location: finalLocation || '미상',
+              organization: bestOrganization,
+            };
+
+        const finalData = {
+          ...baseData,
 
           // 상세 정보
           detail_content: rawJob.detailContent,
