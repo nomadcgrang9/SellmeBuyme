@@ -544,24 +544,70 @@ async function main() {
         }
 
         let visionData = null;
+        let normalized = null;
 
-        // 6-2. 스크린샷이 있으면 Gemini Vision으로 분석
-        if (rawJob.screenshotBase64) {
-          logStep('pipeline', 'Gemini Vision 분석 시작', { title: rawJob.title });
-          visionData = await analyzePageScreenshot(rawJob.screenshotBase64);
-          logDebug('pipeline', 'Gemini Vision 분석 완료', { title: rawJob.title, visionData });
-        }
+        // 크롤러가 이미 Supabase 형식을 반환하는지 확인
+        const hasSupabaseFormat = rawJob.organization && rawJob.sourceUrl;
 
-        // 6-3. AI 정규화 (텍스트 기반)
-        const normalized = await normalizeJobData(rawJob, config.name);
+        if (hasSupabaseFormat) {
+          // 크롤러가 정규화된 데이터를 제공 - AI 건너뛰기
+          logStep('pipeline', '크롤러 정규화 데이터 사용 (AI 건너뛰기)', {
+            title: rawJob.title,
+            organization: rawJob.organization,
+            location: rawJob.location
+          });
 
-        if (!normalized) {
-          failCount++;
-          continue;
+          // rawJob을 normalized 형식으로 매핑
+          normalized = {
+            organization: rawJob.organization,
+            title: rawJob.title,
+            tags: rawJob.tags || [],
+            location: rawJob.location,
+            compensation: rawJob.compensation,
+            deadline: rawJob.deadline,
+            is_urgent: rawJob.isUrgent || false,
+            school_level: rawJob.schoolLevel,
+            subject: rawJob.subject,
+            required_license: rawJob.requiredLicense,
+            source_url: rawJob.sourceUrl,
+            attachment_url: rawJob.structuredContent?.attachmentUrl || rawJob.attachmentUrl,
+            detail_content: rawJob.structuredContent?.content || rawJob.detailContent,
+            screenshot_base64: rawJob.screenshotBase64
+          };
+
+          // Vision 분석은 선택적으로 실행 (스크린샷이 있고 일부 필드가 비어있으면)
+          if (rawJob.screenshotBase64 && (!normalized.deadline || !normalized.tags?.length)) {
+            logStep('pipeline', 'Gemini Vision으로 누락 필드 보강', { title: rawJob.title });
+            visionData = await analyzePageScreenshot(rawJob.screenshotBase64);
+
+            // 누락 필드만 보강
+            if (visionData) {
+              normalized.deadline = normalized.deadline || visionData.deadline;
+              normalized.tags = normalized.tags?.length ? normalized.tags : (visionData.subjects || []);
+              normalized.compensation = normalized.compensation || visionData.compensation;
+            }
+          }
+
+        } else {
+          // 기존 로직: AI 정규화 필요
+          if (rawJob.screenshotBase64) {
+            logStep('pipeline', 'Gemini Vision 분석 시작', { title: rawJob.title });
+            visionData = await analyzePageScreenshot(rawJob.screenshotBase64);
+            logDebug('pipeline', 'Gemini Vision 분석 완료', { title: rawJob.title, visionData });
+          }
+
+          // AI 정규화 (텍스트 기반)
+          normalized = await normalizeJobData(rawJob, config.name);
+
+          if (!normalized) {
+            failCount++;
+            continue;
+          }
         }
 
         // 6-4. Vision 데이터로 보강 (우선순위: Vision > 텍스트)
-        if (visionData) {
+        // 단, Supabase 형식일 때는 organization/location은 크롤러 값 유지
+        if (visionData && !hasSupabaseFormat) {
           normalized.organization = visionData.school_name || normalized.organization;
           normalized.title = visionData.job_title || normalized.title;
           normalized.job_type = visionData.job_type || normalized.job_type;
