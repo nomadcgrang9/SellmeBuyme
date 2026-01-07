@@ -53,14 +53,18 @@
     "note": "별도 크롤러 필요 (xboard 패턴)"
   },
   "daejeon": {
-    "name": "대전광역시교육청 채용공고",
-    "baseUrl": "https://www.edurecruit.go.kr/jobList.do",
-    "detailUrlTemplate": "https://www.edurecruit.go.kr/jobDetail.do?jobId=",
+    "name": "대전광역시교육청 학교인사",
+    "baseUrl": "https://www.dje.go.kr/boardCnts/list.do?boardID=54&m=030202&s=dje",
+    "detailUrlTemplate": "https://www.dje.go.kr/boardCnts/view.do?boardID=54&boardSeq={SEQ}&lev=0&searchType=null&statusYN=W&page=1&s=dje&m=030202&opType=N&prntBoardID=0&prntBoardSeq=0&prntLev=0",
     "parserType": "custom",
+    "selectors": {
+      "rows": "table tbody tr",
+      "onclick": "goView"
+    },
     "region": "대전광역시",
     "isLocalGovernment": false,
-    "active": false,
-    "note": "별도 크롤러 필요 (edurecruit 패턴)"
+    "active": true,
+    "note": "별도 크롤러 사용 (daejeon.js) - goView 패턴"
   },
   "ulsan": {
     "name": "울산광역시교육청 인력풀",
@@ -371,38 +375,6 @@
     "active": true,
     "pagination": {
       "type": "none"
-    }
-  },
-  "daejeon": {
-    "name": "대전광역시교육청 학교인력채용",
-    "baseUrl": "https://www.dje.go.kr/boardCnts/list.do?boardID=54&m=030202&s=dje",
-    "detailUrlTemplate": "https://www.dje.go.kr/boardCnts/view.do?boardID=54&m=030202&s=dje&boardSeq=",
-    "type": "table",
-    "parserType": "html",
-    "selectors": {
-      "listContainer": "table",
-      "row": "tbody tr",
-      "title": {
-        "selector": "td.subject a",
-        "extract": "text"
-      },
-      "date": {
-        "selector": "td:nth-child(5)",
-        "extract": "text"
-      },
-      "link": {
-        "selector": "td.subject a",
-        "extract": "onclick",
-        "regex": "bg0001_[0-9]+_([0-9]+)"
-      },
-      "attachment": "a[href*='FileDown']"
-    },
-    "region": "대전",
-    "isLocalGovernment": false,
-    "active": false,
-    "pagination": {
-      "type": "script",
-      "functionName": "goPage"
     }
   },
   "chungnam": {

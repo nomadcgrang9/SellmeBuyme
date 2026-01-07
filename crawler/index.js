@@ -15,6 +15,7 @@ import { crawlJeonbuk } from './sources/jeonbuk.js';
 import { crawlJeonnam } from './sources/jeonnam.js';
 import { crawlJeju } from './sources/jeju.js';
 import { crawlUlsan } from './sources/ulsan.js';
+import { crawlDaejeon } from './sources/daejeon.js';
 import { getTokenUsage, resetTokenUsage } from './lib/gemini.js';
 import { parseJobField, deriveJobAttributes } from './lib/jobFieldParser.js';
 import { checkRobotsTxt, validateAccess, exponentialBackoff } from './lib/accessChecker.js';
@@ -491,6 +492,9 @@ async function main() {
     } else if (targetSource === 'ulsan') {
       logStep('crawler', '울산광역시교육청 크롤링 호출');
       rawJobs = await crawlUlsan(page, config);
+    } else if (targetSource === 'daejeon') {
+      logStep('crawler', '대전광역시교육청 크롤링 호출');
+      rawJobs = await crawlDaejeon(page, config);
     } else if (parserType === 'ntt') {
       // 범용 selectNttList.do 패턴 크롤러
       logStep('crawler', `[NTT패턴] ${config.name} 크롤링 호출`);
