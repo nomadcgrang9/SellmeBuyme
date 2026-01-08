@@ -2522,6 +2522,98 @@ export async function fetchJobPostings(limit = 20) {
 }
 
 /**
+ * 지역명이 포함된 crawl_boards의 공고를 가져오는 함수
+ * 여러 지역 키워드를 배열로 받아서 OR 조건으로 검색
+ * excludeKeywords로 특정 키워드가 포함된 board 제외 가능
+ * 예: ['서울', '수원', '광주'], excludeKeywords: ['광주광역시'] → 경기도 광주시는 포함, 광주광역시는 제외
+ */
+export async function fetchJobsByBoardRegion(
+  regionKeywords: string | string[],
+  limit = 10,
+  excludeKeywords: string[] = []
+): Promise<JobPostingCard[]> {
+  // 배열로 통일
+  const keywords = Array.isArray(regionKeywords) ? regionKeywords : [regionKeywords];
+
+  // 1. crawl_boards에서 지역명이 포함된 board ID들 조회
+  // 여러 키워드에 대해 OR 조건 생성
+  const orConditions = keywords.flatMap(keyword => [
+    `name.ilike.%${keyword}%`,
+    `region_display_name.ilike.%${keyword}%`
+  ]).join(',');
+
+  const { data: boards, error: boardsError } = await supabase
+    .from('crawl_boards')
+    .select('id, name, region_display_name')
+    .or(orConditions)
+    .not('approved_at', 'is', null);
+
+  console.log(`[fetchJobsByBoardRegion] Searching for:`, keywords);
+  console.log(`[fetchJobsByBoardRegion] Exclude keywords:`, excludeKeywords);
+  console.log(`[fetchJobsByBoardRegion] Found boards before filter:`, boards?.length ?? 0);
+
+  if (boardsError) {
+    console.error(`[fetchJobsByBoardRegion] Board query error:`, boardsError);
+    return [];
+  }
+
+  if (!boards || boards.length === 0) {
+    console.warn(`[fetchJobsByBoardRegion] No boards found for regions:`, keywords);
+    return [];
+  }
+
+  // 제외 키워드가 있으면 해당 키워드가 포함된 board 필터링
+  const filteredBoards = excludeKeywords.length > 0
+    ? boards.filter(board => {
+        const boardName = (board.name || '').toLowerCase();
+        const regionName = (board.region_display_name || '').toLowerCase();
+        // 제외 키워드 중 하나라도 포함되면 제외
+        return !excludeKeywords.some(excludeKw =>
+          boardName.includes(excludeKw.toLowerCase()) ||
+          regionName.includes(excludeKw.toLowerCase())
+        );
+      })
+    : boards;
+
+  console.log(`[fetchJobsByBoardRegion] Found boards after filter:`, filteredBoards.length, filteredBoards.map(b => b.name));
+
+  if (filteredBoards.length === 0) {
+    console.warn(`[fetchJobsByBoardRegion] All boards were filtered out`);
+    return [];
+  }
+
+  const boardIds = filteredBoards.map(b => b.id);
+  console.log(`[fetchJobsByBoardRegion] Board IDs:`, boardIds.length);
+
+  // 2. 해당 crawl_board_id의 job_postings 조회
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const todayIso = today.toISOString();
+
+  const { data: jobs, error: jobsError } = await supabase
+    .from('job_postings')
+    .select('*')
+    .in('crawl_board_id', boardIds)
+    .or(`deadline.is.null,deadline.gte.${todayIso}`)
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  console.log(`[fetchJobsByBoardRegion] Jobs found:`, jobs?.length ?? 0);
+
+  if (jobsError) {
+    console.error('[fetchJobsByBoardRegion] Jobs query error:', jobsError);
+    return [];
+  }
+
+  if (!jobs || jobs.length === 0) {
+    console.warn('[fetchJobsByBoardRegion] No jobs found for these boards');
+    return [];
+  }
+
+  return jobs.map(mapJobPostingToCard);
+}
+
+/**
  * 마감일을 "~ MM.DD" 형식으로 변환
  */
 function formatDeadline(deadline: string): string {
