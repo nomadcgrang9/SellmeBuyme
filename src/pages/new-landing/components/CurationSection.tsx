@@ -79,7 +79,7 @@ export const CurationSection: React.FC = () => {
   }, [currentIndex]);
 
   return (
-    <section className="pt-6 pb-2">
+    <section className="pb-2">
       <h2 className="text-[22px] font-bold text-gray-900 mb-4">테마별 공고 모아보기</h2>
 
       <div className="flex gap-8 items-start">

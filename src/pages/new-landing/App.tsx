@@ -8,47 +8,58 @@ import { Footer } from './components/Footer';
 import { searchCards } from '@/lib/supabase/queries';
 import type { JobPostingCard } from '@/types';
 
-const JOBS_PER_PAGE = 12;
+const JOBS_LIMIT = 50; // 한번에 불러올 공고 수
 
 const App: React.FC = () => {
   const [jobs, setJobs] = useState<JobPostingCard[]>([]);
   const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [hasMore, setHasMore] = useState(true);
-  const [page, setPage] = useState(0);
   const [isSticky, setIsSticky] = useState(false);
   const sectionRef = useRef<HTMLElement>(null);
-  const loadMoreRef = useRef<HTMLDivElement>(null);
+  const bottomBannerRef = useRef<HTMLDivElement>(null);
+  const stickyContentRef = useRef<HTMLDivElement>(null);
 
   // 스크롤 시 제목+필터 고정 여부 체크
   useEffect(() => {
     const handleScroll = () => {
-      if (sectionRef.current) {
-        const sectionTop = sectionRef.current.getBoundingClientRect().top;
+      if (sectionRef.current && bottomBannerRef.current) {
+        const sectionRect = sectionRef.current.getBoundingClientRect();
+        const bannerRect = bottomBannerRef.current.getBoundingClientRect();
         const headerHeight = 128; // 헤더 높이
-        setIsSticky(sectionTop <= headerHeight);
+
+        // 섹션이 헤더에 닿으면 sticky 시작
+        const shouldStartSticky = sectionRect.top <= headerHeight;
+
+        // sticky 콘텐츠 높이 계산 (고정된 영역의 실제 높이)
+        const stickyContentHeight = stickyContentRef.current?.offsetHeight || 500;
+
+        // 배너가 sticky 영역 아래에 닿으면 해제
+        // 배너 top이 (헤더높이 + sticky콘텐츠높이) 이하가 되면 해제
+        const shouldEndSticky = bannerRect.top <= headerHeight + stickyContentHeight;
+
+        if (shouldStartSticky && !shouldEndSticky) {
+          setIsSticky(true);
+        } else {
+          setIsSticky(false);
+        }
       }
     };
 
     window.addEventListener('scroll', handleScroll);
+    handleScroll(); // 초기 상태 체크
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
   // 공고 불러오기 함수
-  const fetchJobs = useCallback(async (pageNum: number, append = false) => {
+  const fetchJobs = useCallback(async () => {
     try {
-      if (append) {
-        setLoadingMore(true);
-      } else {
-        setLoading(true);
-      }
+      setLoading(true);
 
       const response = await searchCards({
         viewType: 'job',
-        limit: JOBS_PER_PAGE,
-        offset: pageNum * JOBS_PER_PAGE,
+        limit: JOBS_LIMIT,
+        offset: 0,
         filters: {
-          sort: 'latest'
+          sort: '최신순'
         }
       });
 
@@ -57,46 +68,18 @@ const App: React.FC = () => {
         (card): card is JobPostingCard => card.type === 'job'
       );
 
-      if (append) {
-        setJobs(prev => [...prev, ...jobCards]);
-      } else {
-        setJobs(jobCards);
-      }
-
-      // 더 불러올 데이터가 있는지 확인
-      setHasMore(jobCards.length === JOBS_PER_PAGE);
+      setJobs(jobCards);
     } catch (error) {
       console.error('Failed to fetch jobs:', error);
     } finally {
       setLoading(false);
-      setLoadingMore(false);
     }
   }, []);
 
   // 초기 로딩
   useEffect(() => {
-    fetchJobs(0);
+    fetchJobs();
   }, [fetchJobs]);
-
-  // 무한 스크롤 - Intersection Observer
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && hasMore && !loadingMore && !loading) {
-          const nextPage = page + 1;
-          setPage(nextPage);
-          fetchJobs(nextPage, true);
-        }
-      },
-      { threshold: 0.1 }
-    );
-
-    if (loadMoreRef.current) {
-      observer.observe(loadMoreRef.current);
-    }
-
-    return () => observer.disconnect();
-  }, [hasMore, loadingMore, loading, page, fetchJobs]);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -108,13 +91,13 @@ const App: React.FC = () => {
       <main className="flex-1">
         <Hero />
 
-        <div className="max-w-6xl mx-auto px-4 pt-8 pb-16 space-y-6">
+        <div className="max-w-6xl mx-auto px-4 pt-3 pb-16">
 
             {/* Curation Section */}
             <CurationSection />
 
             {/* Middle Promo Banner - Site Value Proposition */}
-            <div className="relative rounded-2xl overflow-hidden bg-gradient-to-r from-indigo-600 to-violet-600 py-8 px-8 text-center sm:text-left flex flex-col sm:flex-row items-center justify-between gap-6 shadow-lg">
+            <div className="relative rounded-2xl overflow-hidden bg-gradient-to-r from-indigo-600 to-violet-600 py-8 px-8 text-center sm:text-left flex flex-col sm:flex-row items-center justify-between gap-6 shadow-lg mt-8">
                 {/* Decorative Elements */}
                 <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
                     <div className="absolute top-[-30px] left-[-30px] w-48 h-48 bg-white/10 rounded-full blur-2xl"></div>
@@ -148,16 +131,18 @@ const App: React.FC = () => {
             </div>
 
             {/* Job List Section */}
-            <section ref={sectionRef}>
-                {/* Sticky 제목 + 필터 영역 */}
+            <section ref={sectionRef} className={`mt-8 ${isSticky ? 'min-h-[700px]' : ''}`}>
+                {/* Sticky 제목 + 필터 + 공고 목록 영역 */}
                 <div
+                  ref={stickyContentRef}
                   className={`transition-all duration-200 ${
                     isSticky
-                      ? 'fixed top-[128px] left-0 right-0 z-30 bg-white shadow-md py-3 px-4'
+                      ? 'fixed top-[128px] left-0 right-0 z-30 bg-white shadow-md'
                       : ''
                   }`}
                 >
-                  <div className={isSticky ? 'max-w-6xl mx-auto' : ''}>
+                  {/* 제목 + 필터 */}
+                  <div className="max-w-6xl mx-auto w-full px-4 py-3">
                     <div className="mb-4">
                         <h2 className="text-[22px] font-bold text-gray-900">따끈따끈 신규공고 전체보기</h2>
                     </div>
@@ -165,46 +150,34 @@ const App: React.FC = () => {
                     {/* Filter Bar */}
                     <JobFilters />
                   </div>
-                </div>
 
-                {/* Sticky일 때 공간 확보용 placeholder */}
-                {isSticky && <div className="h-[140px]" />}
-
-                {/* 공고 카드 그리드 */}
-                <div className="mt-6">
-                  {loading ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-10">
-                      {[...Array(12)].map((_, i) => (
-                        <div key={i} className="bg-gray-100 rounded-lg h-[240px] animate-pulse" />
-                      ))}
-                    </div>
-                  ) : (
-                    <>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-10">
-                          {jobs.map(job => (
-                              <JobCard key={job.id} job={job} />
+                  {/* 공고 카드 세로 스크롤 영역 */}
+                  <div className="mt-6 overflow-y-auto overflow-x-hidden max-h-[500px] px-4">
+                    <div className="max-w-6xl mx-auto">
+                      {loading ? (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-10">
+                          {[...Array(8)].map((_, i) => (
+                            <div key={i} className="bg-gray-100 rounded-lg h-[240px] animate-pulse" />
                           ))}
-                      </div>
-
-                      {/* 무한 스크롤 트리거 & 로딩 표시 */}
-                      <div ref={loadMoreRef} className="py-8 flex justify-center">
-                        {loadingMore && (
-                          <div className="flex items-center gap-2 text-gray-500">
-                            <div className="w-5 h-5 border-2 border-gray-300 border-t-[#5B6EF7] rounded-full animate-spin" />
-                            <span className="text-sm">공고를 불러오는 중...</span>
-                          </div>
-                        )}
-                        {!hasMore && jobs.length > 0 && (
-                          <p className="text-gray-400 text-sm">모든 공고를 불러왔습니다.</p>
-                        )}
-                      </div>
-                    </>
-                  )}
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-10 pb-4">
+                          {jobs.map(job => (
+                            <JobCard key={job.id} job={job} />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
+
             </section>
 
+            {/* 공간 확보용 placeholder - sticky 해제 후 아래 콘텐츠 표시를 위한 공간 */}
+            <div className="h-[100px]" />
+
              {/* Bottom Promo Banner - Notification Service */}
-             <div className="relative rounded-2xl overflow-hidden bg-gradient-to-r from-slate-800 to-blue-900 py-10 px-8 text-center sm:text-left flex flex-col sm:flex-row items-center justify-between gap-6 shadow-lg !mt-12">
+             <div ref={bottomBannerRef} className="relative rounded-2xl overflow-hidden bg-gradient-to-r from-slate-800 to-blue-900 py-10 px-8 text-center sm:text-left flex flex-col sm:flex-row items-center justify-between gap-6 shadow-lg !mt-12">
                   {/* Decorative Elements */}
                   <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
                       <div className="absolute top-[-20px] right-[-20px] w-40 h-40 bg-blue-500/20 rounded-full blur-2xl"></div>
