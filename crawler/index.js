@@ -628,13 +628,29 @@ async function main() {
           }
         }
 
-        // 6-4. AI 검증
-        const validation = await validateJobData(normalized);
+        // 6-4. AI 검증 (Supabase 형식일 때는 건너뛰기)
+        let validation;
+        if (hasSupabaseFormat) {
+          // Supabase 형식: 검증 건너뛰기, 더미 validation 객체 생성
+          logStep('pipeline', 'AI 검증 건너뛰기 (Supabase 형식)', { title: normalized.title });
+          validation = {
+            is_valid: true,
+            corrected_data: {
+              organization: normalized.organization,
+              location: normalized.location,
+              job_type: normalized.job_type || null,
+              tags: normalized.tags || []
+            }
+          };
+        } else {
+          // 기존 로직: AI 검증 실행
+          validation = await validateJobData(normalized);
 
-        if (!validation.is_valid) {
-          logWarn('pipeline', '검증 실패', { title: normalized.title });
-          failCount++;
-          continue;
+          if (!validation.is_valid) {
+            logWarn('pipeline', '검증 실패', { title: normalized.title });
+            failCount++;
+            continue;
+          }
         }
 
         // 6-5. 상세 본문 구조화
@@ -796,7 +812,7 @@ async function main() {
           '기타',
         ];
         const isNonTeacherJob = NON_TEACHER_JOB_TYPES.some(type =>
-          rawJob.jobField?.includes(type) || validation.corrected_data.job_type?.includes(type)
+          rawJob.jobField?.includes(type) || validation.corrected_data?.job_type?.includes(type)
         );
 
         if ((!finalSchoolLevel || finalSchoolLevel === '미상') && !isNonTeacherJob) {
