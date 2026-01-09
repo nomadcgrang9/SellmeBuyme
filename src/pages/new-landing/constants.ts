@@ -1,8 +1,8 @@
 import { Job, Banner } from './types';
 
-export const LOCATIONS = ['서울', '경기', '인천', '부산', '대구', '광주', '대전', '울산', '세종', '강원', '충북', '충남', '전북', '전남', '경북', '경남', '제주'];
-export const SCHOOL_LEVELS = ['초등학교', '중학교', '고등학교', '특수학교'];
-export const JOB_TYPES = ['기간제', '정교사', '시간강사', '방과후', '행정직'];
+export const LOCATIONS = ['서울', '세종', '인천', '대전', '광주', '대구', '울산', '부산', '경기', '강원', '충청', '전라', '경상', '제주'];
+export const SCHOOL_LEVELS = ['유치원', '초등학교', '중학교', '고등학교', '특수학교', '기타'];
+export const JOB_TYPES = ['기간제', '교사', '시간강사', '강사', '기타'];
 export const SUBJECTS = ['국어', '영어', '수학', '사회', '과학', '체육', '음악', '미술', '정보', '보건', '사서', '상담'];
 
 export const MOCK_BANNERS: Banner[] = [
