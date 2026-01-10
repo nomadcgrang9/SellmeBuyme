@@ -3538,20 +3538,44 @@ async function executeJobSearch({
       categoryConditions.push(`title.ilike.*${cat}*`);
     });
 
-    // "교사" 필터: 제목에 "교사"가 있지만 "기간제"가 아닌 공고
+    // "교사" 필터: 제목에 "교사"가 있지만 "기간제"가 아닌 공고 + 특수교육/상담/영양/과목명 관련 공고 (실무사 제외)
     if (hasTeacher) {
-      categoryConditions.push(`and(title.ilike.*교사*,title.not.ilike.*기간제*)`);
+      categoryConditions.push(`and(title.ilike.*교사*,title.not.ilike.*기간제*,title.not.ilike.*실무사*)`);
+      // 제목에 "(학교급) 특수" 패턴이 있는 경우 (유치원 특수, 초등 특수, 중등 특수, 고등 특수 등) - 실무사 제외
+      categoryConditions.push(`and(title.ilike.*유치원 특수*,title.not.ilike.*실무사*)`);
+      categoryConditions.push(`and(title.ilike.*초등 특수*,title.not.ilike.*실무사*)`);
+      categoryConditions.push(`and(title.ilike.*중등 특수*,title.not.ilike.*실무사*)`);
+      categoryConditions.push(`and(title.ilike.*고등 특수*,title.not.ilike.*실무사*)`);
+      categoryConditions.push(`and(title.ilike.*중학교 특수*,title.not.ilike.*실무사*)`);
+      categoryConditions.push(`and(title.ilike.*고등학교 특수*,title.not.ilike.*실무사*)`);
+      // 상담/영양 관련 공고 (실무사 제외)
+      categoryConditions.push(`and(title.ilike.*상담*,title.not.ilike.*실무사*)`);
+      categoryConditions.push(`and(title.ilike.*영양*,title.not.ilike.*실무사*)`);
+      // 과목명이 포함된 공고 (실무사, 기간제 제외)
+      categoryConditions.push(`and(title.ilike.*국어*,title.not.ilike.*실무사*,title.not.ilike.*기간제*)`);
+      categoryConditions.push(`and(title.ilike.*영어*,title.not.ilike.*실무사*,title.not.ilike.*기간제*)`);
+      categoryConditions.push(`and(title.ilike.*수학*,title.not.ilike.*실무사*,title.not.ilike.*기간제*)`);
+      categoryConditions.push(`and(title.ilike.*사회*,title.not.ilike.*실무사*,title.not.ilike.*기간제*)`);
+      categoryConditions.push(`and(title.ilike.*과학*,title.not.ilike.*실무사*,title.not.ilike.*기간제*)`);
+      categoryConditions.push(`and(title.ilike.*체육*,title.not.ilike.*실무사*,title.not.ilike.*기간제*)`);
+      categoryConditions.push(`and(title.ilike.*음악*,title.not.ilike.*실무사*,title.not.ilike.*기간제*)`);
+      categoryConditions.push(`and(title.ilike.*미술*,title.not.ilike.*실무사*,title.not.ilike.*기간제*)`);
+      categoryConditions.push(`and(title.ilike.*정보*,title.not.ilike.*실무사*,title.not.ilike.*기간제*)`);
+      categoryConditions.push(`and(title.ilike.*보건*,title.not.ilike.*실무사*,title.not.ilike.*기간제*)`);
+      categoryConditions.push(`and(title.ilike.*실과*,title.not.ilike.*실무사*,title.not.ilike.*기간제*)`);
+      categoryConditions.push(`and(title.ilike.*도덕*,title.not.ilike.*실무사*,title.not.ilike.*기간제*)`);
     }
 
-    // "강사" 필터: 제목에 "강사"가 있지만 "시간강사"가 아닌 공고 (방과후 강사 등 포함)
+    // "강사" 필터: 제목에 "강사"가 있지만 "시간강사"가 아닌 공고 (방과후 강사 등 포함) + 지도자 공고
     if (hasInstructor) {
       categoryConditions.push(`and(title.ilike.*강사*,title.not.ilike.*시간강사*)`);
+      categoryConditions.push(`title.ilike.*지도자*`);
     }
 
     // "기타" 필터: 알려진 모든 유형에 해당하지 않는 공고
     if (hasOther) {
-      // tags에 알려진 유형이 없고, title에도 관련 키워드가 없는 경우
-      categoryConditions.push(`and(not.tags.ov.{기간제,시간강사},title.not.ilike.*기간제*,title.not.ilike.*교사*,title.not.ilike.*강사*)`);
+      // tags에 알려진 유형이 없고, title에도 관련 키워드가 없고, 특수교육/상담/영양/지도자/과목명 관련 패턴도 아닌 경우
+      categoryConditions.push(`and(tags.not.ov.{기간제,시간강사},title.not.ilike.*기간제*,title.not.ilike.*교사*,title.not.ilike.*강사*,title.not.ilike.*지도자*,title.not.ilike.*유치원 특수*,title.not.ilike.*초등 특수*,title.not.ilike.*중등 특수*,title.not.ilike.*고등 특수*,title.not.ilike.*중학교 특수*,title.not.ilike.*고등학교 특수*,or(title.not.ilike.*상담*,title.ilike.*실무사*),or(title.not.ilike.*영양*,title.ilike.*실무사*),or(title.not.ilike.*국어*,title.ilike.*실무사*),or(title.not.ilike.*영어*,title.ilike.*실무사*),or(title.not.ilike.*수학*,title.ilike.*실무사*),or(title.not.ilike.*사회*,title.ilike.*실무사*),or(title.not.ilike.*과학*,title.ilike.*실무사*),or(title.not.ilike.*체육*,title.ilike.*실무사*),or(title.not.ilike.*음악*,title.ilike.*실무사*),or(title.not.ilike.*미술*,title.ilike.*실무사*),or(title.not.ilike.*정보*,title.ilike.*실무사*),or(title.not.ilike.*보건*,title.ilike.*실무사*),or(title.not.ilike.*실과*,title.ilike.*실무사*),or(title.not.ilike.*도덕*,title.ilike.*실무사*))`);
     }
 
     if (categoryConditions.length > 0) {
