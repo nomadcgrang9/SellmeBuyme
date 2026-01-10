@@ -10,7 +10,8 @@ import MobileRegister from './pages/MobileRegister'
 import MobileChat from './pages/MobileChat'
 import MobileChatRoom from './pages/MobileChatRoom'
 import './index.css'
-import Landing from './pages/Landing'
+// import Landing from './pages/Landing'  // 숨김 처리됨
+import NewLanding from './pages/new-landing/App'
 import { errorReporter } from './lib/utils/errorReporter'
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -77,9 +78,16 @@ else if (pathname.match(/^\/chat\/.+/)) {
 else if (pathname.startsWith('/chat')) {
   rootComponent = <MobileChat />
 }
-// 데모/시연용 랜딩 페이지
-else if (pathname.startsWith('/landing')) {
-  rootComponent = <Landing />
+// 데모/시연용 랜딩 페이지 (숨김 처리됨)
+// else if (pathname.startsWith('/landing')) {
+//   rootComponent = <Landing />
+// }
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 쌤찾기z 새 랜딩 페이지
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+else if (pathname.startsWith('/new-landing') || pathname.startsWith('/ssamfindz')) {
+  rootComponent = <NewLanding />
 }
 
 ReactDOM.createRoot(document.getElementById('root')!).render(

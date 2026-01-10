@@ -28,6 +28,7 @@ export interface JobPostingCard {
   source?: string | null;
   form_payload?: JobPostingFormPayload | null;
   isBookmarked?: boolean;  // 북마크 상태
+  school_level?: string | null;  // DB school_level 필드
 }
 
 export interface JobPostingFormPayload {

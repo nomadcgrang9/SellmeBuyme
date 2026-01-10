@@ -13,6 +13,7 @@ import {
 import {
   expandProvinceToAllCities,
   isProvinceWideSearch,
+  getCrawlBoardIdsForProvince,
   PROVINCE_TO_CITIES,
   PROVINCE_NAMES
 } from '@/lib/constants/regionHierarchy';
@@ -2522,6 +2523,137 @@ export async function fetchJobPostings(limit = 20) {
 }
 
 /**
+ * 지역명이 포함된 crawl_boards의 공고를 가져오는 함수
+ * 여러 지역 키워드를 배열로 받아서 OR 조건으로 검색
+ * excludeKeywords로 특정 키워드가 포함된 board 제외 가능
+ * 예: ['서울', '수원', '광주'], excludeKeywords: ['광주광역시'] → 경기도 광주시는 포함, 광주광역시는 제외
+ *
+ * 우선순위:
+ * 1. PROVINCE_TO_CRAWL_BOARD_IDS에 하드코딩된 board ID가 있으면 사용 (searchCards와 동일)
+ * 2. 없으면 기존 동적 검색으로 fallback
+ */
+export async function fetchJobsByBoardRegion(
+  regionKeywords: string | string[],
+  limit = 10,
+  excludeKeywords: string[] = []
+): Promise<JobPostingCard[]> {
+  // 배열로 통일
+  const rawKeywords = Array.isArray(regionKeywords) ? regionKeywords : [regionKeywords];
+
+  // 키워드 정규화 (예: "경기도" → "경기", "서울특별시" → "서울")
+  const normalizeKeyword = (kw: string): string => {
+    return kw
+      .replace(/특별시$/, '')
+      .replace(/광역시$/, '')
+      .replace(/특별자치시$/, '')
+      .replace(/특별자치도$/, '')
+      .replace(/도$/, '')
+      .trim();
+  };
+
+  const keywords = rawKeywords.map(normalizeKeyword);
+
+  console.log(`[fetchJobsByBoardRegion] Raw keywords:`, rawKeywords);
+  console.log(`[fetchJobsByBoardRegion] Normalized keywords:`, keywords);
+  console.log(`[fetchJobsByBoardRegion] Exclude keywords:`, excludeKeywords);
+
+  let boardIds: string[] = [];
+
+  // 1. 먼저 PROVINCE_TO_CRAWL_BOARD_IDS에서 하드코딩된 board ID 확인
+  for (const keyword of keywords) {
+    const hardcodedIds = getCrawlBoardIdsForProvince(keyword);
+    if (hardcodedIds && hardcodedIds.length > 0) {
+      console.log(`[fetchJobsByBoardRegion] Found hardcoded board IDs for "${keyword}":`, hardcodedIds.length);
+      boardIds.push(...hardcodedIds);
+    }
+  }
+
+  // 2. 하드코딩된 ID가 있으면 그것을 사용, 없으면 동적 검색
+  if (boardIds.length === 0) {
+    console.log(`[fetchJobsByBoardRegion] No hardcoded IDs found, using dynamic search`);
+
+    // 기존 동적 검색 로직
+    const orConditions = keywords.flatMap(keyword => [
+      `name.ilike.%${keyword}%`,
+      `region_display_name.ilike.%${keyword}%`
+    ]).join(',');
+
+    const { data: boards, error: boardsError } = await supabase
+      .from('crawl_boards')
+      .select('id, name, region_display_name')
+      .or(orConditions)
+      .not('approved_at', 'is', null);
+
+    console.log(`[fetchJobsByBoardRegion] Found boards before filter:`, boards?.length ?? 0);
+
+    if (boardsError) {
+      console.error(`[fetchJobsByBoardRegion] Board query error:`, boardsError);
+      return [];
+    }
+
+    if (!boards || boards.length === 0) {
+      console.warn(`[fetchJobsByBoardRegion] No boards found for regions:`, keywords);
+      return [];
+    }
+
+    // 제외 키워드가 있으면 해당 키워드가 포함된 board 필터링
+    const filteredBoards = excludeKeywords.length > 0
+      ? boards.filter(board => {
+          const boardName = (board.name || '').toLowerCase();
+          const regionName = (board.region_display_name || '').toLowerCase();
+          // 제외 키워드 중 하나라도 포함되면 제외
+          return !excludeKeywords.some(excludeKw =>
+            boardName.includes(excludeKw.toLowerCase()) ||
+            regionName.includes(excludeKw.toLowerCase())
+          );
+        })
+      : boards;
+
+    console.log(`[fetchJobsByBoardRegion] Found boards after filter:`, filteredBoards.length, filteredBoards.map(b => b.name));
+
+    if (filteredBoards.length === 0) {
+      console.warn(`[fetchJobsByBoardRegion] All boards were filtered out`);
+      return [];
+    }
+
+    boardIds = filteredBoards.map(b => b.id);
+  } else {
+    console.log(`[fetchJobsByBoardRegion] Using hardcoded board IDs:`, boardIds.length);
+  }
+
+  // 중복 제거
+  boardIds = [...new Set(boardIds)];
+  console.log(`[fetchJobsByBoardRegion] Total unique board IDs:`, boardIds.length);
+
+  // 3. 해당 crawl_board_id의 job_postings 조회
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const todayIso = today.toISOString();
+
+  const { data: jobs, error: jobsError } = await supabase
+    .from('job_postings')
+    .select('*')
+    .in('crawl_board_id', boardIds)
+    .or(`deadline.is.null,deadline.gte.${todayIso}`)
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  console.log(`[fetchJobsByBoardRegion] Jobs found:`, jobs?.length ?? 0);
+
+  if (jobsError) {
+    console.error('[fetchJobsByBoardRegion] Jobs query error:', jobsError);
+    return [];
+  }
+
+  if (!jobs || jobs.length === 0) {
+    console.warn('[fetchJobsByBoardRegion] No jobs found for these boards');
+    return [];
+  }
+
+  return jobs.map(mapJobPostingToCard);
+}
+
+/**
  * 마감일을 "~ MM.DD" 형식으로 변환
  */
 function formatDeadline(deadline: string): string {
@@ -3387,49 +3519,54 @@ async function executeJobSearch({
     }
   }
 
-  // 광역시도 키워드 포함 여부 확인
-  const containsProvinceKeyword = tokens.some(token => PROVINCE_NAMES.includes(token));
-
   // Fallback: 기존 방식 (PGroonga 실패 시 또는 검색어 없을 때)
   let query = supabase
     .from('job_postings')
     .select('*, application_period', { count: 'exact' });
 
   // 검색어가 있으면 ilike 사용
+  // 각 토큰은 어느 컬럼에든 매칭되면 OK (OR)
+  // 여러 토큰이 있으면 모든 토큰이 매칭되어야 함 (AND)
   if (trimmedQuery.length > 0) {
-    // 광역시도 키워드가 포함된 경우, 확장된 토큰(의정부, 수원 등)을 사용하여
-    // 해당 광역시도 내 모든 기초자치단체 공고도 검색되도록 함
-    const searchTokens = containsProvinceKeyword
-      ? flattenTokenGroups(tokenGroups)
-      : tokens;
-
-    if (searchTokens.length > 0) {
-      const orConditions = searchTokens.flatMap((token) => {
-        const pattern = buildIlikePattern(token);
-        return ['title', 'organization', 'location', 'subject'].map((column) => `${column}.ilike.${pattern}`);
-      });
-
-      if (orConditions.length > 0) {
-        query = query.or(orConditions.join(','));
+    // baseTokens를 사용해 검색 (로컬에서 분리한 토큰)
+    if (baseTokens.length > 0) {
+      // 각 토큰에 대해 OR 조건 생성 후, 토큰 간에는 AND로 연결
+      for (const token of baseTokens) {
+        // 광역시도 키워드인 경우 크롤보드 ID로 필터링 (동일 이름 하위 지역 중복 방지)
+        if (isProvinceWideSearch(token)) {
+          const crawlBoardIds = getCrawlBoardIdsForProvince(token);
+          if (crawlBoardIds && crawlBoardIds.length > 0) {
+            // 크롤보드 ID로 필터링 (서울 검색 시 서울 크롤보드의 공고만)
+            const crawlBoardConditions = crawlBoardIds.map(id => `crawl_board_id.eq.${id}`);
+            query = query.or(crawlBoardConditions.join(','));
+          } else {
+            // 크롤보드 ID 매핑이 없으면 기존 방식 (location + organization)
+            const allLocations = expandProvinceToAllCities(token);
+            const locationConditions = allLocations.map(loc => `location.ilike.%${loc}%`);
+            const orgCondition = `organization.ilike.%${token}%`;
+            query = query.or([...locationConditions, orgCondition].join(','));
+          }
+        } else {
+          const pattern = buildIlikePattern(token);
+          // school_level 컬럼도 검색 대상에 추가하여 "초등", "중등" 등 학교급 검색 지원
+          const tokenOrConditions = ['title', 'organization', 'location', 'subject', 'school_level'].map(
+            (column) => `${column}.ilike.${pattern}`
+          );
+          query = query.or(tokenOrConditions.join(','));
+        }
       }
-    } else {
-      const pattern = buildIlikePattern(trimmedQuery);
-      const orConditions = ['title', 'organization', 'location', 'subject'].map(
-        (column) => `${column}.ilike.${pattern}`
-      );
-      query = query.or(orConditions.join(','));
     }
   }
 
   // 지역 필터 (하나라도 포함되면 매칭)
-  // 지원 형식:
-  // 1. "경기" - 광역시도 전체 (해당 광역시도 내 모든 기초자치단체 포함)
-  // 2. "경기-성남시" - 특정 시군구만 (하이픈으로 구분된 형식)
-  // 3. "의정부" - 기존 특정 지역 검색
+  // 광역시도 전체 검색 시 crawl_board_id 기반으로 정확하게 필터링
+  // 지원 형식: "경기", "경기-성남시", "의정부" 등
   if (filters.region.length > 0) {
     const regionConditions: string[] = [];
 
     for (const r of filters.region) {
+      console.log('[executeJobSearch] 지역 필터 처리:', r, '| isProvinceWideSearch:', isProvinceWideSearch(r));
+
       // {province}-{city} 형식 확인 (예: "경기-성남시", "서울-강남구")
       if (r.includes('-')) {
         const parts = r.split('-');
@@ -3439,10 +3576,20 @@ async function executeJobSearch({
           regionConditions.push(`location.ilike.%${city}%`);
         }
       } else if (isProvinceWideSearch(r)) {
-        // "경기 전체" 형식의 광역시도 전체 검색
-        const allLocations = expandProvinceToAllCities(r);
-        for (const loc of allLocations) {
-          regionConditions.push(`location.ilike.%${loc}%`);
+        // 광역시도 전체 검색: crawl_board_id 기반 필터링 (동일 지역명 충돌 방지)
+        const crawlBoardIds = getCrawlBoardIdsForProvince(r);
+        if (crawlBoardIds && crawlBoardIds.length > 0) {
+          console.log('[executeJobSearch] crawl_board_id 필터링:', crawlBoardIds.length, '개');
+          for (const id of crawlBoardIds) {
+            regionConditions.push(`crawl_board_id.eq.${id}`);
+          }
+        } else {
+          // fallback: crawl_board_id 매핑이 없는 경우 기존 location 확장 로직 사용
+          const allLocations = expandProvinceToAllCities(r);
+          console.log('[executeJobSearch] 확장된 지역 목록 (fallback):', allLocations.length, '개');
+          for (const loc of allLocations) {
+            regionConditions.push(`location.ilike.%${loc}%`);
+          }
         }
       } else if (PROVINCE_NAMES.includes(r)) {
         // 광역시도명만 있는 경우 (예: "경기", "서울") - 해당 광역시도 전체 검색
@@ -3459,33 +3606,139 @@ async function executeJobSearch({
       }
     }
 
+    console.log('[executeJobSearch] 총 지역 조건 수:', regionConditions.length);
     if (regionConditions.length > 0) {
       query = query.or(regionConditions.join(','));
     }
   }
 
-  // 카테고리 필터 (tags 배열에 하나라도 포함되면 매칭)
+  // 카테고리(유형) 필터 - tags 배열 + title 기반 검색
   if (filters.category.length > 0) {
-    // tags column is array, so we check intersection
-    // Postgres '&&' operator checks for overlap
-    query = query.overlaps('tags', filters.category);
+    const hasOther = filters.category.includes('기타');
+    const hasTeacher = filters.category.includes('교사');
+    const hasInstructor = filters.category.includes('강사'); // "강사" 필터 (시간강사 제외)
+    const regularCategories = filters.category.filter(c => c !== '기타' && c !== '교사' && c !== '강사');
+
+    const categoryConditions: string[] = [];
+
+    // 일반 카테고리들 (기간제, 시간강사)
+    regularCategories.forEach(cat => {
+      // tags 배열에서 검색
+      categoryConditions.push(`tags.cs.{${cat}}`);
+      // title에서도 검색 (태그 누락 대응)
+      categoryConditions.push(`title.ilike.*${cat}*`);
+      // "시간강사"의 경우 "시간제 강사"도 포함
+      if (cat === '시간강사') {
+        categoryConditions.push(`title.ilike.*시간제 강사*`);
+      }
+    });
+
+    // "교사" 필터: 교사/기간제/시간강사 + 특수교육/상담/영양/과목명 관련 공고 (실무사 제외, 넓은 범위)
+    if (hasTeacher) {
+      // 교사, 기간제, 시간강사 키워드 포함 (실무사 제외)
+      categoryConditions.push(`and(title.ilike.*교사*,title.not.ilike.*실무사*)`);
+      categoryConditions.push(`and(title.ilike.*기간제*,title.not.ilike.*실무사*)`);
+      categoryConditions.push(`and(title.ilike.*시간강사*,title.not.ilike.*실무사*)`);
+      categoryConditions.push(`and(title.ilike.*시간제 강사*,title.not.ilike.*실무사*)`);
+      // tags에서도 검색
+      categoryConditions.push(`tags.cs.{기간제}`);
+      categoryConditions.push(`tags.cs.{시간강사}`);
+      // 제목에 "(학교급) 특수" 패턴이 있는 경우 (유치원 특수, 초등 특수, 중등 특수, 고등 특수 등) - 실무사 제외
+      categoryConditions.push(`and(title.ilike.*유치원 특수*,title.not.ilike.*실무사*)`);
+      categoryConditions.push(`and(title.ilike.*초등 특수*,title.not.ilike.*실무사*)`);
+      categoryConditions.push(`and(title.ilike.*중등 특수*,title.not.ilike.*실무사*)`);
+      categoryConditions.push(`and(title.ilike.*고등 특수*,title.not.ilike.*실무사*)`);
+      categoryConditions.push(`and(title.ilike.*중학교 특수*,title.not.ilike.*실무사*)`);
+      categoryConditions.push(`and(title.ilike.*고등학교 특수*,title.not.ilike.*실무사*)`);
+      // 상담/영양 관련 공고 (실무사 제외)
+      categoryConditions.push(`and(title.ilike.*상담*,title.not.ilike.*실무사*)`);
+      categoryConditions.push(`and(title.ilike.*영양*,title.not.ilike.*실무사*)`);
+      // 과목명이 포함된 공고 (실무사 제외)
+      categoryConditions.push(`and(title.ilike.*국어*,title.not.ilike.*실무사*)`);
+      categoryConditions.push(`and(title.ilike.*영어*,title.not.ilike.*실무사*)`);
+      categoryConditions.push(`and(title.ilike.*수학*,title.not.ilike.*실무사*)`);
+      categoryConditions.push(`and(title.ilike.*사회*,title.not.ilike.*실무사*)`);
+      categoryConditions.push(`and(title.ilike.*과학*,title.not.ilike.*실무사*)`);
+      categoryConditions.push(`and(title.ilike.*체육*,title.not.ilike.*실무사*)`);
+      categoryConditions.push(`and(title.ilike.*음악*,title.not.ilike.*실무사*)`);
+      categoryConditions.push(`and(title.ilike.*미술*,title.not.ilike.*실무사*)`);
+      categoryConditions.push(`and(title.ilike.*정보*,title.not.ilike.*실무사*)`);
+      categoryConditions.push(`and(title.ilike.*보건*,title.not.ilike.*실무사*)`);
+      categoryConditions.push(`and(title.ilike.*실과*,title.not.ilike.*실무사*)`);
+      categoryConditions.push(`and(title.ilike.*도덕*,title.not.ilike.*실무사*)`);
+    }
+
+    // "강사" 필터: 제목에 "강사"가 있지만 "시간강사/시간제 강사"가 아닌 공고 (방과후 강사 등 포함) + 지도자 공고
+    if (hasInstructor) {
+      categoryConditions.push(`and(title.ilike.*강사*,title.not.ilike.*시간강사*,title.not.ilike.*시간제 강사*)`);
+      categoryConditions.push(`title.ilike.*지도자*`);
+    }
+
+    // "기타" 필터: 알려진 모든 유형에 해당하지 않는 공고
+    if (hasOther) {
+      // tags에 알려진 유형이 없고, title에도 관련 키워드가 없고, 특수교육/상담/영양/지도자/과목명 관련 패턴도 아닌 경우
+      categoryConditions.push(`and(tags.not.ov.{기간제,시간강사},title.not.ilike.*기간제*,title.not.ilike.*교사*,title.not.ilike.*강사*,title.not.ilike.*지도자*,title.not.ilike.*유치원 특수*,title.not.ilike.*초등 특수*,title.not.ilike.*중등 특수*,title.not.ilike.*고등 특수*,title.not.ilike.*중학교 특수*,title.not.ilike.*고등학교 특수*,or(title.not.ilike.*상담*,title.ilike.*실무사*),or(title.not.ilike.*영양*,title.ilike.*실무사*),or(title.not.ilike.*국어*,title.ilike.*실무사*),or(title.not.ilike.*영어*,title.ilike.*실무사*),or(title.not.ilike.*수학*,title.ilike.*실무사*),or(title.not.ilike.*사회*,title.ilike.*실무사*),or(title.not.ilike.*과학*,title.ilike.*실무사*),or(title.not.ilike.*체육*,title.ilike.*실무사*),or(title.not.ilike.*음악*,title.ilike.*실무사*),or(title.not.ilike.*미술*,title.ilike.*실무사*),or(title.not.ilike.*정보*,title.ilike.*실무사*),or(title.not.ilike.*보건*,title.ilike.*실무사*),or(title.not.ilike.*실과*,title.ilike.*실무사*),or(title.not.ilike.*도덕*,title.ilike.*실무사*))`);
+    }
+
+    if (categoryConditions.length > 0) {
+      query = query.or(categoryConditions.join(','));
+    }
   }
 
-  // 학교급 필터 (school_level에 포함되거나 ilike)
+  // 학교급 필터 (school_level 먼저 확인, NULL인 경우 organization에서 추론)
   if (filters.schoolLevel.length > 0) {
-    const levelConditions = filters.schoolLevel.map((level) => {
-      // school_level 컬럼이 텍스트(예: "초등, 중등")라고 가정하면 ilike 사용
-      const pattern = buildIlikePattern(level);
-      return `school_level.ilike.${pattern}`;
-    });
+    const levelConditions: string[] = [];
+
+    for (const level of filters.schoolLevel) {
+      // "기타"는 유/초/중/고/특수 어디에도 해당하지 않는 공고
+      if (level === '기타') {
+        // school_level이 NULL이면서 organization에서도 학교급 추론이 안되는 경우
+        levelConditions.push(`and(school_level.is.null,organization.not.ilike.*유치원*,organization.not.ilike.*초등*,organization.not.ilike.*중학*,organization.not.ilike.*중등*,organization.not.ilike.*고등*,organization.not.ilike.*고교*,organization.not.ilike.*특수*)`);
+        // 2. school_level이 있지만 유/초/중/고/특수 키워드가 없는 경우 (교육청, 도서관, 평생 등)
+        levelConditions.push(`and(school_level.not.is.null,school_level.not.ilike.*유치원*,school_level.not.ilike.*초등*,school_level.not.ilike.*중학*,school_level.not.ilike.*중등*,school_level.not.ilike.*고등*,school_level.not.ilike.*고교*,school_level.not.ilike.*특수*)`);
+        continue;
+      }
+
+      // PostgREST에서는 와일드카드로 *를 사용 (SQL의 %가 아님)
+      if (level.includes('유치원')) {
+        // school_level에서 유치원 검색
+        levelConditions.push(`school_level.ilike.*유치원*`);
+        // organization fallback (school_level이 NULL인 경우만)
+        levelConditions.push(`and(school_level.is.null,organization.ilike.*유치원*)`);
+      } else if (level.includes('초등')) {
+        levelConditions.push(`school_level.ilike.*초등*`);
+        levelConditions.push(`and(school_level.is.null,organization.ilike.*초등*)`);
+      } else if (level.includes('중학')) {
+        // 중학교는 school_level에 "중학" 또는 "중등"으로 저장될 수 있음
+        levelConditions.push(`school_level.ilike.*중학*`);
+        levelConditions.push(`school_level.ilike.*중등*`);
+        // organization fallback
+        levelConditions.push(`and(school_level.is.null,organization.ilike.*중학*)`);
+        levelConditions.push(`and(school_level.is.null,organization.ilike.*중등*)`);
+      } else if (level.includes('고등')) {
+        // 고등학교는 "고등" 또는 "고교"로 저장될 수 있음
+        levelConditions.push(`school_level.ilike.*고등*`);
+        levelConditions.push(`school_level.ilike.*고교*`);
+        // organization fallback
+        levelConditions.push(`and(school_level.is.null,organization.ilike.*고등*)`);
+        levelConditions.push(`and(school_level.is.null,organization.ilike.*고교*)`);
+      } else if (level.includes('특수')) {
+        levelConditions.push(`school_level.ilike.*특수*`);
+        levelConditions.push(`and(school_level.is.null,organization.ilike.*특수*)`);
+      }
+    }
+
     query = query.or(levelConditions.join(','));
   }
 
-  // 과목 필터 (subject 컬럼 ilike)
+  // 과목 필터 (title + tags 기반 검색)
   if (filters.subject.length > 0) {
-    const subjectConditions = filters.subject.map((sub) => {
-      const pattern = buildIlikePattern(sub);
-      return `subject.ilike.${pattern}`;
+    const subjectConditions: string[] = [];
+    filters.subject.forEach((sub) => {
+      // title에서 과목명 검색 (부분 매칭)
+      subjectConditions.push(`title.ilike.*${sub}*`);
+      // tags 배열에서 과목명 검색 (정확 매칭)
+      subjectConditions.push(`tags.cs.{${sub}}`);
     });
     query = query.or(subjectConditions.join(','));
   }
@@ -3494,10 +3747,14 @@ async function executeJobSearch({
     query = query.eq('job_type', jobType);
   }
 
+  // 마감일 필터: deadline이 null이거나 오늘 이후인 공고만 표시
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const todayIso = today.toISOString();
 
+  console.log('[executeJobSearch] 마감일 필터 적용:', todayIso);
+
+  // 마감되지 않은 공고만 필터링 (deadline이 null이거나 오늘 이후)
   query = query.or(`deadline.is.null,deadline.gte.${todayIso}`);
 
   query = applyJobSort(query, filters.sort);
@@ -3515,6 +3772,9 @@ async function executeJobSearch({
   const shouldSortByRelevance = filters.sort === '추천순' && (tokens.length > 0 || trimmedQuery.length > 0);
 
   const filteredData = filterJobsByTokenGroups(data, tokenGroups);
+
+  // 마감일 필터는 DB 쿼리에서 이미 적용됨 (deadline.is.null,deadline.gte.${todayIso})
+  // 클라이언트 측 이중 필터링 제거 - 지도(fetchJobsByBoardRegion)와 동일하게 DB 필터만 사용
 
   const orderedData = shouldSortByRelevance
     ? sortJobsByRelevance(filteredData, tokens, trimmedQuery)
@@ -3909,7 +4169,8 @@ export function mapJobPostingToCard(job: any): JobPostingCard {
     structured_content: structured,
     user_id: job.user_id ?? null,
     source: job.source ?? null,
-    form_payload: formPayload
+    form_payload: formPayload,
+    school_level: job.school_level ?? null
   };
 }
 

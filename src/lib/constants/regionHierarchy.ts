@@ -430,6 +430,81 @@ export const PROVINCE_TO_CITIES: Record<string, string[]> = {
 };
 
 /**
+ * 광역시도 → 크롤보드 ID 매핑
+ * 광역시도 검색 시 해당 지역의 크롤보드 공고만 검색하기 위해 사용
+ * (동일 이름의 하위 지역 중복 방지: 서울 중구 vs 인천 중구 등)
+ */
+export const PROVINCE_TO_CRAWL_BOARD_IDS: Record<string, string[]> = {
+  서울: ['26ed4ae2-922f-42ef-ac38-176871668c0d'], // 서울교육일자리포털
+  경기: [
+    'f4c852f1-f49a-42c5-8823-0edd346f99bb', // 경기도 교육청 구인정보조회
+    'de02eada-6569-45df-9f4d-45a4fcc51879', // 가평교육지원청
+    'da3c6bc2-8b49-4f81-b0ed-556fa8001aab', // 고양교육지원청
+    '5d7799d9-5d8d-47a2-b0df-6dd4f39449bd', // 구리남양주 기간제교사
+    'ce968fdd-6fe4-4fb7-8ec8-60d491932c6c', // 남양주교육지원청
+    '5a94f47d-5feb-4821-99af-f8805cc3d619', // 성남교육지원청
+    'd2845178-cbce-430d-b676-f07030562e2a', // 양평교육지원청
+    '55d09cac-71aa-48d5-a8b8-bbd9181970bb', // 의정부교육지원청
+  ],
+  인천: [
+    '0f46ad4f-3f43-45bf-b399-b1f4d05847a6', // 인천광역시교육청 채용공고
+    'a54761b2-b9c6-4011-99f8-6f0ef8dd919a', // 인천교육청 채용공고
+  ],
+  강원: [
+    '8b2fb1b5-bbb0-432a-9c84-d63b9e65b9e2', // 강원 교육청 구인게시판
+    'cf81b8f5-0902-4cb7-8e2d-06b8f8b13a56', // 강원특별자치도교육청 학교인력채용
+  ],
+  부산: ['1657c5fd-6b82-40ef-b25d-eaa908e94ac5'], // 부산광역시교육청 학교인력채용
+  대구: [
+    'ef0e5e89-a4c8-452f-a29d-b782e774086c', // 대구광역시교육청 기간제교사·강사
+    '7c6f1752-0893-4c10-8153-6f4f1430a5d3', // 대구광역시교육청 채용
+  ],
+  광주: [
+    '0474051e-bb16-4804-b27c-f1dd5d5b5a9e', // 광주광역시 구인 게시판
+    '5c08d727-5aea-4ed6-add4-83935ca2b74e', // 광주광역시교육청 채용공고
+  ],
+  대전: ['5c6f8c0a-25c0-4743-9490-cb2f5f1acb7d'], // 대전광역시교육청 학교인력채용
+  울산: [
+    '8ab2773a-75ca-43dd-957a-c1fb0fdff637', // 울산광역시교육청 일반채용공고
+    'a35d2638-4f2f-44a7-baca-2a53badd7c43', // 울산광역시교육청 채용정보
+  ],
+  세종: ['bd2df362-d71b-4431-8aac-f812dd232120'], // 세종특별자치시교육청 구인
+  충북: ['903627e9-8bce-4e71-b8fe-ef343703615b'], // 충청북도교육청 기간제교사 인력풀
+  충남: ['7e1f233d-b274-4b07-8a58-6abd3bcb3d9f'], // 충청남도교육청 채용공고
+  충청: [
+    '903627e9-8bce-4e71-b8fe-ef343703615b', // 충청북도
+    '7e1f233d-b274-4b07-8a58-6abd3bcb3d9f', // 충청남도
+  ],
+  전북: ['87aee3d0-b26a-424f-af84-6113d98920bc'], // 전북특별자치도교육청
+  전남: ['f42a2e0c-7e4e-436a-bcd2-cd252b7843ae'], // 전라남도교육청
+  전라: [
+    '87aee3d0-b26a-424f-af84-6113d98920bc', // 전북
+    'f42a2e0c-7e4e-436a-bcd2-cd252b7843ae', // 전남
+  ],
+  경북: ['f13bbaf3-a1ee-46d2-bacf-ac7868ce457e'], // 경상북도교육청 구인
+  경남: [
+    '44297890-31b7-484f-929b-eeb3e83ab6e3', // 경남 교육청 구인구직 게시판
+    '9b4832b3-4e10-4981-b937-2be135eb1e71', // 경상남도교육청 구인구직포털
+  ],
+  경상: [
+    'f13bbaf3-a1ee-46d2-bacf-ac7868ce457e', // 경북
+    '44297890-31b7-484f-929b-eeb3e83ab6e3', // 경남
+    '9b4832b3-4e10-4981-b937-2be135eb1e71', // 경남 포털
+  ],
+  제주: [
+    '38273acd-26ec-4a7d-8926-44310ca467e3', // 제주특별자치도교육청 채용공고
+    'eab758d2-8815-44af-9f3c-f4cf1056788d', // 제주특별자치도교육청 채용정보
+  ],
+};
+
+/**
+ * 광역시도에 해당하는 크롤보드 ID 목록 반환
+ */
+export function getCrawlBoardIdsForProvince(province: string): string[] | null {
+  return PROVINCE_TO_CRAWL_BOARD_IDS[province] || null;
+}
+
+/**
  * 광역시도 이름 목록 (검색 옵션용)
  */
 export const PROVINCE_NAMES = Object.keys(PROVINCE_TO_CITIES);
@@ -483,19 +558,36 @@ export function extractProvinceKey(regionFilter: string): string | null {
 
 /**
  * 광역시도 전체 검색인지 확인
+ * "서울", "경기" 등 광역시도명만 입력해도 전체 검색으로 처리
  */
 export function isProvinceWideSearch(regionFilter: string): boolean {
-  return (
-    regionFilter.includes('전체') && extractProvinceKey(regionFilter) !== null
-  );
+  // "전체" 포함된 경우
+  if (regionFilter.includes('전체') && extractProvinceKey(regionFilter) !== null) {
+    return true;
+  }
+
+  // 광역시도명만 입력된 경우 (예: "서울", "경기", "부산")
+  // PROVINCE_TO_CITIES의 키와 정확히 일치하면 전체 검색으로 처리
+  if (PROVINCE_TO_CITIES[regionFilter]) {
+    return true;
+  }
+
+  return false;
 }
 
 /**
  * 광역시도 전체 검색 시 해당 광역시도 내 모든 지역 목록 반환
- * @param regionFilter - 검색 필터 값 (예: "경기 전체", "서울 전체")
+ * @param regionFilter - 검색 필터 값 (예: "경기 전체", "서울 전체", "서울", "경기")
  * @returns 광역시도명 + 모든 기초자치단체명 배열
  */
 export function expandProvinceToAllCities(regionFilter: string): string[] {
+  // 먼저 PROVINCE_TO_CITIES의 키와 직접 매칭 시도 (예: "서울", "경기")
+  if (PROVINCE_TO_CITIES[regionFilter]) {
+    const cities = PROVINCE_TO_CITIES[regionFilter];
+    return [regionFilter, ...cities];
+  }
+
+  // "전체" 포함된 경우 extractProvinceKey 사용
   const provinceKey = extractProvinceKey(regionFilter);
 
   if (!provinceKey) {
