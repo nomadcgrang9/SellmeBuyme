@@ -1,4 +1,13 @@
 import { loadPageWithRetry, resolveUrl } from '../lib/playwright.js';
+import { getExistingJobBySource } from '../lib/supabase.js';
+
+// 안전장치 설정
+const SAFETY = {
+  maxItems: 100,               // 절대 최대 수집 개수
+  maxBatches: 10,              // 최대 배치 반복 횟수
+  batchDuplicateThreshold: 0.5, // 배치 내 중복률 50% 이상이면 종료
+  consecutiveDuplicateLimit: 3, // 연속 중복 시 즉시 중단 (기존 호환)
+};
 
 /**
  * 범용 selectNttList.do 패턴 크롤러
@@ -6,6 +15,7 @@ import { loadPageWithRetry, resolveUrl } from '../lib/playwright.js';
  * 지원 사이트:
  * - 성남, 의정부, 남양주 (경기도 교육지원청)
  * - 대구, 강원, 충북, 충남, 전남, 경상북도 (시도교육청)
+ * - 경기도 지역교육청 17곳 (가평, 고양, 김포, 동두천양주, 파주, 포천 등)
  *
  * 공통 HTML 구조:
  * - 목록: table tbody tr → a.nttInfoBtn[data-id] 또는 a[data-id]
@@ -131,64 +141,153 @@ export async function crawlNttPattern(page, config) {
       return [];
     }
 
-    // 3. 각 공고 상세 페이지 크롤링
+    // 3. 배치 반복 방식으로 상세 페이지 크롤링
+    // 핵심: 배치(10개) 처리 후 중복률 체크 → 낮으면 계속, 높으면 종료
     const batchSize = config.crawlBatchSize || 10;
-    const maxJobs = Math.min(jobListData.length, batchSize);
 
-    for (let i = 0; i < maxJobs; i++) {
-      const listInfo = jobListData[i];
-      const nttId = listInfo.nttId;
+    let totalProcessedCount = 0;  // 전체 수집된 공고 수
+    let totalSkippedCount = 0;    // 전체 스킵된 중복 수
+    let batchNumber = 0;          // 현재 배치 번호
+    let listIndex = 0;            // jobListData 내 현재 인덱스
+    let consecutiveDuplicates = 0; // 연속 중복 카운트 (즉시 중단용)
+    let shouldStop = false;       // 종료 플래그
 
-      console.log(`\n  🔍 공고 ${i + 1}/${maxJobs} (ID: ${nttId})`);
-      console.log(`     제목: ${listInfo.title}`);
+    console.log(`\n🔄 배치 반복 모드: 배치당 ${batchSize}개, 최대 ${SAFETY.maxBatches}회 반복`);
+    console.log(`   중복률 ${SAFETY.batchDuplicateThreshold * 100}% 이상이면 다음 배치 진행 안 함\n`);
 
-      try {
-        // 상세 페이지 URL 구성
+    while (!shouldStop && batchNumber < SAFETY.maxBatches && totalProcessedCount < SAFETY.maxItems) {
+      batchNumber++;
+      let batchNewCount = 0;      // 이번 배치에서 수집한 신규 공고 수
+      let batchDuplicateCount = 0; // 이번 배치에서 발견한 중복 수
+      let batchProcessed = 0;     // 이번 배치에서 처리한 총 항목 수
+
+      console.log(`\n━━━ 배치 ${batchNumber}/${SAFETY.maxBatches} 시작 ━━━`);
+
+      // 배치 사이즈만큼 처리
+      while (batchProcessed < batchSize && listIndex < jobListData.length) {
+        // 절대 최대 한계 체크
+        if (totalProcessedCount >= SAFETY.maxItems) {
+          console.log(`\n⚠️ 절대 최대 수집 개수(${SAFETY.maxItems}) 도달`);
+          shouldStop = true;
+          break;
+        }
+
+        // 연속 중복 즉시 중단 체크
+        if (consecutiveDuplicates >= SAFETY.consecutiveDuplicateLimit) {
+          console.log(`\n🛑 연속 ${SAFETY.consecutiveDuplicateLimit}개 중복 - 기존 영역 도달, 즉시 종료`);
+          shouldStop = true;
+          break;
+        }
+
+        const listInfo = jobListData[listIndex];
+        const nttId = listInfo.nttId;
         const detailUrl = `${config.detailUrlTemplate}${nttId}`;
-        console.log(`     URL: ${detailUrl}`);
+        listIndex++;
+        batchProcessed++;
 
-        const detailResult = await loadPageWithRetry(page, detailUrl, { maxRetries: 2 });
-        if (!detailResult.success) {
-          console.warn(`     ⚠️ 상세 페이지 로드 실패: ${detailResult.error}`);
+        // 중복 체크 (DB 조회 - source_url 기준)
+        const existing = await getExistingJobBySource(detailUrl);
+
+        if (existing) {
+          consecutiveDuplicates++;
+          batchDuplicateCount++;
+          totalSkippedCount++;
+          console.log(`  ⏭️ 중복: ${listInfo.title.substring(0, 40)}...`);
           continue;
         }
 
-        await page.waitForTimeout(1500);
+        // 새 공고 발견 - 연속 중복 카운트 리셋
+        consecutiveDuplicates = 0;
 
-        // 상세 페이지 데이터 추출
-        const detailData = await extractDetailContent(page, config);
+        console.log(`\n  🔍 신규 공고 발견 (ID: ${nttId})`);
+        console.log(`     제목: ${listInfo.title}`);
 
-        // 스크린샷 캡처
-        console.log(`     📸 스크린샷 캡처 중...`);
-        const screenshot = await page.screenshot({ fullPage: true, type: 'png' });
-        const screenshotBase64 = screenshot.toString('base64');
+        try {
+          console.log(`     URL: ${detailUrl}`);
 
-        // 데이터 병합
-        const jobData = {
-          title: listInfo.title,
-          date: listInfo.registeredDate || new Date().toISOString().split('T')[0],
-          link: detailUrl,
-          location: config.region || '미상',
-          detailContent: detailData.content,
-          attachmentUrl: detailData.attachmentUrl,
-          attachmentFilename: detailData.attachmentFilename,
-          screenshotBase64: screenshotBase64,
-          hasContentImages: detailData.hasContentImages,
-        };
+          const detailResult = await loadPageWithRetry(page, detailUrl, { maxRetries: 2 });
+          if (!detailResult.success) {
+            console.warn(`     ⚠️ 상세 페이지 로드 실패: ${detailResult.error}`);
+            continue;
+          }
 
-        jobs.push(jobData);
-        console.log(`     ✅ 크롤링 완료 (본문 ${detailData.content.length}자)`);
+          await page.waitForTimeout(1500);
 
-        // 다음 공고 전 잠시 대기
-        await page.waitForTimeout(1000);
+          // 상세 페이지 데이터 추출
+          const detailData = await extractDetailContent(page, config);
 
-      } catch (error) {
-        console.error(`     ❌ 상세 페이지 크롤링 실패: ${error.message}`);
-        continue;
+          // 스크린샷 캡처
+          console.log(`     📸 스크린샷 캡처 중...`);
+          const screenshot = await page.screenshot({ fullPage: true, type: 'png' });
+          const screenshotBase64 = screenshot.toString('base64');
+
+          // 데이터 병합
+          const jobData = {
+            title: listInfo.title,
+            date: listInfo.registeredDate || new Date().toISOString().split('T')[0],
+            link: detailUrl,
+            location: config.region || '미상',
+            detailContent: detailData.content,
+            attachmentUrl: detailData.attachmentUrl,
+            attachmentFilename: detailData.attachmentFilename,
+            screenshotBase64: screenshotBase64,
+            hasContentImages: detailData.hasContentImages,
+          };
+
+          jobs.push(jobData);
+          batchNewCount++;
+          totalProcessedCount++;
+          console.log(`     ✅ 수집 완료 (전체 ${totalProcessedCount}개)`);
+
+          // 다음 공고 전 잠시 대기
+          await page.waitForTimeout(1000);
+
+        } catch (error) {
+          console.error(`     ❌ 상세 페이지 크롤링 실패: ${error.message}`);
+          continue;
+        }
       }
+
+      // 배치 결과 분석
+      const batchTotal = batchNewCount + batchDuplicateCount;
+      const duplicateRate = batchTotal > 0 ? batchDuplicateCount / batchTotal : 0;
+
+      console.log(`\n━━━ 배치 ${batchNumber} 결과 ━━━`);
+      console.log(`   신규: ${batchNewCount}개, 중복: ${batchDuplicateCount}개`);
+      console.log(`   중복률: ${(duplicateRate * 100).toFixed(0)}% (임계값: ${SAFETY.batchDuplicateThreshold * 100}%)`);
+
+      // 종료 조건 판단
+      if (shouldStop) {
+        console.log(`   → 이미 종료 플래그 설정됨`);
+        break;
+      }
+
+      if (listIndex >= jobListData.length) {
+        console.log(`   → 목록 끝 도달 (${listIndex}/${jobListData.length})`);
+        break;
+      }
+
+      if (duplicateRate >= SAFETY.batchDuplicateThreshold) {
+        console.log(`   → ✅ 기존 데이터 영역 진입 (중복률 충분) → 크롤링 완료`);
+        break;
+      }
+
+      if (batchNewCount === 0 && batchDuplicateCount === 0) {
+        console.log(`   → ⚠️ 배치 내 처리된 항목 없음 → 종료`);
+        break;
+      }
+
+      console.log(`   → 🔄 중복률 낮음, 다음 배치 계속...`);
     }
 
-    console.log(`\n✅ [NTT패턴] ${config.name} 크롤링 완료: ${jobs.length}개 수집`);
+    // 최종 결과 경고
+    if (batchNumber >= SAFETY.maxBatches && totalProcessedCount >= SAFETY.maxItems * 0.9) {
+      console.log(`\n🚨 경고: 최대 배치 횟수 도달! 아직 신규 공고가 남아있을 수 있습니다.`);
+      console.log(`   → SAFETY.maxItems(${SAFETY.maxItems}) 증가를 고려하세요.`);
+    }
+
+    console.log(`\n✅ [NTT패턴] ${config.name} 크롤링 완료`);
+    console.log(`   📊 총 수집: ${jobs.length}개, 중복 스킵: ${totalSkippedCount}개, 배치 횟수: ${batchNumber}회`);
     return jobs;
 
   } catch (error) {

@@ -15,9 +15,11 @@ import { getExistingJobBySource } from '../lib/supabase.js';
 
 // 안전장치 설정
 const SAFETY = {
-  maxItems: 100,           // 최대 수집 개수
-  duplicateThreshold: 3,   // 연속 중복 시 중단 기준
-  maxPages: 10,            // 최대 페이지 수
+  maxItems: 100,                // 절대 최대 수집 개수
+  maxBatches: 10,               // 최대 배치 반복 횟수
+  batchDuplicateThreshold: 0.5, // 배치 내 중복률 50% 이상이면 종료
+  consecutiveDuplicateLimit: 3, // 연속 중복 시 즉시 중단
+  maxPages: 10,                 // 최대 페이지 수
 };
 
 export async function crawlSejong(page, config) {
@@ -25,10 +27,19 @@ export async function crawlSejong(page, config) {
   console.log(`   URL: ${config.baseUrl}`);
 
   const jobs = [];
-  let skippedCount = 0;
+  let totalSkippedCount = 0;
   let consecutiveDuplicates = 0;
-  let processedCount = 0;
+  let totalProcessedCount = 0;
   let stopCrawling = false;
+
+  // 배치 반복 방식 변수
+  const batchSize = config.crawlBatchSize || 10;
+  let batchNumber = 0;
+  let batchNewCount = 0;
+  let batchDuplicateCount = 0;
+
+  console.log(`\n🔄 배치 반복 모드: 배치당 ${batchSize}개, 최대 ${SAFETY.maxBatches}회`);
+  console.log(`   중복률 ${SAFETY.batchDuplicateThreshold * 100}% 이상이면 종료`);
 
   try {
     // 첫 페이지 로드
@@ -151,18 +162,45 @@ export async function crawlSejong(page, config) {
 
       // 각 공고 처리
       for (const item of listItems) {
-        // 안전장치: 최대 수집 개수
-        if (processedCount >= SAFETY.maxItems) {
-          console.log(`\n⚠️ 최대 수집 개수(${SAFETY.maxItems}) 도달`);
+        // 안전장치: 절대 최대 수집 개수
+        if (totalProcessedCount >= SAFETY.maxItems) {
+          console.log(`\n⚠️ 절대 최대 수집 개수(${SAFETY.maxItems}) 도달`);
           stopCrawling = true;
           break;
         }
 
-        // 안전장치: 연속 중복 체크
-        if (consecutiveDuplicates >= SAFETY.duplicateThreshold) {
-          console.log(`\n🛑 연속 ${SAFETY.duplicateThreshold}개 중복 - 기존 영역 도달, 크롤링 완료`);
+        // 안전장치: 연속 중복 즉시 중단
+        if (consecutiveDuplicates >= SAFETY.consecutiveDuplicateLimit) {
+          console.log(`\n🛑 연속 ${SAFETY.consecutiveDuplicateLimit}개 중복 - 기존 영역 도달, 즉시 종료`);
           stopCrawling = true;
           break;
+        }
+
+        // 배치 완료 체크 (배치당 batchSize개)
+        if (batchNewCount + batchDuplicateCount >= batchSize) {
+          batchNumber++;
+          const batchTotal = batchNewCount + batchDuplicateCount;
+          const duplicateRate = batchTotal > 0 ? batchDuplicateCount / batchTotal : 0;
+
+          console.log(`\n━━━ 배치 ${batchNumber} 결과 ━━━`);
+          console.log(`   신규: ${batchNewCount}개, 중복: ${batchDuplicateCount}개`);
+          console.log(`   중복률: ${(duplicateRate * 100).toFixed(0)}% (임계값: ${SAFETY.batchDuplicateThreshold * 100}%)`);
+
+          if (duplicateRate >= SAFETY.batchDuplicateThreshold) {
+            console.log(`   → ✅ 기존 데이터 영역 진입 → 크롤링 완료`);
+            stopCrawling = true;
+            break;
+          }
+
+          if (batchNumber >= SAFETY.maxBatches) {
+            console.log(`   → ⚠️ 최대 배치 횟수 도달`);
+            stopCrawling = true;
+            break;
+          }
+
+          console.log(`   → 🔄 중복률 낮음, 다음 배치 계속...`);
+          batchNewCount = 0;
+          batchDuplicateCount = 0;
         }
 
         // 모집종료 상태 스킵
@@ -192,16 +230,18 @@ export async function crawlSejong(page, config) {
 
         if (existing) {
           consecutiveDuplicates++;
-          skippedCount++;
-          console.log(`  ⏭️ 중복 ${consecutiveDuplicates}/${SAFETY.duplicateThreshold}: ${item.title.substring(0, 40)}...`);
+          batchDuplicateCount++;
+          totalSkippedCount++;
+          console.log(`  ⏭️ 중복: ${item.title.substring(0, 40)}...`);
           continue;
         }
 
         // 신규 공고 발견 - 중복 카운터 리셋
         consecutiveDuplicates = 0;
-        processedCount++;
+        batchNewCount++;
+        totalProcessedCount++;
 
-        console.log(`\n  📄 신규 ${processedCount}. ${item.title.substring(0, 50)}...`);
+        console.log(`\n  📄 신규 ${totalProcessedCount}. ${item.title.substring(0, 50)}...`);
         console.log(`     학교: ${item.schoolName}, 과목: ${item.subject}`);
 
         try {
@@ -247,10 +287,18 @@ export async function crawlSejong(page, config) {
     throw error;
   }
 
+  // 마지막 배치 결과 출력 (미완료 배치가 있는 경우)
+  if (batchNewCount + batchDuplicateCount > 0) {
+    batchNumber++;
+    const batchTotal = batchNewCount + batchDuplicateCount;
+    const duplicateRate = batchTotal > 0 ? batchDuplicateCount / batchTotal : 0;
+    console.log(`\n━━━ 배치 ${batchNumber} (최종) 결과 ━━━`);
+    console.log(`   신규: ${batchNewCount}개, 중복: ${batchDuplicateCount}개`);
+    console.log(`   중복률: ${(duplicateRate * 100).toFixed(0)}%`);
+  }
+
   console.log(`\n✅ ${config.name} 크롤링 완료`);
-  console.log(`   - 신규: ${jobs.length}개`);
-  console.log(`   - 중복 스킵: ${skippedCount}개`);
-  console.log(`   - 총 처리: ${jobs.length + skippedCount}개\n`);
+  console.log(`   📊 총 수집: ${jobs.length}개, 중복 스킵: ${totalSkippedCount}개, 배치 횟수: ${batchNumber}회\n`);
 
   return jobs;
 }

@@ -110,6 +110,24 @@ export async function crawlGyeonggi(page, config) {
   const jobs = [];
   let skippedCount = 0;
 
+  // 배치 반복 방식 설정
+  const SAFETY = {
+    maxItems: 100,                // 절대 최대 수집 개수
+    maxBatches: 10,               // 최대 배치 반복 횟수
+    batchDuplicateThreshold: 0.5, // 배치 내 중복률 50% 이상이면 종료
+    consecutiveDuplicateLimit: 3, // 연속 중복 시 즉시 중단
+  };
+
+  const batchSize = config.crawlBatchSize || 10;
+  let consecutiveDuplicates = 0;
+  let totalProcessedCount = 0;
+  let batchNumber = 0;
+  let batchNewCount = 0;
+  let batchDuplicateCount = 0;
+
+  console.log(`\n🔄 배치 반복 모드: 배치당 ${batchSize}개, 최대 ${SAFETY.maxBatches}회`);
+  console.log(`   중복률 ${SAFETY.batchDuplicateThreshold * 100}% 이상이면 종료`);
+
   try {
     // 1. 목록 페이지 POST 요청으로 로드
     console.log(`🌐 목록 페이지 POST 요청 중...`);
@@ -241,20 +259,49 @@ export async function crawlGyeonggi(page, config) {
       return [];
     }
     
-    // 3. 각 공고 상세 페이지 크롤링 (중복 발견 시 중단)
-    const SAFETY = {
-      maxItems: 100,           // 무한 루프 방지
-      duplicateThreshold: 3,   // 연속 중복 시 중단
-    };
+    // 3. 각 공고 상세 페이지 크롤링 (배치 반복 방식)
+    let shouldStop = false;
 
-    let consecutiveDuplicates = 0;
-    let processedCount = 0;
+    for (let i = 0; i < jobListData.length && !shouldStop; i++) {
+      const listInfo = jobListData[i];
 
-    for (const listInfo of jobListData) {
-      // 안전장치 1: 최대 개수
-      if (processedCount >= SAFETY.maxItems) {
-        console.log(`  ⚠️ 최대 수집 개수(${SAFETY.maxItems}) 도달`);
+      // 안전장치 1: 절대 최대 개수
+      if (totalProcessedCount >= SAFETY.maxItems) {
+        console.log(`\n⚠️ 절대 최대 수집 개수(${SAFETY.maxItems}) 도달`);
         break;
+      }
+
+      // 연속 중복 즉시 중단
+      if (consecutiveDuplicates >= SAFETY.consecutiveDuplicateLimit) {
+        console.log(`\n🛑 연속 ${SAFETY.consecutiveDuplicateLimit}개 중복 - 기존 영역 도달, 즉시 종료`);
+        break;
+      }
+
+      // 배치 완료 체크
+      if (batchNewCount + batchDuplicateCount >= batchSize) {
+        batchNumber++;
+        const batchTotal = batchNewCount + batchDuplicateCount;
+        const duplicateRate = batchTotal > 0 ? batchDuplicateCount / batchTotal : 0;
+
+        console.log(`\n━━━ 배치 ${batchNumber} 결과 ━━━`);
+        console.log(`   신규: ${batchNewCount}개, 중복: ${batchDuplicateCount}개`);
+        console.log(`   중복률: ${(duplicateRate * 100).toFixed(0)}% (임계값: ${SAFETY.batchDuplicateThreshold * 100}%)`);
+
+        if (duplicateRate >= SAFETY.batchDuplicateThreshold) {
+          console.log(`   → ✅ 기존 데이터 영역 진입 → 크롤링 완료`);
+          shouldStop = true;
+          break;
+        }
+
+        if (batchNumber >= SAFETY.maxBatches) {
+          console.log(`   → ⚠️ 최대 배치 횟수 도달`);
+          shouldStop = true;
+          break;
+        }
+
+        console.log(`   → 🔄 중복률 낮음, 다음 배치 계속...`);
+        batchNewCount = 0;
+        batchDuplicateCount = 0;
       }
 
       const pbancSn = listInfo.pbancSn;
@@ -266,21 +313,17 @@ export async function crawlGyeonggi(page, config) {
       if (existing) {
         consecutiveDuplicates++;
         skippedCount++;
-        console.log(`  ⏭️ 중복 ${consecutiveDuplicates}/${SAFETY.duplicateThreshold}: ${listInfo.title?.substring(0, 30)}...`);
-
-        // 안전장치 2: 연속 중복 시 중단
-        if (consecutiveDuplicates >= SAFETY.duplicateThreshold) {
-          console.log(`  🛑 연속 ${SAFETY.duplicateThreshold}개 중복 - 기존 영역 도달, 크롤링 완료`);
-          break;
-        }
+        batchDuplicateCount++;
+        console.log(`  ⏭️ 중복 ${consecutiveDuplicates}/${SAFETY.consecutiveDuplicateLimit}: ${listInfo.title?.substring(0, 30)}...`);
         continue;
       }
 
       // 신규 공고 발견 - 중복 카운터 리셋
       consecutiveDuplicates = 0;
-      processedCount++;
+      totalProcessedCount++;
+      batchNewCount++;
 
-      console.log(`\n  🔍 신규 공고 ${processedCount} (ID: ${pbancSn})`);
+      console.log(`\n  🔍 신규 공고 ${totalProcessedCount} (ID: ${pbancSn})`);
       console.log(`     게시판 정보: ${listInfo.schoolName} - ${listInfo.title}`);
       
       try {
@@ -357,7 +400,8 @@ export async function crawlGyeonggi(page, config) {
   console.log(`\n✅ ${config.name} 크롤링 완료`);
   console.log(`   - 신규: ${jobs.length}개`);
   console.log(`   - 중복 스킵: ${skippedCount}개`);
-  console.log(`   - 총 처리: ${jobs.length + skippedCount}개\n`);
+  console.log(`   - 총 처리: ${jobs.length + skippedCount}개`);
+  console.log(`   - 배치 수: ${batchNumber}회\n`);
   return jobs;
 }
 
