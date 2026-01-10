@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import type { JobPostingCard } from '@/types';
+import { useSearchStore } from '@/stores/searchStore';
 
 interface JobCardProps {
   job: JobPostingCard;
@@ -18,6 +19,22 @@ const themeColors = {
 export const JobCard: React.FC<JobCardProps> = ({ job, onClick, themeColor = 'default' }) => {
   const isUrgent = job.daysLeft !== undefined && job.daysLeft <= 3;
   const colors = themeColors[themeColor];
+  const { filters } = useSearchStore();
+
+  // 선택된 과목 필터와 관련된 태그를 먼저 보여주도록 정렬
+  const sortedTags = useMemo(() => {
+    if (!job.tags || job.tags.length === 0) return [];
+    if (filters.subject.length === 0) return job.tags;
+
+    const selectedSubjects = filters.subject;
+    return [...job.tags].sort((a, b) => {
+      const aMatches = selectedSubjects.some(sub => a.includes(sub));
+      const bMatches = selectedSubjects.some(sub => b.includes(sub));
+      if (aMatches && !bMatches) return -1;
+      if (!aMatches && bMatches) return 1;
+      return 0;
+    });
+  }, [job.tags, filters.subject]);
 
   return (
     <article
@@ -53,7 +70,7 @@ export const JobCard: React.FC<JobCardProps> = ({ job, onClick, themeColor = 'de
 
           {/* 태그 */}
           <div className="flex flex-wrap gap-1.5 max-h-[44px] overflow-hidden">
-            {job.tags.slice(0, 2).map((tag, index) => (
+            {sortedTags.slice(0, 2).map((tag, index) => (
               <span
                 key={index}
                 className="rounded-full border border-gray-200 bg-white px-2.5 py-1 text-sm font-medium text-gray-700"

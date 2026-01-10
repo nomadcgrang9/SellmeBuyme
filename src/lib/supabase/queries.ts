@@ -3629,11 +3629,14 @@ async function executeJobSearch({
     query = query.or(levelConditions.join(','));
   }
 
-  // 과목 필터 (subject 컬럼 ilike)
+  // 과목 필터 (title + tags 기반 검색)
   if (filters.subject.length > 0) {
-    const subjectConditions = filters.subject.map((sub) => {
-      const pattern = buildIlikePattern(sub);
-      return `subject.ilike.${pattern}`;
+    const subjectConditions: string[] = [];
+    filters.subject.forEach((sub) => {
+      // title에서 과목명 검색
+      subjectConditions.push(`title.ilike.*${sub}*`);
+      // tags 배열에서 과목명 검색
+      subjectConditions.push(`tags.cs.{${sub}}`);
     });
     query = query.or(subjectConditions.join(','));
   }
