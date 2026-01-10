@@ -439,6 +439,7 @@ export const PROVINCE_TO_CRAWL_BOARD_IDS: Record<string, string[]> = {
   경기: [
     'f4c852f1-f49a-42c5-8823-0edd346f99bb', // 경기도 교육청 구인정보조회
     'de02eada-6569-45df-9f4d-45a4fcc51879', // 가평교육지원청
+    'da3c6bc2-8b49-4f81-b0ed-556fa8001aab', // 고양교육지원청
     '5d7799d9-5d8d-47a2-b0df-6dd4f39449bd', // 구리남양주 기간제교사
     'ce968fdd-6fe4-4fb7-8ec8-60d491932c6c', // 남양주교육지원청
     '5a94f47d-5feb-4821-99af-f8805cc3d619', // 성남교육지원청
