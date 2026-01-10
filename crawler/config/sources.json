@@ -70,13 +70,12 @@
   },
   "sejong": {
     "name": "세종특별자치시교육청 구인",
-    "baseUrl": "https://www.sje.go.kr/boardCnts/list.do?boardID=142&m=040602&s=sje",
-    "detailUrlTemplate": "https://www.sje.go.kr/boardCnts/view.do?boardID=142&m=040602&s=sje&boardSeq=",
+    "baseUrl": "https://www.sje.go.kr/sje/na/ntt/selectNttList.do?mi=52132&bbsId=108",
+    "detailUrlTemplate": "https://www.sje.go.kr/sje/na/ntt/selectNttInfo.do?mi=52132&bbsId=108&nttSn=",
     "parserType": "custom",
-    "region": "세종특별자치시",
+    "region": "세종",
     "isLocalGovernment": false,
-    "active": false,
-    "note": "별도 크롤러 필요 (boardCnts 패턴)"
+    "active": true
   },
   "gangwon": {
     "name": "강원특별자치도교육청 구인",
