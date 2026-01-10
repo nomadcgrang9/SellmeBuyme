@@ -3536,11 +3536,22 @@ async function executeJobSearch({
       categoryConditions.push(`tags.cs.{${cat}}`);
       // title에서도 검색 (태그 누락 대응)
       categoryConditions.push(`title.ilike.*${cat}*`);
+      // "시간강사"의 경우 "시간제 강사"도 포함
+      if (cat === '시간강사') {
+        categoryConditions.push(`title.ilike.*시간제 강사*`);
+      }
     });
 
-    // "교사" 필터: 제목에 "교사"가 있지만 "기간제"가 아닌 공고 + 특수교육/상담/영양/과목명 관련 공고 (실무사 제외)
+    // "교사" 필터: 교사/기간제/시간강사 + 특수교육/상담/영양/과목명 관련 공고 (실무사 제외, 넓은 범위)
     if (hasTeacher) {
-      categoryConditions.push(`and(title.ilike.*교사*,title.not.ilike.*기간제*,title.not.ilike.*실무사*)`);
+      // 교사, 기간제, 시간강사 키워드 포함 (실무사 제외)
+      categoryConditions.push(`and(title.ilike.*교사*,title.not.ilike.*실무사*)`);
+      categoryConditions.push(`and(title.ilike.*기간제*,title.not.ilike.*실무사*)`);
+      categoryConditions.push(`and(title.ilike.*시간강사*,title.not.ilike.*실무사*)`);
+      categoryConditions.push(`and(title.ilike.*시간제 강사*,title.not.ilike.*실무사*)`);
+      // tags에서도 검색
+      categoryConditions.push(`tags.cs.{기간제}`);
+      categoryConditions.push(`tags.cs.{시간강사}`);
       // 제목에 "(학교급) 특수" 패턴이 있는 경우 (유치원 특수, 초등 특수, 중등 특수, 고등 특수 등) - 실무사 제외
       categoryConditions.push(`and(title.ilike.*유치원 특수*,title.not.ilike.*실무사*)`);
       categoryConditions.push(`and(title.ilike.*초등 특수*,title.not.ilike.*실무사*)`);
@@ -3551,24 +3562,24 @@ async function executeJobSearch({
       // 상담/영양 관련 공고 (실무사 제외)
       categoryConditions.push(`and(title.ilike.*상담*,title.not.ilike.*실무사*)`);
       categoryConditions.push(`and(title.ilike.*영양*,title.not.ilike.*실무사*)`);
-      // 과목명이 포함된 공고 (실무사, 기간제 제외)
-      categoryConditions.push(`and(title.ilike.*국어*,title.not.ilike.*실무사*,title.not.ilike.*기간제*)`);
-      categoryConditions.push(`and(title.ilike.*영어*,title.not.ilike.*실무사*,title.not.ilike.*기간제*)`);
-      categoryConditions.push(`and(title.ilike.*수학*,title.not.ilike.*실무사*,title.not.ilike.*기간제*)`);
-      categoryConditions.push(`and(title.ilike.*사회*,title.not.ilike.*실무사*,title.not.ilike.*기간제*)`);
-      categoryConditions.push(`and(title.ilike.*과학*,title.not.ilike.*실무사*,title.not.ilike.*기간제*)`);
-      categoryConditions.push(`and(title.ilike.*체육*,title.not.ilike.*실무사*,title.not.ilike.*기간제*)`);
-      categoryConditions.push(`and(title.ilike.*음악*,title.not.ilike.*실무사*,title.not.ilike.*기간제*)`);
-      categoryConditions.push(`and(title.ilike.*미술*,title.not.ilike.*실무사*,title.not.ilike.*기간제*)`);
-      categoryConditions.push(`and(title.ilike.*정보*,title.not.ilike.*실무사*,title.not.ilike.*기간제*)`);
-      categoryConditions.push(`and(title.ilike.*보건*,title.not.ilike.*실무사*,title.not.ilike.*기간제*)`);
-      categoryConditions.push(`and(title.ilike.*실과*,title.not.ilike.*실무사*,title.not.ilike.*기간제*)`);
-      categoryConditions.push(`and(title.ilike.*도덕*,title.not.ilike.*실무사*,title.not.ilike.*기간제*)`);
+      // 과목명이 포함된 공고 (실무사 제외)
+      categoryConditions.push(`and(title.ilike.*국어*,title.not.ilike.*실무사*)`);
+      categoryConditions.push(`and(title.ilike.*영어*,title.not.ilike.*실무사*)`);
+      categoryConditions.push(`and(title.ilike.*수학*,title.not.ilike.*실무사*)`);
+      categoryConditions.push(`and(title.ilike.*사회*,title.not.ilike.*실무사*)`);
+      categoryConditions.push(`and(title.ilike.*과학*,title.not.ilike.*실무사*)`);
+      categoryConditions.push(`and(title.ilike.*체육*,title.not.ilike.*실무사*)`);
+      categoryConditions.push(`and(title.ilike.*음악*,title.not.ilike.*실무사*)`);
+      categoryConditions.push(`and(title.ilike.*미술*,title.not.ilike.*실무사*)`);
+      categoryConditions.push(`and(title.ilike.*정보*,title.not.ilike.*실무사*)`);
+      categoryConditions.push(`and(title.ilike.*보건*,title.not.ilike.*실무사*)`);
+      categoryConditions.push(`and(title.ilike.*실과*,title.not.ilike.*실무사*)`);
+      categoryConditions.push(`and(title.ilike.*도덕*,title.not.ilike.*실무사*)`);
     }
 
-    // "강사" 필터: 제목에 "강사"가 있지만 "시간강사"가 아닌 공고 (방과후 강사 등 포함) + 지도자 공고
+    // "강사" 필터: 제목에 "강사"가 있지만 "시간강사/시간제 강사"가 아닌 공고 (방과후 강사 등 포함) + 지도자 공고
     if (hasInstructor) {
-      categoryConditions.push(`and(title.ilike.*강사*,title.not.ilike.*시간강사*)`);
+      categoryConditions.push(`and(title.ilike.*강사*,title.not.ilike.*시간강사*,title.not.ilike.*시간제 강사*)`);
       categoryConditions.push(`title.ilike.*지도자*`);
     }
 
@@ -3670,19 +3681,12 @@ async function executeJobSearch({
   const shouldSortByRelevance = filters.sort === '추천순' && (tokens.length > 0 || trimmedQuery.length > 0);
   const filteredData = filterJobsByTokenGroups(data, tokenGroups);
 
-  // 마감일 필터 (클라이언트 측 보완 - DB 쿼리와 이중 필터링으로 확실하게)
-  const deadlineFilteredData = filteredData.filter((job: any) => {
-    if (!job.deadline) return true; // deadline이 null이면 표시
-    const deadline = new Date(job.deadline);
-    deadline.setHours(0, 0, 0, 0);
-    return deadline >= today; // 오늘 이후만 표시
-  });
-
-  console.log('[executeJobSearch] 마감일 필터 후:', deadlineFilteredData.length, '/', filteredData.length);
+  // 마감일 필터는 DB 쿼리에서 이미 적용됨 (deadline.is.null,deadline.gte.${todayIso})
+  // 클라이언트 측 이중 필터링 제거 - 지도(fetchJobsByBoardRegion)와 동일하게 DB 필터만 사용
 
   const orderedData = shouldSortByRelevance
-    ? sortJobsByRelevance(deadlineFilteredData, tokens, trimmedQuery)
-    : deadlineFilteredData;
+    ? sortJobsByRelevance(filteredData, tokens, trimmedQuery)
+    : filteredData;
 
   return {
     cards: orderedData.map(mapJobPostingToCard),
