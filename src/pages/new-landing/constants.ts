@@ -11,14 +11,14 @@ export const MOCK_BANNERS: Banner[] = [
     title: '전국 모든 학교 공고,\n이제 한눈에 확인하세요.',
     subtitle: '여기저기 흩어진 채용 정보를 쌤찾기z가 한 곳에 모았습니다.',
     theme: 'neon-blue',
-    backgroundImage: '/hero-bg-1.jpg.jpg'
+    backgroundImage: '/hero-bg-1.jpg'
   },
   {
     id: '2',
     title: '나에게 딱 맞는 학교 공고,\n놓치지 말고 실시간으로',
     subtitle: '맞춤형 필터로 당신의 위치와 조건에 최적화된 공고를 추천합니다.',
     theme: 'midnight-purple',
-    backgroundImage: '/hero-bg-2..jpg'
+    backgroundImage: '/hero-bg-2.jpg'
   }
 ];
 
