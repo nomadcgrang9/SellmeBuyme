@@ -174,7 +174,7 @@ const App: React.FC = () => {
                               onClick={() => storeLoadMore()}
                               className="px-8 py-3 bg-[#5B6EF7] text-white font-medium rounded-xl hover:bg-[#4A5DE6] transition-colors shadow-md hover:shadow-lg"
                             >
-                              더 많은 공고 보기 ({jobs.length} / {totalCount})
+                              더 많은 공고 보기
                             </button>
                           </div>
                         )}
