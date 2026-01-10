@@ -1,79 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { MOCK_BANNERS, SCHOOL_LEVELS } from '../constants';
+import { SCHOOL_LEVELS } from '../constants';
 import { useKakaoMaps } from '@/hooks/useKakaoMaps';
 import { fetchJobsByBoardRegion } from '@/lib/supabase/queries';
 import type { JobPostingCard } from '@/types';
 
-const THEMES = {
-  'neon-blue': {
-    wrapper: 'bg-gradient-to-br from-blue-900 to-slate-800',
-    orb1: 'bg-blue-400',
-    orb2: 'bg-cyan-300',
-    orb3: 'bg-indigo-400',
-    textAccent: 'text-blue-100'
-  },
-  'midnight-purple': {
-    wrapper: 'bg-gradient-to-br from-violet-900 via-purple-900 to-fuchsia-900',
-    orb1: 'bg-fuchsia-400',
-    orb2: 'bg-purple-300',
-    orb3: 'bg-pink-400',
-    textAccent: 'text-purple-100'
-  },
-  'sunset-vibes': {
-    wrapper: 'bg-gradient-to-br from-orange-800 to-red-900',
-    orb1: 'bg-yellow-400',
-    orb2: 'bg-orange-300',
-    orb3: 'bg-rose-400',
-    textAccent: 'text-orange-100'
-  }
-};
-
-// Component to handle character-by-character animation
-const AnimatedText = ({
-  text,
-  className,
-  baseDelay = 0,
-  staggerDelay = 30
-}: {
-  text: string;
-  className?: string;
-  baseDelay?: number;
-  staggerDelay?: number;
-}) => {
-  // Split text by newlines to handle multi-line text blocks correctly
-  const lines = text.split('\n');
-  let charGlobalIndex = 0;
-
-  return (
-    <div className={className}>
-      {lines.map((line, lineIndex) => (
-        <div key={lineIndex} className="block">
-          {line.split('').map((char, charIndex) => {
-            const currentDelay = baseDelay + (charGlobalIndex * staggerDelay);
-            charGlobalIndex++;
-            return (
-              <span
-                key={`${lineIndex}-${charIndex}`}
-                className="inline-block opacity-0 animate-fade-in"
-                style={{
-                  animationDelay: `${currentDelay}ms`,
-                  animationFillMode: 'forwards',
-                  marginRight: char === ' ' ? '0.25em' : '0'
-                }}
-              >
-                {char === ' ' ? '\u00A0' : char}
-              </span>
-            );
-          })}
-        </div>
-      ))}
-    </div>
-  );
-};
-
 export const Hero: React.FC = () => {
-  const [activeIndex, setActiveIndex] = useState(0);
-
   // 지도 필터 옵션 (드롭다운과 동일)
   const MAP_FILTER_JOB_TYPES = ['기간제', '교사', '시간강사', '강사', '기타'] as const;
   const MAP_FILTER_SUBJECTS = ['국어', '영어', '수학', '사회', '과학', '체육', '음악', '미술', '정보', '보건', '사서', '상담'] as const;
@@ -101,7 +32,6 @@ export const Hero: React.FC = () => {
 
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
-  const bannerRef = useRef<HTMLDivElement>(null);
   const { isLoaded, loadKakaoMaps } = useKakaoMaps();
 
   // 사용자 위치 상태
@@ -270,14 +200,6 @@ export const Hero: React.FC = () => {
 
     return filtered;
   }, [jobPostings, mapFilters, activeLocationFilter]);
-
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setActiveIndex((prev) => (prev + 1) % MOCK_BANNERS.length);
-    }, 10000);
-    return () => clearInterval(interval);
-  }, []);
 
   // Load Kakao Maps SDK
   useEffect(() => {
@@ -598,198 +520,231 @@ export const Hero: React.FC = () => {
     };
   }, [isLoaded, filteredJobPostings]);
 
-  const activeBanner = MOCK_BANNERS[activeIndex];
-  const theme = THEMES[activeBanner.theme] || THEMES['neon-blue'];
-
   return (
-    <section className="max-w-7xl mx-auto px-4 py-6">
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:h-[340px]">
+    <section className="h-full w-full relative">
+      {/* 지도 영역 */}
+      <div ref={mapContainerRef} className="absolute inset-0 w-full h-full" />
 
-        {/* LEFT: Map Widget (Span 2) - 크게 표시 */}
-        <div className="hidden lg:block relative lg:col-span-2 h-[300px] lg:h-full rounded-2xl overflow-hidden border border-gray-200 shadow-lg">
-          {/* 지도 컨테이너 */}
-          <div
-            ref={mapContainerRef}
-            className="absolute inset-0 w-full h-full"
-          />
-
-          {/* 필터 사이드바 */}
-          <div className="absolute top-0 right-0 h-full w-[200px] bg-white/95 backdrop-blur-sm z-10 border-l border-gray-200 shadow-lg overflow-y-auto">
-            {/* 필터 헤더 */}
-            <div className="sticky top-0 bg-white/95 backdrop-blur-sm px-3 py-2 border-b border-gray-200 z-10">
-              <div className="flex items-center justify-between">
-                <h4 className="font-bold text-gray-800 text-sm">지도 필터</h4>
-                <span className="text-xs font-medium text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
-                  {markerCount}/{filteredJobPostings.length}개
-                </span>
-              </div>
-            </div>
-
-            {/* 필터 내용 */}
-            <div className="p-3 space-y-3">
-              {/* 주소 검색 */}
-              <div>
-                <h5 className="text-xs font-semibold text-gray-500 mb-1.5">주소 검색</h5>
-                <div className="relative">
-                  {activeLocationFilter ? (
-                    // 활성 필터가 있을 때 버튼 형태로 표시
-                    <div className="w-full px-2 py-1.5 text-xs border border-[#5B6EF7] bg-[#5B6EF7]/10 rounded-lg flex items-center justify-between">
-                      <span className="text-[#5B6EF7] font-medium truncate">{activeLocationFilter}</span>
-                      <button
-                        onClick={clearLocationFilter}
-                        className="ml-1 p-0.5 text-[#5B6EF7] hover:text-red-500 transition-colors flex-shrink-0"
-                        aria-label="검색 취소"
-                      >
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                      </button>
-                    </div>
-                  ) : (
-                    // 검색 입력 필드
-                    <>
-                      <input
-                        type="text"
-                        placeholder="지역, 학교명 검색"
-                        value={locationSearchQuery}
-                        onChange={(e) => setLocationSearchQuery(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            handleLocationSearch();
-                          }
-                        }}
-                        className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:border-[#5B6EF7]"
-                      />
-                      <button
-                        onClick={handleLocationSearch}
-                        className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-[#5B6EF7]"
-                      >
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                        </svg>
-                      </button>
-                    </>
-                  )}
-                </div>
-              </div>
-
-              {/* 학교급 필터 */}
-              <div>
-                <h5 className="text-xs font-semibold text-gray-500 mb-1.5">학교급</h5>
-                <div className="flex flex-wrap gap-1">
-                  {SCHOOL_LEVELS.map(level => (
-                    <button
-                      key={level}
-                      onClick={() => toggleMapFilter('schoolLevels', level)}
-                      className={`px-2 py-0.5 text-[10px] rounded-full border transition-all ${
-                        mapFilters.schoolLevels.includes(level)
-                          ? 'bg-[#5B6EF7] border-[#5B6EF7] text-white'
-                          : 'bg-white border-gray-200 text-gray-600 hover:border-[#5B6EF7]'
-                      }`}
-                    >
-                      {level}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* 유형 필터 */}
-              <div>
-                <h5 className="text-xs font-semibold text-gray-500 mb-1.5">유형</h5>
-                <div className="flex flex-wrap gap-1">
-                  {MAP_FILTER_JOB_TYPES.map(type => (
-                    <button
-                      key={type}
-                      onClick={() => toggleMapFilter('jobTypes', type)}
-                      className={`px-2 py-0.5 text-[10px] rounded-full border transition-all ${
-                        mapFilters.jobTypes.includes(type)
-                          ? 'bg-[#5B6EF7] border-[#5B6EF7] text-white'
-                          : 'bg-white border-gray-200 text-gray-600 hover:border-[#5B6EF7]'
-                      }`}
-                    >
-                      {type}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* 과목 필터 */}
-              <div>
-                <h5 className="text-xs font-semibold text-gray-500 mb-1.5">과목</h5>
-                <div className="flex flex-wrap gap-1">
-                  {MAP_FILTER_SUBJECTS.map(subject => (
-                    <button
-                      key={subject}
-                      onClick={() => toggleMapFilter('subjects', subject)}
-                      className={`px-2 py-0.5 text-[10px] rounded-full border transition-all ${
-                        mapFilters.subjects.includes(subject)
-                          ? 'bg-[#5B6EF7] border-[#5B6EF7] text-white'
-                          : 'bg-white border-gray-200 text-gray-600 hover:border-[#5B6EF7]'
-                      }`}
-                    >
-                      {subject}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-
+      {/* 필터 패널 - 플로팅 */}
+      <div className="absolute top-4 right-4 w-[220px] bg-white/95 backdrop-blur-sm z-10 rounded-xl border border-gray-200 shadow-lg overflow-hidden">
+        {/* 필터 헤더 */}
+        <div className="px-4 py-3 border-b border-gray-100">
+          <div className="flex items-center justify-between">
+            <h4 className="font-bold text-gray-800 text-sm">지도 필터</h4>
+            <span className="text-xs font-medium text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
+              {markerCount}/{filteredJobPostings.length}개
+            </span>
           </div>
         </div>
 
-        {/* RIGHT: Banner Slider (Span 1) - 작게 표시 */}
-        <div ref={bannerRef} className={`relative overflow-hidden shadow-lg h-[300px] lg:h-full group w-full rounded-2xl ${!activeBanner.backgroundImage ? theme.wrapper : ''}`}>
-
-            {/* Background Image with blur effect */}
-            {activeBanner.backgroundImage && (
-              <div
-                className="absolute inset-0 bg-cover bg-center transition-opacity duration-1000 scale-105 blur-[2px]"
-                style={{ backgroundImage: `url(${activeBanner.backgroundImage})` }}
-              />
-            )}
-
-            {/* Dark Overlay for text readability */}
-            <div className="absolute inset-0 bg-black/50 backdrop-blur-[1px]"></div>
-
-            {/* Animated Background Effects */}
-            <div className={`absolute inset-0 overflow-hidden ${activeBanner.backgroundImage ? 'opacity-30' : ''}`}>
-                <div className={`absolute top-0 right-[-10%] w-[300px] h-[300px] rounded-full blur-[60px] opacity-50 mix-blend-screen animate-blob ${theme.orb1}`}></div>
-                <div className={`absolute bottom-[-20%] left-[-10%] w-[250px] h-[250px] rounded-full blur-[50px] opacity-40 mix-blend-screen animate-blob animation-delay-2000 ${theme.orb2}`}></div>
-                <div className={`absolute top-[40%] left-[30%] w-[200px] h-[200px] rounded-full blur-[40px] opacity-40 mix-blend-plus-lighter animate-blob animation-delay-4000 ${theme.orb3}`}></div>
-            </div>
-
-            {/* Content Layer */}
-            <div className="absolute inset-0 flex items-center justify-between p-5 z-10">
-                <div className="w-full font-sandoll">
-                    <div key={`content-${activeIndex}`}>
-                        <AnimatedText
-                            text={activeBanner.title}
-                            className="text-xl md:text-2xl font-bold mb-2 text-white tracking-wide leading-snug [text-shadow:_0_2px_8px_rgba(0,0,0,0.7),_0_4px_16px_rgba(0,0,0,0.5)]"
-                            baseDelay={500}
-                            staggerDelay={40}
-                        />
-
-                        <AnimatedText
-                            text={activeBanner.subtitle}
-                            className={`text-xs md:text-sm font-medium mb-4 text-white/90 leading-relaxed tracking-wider [text-shadow:_0_1px_4px_rgba(0,0,0,0.6),_0_2px_8px_rgba(0,0,0,0.4)]`}
-                            baseDelay={1500}
-                            staggerDelay={20}
-                        />
-                    </div>
+        {/* 필터 내용 */}
+        <div className="p-4 space-y-4 max-h-[calc(100vh-200px)] overflow-y-auto">
+          {/* 주소 검색 */}
+          <div>
+            <h5 className="text-xs font-semibold text-gray-500 mb-1.5">주소 검색</h5>
+            <div className="relative">
+              {activeLocationFilter ? (
+                <div className="w-full px-2 py-1.5 text-xs border border-[#5B6EF7] bg-[#5B6EF7]/10 rounded-lg flex items-center justify-between">
+                  <span className="text-[#5B6EF7] font-medium truncate">{activeLocationFilter}</span>
+                  <button
+                    onClick={clearLocationFilter}
+                    className="ml-1 p-0.5 text-[#5B6EF7] hover:text-red-500 transition-colors flex-shrink-0"
+                    aria-label="검색 취소"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
                 </div>
+              ) : (
+                <>
+                  <input
+                    type="text"
+                    placeholder="지역, 학교명 검색"
+                    value={locationSearchQuery}
+                    onChange={(e) => setLocationSearchQuery(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        handleLocationSearch();
+                      }
+                    }}
+                    className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:border-[#5B6EF7]"
+                  />
+                  <button
+                    onClick={handleLocationSearch}
+                    className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-[#5B6EF7]"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                  </button>
+                </>
+              )}
             </div>
+          </div>
 
-            {/* Paginator */}
-            <div className="absolute bottom-4 left-5 flex gap-2 z-20">
-                {MOCK_BANNERS.map((_, idx) => (
-                    <div
-                        key={idx}
-                        className={`h-1.5 rounded-full transition-all duration-300 shadow-sm ${idx === activeIndex ? 'w-6 bg-white' : 'w-1.5 bg-white/40'}`}
-                    />
-                ))}
+          {/* 학교급 필터 */}
+          <div>
+            <h5 className="text-xs font-semibold text-gray-500 mb-1.5">학교급</h5>
+            <div className="flex flex-wrap gap-1">
+              {SCHOOL_LEVELS.map(level => (
+                <button
+                  key={level}
+                  onClick={() => toggleMapFilter('schoolLevels', level)}
+                  className={`px-2 py-0.5 text-[10px] rounded-full border transition-all ${
+                    mapFilters.schoolLevels.includes(level)
+                      ? 'bg-[#5B6EF7] border-[#5B6EF7] text-white'
+                      : 'bg-white border-gray-200 text-gray-600 hover:border-[#5B6EF7]'
+                  }`}
+                >
+                  {level}
+                </button>
+              ))}
             </div>
+          </div>
+
+          {/* 유형 필터 */}
+          <div>
+            <h5 className="text-xs font-semibold text-gray-500 mb-1.5">유형</h5>
+            <div className="flex flex-wrap gap-1">
+              {MAP_FILTER_JOB_TYPES.map(type => (
+                <button
+                  key={type}
+                  onClick={() => toggleMapFilter('jobTypes', type)}
+                  className={`px-2 py-0.5 text-[10px] rounded-full border transition-all ${
+                    mapFilters.jobTypes.includes(type)
+                      ? 'bg-[#5B6EF7] border-[#5B6EF7] text-white'
+                      : 'bg-white border-gray-200 text-gray-600 hover:border-[#5B6EF7]'
+                  }`}
+                >
+                  {type}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* 과목 필터 */}
+          <div>
+            <h5 className="text-xs font-semibold text-gray-500 mb-1.5">과목</h5>
+            <div className="flex flex-wrap gap-1">
+              {MAP_FILTER_SUBJECTS.map(subject => (
+                <button
+                  key={subject}
+                  onClick={() => toggleMapFilter('subjects', subject)}
+                  className={`px-2 py-0.5 text-[10px] rounded-full border transition-all ${
+                    mapFilters.subjects.includes(subject)
+                      ? 'bg-[#5B6EF7] border-[#5B6EF7] text-white'
+                      : 'bg-white border-gray-200 text-gray-600 hover:border-[#5B6EF7]'
+                  }`}
+                >
+                  {subject}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 공고 목록 패널 - 플로팅 */}
+      <div className="absolute top-4 left-4 w-[320px] bg-white/95 backdrop-blur-sm z-10 rounded-xl border border-gray-200 shadow-lg overflow-hidden flex flex-col max-h-[calc(100vh-140px)]">
+        {/* 목록 헤더 */}
+        <div className="px-4 py-3 border-b border-gray-100 flex-shrink-0">
+          <div className="flex items-center justify-between">
+            <h4 className="font-bold text-gray-800 text-sm">공고 목록</h4>
+            <span className="text-xs font-medium text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
+              {filteredJobPostings.length}개
+            </span>
+          </div>
         </div>
 
+        {/* 공고 카드 목록 */}
+        <div className="flex-1 overflow-y-auto">
+          {filteredJobPostings.length === 0 ? (
+            <div className="p-4 text-center text-gray-400 text-sm">
+              표시할 공고가 없습니다
+            </div>
+          ) : (
+            <div className="divide-y divide-gray-100">
+              {filteredJobPostings.map((job) => (
+                <div
+                  key={job.id}
+                  className="p-3 hover:bg-gray-50 cursor-pointer transition-colors"
+                  onClick={() => {
+                    // 해당 공고 위치로 지도 이동
+                    if (mapInstanceRef.current && job.organization) {
+                      const places = new window.kakao.maps.services.Places();
+                      places.keywordSearch(job.organization, (result: any[], status: string) => {
+                        if (status === window.kakao.maps.services.Status.OK && result.length > 0) {
+                          const coords = new window.kakao.maps.LatLng(result[0].y, result[0].x);
+                          mapInstanceRef.current.setCenter(coords);
+                          mapInstanceRef.current.setLevel(3);
+                        }
+                      });
+                    }
+                  }}
+                >
+                  {/* 상단: 기관명 + D-day */}
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-[10px] text-gray-500 truncate flex-1">
+                      {job.organization || '기관 정보 없음'}
+                    </span>
+                    {job.daysLeft !== undefined && (
+                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                        job.daysLeft <= 3
+                          ? 'bg-red-100 text-red-600'
+                          : job.daysLeft <= 7
+                            ? 'bg-orange-100 text-orange-600'
+                            : 'bg-blue-100 text-blue-600'
+                      }`}>
+                        D-{job.daysLeft}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* 제목 */}
+                  <h5 className="text-xs font-semibold text-gray-800 leading-tight mb-1.5 line-clamp-2">
+                    {job.title}
+                  </h5>
+
+                  {/* 태그 */}
+                  {job.tags && job.tags.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {job.tags.slice(0, 3).map((tag, idx) => (
+                        <span
+                          key={idx}
+                          className="text-[9px] px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded"
+                        >
+                          {tag}
+                        </span>
+                      ))}
+                      {job.tags.length > 3 && (
+                        <span className="text-[9px] text-gray-400">
+                          +{job.tags.length - 3}
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  {/* 원문 링크 버튼 */}
+                  {job.source_url && (
+                    <a
+                      href={job.source_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      className="mt-2 inline-flex items-center justify-center gap-1 w-full px-2 py-1.5 text-[10px] font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                    >
+                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                      </svg>
+                      원문 링크
+                    </a>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </section>
   );
