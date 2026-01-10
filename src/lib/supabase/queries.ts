@@ -3568,6 +3568,8 @@ async function executeJobSearch({
       if (level === '기타') {
         // school_level이 NULL이면서 organization에서도 학교급 추론이 안되는 경우
         levelConditions.push(`and(school_level.is.null,organization.not.ilike.*유치원*,organization.not.ilike.*초등*,organization.not.ilike.*중학*,organization.not.ilike.*중등*,organization.not.ilike.*고등*,organization.not.ilike.*고교*,organization.not.ilike.*특수*)`);
+        // 2. school_level이 있지만 유/초/중/고/특수 키워드가 없는 경우 (교육청, 도서관, 평생 등)
+        levelConditions.push(`and(school_level.not.is.null,school_level.not.ilike.*유치원*,school_level.not.ilike.*초등*,school_level.not.ilike.*중학*,school_level.not.ilike.*중등*,school_level.not.ilike.*고등*,school_level.not.ilike.*고교*,school_level.not.ilike.*특수*)`);
         continue;
       }
 
