@@ -22,7 +22,8 @@ errorReporter.setupGlobalHandlers();
 
 const pathname = window.location.pathname
 
-let rootComponent = <App />
+// 기본값: 새 랜딩 페이지 (지도 중심 UI)
+let rootComponent = <NewLanding />
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 개발자 노트 페이지 (PWA)
@@ -78,16 +79,11 @@ else if (pathname.match(/^\/chat\/.+/)) {
 else if (pathname.startsWith('/chat')) {
   rootComponent = <MobileChat />
 }
-// 데모/시연용 랜딩 페이지 (숨김 처리됨)
-// else if (pathname.startsWith('/landing')) {
-//   rootComponent = <Landing />
-// }
-
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// 쌤찾기z 새 랜딩 페이지
+// 기존 App 접근 경로 (레거시)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-else if (pathname.startsWith('/new-landing') || pathname.startsWith('/ssamfindz')) {
-  rootComponent = <NewLanding />
+else if (pathname.startsWith('/legacy') || pathname.startsWith('/old')) {
+  rootComponent = <App />
 }
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
