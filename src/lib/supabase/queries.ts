@@ -2527,6 +2527,10 @@ export async function fetchJobPostings(limit = 20) {
  * 여러 지역 키워드를 배열로 받아서 OR 조건으로 검색
  * excludeKeywords로 특정 키워드가 포함된 board 제외 가능
  * 예: ['서울', '수원', '광주'], excludeKeywords: ['광주광역시'] → 경기도 광주시는 포함, 광주광역시는 제외
+ *
+ * 우선순위:
+ * 1. PROVINCE_TO_CRAWL_BOARD_IDS에 하드코딩된 board ID가 있으면 사용 (searchCards와 동일)
+ * 2. 없으면 기존 동적 검색으로 fallback
  */
 export async function fetchJobsByBoardRegion(
   regionKeywords: string | string[],
@@ -2534,59 +2538,94 @@ export async function fetchJobsByBoardRegion(
   excludeKeywords: string[] = []
 ): Promise<JobPostingCard[]> {
   // 배열로 통일
-  const keywords = Array.isArray(regionKeywords) ? regionKeywords : [regionKeywords];
+  const rawKeywords = Array.isArray(regionKeywords) ? regionKeywords : [regionKeywords];
 
-  // 1. crawl_boards에서 지역명이 포함된 board ID들 조회
-  // 여러 키워드에 대해 OR 조건 생성
-  const orConditions = keywords.flatMap(keyword => [
-    `name.ilike.%${keyword}%`,
-    `region_display_name.ilike.%${keyword}%`
-  ]).join(',');
+  // 키워드 정규화 (예: "경기도" → "경기", "서울특별시" → "서울")
+  const normalizeKeyword = (kw: string): string => {
+    return kw
+      .replace(/특별시$/, '')
+      .replace(/광역시$/, '')
+      .replace(/특별자치시$/, '')
+      .replace(/특별자치도$/, '')
+      .replace(/도$/, '')
+      .trim();
+  };
 
-  const { data: boards, error: boardsError } = await supabase
-    .from('crawl_boards')
-    .select('id, name, region_display_name')
-    .or(orConditions)
-    .not('approved_at', 'is', null);
+  const keywords = rawKeywords.map(normalizeKeyword);
 
-  console.log(`[fetchJobsByBoardRegion] Searching for:`, keywords);
+  console.log(`[fetchJobsByBoardRegion] Raw keywords:`, rawKeywords);
+  console.log(`[fetchJobsByBoardRegion] Normalized keywords:`, keywords);
   console.log(`[fetchJobsByBoardRegion] Exclude keywords:`, excludeKeywords);
-  console.log(`[fetchJobsByBoardRegion] Found boards before filter:`, boards?.length ?? 0);
 
-  if (boardsError) {
-    console.error(`[fetchJobsByBoardRegion] Board query error:`, boardsError);
-    return [];
+  let boardIds: string[] = [];
+
+  // 1. 먼저 PROVINCE_TO_CRAWL_BOARD_IDS에서 하드코딩된 board ID 확인
+  for (const keyword of keywords) {
+    const hardcodedIds = getCrawlBoardIdsForProvince(keyword);
+    if (hardcodedIds && hardcodedIds.length > 0) {
+      console.log(`[fetchJobsByBoardRegion] Found hardcoded board IDs for "${keyword}":`, hardcodedIds.length);
+      boardIds.push(...hardcodedIds);
+    }
   }
 
-  if (!boards || boards.length === 0) {
-    console.warn(`[fetchJobsByBoardRegion] No boards found for regions:`, keywords);
-    return [];
+  // 2. 하드코딩된 ID가 있으면 그것을 사용, 없으면 동적 검색
+  if (boardIds.length === 0) {
+    console.log(`[fetchJobsByBoardRegion] No hardcoded IDs found, using dynamic search`);
+
+    // 기존 동적 검색 로직
+    const orConditions = keywords.flatMap(keyword => [
+      `name.ilike.%${keyword}%`,
+      `region_display_name.ilike.%${keyword}%`
+    ]).join(',');
+
+    const { data: boards, error: boardsError } = await supabase
+      .from('crawl_boards')
+      .select('id, name, region_display_name')
+      .or(orConditions)
+      .not('approved_at', 'is', null);
+
+    console.log(`[fetchJobsByBoardRegion] Found boards before filter:`, boards?.length ?? 0);
+
+    if (boardsError) {
+      console.error(`[fetchJobsByBoardRegion] Board query error:`, boardsError);
+      return [];
+    }
+
+    if (!boards || boards.length === 0) {
+      console.warn(`[fetchJobsByBoardRegion] No boards found for regions:`, keywords);
+      return [];
+    }
+
+    // 제외 키워드가 있으면 해당 키워드가 포함된 board 필터링
+    const filteredBoards = excludeKeywords.length > 0
+      ? boards.filter(board => {
+          const boardName = (board.name || '').toLowerCase();
+          const regionName = (board.region_display_name || '').toLowerCase();
+          // 제외 키워드 중 하나라도 포함되면 제외
+          return !excludeKeywords.some(excludeKw =>
+            boardName.includes(excludeKw.toLowerCase()) ||
+            regionName.includes(excludeKw.toLowerCase())
+          );
+        })
+      : boards;
+
+    console.log(`[fetchJobsByBoardRegion] Found boards after filter:`, filteredBoards.length, filteredBoards.map(b => b.name));
+
+    if (filteredBoards.length === 0) {
+      console.warn(`[fetchJobsByBoardRegion] All boards were filtered out`);
+      return [];
+    }
+
+    boardIds = filteredBoards.map(b => b.id);
+  } else {
+    console.log(`[fetchJobsByBoardRegion] Using hardcoded board IDs:`, boardIds.length);
   }
 
-  // 제외 키워드가 있으면 해당 키워드가 포함된 board 필터링
-  const filteredBoards = excludeKeywords.length > 0
-    ? boards.filter(board => {
-        const boardName = (board.name || '').toLowerCase();
-        const regionName = (board.region_display_name || '').toLowerCase();
-        // 제외 키워드 중 하나라도 포함되면 제외
-        return !excludeKeywords.some(excludeKw =>
-          boardName.includes(excludeKw.toLowerCase()) ||
-          regionName.includes(excludeKw.toLowerCase())
-        );
-      })
-    : boards;
+  // 중복 제거
+  boardIds = [...new Set(boardIds)];
+  console.log(`[fetchJobsByBoardRegion] Total unique board IDs:`, boardIds.length);
 
-  console.log(`[fetchJobsByBoardRegion] Found boards after filter:`, filteredBoards.length, filteredBoards.map(b => b.name));
-
-  if (filteredBoards.length === 0) {
-    console.warn(`[fetchJobsByBoardRegion] All boards were filtered out`);
-    return [];
-  }
-
-  const boardIds = filteredBoards.map(b => b.id);
-  console.log(`[fetchJobsByBoardRegion] Board IDs:`, boardIds.length);
-
-  // 2. 해당 crawl_board_id의 job_postings 조회
+  // 3. 해당 crawl_board_id의 job_postings 조회
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const todayIso = today.toISOString();
@@ -3612,7 +3651,7 @@ async function executeJobSearch({
       if (level.includes('유치원')) {
         // school_level에서 유치원 검색
         levelConditions.push(`school_level.ilike.*유치원*`);
-        // organization fallback
+        // organization fallback (school_level이 NULL인 경우만)
         levelConditions.push(`and(school_level.is.null,organization.ilike.*유치원*)`);
       } else if (level.includes('초등')) {
         levelConditions.push(`school_level.ilike.*초등*`);
@@ -3644,9 +3683,9 @@ async function executeJobSearch({
   if (filters.subject.length > 0) {
     const subjectConditions: string[] = [];
     filters.subject.forEach((sub) => {
-      // title에서 과목명 검색
+      // title에서 과목명 검색 (부분 매칭)
       subjectConditions.push(`title.ilike.*${sub}*`);
-      // tags 배열에서 과목명 검색
+      // tags 배열에서 과목명 검색 (정확 매칭)
       subjectConditions.push(`tags.cs.{${sub}}`);
     });
     query = query.or(subjectConditions.join(','));
@@ -4077,7 +4116,8 @@ export function mapJobPostingToCard(job: any): JobPostingCard {
     structured_content: structured,
     user_id: job.user_id ?? null,
     source: job.source ?? null,
-    form_payload: formPayload
+    form_payload: formPayload,
+    school_level: job.school_level ?? null
   };
 }
 
