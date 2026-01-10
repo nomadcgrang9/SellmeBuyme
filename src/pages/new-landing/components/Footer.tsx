@@ -12,7 +12,6 @@ export const Footer: React.FC = () => {
                 </div>
                 <div className="text-xs text-gray-500 space-y-1">
                     <p>쌤찾기 고객센터 : 02-1234-5678 (평일 09:00 - 18:00)</p>
-                    <p>이메일 : help@ssamfindz.com</p>
                     <p className="mt-4">(주)쌤찾기z | 대표: 홍길동 | 사업자등록번호: 123-45-67890</p>
                     <p>주소: 서울특별시 강남구 테헤란로 123</p>
                 </div>
