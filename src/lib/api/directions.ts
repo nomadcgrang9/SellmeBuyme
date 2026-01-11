@@ -45,7 +45,8 @@ export async function getDirections(
   if (type === 'car' || type === 'walk') {
     return normalizeCarRoute(data as KakaoCarRoute, type);
   } else {
-    return normalizeTransitRoute(data as TmapTransitRoute);
+    // 대중교통: 예상치 반환 (상세 경로는 카카오맵에서 확인)
+    return normalizeTransitEstimate(data);
   }
 }
 
@@ -101,108 +102,33 @@ function normalizeCarRoute(data: KakaoCarRoute, type: TransportType): Directions
 }
 
 /**
- * TMAP 대중교통 응답 정규화
+ * 대중교통 예상치 응답 정규화 (카카오맵 연결용)
  */
-function normalizeTransitRoute(data: TmapTransitRoute): DirectionsResult {
-  if (!data.metaData?.plan?.itineraries || data.metaData.plan.itineraries.length === 0) {
-    throw new Error('대중교통 경로를 찾을 수 없습니다');
-  }
+interface TransitEstimateResponse {
+  type: 'transit_estimate';
+  distance: number;
+  estimatedTime: number;
+  message: string;
+  kakaoMapUrl: string;
+}
 
-  // 첫 번째 경로 사용 (최적 경로)
-  const itinerary = data.metaData.plan.itineraries[0];
-
-  // 구간별 정보 추출
-  const subPaths: TransitSubPath[] = [];
-  const path: Coordinates[] = [];
-  const guides: DirectionGuide[] = [];
-
-  for (const leg of itinerary.legs) {
-    // 시작 좌표 추가
-    path.push({ lng: leg.start.lon, lat: leg.start.lat });
-
-    // 경유 정거장 좌표 추가
-    if (leg.passStopList?.stationList) {
-      for (const station of leg.passStopList.stationList) {
-        path.push({
-          lng: parseFloat(station.lon),
-          lat: parseFloat(station.lat),
-        });
-      }
-    }
-
-    // 도보 구간 상세 좌표 (linestring 파싱)
-    if (leg.mode === 'WALK' && leg.steps) {
-      for (const step of leg.steps) {
-        if (step.linestring) {
-          const coords = parseLinestring(step.linestring);
-          path.push(...coords);
-        }
-      }
-    }
-
-    // 끝 좌표 추가
-    path.push({ lng: leg.end.lon, lat: leg.end.lat });
-
-    // 구간 타입 결정
-    let subType: 'subway' | 'bus' | 'walk' = 'walk';
-    let lineName = '';
-    let lineColor = '';
-    let stationCount = 0;
-
-    if (leg.mode === 'SUBWAY') {
-      subType = 'subway';
-      lineName = leg.route || '';
-      lineColor = leg.routeColor || getSubwayColorByName(lineName);
-      stationCount = leg.passStopList?.stationList?.length || 0;
-    } else if (leg.mode === 'BUS') {
-      subType = 'bus';
-      lineName = leg.route || '';
-      lineColor = leg.routeColor || getBusColorByType(leg.service || 1);
-      stationCount = leg.passStopList?.stationList?.length || 0;
-    }
-
-    const sectionTime = Math.round(leg.sectionTime / 60); // 초 → 분
-
-    subPaths.push({
-      type: subType,
-      lineName,
-      lineColor,
-      startName: leg.start.name,
-      endName: leg.end.name,
-      stationCount,
-      sectionTime,
-      distance: leg.distance,
-    });
-
-    // 안내 정보 추가
-    if (subType === 'walk') {
-      guides.push({
-        instruction: `도보 이동 ${leg.start.name} → ${leg.end.name}`,
-        distance: leg.distance,
-        duration: leg.sectionTime,
-      });
-    } else {
-      guides.push({
-        instruction: `${lineName} 탑승 (${leg.start.name} → ${leg.end.name}, ${stationCount}정거장)`,
-        distance: leg.distance,
-        duration: leg.sectionTime,
-      });
-    }
-  }
-
+function normalizeTransitEstimate(data: TransitEstimateResponse): DirectionsResult {
   return {
     type: 'transit',
-    totalTime: itinerary.totalTime,
-    totalDistance: itinerary.totalDistance,
-    fare: {
-      transit: itinerary.fare.regular.totalFare,
-    },
-    path,
-    guides,
+    totalTime: data.estimatedTime,
+    totalDistance: data.distance,
+    path: [], // 경로 좌표 없음 (카카오맵에서 확인)
+    guides: [{
+      instruction: data.message,
+      distance: data.distance,
+      duration: data.estimatedTime * 60,
+    }],
     transitInfo: {
-      transfers: itinerary.transferCount,
-      walkTime: itinerary.totalWalkTime,
-      subPaths,
+      transfers: 0,
+      walkTime: 0,
+      subPaths: [],
+      isEstimate: true, // 예상치임을 표시
+      kakaoMapUrl: data.kakaoMapUrl,
     },
   };
 }

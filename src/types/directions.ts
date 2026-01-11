@@ -213,6 +213,8 @@ export interface DirectionsResult {
     transfers: number; // 환승 횟수
     walkTime: number; // 도보 시간 (분)
     subPaths: TransitSubPath[];
+    isEstimate?: boolean; // 예상치 여부 (true면 상세 경로 없음)
+    kakaoMapUrl?: string; // 카카오맵 연결 URL
   };
 }
 

@@ -100,80 +100,32 @@ Deno.serve(async (req: Request) => {
       console.log(`[get-directions] Kakao API success, routes: ${result.routes?.length || 0}`);
 
     } else if (type === 'transit') {
-      // TMAP API (대중교통)
-      // @ts-ignore: Deno global is available in Supabase Edge Functions
-      const TMAP_KEY = Deno.env.get('TMAP_API_KEY');
+      // 대중교통: 카카오맵 외부 링크로 안내 (API 미지원)
+      // 직선 거리 및 예상 시간만 반환
+      const R = 6371000; // 지구 반지름 (미터)
+      const lat1 = origin.lat * Math.PI / 180;
+      const lat2 = destination.lat * Math.PI / 180;
+      const deltaLat = (destination.lat - origin.lat) * Math.PI / 180;
+      const deltaLng = (destination.lng - origin.lng) * Math.PI / 180;
 
-      if (!TMAP_KEY) {
-        console.error('[get-directions] TMAP_API_KEY not set');
-        return new Response(
-          JSON.stringify({ error: 'Server configuration error: TMAP API key not set' }),
-          {
-            status: 500,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-          }
-        );
-      }
+      const a = Math.sin(deltaLat/2) * Math.sin(deltaLat/2) +
+                Math.cos(lat1) * Math.cos(lat2) *
+                Math.sin(deltaLng/2) * Math.sin(deltaLng/2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      const distance = Math.round(R * c);
 
-      // TMAP 대중교통 경로 API
-      const apiUrl = 'https://apis.openapi.sk.com/transit/routes';
+      // 예상 시간: 평균 시속 25km (대중교통) 기준 + 환승/대기 10분
+      const estimatedTime = Math.round(distance / 25000 * 60) + 10;
 
-      const requestBody = {
-        startX: origin.lng.toString(),
-        startY: origin.lat.toString(),
-        endX: destination.lng.toString(),
-        endY: destination.lat.toString(),
-        lang: 0, // 0: 한국어, 1: 영어
-        format: 'json',
-        count: 1, // 추천 경로 개수
+      console.log(`[get-directions] Transit: returning estimate, distance=${distance}m, time=${estimatedTime}min`);
+
+      result = {
+        type: 'transit_estimate',
+        distance,
+        estimatedTime,
+        message: '대중교통 상세 경로는 카카오맵에서 확인하세요',
+        kakaoMapUrl: `https://map.kakao.com/link/from/출발지,${origin.lat},${origin.lng}/to/도착지,${destination.lat},${destination.lng}`
       };
-
-      console.log(`[get-directions] Calling TMAP API`, requestBody);
-
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: {
-          'accept': 'application/json',
-          'content-type': 'application/json',
-          'appKey': TMAP_KEY,
-        },
-        body: JSON.stringify(requestBody),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`[get-directions] TMAP API error: ${response.status} - ${errorText}`);
-        return new Response(
-          JSON.stringify({
-            error: 'TMAP API request failed',
-            status: response.status,
-            details: errorText
-          }),
-          {
-            status: response.status,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-          }
-        );
-      }
-
-      result = await response.json();
-
-      // TMAP 에러 체크
-      if (result.error || result.resultCode !== '0') {
-        console.error(`[get-directions] TMAP API returned error:`, result.error || result.resultMessage);
-        return new Response(
-          JSON.stringify({
-            error: 'TMAP API returned error',
-            details: result.error || result.resultMessage
-          }),
-          {
-            status: 400,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-          }
-        );
-      }
-
-      console.log(`[get-directions] TMAP API success, paths: ${result.metaData?.plan?.itineraries?.length || 0}`);
     }
 
     return new Response(JSON.stringify(result), {

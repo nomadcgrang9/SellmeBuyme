@@ -266,39 +266,53 @@ export const DirectionsPanel: React.FC<DirectionsPanelProps> = ({
             {/* 대중교통 구간 정보 */}
             {result.transitInfo && (
               <div className="space-y-1.5">
-                <p className="text-xs font-medium text-gray-700">
-                  환승 {result.transitInfo.transfers}회 · 도보 {result.transitInfo.walkTime}분
-                </p>
-                <div className="space-y-1.5">
-                  {result.transitInfo.subPaths.map((sub, idx) => (
-                    <div key={idx} className="flex items-center gap-2">
-                      {sub.type === 'walk' ? (
-                        <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center">
-                          <svg className="w-3 h-3 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0" />
-                          </svg>
+                {/* 예상치인 경우 안내 메시지 */}
+                {result.transitInfo.isEstimate ? (
+                  <div className="bg-blue-50 rounded-lg p-3 text-center">
+                    <p className="text-xs text-blue-700 mb-2">
+                      예상 소요시간입니다
+                    </p>
+                    <p className="text-[10px] text-blue-600">
+                      상세 경로는 카카오맵에서 확인하세요
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-xs font-medium text-gray-700">
+                      환승 {result.transitInfo.transfers}회 · 도보 {result.transitInfo.walkTime}분
+                    </p>
+                    <div className="space-y-1.5">
+                      {result.transitInfo.subPaths.map((sub, idx) => (
+                        <div key={idx} className="flex items-center gap-2">
+                          {sub.type === 'walk' ? (
+                            <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center">
+                              <svg className="w-3 h-3 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0" />
+                              </svg>
+                            </div>
+                          ) : (
+                            <div
+                              className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-bold"
+                              style={{ backgroundColor: sub.lineColor || '#666' }}
+                            >
+                              {sub.type === 'subway' ? '호' : '버'}
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-medium text-gray-900 truncate">
+                              {sub.type === 'walk' ? '도보' : sub.lineName}
+                            </p>
+                            <p className="text-[10px] text-gray-500 truncate">
+                              {sub.startName} → {sub.endName}
+                              {sub.stationCount && ` (${sub.stationCount}정거장)`}
+                            </p>
+                          </div>
+                          <span className="text-xs text-gray-600">{sub.sectionTime}분</span>
                         </div>
-                      ) : (
-                        <div
-                          className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-bold"
-                          style={{ backgroundColor: sub.lineColor || '#666' }}
-                        >
-                          {sub.type === 'subway' ? '호' : '버'}
-                        </div>
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium text-gray-900 truncate">
-                          {sub.type === 'walk' ? '도보' : sub.lineName}
-                        </p>
-                        <p className="text-[10px] text-gray-500 truncate">
-                          {sub.startName} → {sub.endName}
-                          {sub.stationCount && ` (${sub.stationCount}정거장)`}
-                        </p>
-                      </div>
-                      <span className="text-xs text-gray-600">{sub.sectionTime}분</span>
+                      ))}
                     </div>
-                  ))}
-                </div>
+                  </>
+                )}
               </div>
             )}
 
