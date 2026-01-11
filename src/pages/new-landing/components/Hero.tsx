@@ -3,25 +3,29 @@ import { SCHOOL_LEVELS } from '../constants';
 import { useKakaoMaps } from '@/hooks/useKakaoMaps';
 import { fetchJobsByBoardRegion } from '@/lib/supabase/queries';
 import type { JobPostingCard } from '@/types';
+import { JobDetailPanel } from './JobDetailPanel';
 
 export const Hero: React.FC = () => {
-  // 지도 필터 옵션 (드롭다운과 동일)
-  const MAP_FILTER_JOB_TYPES = ['기간제', '교사', '시간강사', '강사', '기타'] as const;
+  // 지도 필터 옵션
   const MAP_FILTER_SUBJECTS = ['국어', '영어', '수학', '사회', '과학', '체육', '음악', '미술', '정보', '보건', '사서', '상담'] as const;
 
   // 지도 필터 상태
   const [mapFilters, setMapFilters] = useState<{
     schoolLevels: string[];
-    jobTypes: string[];
     subjects: string[];
   }>({
     schoolLevels: [],
-    jobTypes: [],
     subjects: [],
   });
 
+  // 드롭다운 열림 상태
+  const [openDropdown, setOpenDropdown] = useState<'schoolLevel' | 'subject' | null>(null);
+
+  // 선택된 공고 (상세 패널용)
+  const [selectedJob, setSelectedJob] = useState<JobPostingCard | null>(null);
+
   // 필터 토글 핸들러
-  const toggleMapFilter = (category: 'schoolLevels' | 'jobTypes' | 'subjects', value: string) => {
+  const toggleMapFilter = (category: 'schoolLevels' | 'subjects', value: string) => {
     setMapFilters(prev => ({
       ...prev,
       [category]: prev[category].includes(value)
@@ -37,28 +41,55 @@ export const Hero: React.FC = () => {
   // 사용자 위치 상태
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [locationSearchQuery, setLocationSearchQuery] = useState('');
-  const [activeLocationFilter, setActiveLocationFilter] = useState<string | null>(null); // 활성화된 지역 필터
+  const [activeLocationFilter, setActiveLocationFilter] = useState<string | null>(null);
 
   // 공고 데이터 상태
   const [jobPostings, setJobPostings] = useState<JobPostingCard[]>([]);
-  const [markerCount, setMarkerCount] = useState(0); // 실제 생성된 마커 개수
+  const [markerCount, setMarkerCount] = useState(0);
   const mapMarkersRef = useRef<any[]>([]);
   const coordsCacheRef = useRef<Map<string, { lat: number; lng: number }>>(new Map());
 
-  // 필터가 적용된 공고 데이터 (queries.ts 로직과 동일)
-  const filteredJobPostings = useMemo(() => {
-    let filtered = jobPostings;
+  // 마커-공고 매핑 (마커 클릭 시 상세 패널 열기용)
+  const markerJobMapRef = useRef<Map<any, JobPostingCard>>(new Map());
 
-    // 학교급 필터 (school_level 먼저 확인, NULL인 경우 organization에서 추론 - queries.ts와 동일한 로직)
+  // 중복 제거 함수 (organization + title 기준)
+  const deduplicateJobs = useCallback((jobs: JobPostingCard[]): JobPostingCard[] => {
+    const seen = new Map<string, JobPostingCard>();
+
+    for (const job of jobs) {
+      const key = `${job.organization}|${job.title}`;
+      const existing = seen.get(key);
+
+      // 같은 기관+제목 중 최신(created_at 기준) 또는 마감일 가까운 것 선택
+      if (!existing) {
+        seen.set(key, job);
+      } else {
+        // daysLeft가 더 작은 것(마감 임박) 우선
+        if (job.daysLeft !== undefined && existing.daysLeft !== undefined) {
+          if (job.daysLeft < existing.daysLeft) {
+            seen.set(key, job);
+          }
+        }
+      }
+    }
+
+    return Array.from(seen.values());
+  }, []);
+
+  // 필터가 적용된 공고 데이터
+  const filteredJobPostings = useMemo(() => {
+    // 먼저 중복 제거
+    let filtered = deduplicateJobs(jobPostings);
+
+    // 학교급 필터
     if (mapFilters.schoolLevels.length > 0) {
       filtered = filtered.filter(job => {
         const schoolLevel = (job.school_level || '').toLowerCase();
-        const hasSchoolLevel = schoolLevel.length > 0; // school_level 필드가 있는지 확인
+        const hasSchoolLevel = schoolLevel.length > 0;
         const org = (job.organization || '').toLowerCase();
 
         return mapFilters.schoolLevels.some(level => {
           if (level === '유치원') {
-            // school_level에서 유치원 검색 또는 school_level이 없으면 organization에서 검색
             return schoolLevel.includes('유치원') ||
                    (!hasSchoolLevel && org.includes('유치원'));
           }
@@ -79,16 +110,13 @@ export const Hero: React.FC = () => {
                    (!hasSchoolLevel && org.includes('특수'));
           }
           if (level === '기타') {
-            // 유/초/중/고/특수 어디에도 해당하지 않는 경우
             const schoolLevelHasKeyword = schoolLevel.includes('유치원') || schoolLevel.includes('초등') ||
               schoolLevel.includes('중학') || schoolLevel.includes('중등') ||
               schoolLevel.includes('고등') || schoolLevel.includes('고교') || schoolLevel.includes('특수');
 
             if (hasSchoolLevel) {
-              // school_level이 있으면 school_level에서 키워드 확인
               return !schoolLevelHasKeyword;
             } else {
-              // school_level이 없으면 organization에서 키워드 확인
               return !org.includes('유치원') && !org.includes('초등') &&
                      !org.includes('중학') && !org.includes('중등') &&
                      !org.includes('고등') && !org.includes('고교') &&
@@ -100,59 +128,7 @@ export const Hero: React.FC = () => {
       });
     }
 
-    // 유형 필터 (queries.ts와 동일한 로직)
-    if (mapFilters.jobTypes.length > 0) {
-      filtered = filtered.filter(job => {
-        const title = (job.title || '').toLowerCase();
-        const tags = job.tags || [];
-        const tagsLower = tags.map(t => t.toLowerCase());
-
-        return mapFilters.jobTypes.some(type => {
-          if (type === '기간제') {
-            // 기간제 키워드 검색 (실무사 제외)
-            return (title.includes('기간제') && !title.includes('실무사')) ||
-                   tagsLower.some(t => t.includes('기간제'));
-          }
-          if (type === '시간강사') {
-            // 시간강사/시간제 강사 키워드 검색
-            return title.includes('시간강사') || title.includes('시간제 강사') ||
-                   tagsLower.some(t => t.includes('시간강사'));
-          }
-          if (type === '교사') {
-            // 교사/기간제/시간강사 + 특수교육/상담/영양/과목명 관련 공고 (실무사 제외)
-            const isTeacherKeyword = (title.includes('교사') || title.includes('기간제') ||
-                                      title.includes('시간강사') || title.includes('시간제 강사')) &&
-                                     !title.includes('실무사');
-            const hasTeacherTag = tagsLower.some(t => t.includes('기간제') || t.includes('시간강사'));
-            // 특수교육 패턴 (실무사 제외)
-            const isSpecialEd = (title.includes('특수') && !title.includes('실무사'));
-            // 상담/영양 (실무사 제외)
-            const isCounseling = (title.includes('상담') || title.includes('영양')) && !title.includes('실무사');
-            // 과목명 (실무사 제외)
-            const hasSubject = ['국어', '영어', '수학', '사회', '과학', '체육', '음악', '미술', '정보', '보건', '실과', '도덕']
-              .some(s => title.includes(s)) && !title.includes('실무사');
-            return isTeacherKeyword || hasTeacherTag || isSpecialEd || isCounseling || hasSubject;
-          }
-          if (type === '강사') {
-            // 강사 키워드 검색 (시간강사/시간제 강사 제외) + 지도자
-            const isInstructor = title.includes('강사') &&
-                                 !title.includes('시간강사') && !title.includes('시간제 강사');
-            const isLeader = title.includes('지도자');
-            return isInstructor || isLeader;
-          }
-          if (type === '기타') {
-            // 알려진 모든 유형에 해당하지 않는 공고
-            const hasKnownTag = tagsLower.some(t => t.includes('기간제') || t.includes('시간강사'));
-            const hasKnownKeyword = title.includes('기간제') || title.includes('교사') ||
-                                    title.includes('강사') || title.includes('지도자');
-            return !hasKnownTag && !hasKnownKeyword;
-          }
-          return false;
-        });
-      });
-    }
-
-    // 과목 필터 (title 부분매칭 + tags 정확매칭 - queries.ts와 동일)
+    // 과목 필터
     if (mapFilters.subjects.length > 0) {
       filtered = filtered.filter(job => {
         const title = (job.title || '').toLowerCase();
@@ -160,30 +136,23 @@ export const Hero: React.FC = () => {
 
         return mapFilters.subjects.some(subject => {
           const subLower = subject.toLowerCase();
-          // title은 부분 매칭, tags는 정확 매칭 (중국어 등 제외)
           return title.includes(subLower) || tags.some(t => t.toLowerCase() === subLower);
         });
       });
     }
 
-    // 주소 검색 키워드 필터 (activeLocationFilter가 있으면 해당 키워드가 포함된 공고만 표시)
-    // 단, 광역시/도 수준의 검색어는 필터링 스킵 (이미 해당 지역 공고만 로드됨)
+    // 주소 검색 키워드 필터
     if (activeLocationFilter) {
-      // 광역시/도 목록 (이 키워드만 있으면 필터링 스킵)
       const provinceKeywords = ['서울', '세종', '인천', '대전', '광주', '대구', '울산', '부산', '경기', '강원', '충북', '충남', '전북', '전남', '경북', '경남', '제주'];
-
-      // 검색어에서 핵심 키워드 추출 (예: "경기도 수원시" → ["경기", "수원"])
       const searchKeywords = activeLocationFilter
         .replace(/특별시|광역시|특별자치시|특별자치도|도|시|구|군/g, ' ')
         .split(/\s+/)
-        .filter(k => k.length >= 2); // 2글자 이상만
+        .filter(k => k.length >= 2);
 
-      // 광역시/도만 검색한 경우 필터링 스킵
       const isProvinceOnlySearch = searchKeywords.length === 1 &&
         provinceKeywords.some(p => p === searchKeywords[0]);
 
       if (searchKeywords.length > 0 && !isProvinceOnlySearch) {
-        // 가장 구체적인 키워드(마지막)로 필터링 (예: "수원")
         const specificKeyword = searchKeywords[searchKeywords.length - 1].toLowerCase();
 
         filtered = filtered.filter(job => {
@@ -199,7 +168,7 @@ export const Hero: React.FC = () => {
     }
 
     return filtered;
-  }, [jobPostings, mapFilters, activeLocationFilter]);
+  }, [jobPostings, mapFilters, activeLocationFilter, deduplicateJobs]);
 
   // Load Kakao Maps SDK
   useEffect(() => {
@@ -217,7 +186,7 @@ export const Hero: React.FC = () => {
       if (status === window.kakao.maps.services.Status.OK && result.length > 0) {
         const { y: lat, x: lng } = result[0];
         setUserLocation({ lat: parseFloat(lat), lng: parseFloat(lng) });
-        setActiveLocationFilter(searchQuery); // 검색어 저장
+        setActiveLocationFilter(searchQuery);
         setLocationSearchQuery('');
       } else {
         const places = new window.kakao.maps.services.Places();
@@ -225,7 +194,7 @@ export const Hero: React.FC = () => {
           if (status === window.kakao.maps.services.Status.OK && result.length > 0) {
             const { y: lat, x: lng } = result[0];
             setUserLocation({ lat: parseFloat(lat), lng: parseFloat(lng) });
-            setActiveLocationFilter(searchQuery); // 검색어 저장
+            setActiveLocationFilter(searchQuery);
             setLocationSearchQuery('');
           }
         });
@@ -233,17 +202,16 @@ export const Hero: React.FC = () => {
     });
   }, [locationSearchQuery, isLoaded]);
 
-  // 지역 필터 취소 핸들러 (지도 위치는 유지, 필터만 해제)
+  // 지역 필터 취소 핸들러
   const clearLocationFilter = useCallback(() => {
     setActiveLocationFilter(null);
-    // 지도 위치와 공고 데이터는 유지 - 필터만 해제하여 전체 공고 표시
   }, []);
 
   // 기본 위치 (서울)
   const defaultLocation = { lat: 37.5665, lng: 126.9780 };
   const mapCenter = userLocation || defaultLocation;
 
-  // Initialize map (바로 인터랙티브하게)
+  // Initialize map
   useEffect(() => {
     if (!isLoaded || !mapContainerRef.current || mapInstanceRef.current) return;
 
@@ -260,21 +228,17 @@ export const Hero: React.FC = () => {
     const map = new window.kakao.maps.Map(mapContainerRef.current, mapOption);
     mapInstanceRef.current = map;
 
-    // 줌 컨트롤 추가
     const zoomControl = new window.kakao.maps.ZoomControl();
     map.addControl(zoomControl, window.kakao.maps.ControlPosition.RIGHT);
 
-    // 지도 이동 완료 시 해당 위치 공고 로드
     window.kakao.maps.event.addListener(map, 'dragend', () => {
       const center = map.getCenter();
       const lat = center.getLat();
       const lng = center.getLng();
 
-      // 역지오코딩으로 지역명 추출
       const geocoder = new window.kakao.maps.services.Geocoder();
       geocoder.coord2RegionCode(lng, lat, (result: any[], status: string) => {
         if (status === window.kakao.maps.services.Status.OK && result.length > 0) {
-          // 시/도 단위 추출 (예: 서울특별시 → 서울)
           const region = result[0];
           const regionName = (region.region_1depth_name || '')
             .replace(/특별시$/, '')
@@ -283,13 +247,12 @@ export const Hero: React.FC = () => {
             .replace(/특별자치도$/, '')
             .replace(/도$/, '');
 
-          console.log('[Hero] 🗺️ 지도 이동 감지, 새 지역:', regionName);
+          console.log('[Hero] 지도 이동 감지, 새 지역:', regionName);
           loadJobPostings(regionName);
         }
       });
     });
 
-    // 기본 위치(서울) 공고 로드
     loadJobPostings('서울');
   }, [isLoaded, mapCenter.lat, mapCenter.lng]);
 
@@ -336,21 +299,48 @@ export const Hero: React.FC = () => {
     });
   }, [isLoaded, userLocation]);
 
-  // 공고 마커 표시 (필터 적용, 캐싱 + 순차 처리)
+  // 카드 클릭 핸들러 (상세 패널 열기 + 지도 이동)
+  const handleCardClick = useCallback((job: JobPostingCard) => {
+    setSelectedJob(job);
+
+    // 지도 이동 - 패널(카드리스트 240px + 상세패널 260px)을 피해 마커가 보이도록 오프셋
+    if (mapInstanceRef.current && job.organization) {
+      const places = new window.kakao.maps.services.Places();
+      places.keywordSearch(job.organization, (result: any[], status: string) => {
+        if (status === window.kakao.maps.services.Status.OK && result.length > 0) {
+          const map = mapInstanceRef.current;
+          const targetLat = parseFloat(result[0].y);
+          const targetLng = parseFloat(result[0].x);
+
+          // 현재 지도 레벨에 따라 픽셀→경도 변환 비율 계산
+          // 패널 총 너비: 카드리스트(240px) + 간격(12px) + 상세패널(260px) + 여백(30px) = 542px
+          // 마커가 패널 오른쪽에 충분한 여백을 두고 보이도록 지도 중심을 왼쪽으로 이동
+          const panelWidthPx = 300; // 패널 오른쪽 끝에서 약간 안쪽에 마커가 오도록
+          const bounds = map.getBounds();
+          const mapWidth = mapContainerRef.current?.offsetWidth || 800;
+          const lngPerPx = (bounds.getNorthEast().getLng() - bounds.getSouthWest().getLng()) / mapWidth;
+          const offsetLng = lngPerPx * panelWidthPx;
+
+          // 지도 중심을 서쪽(왼쪽)으로 이동 → 마커는 동쪽(오른쪽, 패널 없는 곳)에 표시됨
+          const adjustedCoords = new window.kakao.maps.LatLng(targetLat, targetLng - offsetLng);
+          map.panTo(adjustedCoords);
+          map.setLevel(3);
+        }
+      });
+    }
+  }, []);
+
+  // 공고 마커 표시
   useEffect(() => {
     if (!isLoaded || !mapInstanceRef.current) return;
 
     // 기존 마커 정리
-    mapMarkersRef.current.forEach(marker => {
-      marker.setMap(null);
-    });
+    mapMarkersRef.current.forEach(marker => marker.setMap(null));
     mapMarkersRef.current = [];
-    setMarkerCount(0); // 마커 카운트 초기화
+    markerJobMapRef.current.clear();
+    setMarkerCount(0);
 
-    // 필터된 공고가 없으면 종료
-    if (filteredJobPostings.length === 0) {
-      return;
-    }
+    if (filteredJobPostings.length === 0) return;
 
     const map = mapInstanceRef.current;
     const places = new window.kakao.maps.services.Places();
@@ -358,27 +348,21 @@ export const Hero: React.FC = () => {
     let cancelled = false;
     let currentInfowindow: any = null;
 
-    // 좌표별 공고 그룹 (같은 위치의 여러 공고 추적)
     const coordsJobsMap = new Map<string, JobPostingCard[]>();
-    // 좌표별 마커 추적
     const coordsMarkerMap = new Map<string, any>();
 
-    // 마커 생성 함수
     const createMarker = (coords: { lat: number; lng: number }, job: JobPostingCard) => {
       if (cancelled) return;
 
       const coordKey = `${coords.lat.toFixed(5)},${coords.lng.toFixed(5)}`;
 
-      // 해당 좌표에 공고 추가
       if (!coordsJobsMap.has(coordKey)) {
         coordsJobsMap.set(coordKey, []);
       }
       coordsJobsMap.get(coordKey)!.push(job);
 
-      // 이미 같은 위치에 마커가 있으면 약간 오프셋 추가
       let finalCoords = coords;
       if (coordsMarkerMap.has(coordKey)) {
-        // 랜덤 오프셋 추가 (약 30-50m 정도)
         const offsetLat = (Math.random() - 0.5) * 0.0005;
         const offsetLng = (Math.random() - 0.5) * 0.0005;
         finalCoords = { lat: coords.lat + offsetLat, lng: coords.lng + offsetLng };
@@ -392,62 +376,66 @@ export const Hero: React.FC = () => {
       });
 
       mapMarkersRef.current.push(marker);
+      markerJobMapRef.current.set(marker, job);
       coordsMarkerMap.set(coordKey, marker);
       setMarkerCount(prev => prev + 1);
 
-      // 인포윈도우 내용 생성 함수 (해당 위치의 모든 공고 표시)
-      const createInfoContent = () => {
-        const jobPostings = coordsJobsMap.get(coordKey) || [job];
-        if (jobPostings.length === 1) {
-          // 단일 공고
-          const singleJob = jobPostings[0];
-          return `
-            <div style="padding:8px 12px;min-width:180px;max-width:280px;font-family:sans-serif;">
-              <div style="font-size:11px;color:#666;margin-bottom:4px;">${singleJob.organization || ''}</div>
-              <div style="font-size:13px;font-weight:600;color:#333;line-height:1.3;margin-bottom:6px;">${(singleJob.title || '').slice(0, 35)}${(singleJob.title || '').length > 35 ? '...' : ''}</div>
-              <div style="display:flex;gap:4px;flex-wrap:wrap;">
-                ${singleJob.daysLeft !== undefined ? `<span style="font-size:10px;padding:2px 6px;border-radius:4px;background:${singleJob.daysLeft <= 3 ? '#FEE2E2' : '#E0E7FF'};color:${singleJob.daysLeft <= 3 ? '#DC2626' : '#4F46E5'};">D-${singleJob.daysLeft}</span>` : ''}
-              </div>
-            </div>
-          `;
+      // 마커 클릭 시 상세 패널 열기
+      window.kakao.maps.event.addListener(marker, 'click', () => {
+        if (currentInfowindow) currentInfowindow.close();
+
+        const jobsAtLocation = coordsJobsMap.get(coordKey) || [job];
+
+        if (jobsAtLocation.length === 1) {
+          // 단일 공고: 바로 상세 패널 열기
+          setSelectedJob(jobsAtLocation[0]);
         } else {
-          // 여러 공고 (스크롤 가능한 리스트)
-          const jobItems = jobPostings.map((j, idx) => `
-            <div style="padding:8px 0;${idx > 0 ? 'border-top:1px solid #eee;' : ''}">
+          // 여러 공고: 인포윈도우로 목록 표시
+          const jobItems = jobsAtLocation.map((j, idx) => `
+            <div style="padding:6px 0;${idx > 0 ? 'border-top:1px solid #eee;' : ''}cursor:pointer;"
+                 onclick="window.selectJobFromMarker && window.selectJobFromMarker('${j.id}')">
               <div style="font-size:10px;color:#666;margin-bottom:2px;">${j.organization || ''}</div>
-              <div style="font-size:12px;font-weight:600;color:#333;line-height:1.3;margin-bottom:4px;">${(j.title || '').slice(0, 30)}${(j.title || '').length > 30 ? '...' : ''}</div>
+              <div style="font-size:11px;font-weight:600;color:#333;line-height:1.3;">${(j.title || '').slice(0, 25)}${(j.title || '').length > 25 ? '...' : ''}</div>
               ${j.daysLeft !== undefined ? `<span style="font-size:9px;padding:2px 5px;border-radius:3px;background:${j.daysLeft <= 3 ? '#FEE2E2' : '#E0E7FF'};color:${j.daysLeft <= 3 ? '#DC2626' : '#4F46E5'};">D-${j.daysLeft}</span>` : ''}
             </div>
           `).join('');
 
-          return `
-            <div style="padding:8px 12px;min-width:200px;max-width:300px;font-family:sans-serif;">
-              <div style="font-size:12px;font-weight:bold;color:#5B6EF7;margin-bottom:8px;padding-bottom:6px;border-bottom:2px solid #5B6EF7;">
-                이 위치 공고 ${jobPostings.length}개
+          const infowindow = new window.kakao.maps.InfoWindow({
+            content: `
+              <div style="padding:8px 12px;min-width:180px;max-width:260px;font-family:sans-serif;">
+                <div style="font-size:11px;font-weight:bold;color:#5B6EF7;margin-bottom:6px;padding-bottom:4px;border-bottom:2px solid #5B6EF7;">
+                  이 위치 공고 ${jobsAtLocation.length}개
+                </div>
+                <div style="max-height:180px;overflow-y:auto;">
+                  ${jobItems}
+                </div>
               </div>
-              <div style="max-height:200px;overflow-y:auto;">
-                ${jobItems}
-              </div>
-            </div>
-          `;
+            `,
+            removable: true,
+          });
+          infowindow.open(map, marker);
+          currentInfowindow = infowindow;
         }
-      };
 
-      const infowindow = new window.kakao.maps.InfoWindow({
-        content: createInfoContent(),
-        removable: true,
-      });
-
-      window.kakao.maps.event.addListener(marker, 'click', () => {
-        if (currentInfowindow) currentInfowindow.close();
-        // 클릭 시 최신 공고 목록으로 인포윈도우 내용 업데이트
-        infowindow.setContent(createInfoContent());
-        infowindow.open(map, marker);
-        currentInfowindow = infowindow;
+        // 지도 살짝 이동 (마커가 가려지지 않게)
+        const offsetLng = 0.002;
+        const adjustedCoords = new window.kakao.maps.LatLng(
+          finalCoords.lat,
+          finalCoords.lng + offsetLng
+        );
+        map.panTo(adjustedCoords);
       });
     };
 
-    // 순차 처리 (API 부하 방지)
+    // 인포윈도우에서 공고 선택 시 호출될 전역 함수
+    (window as any).selectJobFromMarker = (jobId: string) => {
+      const job = filteredJobPostings.find(j => j.id === jobId);
+      if (job) {
+        setSelectedJob(job);
+        if (currentInfowindow) currentInfowindow.close();
+      }
+    };
+
     let index = 0;
     let failedCount = 0;
     const processNext = () => {
@@ -463,20 +451,17 @@ export const Hero: React.FC = () => {
 
       const keyword = job.organization || job.location;
       if (!keyword) {
-        console.log('[Hero] 마커 생성 스킵 (keyword 없음):', job.title);
         failedCount++;
         setTimeout(processNext, 30);
         return;
       }
 
-      // 캐시 확인
       if (cache.has(keyword)) {
         createMarker(cache.get(keyword)!, job);
         setTimeout(processNext, 30);
         return;
       }
 
-      // API 검색
       places.keywordSearch(keyword, (result: any[], status: string) => {
         if (cancelled) return;
 
@@ -485,7 +470,6 @@ export const Hero: React.FC = () => {
           cache.set(keyword, coords);
           createMarker(coords, job);
         } else {
-          // 검색 실패 시 location 필드로 재시도
           if (job.location && job.location !== keyword) {
             places.keywordSearch(job.location, (result2: any[], status2: string) => {
               if (cancelled) return;
@@ -494,15 +478,12 @@ export const Hero: React.FC = () => {
                 cache.set(keyword, coords);
                 createMarker(coords, job);
               } else {
-                console.log('[Hero] 마커 생성 실패:', job.organization, '|', job.location, '| status:', status2);
                 failedCount++;
               }
               setTimeout(processNext, 30);
             });
             return;
           } else {
-            // location으로 재시도 불가
-            console.log('[Hero] 마커 생성 실패:', keyword, '| location 없음 | status:', status);
             failedCount++;
           }
         }
@@ -517,140 +498,162 @@ export const Hero: React.FC = () => {
       if (currentInfowindow) currentInfowindow.close();
       mapMarkersRef.current.forEach(marker => marker.setMap(null));
       mapMarkersRef.current = [];
+      markerJobMapRef.current.clear();
+      delete (window as any).selectJobFromMarker;
     };
   }, [isLoaded, filteredJobPostings]);
+
+  // 드롭다운 외부 클릭 시 닫기
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('.filter-dropdown')) {
+        setOpenDropdown(null);
+      }
+    };
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, []);
 
   return (
     <section className="h-full w-full relative">
       {/* 지도 영역 */}
       <div ref={mapContainerRef} className="absolute inset-0 w-full h-full" />
 
-      {/* 필터 패널 - 플로팅 */}
-      <div className="absolute top-4 right-4 w-[220px] bg-white/95 backdrop-blur-sm z-10 rounded-xl border border-gray-200 shadow-lg overflow-hidden">
-        {/* 필터 헤더 */}
-        <div className="px-4 py-3 border-b border-gray-100">
-          <div className="flex items-center justify-between">
-            <h4 className="font-bold text-gray-800 text-sm">지도 필터</h4>
-            <span className="text-xs font-medium text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
-              {markerCount}/{filteredJobPostings.length}개
-            </span>
-          </div>
-        </div>
-
-        {/* 필터 내용 */}
-        <div className="p-4 space-y-4 max-h-[calc(100vh-200px)] overflow-y-auto">
-          {/* 주소 검색 */}
-          <div>
-            <h5 className="text-xs font-semibold text-gray-500 mb-1.5">주소 검색</h5>
-            <div className="relative">
-              {activeLocationFilter ? (
-                <div className="w-full px-2 py-1.5 text-xs border border-[#5B6EF7] bg-[#5B6EF7]/10 rounded-lg flex items-center justify-between">
-                  <span className="text-[#5B6EF7] font-medium truncate">{activeLocationFilter}</span>
-                  <button
-                    onClick={clearLocationFilter}
-                    className="ml-1 p-0.5 text-[#5B6EF7] hover:text-red-500 transition-colors flex-shrink-0"
-                    aria-label="검색 취소"
-                  >
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
+      {/* 왼쪽 패널 컨테이너: 카드 목록 + 상세 패널 */}
+      <div className="absolute top-4 left-4 z-10 flex gap-3">
+        {/* 왼쪽 패널: 필터 + 공고 목록 */}
+        <div className="w-[240px] bg-white/95 backdrop-blur-sm rounded-xl border border-gray-200 shadow-lg overflow-hidden flex flex-col max-h-[calc(100vh-140px)]">
+        {/* 필터 영역 */}
+        <div className="px-3 py-3 border-b border-gray-100 flex-shrink-0 space-y-2.5">
+          {/* 필터 드롭다운 버튼들 (먼저 표시) */}
+          <div className="flex gap-2">
+            {/* 학교급 드롭다운 */}
+            <div className="relative filter-dropdown flex-1">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setOpenDropdown(openDropdown === 'schoolLevel' ? null : 'schoolLevel');
+                }}
+                className={`w-full px-3 py-2 text-xs rounded-lg border flex items-center justify-between gap-1 ${
+                  mapFilters.schoolLevels.length > 0
+                    ? 'bg-[#5B6EF7]/10 border-[#5B6EF7] text-[#5B6EF7]'
+                    : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
+                }`}
+              >
+                <span className="truncate">
+                  {mapFilters.schoolLevels.length > 0
+                    ? `학교급 (${mapFilters.schoolLevels.length})`
+                    : '학교급'}
+                </span>
+                <svg className={`w-3.5 h-3.5 flex-shrink-0 transition-transform ${openDropdown === 'schoolLevel' ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              {openDropdown === 'schoolLevel' && (
+                <div className="absolute top-full left-0 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg z-20 py-1.5">
+                  {SCHOOL_LEVELS.map(level => (
+                    <label
+                      key={level}
+                      className="flex items-center gap-2.5 px-3 py-1.5 hover:bg-gray-50 cursor-pointer text-xs"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={mapFilters.schoolLevels.includes(level)}
+                        onChange={() => toggleMapFilter('schoolLevels', level)}
+                        className="w-3.5 h-3.5 rounded border-gray-300 text-[#5B6EF7] focus:ring-[#5B6EF7]"
+                      />
+                      <span className="text-gray-700">{level}</span>
+                    </label>
+                  ))}
                 </div>
-              ) : (
-                <>
-                  <input
-                    type="text"
-                    placeholder="지역, 학교명 검색"
-                    value={locationSearchQuery}
-                    onChange={(e) => setLocationSearchQuery(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        handleLocationSearch();
-                      }
-                    }}
-                    className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:border-[#5B6EF7]"
-                  />
-                  <button
-                    onClick={handleLocationSearch}
-                    className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-[#5B6EF7]"
-                  >
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                    </svg>
-                  </button>
-                </>
+              )}
+            </div>
+
+            {/* 과목 드롭다운 */}
+            <div className="relative filter-dropdown flex-1">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setOpenDropdown(openDropdown === 'subject' ? null : 'subject');
+                }}
+                className={`w-full px-3 py-2 text-xs rounded-lg border flex items-center justify-between gap-1 ${
+                  mapFilters.subjects.length > 0
+                    ? 'bg-[#5B6EF7]/10 border-[#5B6EF7] text-[#5B6EF7]'
+                    : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
+                }`}
+              >
+                <span className="truncate">
+                  {mapFilters.subjects.length > 0
+                    ? `과목 (${mapFilters.subjects.length})`
+                    : '과목'}
+                </span>
+                <svg className={`w-3.5 h-3.5 flex-shrink-0 transition-transform ${openDropdown === 'subject' ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              {openDropdown === 'subject' && (
+                <div className="absolute top-full left-0 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg z-20 py-1.5 max-h-[200px] overflow-y-auto">
+                  {MAP_FILTER_SUBJECTS.map(subject => (
+                    <label
+                      key={subject}
+                      className="flex items-center gap-2.5 px-3 py-1.5 hover:bg-gray-50 cursor-pointer text-xs"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={mapFilters.subjects.includes(subject)}
+                        onChange={() => toggleMapFilter('subjects', subject)}
+                        className="w-3.5 h-3.5 rounded border-gray-300 text-[#5B6EF7] focus:ring-[#5B6EF7]"
+                      />
+                      <span className="text-gray-700">{subject}</span>
+                    </label>
+                  ))}
+                </div>
               )}
             </div>
           </div>
 
-          {/* 학교급 필터 */}
-          <div>
-            <h5 className="text-xs font-semibold text-gray-500 mb-1.5">학교급</h5>
-            <div className="flex flex-wrap gap-1">
-              {SCHOOL_LEVELS.map(level => (
+          {/* 검색 (필터 아래에 표시) */}
+          <div className="relative">
+            {activeLocationFilter ? (
+              <div className="w-full px-3 py-2 text-sm border border-[#5B6EF7] bg-[#5B6EF7]/10 rounded-lg flex items-center justify-between">
+                <span className="text-[#5B6EF7] font-medium truncate">{activeLocationFilter}</span>
                 <button
-                  key={level}
-                  onClick={() => toggleMapFilter('schoolLevels', level)}
-                  className={`px-2 py-0.5 text-[10px] rounded-full border transition-all ${
-                    mapFilters.schoolLevels.includes(level)
-                      ? 'bg-[#5B6EF7] border-[#5B6EF7] text-white'
-                      : 'bg-white border-gray-200 text-gray-600 hover:border-[#5B6EF7]'
-                  }`}
+                  onClick={clearLocationFilter}
+                  className="ml-1 p-0.5 text-[#5B6EF7] hover:text-red-500 transition-colors flex-shrink-0"
                 >
-                  {level}
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
                 </button>
-              ))}
-            </div>
-          </div>
-
-          {/* 유형 필터 */}
-          <div>
-            <h5 className="text-xs font-semibold text-gray-500 mb-1.5">유형</h5>
-            <div className="flex flex-wrap gap-1">
-              {MAP_FILTER_JOB_TYPES.map(type => (
+              </div>
+            ) : (
+              <>
+                <input
+                  type="text"
+                  placeholder="검색 (지역, 학교명)"
+                  value={locationSearchQuery}
+                  onChange={(e) => setLocationSearchQuery(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleLocationSearch()}
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-[#5B6EF7] pr-9"
+                />
                 <button
-                  key={type}
-                  onClick={() => toggleMapFilter('jobTypes', type)}
-                  className={`px-2 py-0.5 text-[10px] rounded-full border transition-all ${
-                    mapFilters.jobTypes.includes(type)
-                      ? 'bg-[#5B6EF7] border-[#5B6EF7] text-white'
-                      : 'bg-white border-gray-200 text-gray-600 hover:border-[#5B6EF7]'
-                  }`}
+                  onClick={handleLocationSearch}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 text-gray-400 hover:text-[#5B6EF7]"
                 >
-                  {type}
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
                 </button>
-              ))}
-            </div>
-          </div>
-
-          {/* 과목 필터 */}
-          <div>
-            <h5 className="text-xs font-semibold text-gray-500 mb-1.5">과목</h5>
-            <div className="flex flex-wrap gap-1">
-              {MAP_FILTER_SUBJECTS.map(subject => (
-                <button
-                  key={subject}
-                  onClick={() => toggleMapFilter('subjects', subject)}
-                  className={`px-2 py-0.5 text-[10px] rounded-full border transition-all ${
-                    mapFilters.subjects.includes(subject)
-                      ? 'bg-[#5B6EF7] border-[#5B6EF7] text-white'
-                      : 'bg-white border-gray-200 text-gray-600 hover:border-[#5B6EF7]'
-                  }`}
-                >
-                  {subject}
-                </button>
-              ))}
-            </div>
+              </>
+            )}
           </div>
         </div>
-      </div>
 
-      {/* 공고 목록 패널 - 플로팅 */}
-      <div className="absolute top-4 left-4 w-[320px] bg-white/95 backdrop-blur-sm z-10 rounded-xl border border-gray-200 shadow-lg overflow-hidden flex flex-col max-h-[calc(100vh-140px)]">
-        {/* 목록 헤더 */}
-        <div className="px-4 py-3 border-b border-gray-100 flex-shrink-0">
+        {/* 공고 목록 헤더 */}
+        <div className="px-3 py-2.5 border-b border-gray-100 flex-shrink-0">
           <div className="flex items-center justify-between">
-            <h4 className="font-bold text-gray-800 text-sm">공고 목록</h4>
+            <span className="text-sm font-semibold text-gray-700">공고 목록</span>
             <span className="text-xs font-medium text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
               {filteredJobPostings.length}개
             </span>
@@ -660,7 +663,7 @@ export const Hero: React.FC = () => {
         {/* 공고 카드 목록 */}
         <div className="flex-1 overflow-y-auto">
           {filteredJobPostings.length === 0 ? (
-            <div className="p-4 text-center text-gray-400 text-sm">
+            <div className="p-4 text-center text-gray-400 text-xs">
               표시할 공고가 없습니다
             </div>
           ) : (
@@ -668,112 +671,95 @@ export const Hero: React.FC = () => {
               {filteredJobPostings.map((job) => (
                 <div
                   key={job.id}
-                  className="p-3 hover:bg-gray-50 cursor-pointer transition-colors"
-                  onClick={() => {
-                    // 해당 공고 위치로 지도 이동
-                    if (mapInstanceRef.current && job.organization) {
-                      const places = new window.kakao.maps.services.Places();
-                      places.keywordSearch(job.organization, (result: any[], status: string) => {
-                        if (status === window.kakao.maps.services.Status.OK && result.length > 0) {
-                          const coords = new window.kakao.maps.LatLng(result[0].y, result[0].x);
-                          mapInstanceRef.current.setCenter(coords);
-                          mapInstanceRef.current.setLevel(3);
-                        }
-                      });
-                    }
-                  }}
+                  className={`p-4 cursor-pointer transition-colors ${
+                    selectedJob?.id === job.id
+                      ? 'bg-blue-50 border-l-2 border-l-[#5B6EF7]'
+                      : 'hover:bg-gray-50'
+                  }`}
+                  onClick={() => handleCardClick(job)}
                 >
-                  {/* 상단: 기관명 + D-day */}
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-[10px] text-gray-500 truncate flex-1">
+                  {/* 기관명 + D-day (긴급한 것만 표시) */}
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-xs text-gray-500 truncate flex-1">
                       {job.organization || '기관 정보 없음'}
                     </span>
-                    {job.daysLeft !== undefined && (
-                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                        job.daysLeft <= 3
-                          ? 'bg-red-100 text-red-600'
-                          : job.daysLeft <= 7
-                            ? 'bg-orange-100 text-orange-600'
-                            : 'bg-blue-100 text-blue-600'
-                      }`}>
+                    {job.daysLeft !== undefined && job.daysLeft <= 3 && (
+                      <span className="text-xs font-bold px-1.5 py-0.5 rounded ml-1.5 bg-red-100 text-red-600">
                         D-{job.daysLeft}
                       </span>
                     )}
                   </div>
 
-                  {/* 제목 */}
-                  <h5 className="text-xs font-semibold text-gray-800 leading-tight mb-1.5 line-clamp-2">
+                  {/* 제목 + 태그 병기 */}
+                  <h5 className="text-sm font-semibold text-gray-800 leading-snug line-clamp-2 mb-2">
                     {job.title}
+                    {job.tags && job.tags.length > 0 && (
+                      <span className="font-normal text-gray-500">
+                        {' '}({job.tags.slice(0, 2).join(', ')}{job.tags.length > 2 ? ' 외' : ''})
+                      </span>
+                    )}
                   </h5>
 
-                  {/* 위치, 보수, 마감일 정보 */}
-                  <div className="space-y-0.5 mb-1.5">
+                  {/* 상세 정보: 위치, 보수, 마감일 */}
+                  <div className="space-y-1 text-xs text-gray-600">
                     {job.location && (
-                      <div className="flex items-center gap-1 text-[10px] text-gray-500">
-                        <svg className="w-3 h-3 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <div className="flex items-center gap-1.5">
+                        <svg className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                         </svg>
                         <span className="truncate">{job.location}</span>
                       </div>
                     )}
                     {job.compensation && (
-                      <div className="flex items-center gap-1 text-[10px] text-gray-600">
-                        <svg className="w-3 h-3 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      <div className="flex items-center gap-1.5">
+                        <svg className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
-                        <span className="truncate font-medium">{job.compensation}</span>
+                        <span className="truncate">{job.compensation}</span>
                       </div>
                     )}
                     {job.deadline && (
-                      <div className="flex items-center gap-1 text-[10px] text-gray-500">
-                        <svg className="w-3 h-3 text-orange-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      <div className="flex items-center gap-1.5">
+                        <svg className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>
-                        <span className="truncate">{job.deadline}</span>
+                        <span>{(() => {
+                          // 마감일에서 요일 계산 (예: "01.12" -> "01.12(일)")
+                          const deadlineStr = job.deadline.replace(/^~\s*/, '').trim();
+                          const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
+                          // MM.DD 또는 YYYY.MM.DD 형식 파싱
+                          const parts = deadlineStr.split('.');
+                          if (parts.length >= 2) {
+                            const year = parts.length === 3 ? parseInt(parts[0]) : new Date().getFullYear();
+                            const month = parseInt(parts.length === 3 ? parts[1] : parts[0]) - 1;
+                            const day = parseInt(parts.length === 3 ? parts[2] : parts[1]);
+                            const date = new Date(year, month, day);
+                            if (!isNaN(date.getTime())) {
+                              const dayOfWeek = dayNames[date.getDay()];
+                              return `${deadlineStr}(${dayOfWeek})`;
+                            }
+                          }
+                          return deadlineStr;
+                        })()}</span>
                       </div>
                     )}
                   </div>
-
-                  {/* 태그 */}
-                  {job.tags && job.tags.length > 0 && (
-                    <div className="flex flex-wrap gap-1">
-                      {job.tags.slice(0, 3).map((tag, idx) => (
-                        <span
-                          key={idx}
-                          className="text-[9px] px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded"
-                        >
-                          {tag}
-                        </span>
-                      ))}
-                      {job.tags.length > 3 && (
-                        <span className="text-[9px] text-gray-400">
-                          +{job.tags.length - 3}
-                        </span>
-                      )}
-                    </div>
-                  )}
-
-                  {/* 원문 링크 버튼 */}
-                  {job.source_url && (
-                    <a
-                      href={job.source_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={(e) => e.stopPropagation()}
-                      className="mt-2 inline-flex items-center justify-center gap-1 w-full px-2 py-1.5 text-[10px] font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
-                    >
-                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                      </svg>
-                      원문 링크
-                    </a>
-                  )}
                 </div>
               ))}
             </div>
           )}
         </div>
+        </div>
+
+        {/* 상세 패널 - 카드 목록 옆에 배치 (flex 아이템) */}
+        {selectedJob && (
+          <JobDetailPanel
+            job={selectedJob}
+            isOpen={!!selectedJob}
+            onClose={() => setSelectedJob(null)}
+          />
+        )}
       </div>
     </section>
   );
