@@ -6,7 +6,7 @@ export const Logo: React.FC<{ className?: string }> = ({ className = "" }) => {
       <img
         src="/logo.png"
         alt="쌤찾기z"
-        className="h-8 md:h-[72px] w-auto"
+        className="h-7 w-auto"
       />
     </div>
   );

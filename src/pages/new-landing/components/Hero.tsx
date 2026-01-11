@@ -91,23 +91,23 @@ export const Hero: React.FC = () => {
         return mapFilters.schoolLevels.some(level => {
           if (level === '유치원') {
             return schoolLevel.includes('유치원') ||
-                   (!hasSchoolLevel && org.includes('유치원'));
+              (!hasSchoolLevel && org.includes('유치원'));
           }
           if (level === '초등학교') {
             return schoolLevel.includes('초등') ||
-                   (!hasSchoolLevel && org.includes('초등'));
+              (!hasSchoolLevel && org.includes('초등'));
           }
           if (level === '중학교') {
             return schoolLevel.includes('중학') || schoolLevel.includes('중등') ||
-                   (!hasSchoolLevel && (org.includes('중학') || org.includes('중등')));
+              (!hasSchoolLevel && (org.includes('중학') || org.includes('중등')));
           }
           if (level === '고등학교') {
             return schoolLevel.includes('고등') || schoolLevel.includes('고교') ||
-                   (!hasSchoolLevel && (org.includes('고등') || org.includes('고교')));
+              (!hasSchoolLevel && (org.includes('고등') || org.includes('고교')));
           }
           if (level === '특수학교') {
             return schoolLevel.includes('특수') ||
-                   (!hasSchoolLevel && org.includes('특수'));
+              (!hasSchoolLevel && org.includes('특수'));
           }
           if (level === '기타') {
             const schoolLevelHasKeyword = schoolLevel.includes('유치원') || schoolLevel.includes('초등') ||
@@ -118,9 +118,9 @@ export const Hero: React.FC = () => {
               return !schoolLevelHasKeyword;
             } else {
               return !org.includes('유치원') && !org.includes('초등') &&
-                     !org.includes('중학') && !org.includes('중등') &&
-                     !org.includes('고등') && !org.includes('고교') &&
-                     !org.includes('특수');
+                !org.includes('중학') && !org.includes('중등') &&
+                !org.includes('고등') && !org.includes('고교') &&
+                !org.includes('특수');
             }
           }
           return false;
@@ -161,8 +161,8 @@ export const Hero: React.FC = () => {
           const title = (job.title || '').toLowerCase();
 
           return org.includes(specificKeyword) ||
-                 loc.includes(specificKeyword) ||
-                 title.includes(specificKeyword);
+            loc.includes(specificKeyword) ||
+            title.includes(specificKeyword);
         });
       }
     }
@@ -520,236 +520,255 @@ export const Hero: React.FC = () => {
       {/* 지도 영역 */}
       <div ref={mapContainerRef} className="absolute inset-0 w-full h-full" />
 
-      {/* 왼쪽 패널 컨테이너: 카드 목록 + 상세 패널 */}
+      {/* 우측 상단: 로그인/회원가입 (맵 위에 떠있음 - 카카오맵 스타일) */}
+      <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
+        <button className="px-4 py-2 text-sm text-gray-700 bg-white/90 backdrop-blur-sm border border-gray-200 rounded-lg hover:bg-white hover:shadow-md transition-all">
+          로그인
+        </button>
+        <button className="px-4 py-2 text-sm font-semibold text-white bg-gray-900 rounded-lg hover:bg-gray-800 transition-colors shadow-md">
+          회원가입
+        </button>
+      </div>
+
+      {/* 왼쪽 패널 컨테이너: 로고 + 카드 목록 + 상세 패널 */}
       <div className="absolute top-4 left-4 z-10 flex gap-3">
-        {/* 왼쪽 패널: 필터 + 공고 목록 */}
-        <div className="w-[240px] bg-white/95 backdrop-blur-sm rounded-xl border border-gray-200 shadow-lg overflow-hidden flex flex-col max-h-[calc(100vh-140px)]">
-        {/* 필터 영역 */}
-        <div className="px-3 py-3 border-b border-gray-100 flex-shrink-0 space-y-2.5">
-          {/* 필터 드롭다운 버튼들 (먼저 표시) */}
-          <div className="flex gap-2">
-            {/* 학교급 드롭다운 */}
-            <div className="relative filter-dropdown flex-1">
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setOpenDropdown(openDropdown === 'schoolLevel' ? null : 'schoolLevel');
-                }}
-                className={`w-full px-3 py-2 text-xs rounded-lg border flex items-center justify-between gap-1 ${
-                  mapFilters.schoolLevels.length > 0
+        {/* 왼쪽 패널: 로고 + 필터 + 공고 목록 (한 몸처럼) */}
+        <div className="w-[240px] bg-white/95 backdrop-blur-sm rounded-xl border border-gray-200 shadow-lg overflow-hidden flex flex-col max-h-[calc(100vh-32px)]">
+
+          {/* 로고 영역 - 패널 최상단 */}
+          <div className="px-3 py-3 border-b border-gray-200 flex-shrink-0">
+            <a href="/" className="flex items-center justify-center">
+              <img
+                src="/logo.png"
+                alt="쌤찾기"
+                className="h-[68px] w-auto"
+              />
+            </a>
+          </div>
+
+          {/* 필터 영역 */}
+          <div className="px-3 py-3 border-b border-gray-100 flex-shrink-0 space-y-2.5">
+            {/* 필터 드롭다운 버튼들 (먼저 표시) */}
+            <div className="flex gap-2">
+              {/* 학교급 드롭다운 */}
+              <div className="relative filter-dropdown flex-1">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setOpenDropdown(openDropdown === 'schoolLevel' ? null : 'schoolLevel');
+                  }}
+                  className={`w-full px-3 py-2 text-xs rounded-lg border flex items-center justify-between gap-1 ${mapFilters.schoolLevels.length > 0
                     ? 'bg-[#5B6EF7]/10 border-[#5B6EF7] text-[#5B6EF7]'
                     : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
-                }`}
-              >
-                <span className="truncate">
-                  {mapFilters.schoolLevels.length > 0
-                    ? `학교급 (${mapFilters.schoolLevels.length})`
-                    : '학교급'}
-                </span>
-                <svg className={`w-3.5 h-3.5 flex-shrink-0 transition-transform ${openDropdown === 'schoolLevel' ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-              {openDropdown === 'schoolLevel' && (
-                <div className="absolute top-full left-0 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg z-20 py-1.5">
-                  {SCHOOL_LEVELS.map(level => (
-                    <label
-                      key={level}
-                      className="flex items-center gap-2.5 px-3 py-1.5 hover:bg-gray-50 cursor-pointer text-xs"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={mapFilters.schoolLevels.includes(level)}
-                        onChange={() => toggleMapFilter('schoolLevels', level)}
-                        className="w-3.5 h-3.5 rounded border-gray-300 text-[#5B6EF7] focus:ring-[#5B6EF7]"
-                      />
-                      <span className="text-gray-700">{level}</span>
-                    </label>
-                  ))}
-                </div>
-              )}
+                    }`}
+                >
+                  <span className="truncate">
+                    {mapFilters.schoolLevels.length > 0
+                      ? `학교급 (${mapFilters.schoolLevels.length})`
+                      : '학교급'}
+                  </span>
+                  <svg className={`w-3.5 h-3.5 flex-shrink-0 transition-transform ${openDropdown === 'schoolLevel' ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                {openDropdown === 'schoolLevel' && (
+                  <div className="absolute top-full left-0 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg z-20 py-1.5">
+                    {SCHOOL_LEVELS.map(level => (
+                      <label
+                        key={level}
+                        className="flex items-center gap-2.5 px-3 py-1.5 hover:bg-gray-50 cursor-pointer text-xs"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={mapFilters.schoolLevels.includes(level)}
+                          onChange={() => toggleMapFilter('schoolLevels', level)}
+                          className="w-3.5 h-3.5 rounded border-gray-300 text-[#5B6EF7] focus:ring-[#5B6EF7]"
+                        />
+                        <span className="text-gray-700">{level}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* 과목 드롭다운 */}
+              <div className="relative filter-dropdown flex-1">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setOpenDropdown(openDropdown === 'subject' ? null : 'subject');
+                  }}
+                  className={`w-full px-3 py-2 text-xs rounded-lg border flex items-center justify-between gap-1 ${mapFilters.subjects.length > 0
+                    ? 'bg-[#5B6EF7]/10 border-[#5B6EF7] text-[#5B6EF7]'
+                    : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
+                    }`}
+                >
+                  <span className="truncate">
+                    {mapFilters.subjects.length > 0
+                      ? `과목 (${mapFilters.subjects.length})`
+                      : '과목'}
+                  </span>
+                  <svg className={`w-3.5 h-3.5 flex-shrink-0 transition-transform ${openDropdown === 'subject' ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                {openDropdown === 'subject' && (
+                  <div className="absolute top-full left-0 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg z-20 py-1.5 max-h-[200px] overflow-y-auto">
+                    {MAP_FILTER_SUBJECTS.map(subject => (
+                      <label
+                        key={subject}
+                        className="flex items-center gap-2.5 px-3 py-1.5 hover:bg-gray-50 cursor-pointer text-xs"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={mapFilters.subjects.includes(subject)}
+                          onChange={() => toggleMapFilter('subjects', subject)}
+                          className="w-3.5 h-3.5 rounded border-gray-300 text-[#5B6EF7] focus:ring-[#5B6EF7]"
+                        />
+                        <span className="text-gray-700">{subject}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
 
-            {/* 과목 드롭다운 */}
-            <div className="relative filter-dropdown flex-1">
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setOpenDropdown(openDropdown === 'subject' ? null : 'subject');
-                }}
-                className={`w-full px-3 py-2 text-xs rounded-lg border flex items-center justify-between gap-1 ${
-                  mapFilters.subjects.length > 0
-                    ? 'bg-[#5B6EF7]/10 border-[#5B6EF7] text-[#5B6EF7]'
-                    : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
-                }`}
-              >
-                <span className="truncate">
-                  {mapFilters.subjects.length > 0
-                    ? `과목 (${mapFilters.subjects.length})`
-                    : '과목'}
-                </span>
-                <svg className={`w-3.5 h-3.5 flex-shrink-0 transition-transform ${openDropdown === 'subject' ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-              {openDropdown === 'subject' && (
-                <div className="absolute top-full left-0 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg z-20 py-1.5 max-h-[200px] overflow-y-auto">
-                  {MAP_FILTER_SUBJECTS.map(subject => (
-                    <label
-                      key={subject}
-                      className="flex items-center gap-2.5 px-3 py-1.5 hover:bg-gray-50 cursor-pointer text-xs"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={mapFilters.subjects.includes(subject)}
-                        onChange={() => toggleMapFilter('subjects', subject)}
-                        className="w-3.5 h-3.5 rounded border-gray-300 text-[#5B6EF7] focus:ring-[#5B6EF7]"
-                      />
-                      <span className="text-gray-700">{subject}</span>
-                    </label>
-                  ))}
+            {/* 검색 (필터 아래에 표시) */}
+            <div className="relative">
+              {activeLocationFilter ? (
+                <div className="w-full px-3 py-2 text-sm border border-[#5B6EF7] bg-[#5B6EF7]/10 rounded-lg flex items-center justify-between">
+                  <span className="text-[#5B6EF7] font-medium truncate">{activeLocationFilter}</span>
+                  <button
+                    onClick={clearLocationFilter}
+                    className="ml-1 p-0.5 text-[#5B6EF7] hover:text-red-500 transition-colors flex-shrink-0"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
                 </div>
+              ) : (
+                <>
+                  <input
+                    type="text"
+                    placeholder="검색 (지역, 학교명)"
+                    value={locationSearchQuery}
+                    onChange={(e) => setLocationSearchQuery(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleLocationSearch()}
+                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-[#5B6EF7] pr-9"
+                  />
+                  <button
+                    onClick={handleLocationSearch}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 text-gray-400 hover:text-[#5B6EF7]"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                  </button>
+                </>
               )}
             </div>
           </div>
 
-          {/* 검색 (필터 아래에 표시) */}
-          <div className="relative">
-            {activeLocationFilter ? (
-              <div className="w-full px-3 py-2 text-sm border border-[#5B6EF7] bg-[#5B6EF7]/10 rounded-lg flex items-center justify-between">
-                <span className="text-[#5B6EF7] font-medium truncate">{activeLocationFilter}</span>
-                <button
-                  onClick={clearLocationFilter}
-                  className="ml-1 p-0.5 text-[#5B6EF7] hover:text-red-500 transition-colors flex-shrink-0"
-                >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
+          {/* 공고 목록 헤더 */}
+          <div className="px-3 py-2.5 border-b border-gray-100 flex-shrink-0">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-semibold text-gray-700">공고 목록</span>
+              <span className="text-xs font-medium text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
+                {filteredJobPostings.length}개
+              </span>
+            </div>
+          </div>
+
+          {/* 공고 카드 목록 */}
+          <div className="flex-1 overflow-y-auto">
+            {filteredJobPostings.length === 0 ? (
+              <div className="p-4 text-center text-gray-400 text-xs">
+                표시할 공고가 없습니다
               </div>
             ) : (
-              <>
-                <input
-                  type="text"
-                  placeholder="검색 (지역, 학교명)"
-                  value={locationSearchQuery}
-                  onChange={(e) => setLocationSearchQuery(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleLocationSearch()}
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-[#5B6EF7] pr-9"
-                />
-                <button
-                  onClick={handleLocationSearch}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 text-gray-400 hover:text-[#5B6EF7]"
-                >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
-                </button>
-              </>
-            )}
-          </div>
-        </div>
-
-        {/* 공고 목록 헤더 */}
-        <div className="px-3 py-2.5 border-b border-gray-100 flex-shrink-0">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-semibold text-gray-700">공고 목록</span>
-            <span className="text-xs font-medium text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
-              {filteredJobPostings.length}개
-            </span>
-          </div>
-        </div>
-
-        {/* 공고 카드 목록 */}
-        <div className="flex-1 overflow-y-auto">
-          {filteredJobPostings.length === 0 ? (
-            <div className="p-4 text-center text-gray-400 text-xs">
-              표시할 공고가 없습니다
-            </div>
-          ) : (
-            <div className="divide-y divide-gray-100">
-              {filteredJobPostings.map((job) => (
-                <div
-                  key={job.id}
-                  className={`p-4 cursor-pointer transition-colors ${
-                    selectedJob?.id === job.id
+              <div className="divide-y divide-gray-100">
+                {filteredJobPostings.map((job) => (
+                  <div
+                    key={job.id}
+                    className={`p-4 cursor-pointer transition-colors ${selectedJob?.id === job.id
                       ? 'bg-blue-50 border-l-2 border-l-[#5B6EF7]'
                       : 'hover:bg-gray-50'
-                  }`}
-                  onClick={() => handleCardClick(job)}
-                >
-                  {/* 기관명 + D-day (긴급한 것만 표시) */}
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-xs text-gray-500 truncate flex-1">
-                      {job.organization || '기관 정보 없음'}
-                    </span>
-                    {job.daysLeft !== undefined && job.daysLeft <= 3 && (
-                      <span className="text-xs font-bold px-1.5 py-0.5 rounded ml-1.5 bg-red-100 text-red-600">
-                        D-{job.daysLeft}
+                      }`}
+                    onClick={() => handleCardClick(job)}
+                  >
+                    {/* 기관명 + D-day (긴급한 것만 표시) */}
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-xs text-gray-500 truncate flex-1">
+                        {job.organization || '기관 정보 없음'}
                       </span>
-                    )}
-                  </div>
+                      {job.daysLeft !== undefined && job.daysLeft <= 3 && (
+                        <span className="text-xs font-bold px-1.5 py-0.5 rounded ml-1.5 bg-red-100 text-red-600">
+                          D-{job.daysLeft}
+                        </span>
+                      )}
+                    </div>
 
-                  {/* 제목 + 태그 병기 */}
-                  <h5 className="text-sm font-semibold text-gray-800 leading-snug line-clamp-2 mb-2">
-                    {job.title}
-                    {job.tags && job.tags.length > 0 && (
-                      <span className="font-normal text-gray-500">
-                        {' '}({job.tags.slice(0, 2).join(', ')}{job.tags.length > 2 ? ' 외' : ''})
-                      </span>
-                    )}
-                  </h5>
+                    {/* 제목 + 태그 병기 */}
+                    <h5 className="text-sm font-semibold text-gray-800 leading-snug line-clamp-2 mb-2">
+                      {job.title}
+                      {job.tags && job.tags.length > 0 && (
+                        <span className="font-normal text-gray-500">
+                          {' '}({job.tags.slice(0, 2).join(', ')}{job.tags.length > 2 ? ' 외' : ''})
+                        </span>
+                      )}
+                    </h5>
 
-                  {/* 상세 정보: 위치, 보수, 마감일 */}
-                  <div className="space-y-1 text-xs text-gray-600">
-                    {job.location && (
-                      <div className="flex items-center gap-1.5">
-                        <svg className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                        </svg>
-                        <span className="truncate">{job.location}</span>
-                      </div>
-                    )}
-                    {job.compensation && (
-                      <div className="flex items-center gap-1.5">
-                        <svg className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <span className="truncate">{job.compensation}</span>
-                      </div>
-                    )}
-                    {job.deadline && (
-                      <div className="flex items-center gap-1.5">
-                        <svg className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        </svg>
-                        <span>{(() => {
-                          // 마감일에서 요일 계산 (예: "01.12" -> "01.12(일)")
-                          const deadlineStr = job.deadline.replace(/^~\s*/, '').trim();
-                          const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
-                          // MM.DD 또는 YYYY.MM.DD 형식 파싱
-                          const parts = deadlineStr.split('.');
-                          if (parts.length >= 2) {
-                            const year = parts.length === 3 ? parseInt(parts[0]) : new Date().getFullYear();
-                            const month = parseInt(parts.length === 3 ? parts[1] : parts[0]) - 1;
-                            const day = parseInt(parts.length === 3 ? parts[2] : parts[1]);
-                            const date = new Date(year, month, day);
-                            if (!isNaN(date.getTime())) {
-                              const dayOfWeek = dayNames[date.getDay()];
-                              return `${deadlineStr}(${dayOfWeek})`;
+                    {/* 상세 정보: 위치, 보수, 마감일 */}
+                    <div className="space-y-1 text-xs text-gray-600">
+                      {job.location && (
+                        <div className="flex items-center gap-1.5">
+                          <svg className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                          </svg>
+                          <span className="truncate">{job.location}</span>
+                        </div>
+                      )}
+                      {job.compensation && (
+                        <div className="flex items-center gap-1.5">
+                          <svg className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          <span className="truncate">{job.compensation}</span>
+                        </div>
+                      )}
+                      {job.deadline && (
+                        <div className="flex items-center gap-1.5">
+                          <svg className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                          <span>{(() => {
+                            // 마감일에서 요일 계산 (예: "01.12" -> "01.12(일)")
+                            const deadlineStr = job.deadline.replace(/^~\s*/, '').trim();
+                            const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
+                            // MM.DD 또는 YYYY.MM.DD 형식 파싱
+                            const parts = deadlineStr.split('.');
+                            if (parts.length >= 2) {
+                              const year = parts.length === 3 ? parseInt(parts[0]) : new Date().getFullYear();
+                              const month = parseInt(parts.length === 3 ? parts[1] : parts[0]) - 1;
+                              const day = parseInt(parts.length === 3 ? parts[2] : parts[1]);
+                              const date = new Date(year, month, day);
+                              if (!isNaN(date.getTime())) {
+                                const dayOfWeek = dayNames[date.getDay()];
+                                return `${deadlineStr}(${dayOfWeek})`;
+                              }
                             }
-                          }
-                          return deadlineStr;
-                        })()}</span>
-                      </div>
-                    )}
+                            return deadlineStr;
+                          })()}</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* 상세 패널 - 카드 목록 옆에 배치 (flex 아이템) */}

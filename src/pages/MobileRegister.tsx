@@ -77,7 +77,7 @@ export default function MobileRegister() {
               onChange={(e) => setRegistrationType(e.target.value as RegistrationType)}
               className="w-full h-12 px-4 pr-10 text-base border border-gray-300 rounded-lg bg-white text-gray-900 appearance-none focus:outline-none focus:ring-2 focus:ring-[#68B2FF] focus:border-transparent transition-all !font-light font-synthesis-none"
               style={{
-                fontFamily: "'esamanru-light', 'esamanru', -apple-system, BlinkMacSystemFont, system-ui, sans-serif",
+                fontFamily: "'KakaoSmallSans', 'esamanru-light', 'esamanru', -apple-system, BlinkMacSystemFont, system-ui, sans-serif",
                 fontWeight: 300,
                 letterSpacing: '0.02em'
               }}
