@@ -1,7 +1,7 @@
 /**
  * get-directions Edge Function
  *
- * 카카오 모빌리티 API (자동차 길찾기) 및 ODsay API (대중교통 길찾기)를 프록시합니다.
+ * 카카오 모빌리티 API (자동차 길찾기) 및 TMAP API (대중교통 길찾기)를 프록시합니다.
  * API 키를 서버 측에 안전하게 보관하여 클라이언트에 노출되지 않도록 합니다.
  */
 
@@ -100,14 +100,14 @@ Deno.serve(async (req: Request) => {
       console.log(`[get-directions] Kakao API success, routes: ${result.routes?.length || 0}`);
 
     } else if (type === 'transit') {
-      // ODsay API (대중교통)
+      // TMAP API (대중교통)
       // @ts-ignore: Deno global is available in Supabase Edge Functions
-      const ODSAY_KEY = Deno.env.get('ODSAY_API_KEY');
+      const TMAP_KEY = Deno.env.get('TMAP_API_KEY');
 
-      if (!ODSAY_KEY) {
-        console.error('[get-directions] ODSAY_API_KEY not set');
+      if (!TMAP_KEY) {
+        console.error('[get-directions] TMAP_API_KEY not set');
         return new Response(
-          JSON.stringify({ error: 'Server configuration error: ODsay API key not set' }),
+          JSON.stringify({ error: 'Server configuration error: TMAP API key not set' }),
           {
             status: 500,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -115,24 +115,37 @@ Deno.serve(async (req: Request) => {
         );
       }
 
-      // ODsay API는 SX(출발 경도), SY(출발 위도), EX(도착 경도), EY(도착 위도) 사용
-      const apiUrl = `https://api.odsay.com/v1/api/searchPubTransPathT?SX=${origin.lng}&SY=${origin.lat}&EX=${destination.lng}&EY=${destination.lat}&apiKey=${encodeURIComponent(ODSAY_KEY)}`;
+      // TMAP 대중교통 경로 API
+      const apiUrl = 'https://apis.openapi.sk.com/transit/routes';
 
-      console.log(`[get-directions] Calling ODsay API`);
+      const requestBody = {
+        startX: origin.lng.toString(),
+        startY: origin.lat.toString(),
+        endX: destination.lng.toString(),
+        endY: destination.lat.toString(),
+        lang: 0, // 0: 한국어, 1: 영어
+        format: 'json',
+        count: 1, // 추천 경로 개수
+      };
+
+      console.log(`[get-directions] Calling TMAP API`, requestBody);
 
       const response = await fetch(apiUrl, {
-        method: 'GET',
+        method: 'POST',
         headers: {
-          'Accept': 'application/json',
+          'accept': 'application/json',
+          'content-type': 'application/json',
+          'appKey': TMAP_KEY,
         },
+        body: JSON.stringify(requestBody),
       });
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error(`[get-directions] ODsay API error: ${response.status} - ${errorText}`);
+        console.error(`[get-directions] TMAP API error: ${response.status} - ${errorText}`);
         return new Response(
           JSON.stringify({
-            error: 'ODsay API request failed',
+            error: 'TMAP API request failed',
             status: response.status,
             details: errorText
           }),
@@ -145,13 +158,13 @@ Deno.serve(async (req: Request) => {
 
       result = await response.json();
 
-      // ODsay 에러 체크 (result.error 또는 result.result.error 형태)
-      if (result.error) {
-        console.error(`[get-directions] ODsay API returned error:`, result.error);
+      // TMAP 에러 체크
+      if (result.error || result.resultCode !== '0') {
+        console.error(`[get-directions] TMAP API returned error:`, result.error || result.resultMessage);
         return new Response(
           JSON.stringify({
-            error: 'ODsay API returned error',
-            details: result.error
+            error: 'TMAP API returned error',
+            details: result.error || result.resultMessage
           }),
           {
             status: 400,
@@ -160,7 +173,7 @@ Deno.serve(async (req: Request) => {
         );
       }
 
-      console.log(`[get-directions] ODsay API success, paths: ${result.result?.path?.length || 0}`);
+      console.log(`[get-directions] TMAP API success, paths: ${result.metaData?.plan?.itineraries?.length || 0}`);
     }
 
     return new Response(JSON.stringify(result), {

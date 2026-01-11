@@ -61,7 +61,66 @@ export interface KakaoCarRoute {
   }>;
 }
 
-// ODsay 대중교통 경로 응답
+// TMAP 대중교통 경로 응답
+export interface TmapTransitRoute {
+  resultCode: string;
+  resultMessage: string;
+  metaData: {
+    plan: {
+      itineraries: Array<{
+        totalTime: number; // 분
+        totalDistance: number; // 미터
+        totalWalkTime: number; // 분
+        totalWalkDistance: number; // 미터
+        transferCount: number;
+        pathType: number;
+        fare: {
+          regular: {
+            totalFare: number;
+            currency: {
+              symbol: string;
+              currency: string;
+              currencyCode: string;
+            };
+          };
+        };
+        legs: Array<{
+          mode: string; // WALK, SUBWAY, BUS
+          sectionTime: number; // 초
+          distance: number; // 미터
+          start: {
+            name: string;
+            lon: number;
+            lat: number;
+          };
+          end: {
+            name: string;
+            lon: number;
+            lat: number;
+          };
+          steps?: Array<{
+            streetName: string;
+            distance: number;
+            description: string;
+            linestring: string; // 좌표 문자열
+          }>;
+          route?: string; // 노선명 (버스/지하철)
+          routeColor?: string; // 노선색
+          service?: number; // 버스 타입
+          passStopList?: {
+            stationList: Array<{
+              stationName: string;
+              lon: string;
+              lat: string;
+            }>;
+          };
+        }>;
+      }>;
+    };
+  };
+}
+
+// ODsay 대중교통 경로 응답 (deprecated - TMAP으로 교체)
 export interface OdsayTransitRoute {
   result: {
     searchType: number;

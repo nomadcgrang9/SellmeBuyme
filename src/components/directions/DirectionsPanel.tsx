@@ -119,8 +119,8 @@ export const DirectionsPanel: React.FC<DirectionsPanelProps> = ({
 
   return (
     <div className="bg-white rounded-xl shadow-xl border border-gray-200 overflow-hidden flex flex-col w-[280px] max-h-[calc(100vh-32px)]">
-      {/* 헤더 - 사이트 테마 색상 (보라 그라데이션) */}
-      <div className="bg-gradient-to-r from-[#8B9BF7] to-[#5B6EF7] text-white p-3.5">
+      {/* 헤더 - 카카오맵 스타일 (밝은 하늘색 그라데이션) */}
+      <div className="bg-gradient-to-r from-[#7EC8E3] to-[#5DADE2] text-white p-3.5">
         <div className="flex items-center justify-between">
           <div className="min-w-0 flex-1">
             <h3 className="text-base font-bold">길찾기</h3>
@@ -141,7 +141,7 @@ export const DirectionsPanel: React.FC<DirectionsPanelProps> = ({
       <div className="p-3 border-b border-gray-100">
         <div className="space-y-1.5">
           <div className="flex items-center gap-2">
-            <div className="w-2.5 h-2.5 rounded-full bg-[#5B6EF7] flex-shrink-0" />
+            <div className="w-2.5 h-2.5 rounded-full bg-[#5DADE2] flex-shrink-0" />
             <div className="flex-1 min-w-0">
               <p className="text-[10px] text-gray-400">출발</p>
               <p className="text-xs font-medium text-gray-800 truncate">
@@ -188,7 +188,7 @@ export const DirectionsPanel: React.FC<DirectionsPanelProps> = ({
               onClick={() => setTransportType(type)}
               className={`flex-1 py-2.5 px-2 flex flex-col items-center gap-0.5 transition-colors ${
                 isActive
-                  ? 'bg-[#5B6EF7]/10 text-[#5B6EF7] border-b-2 border-[#5B6EF7]'
+                  ? 'bg-[#5DADE2]/10 text-[#5DADE2] border-b-2 border-[#5DADE2]'
                   : 'text-gray-500 hover:bg-gray-50'
               }`}
             >
@@ -203,14 +203,14 @@ export const DirectionsPanel: React.FC<DirectionsPanelProps> = ({
       <div className="flex-1 overflow-y-auto p-3">
         {isGettingLocation && (
           <div className="flex flex-col items-center justify-center py-6 text-gray-500">
-            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-[#5B6EF7] mb-2" />
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-[#5DADE2] mb-2" />
             <p className="text-xs">위치를 확인하는 중...</p>
           </div>
         )}
 
         {isLoading && !isGettingLocation && (
           <div className="flex flex-col items-center justify-center py-6 text-gray-500">
-            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-[#5B6EF7] mb-2" />
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-[#5DADE2] mb-2" />
             <p className="text-xs">경로를 검색하는 중...</p>
           </div>
         )}

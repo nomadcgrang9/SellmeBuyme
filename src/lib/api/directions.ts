@@ -1,6 +1,6 @@
 /**
  * 길찾기 API 서비스
- * Edge Function을 통해 카카오 모빌리티 / ODsay API 호출
+ * Edge Function을 통해 카카오 모빌리티 / TMAP API 호출
  */
 
 import { supabase } from '@/lib/supabase/client';
@@ -9,7 +9,7 @@ import type {
   Coordinates,
   DirectionsResult,
   KakaoCarRoute,
-  OdsayTransitRoute,
+  TmapTransitRoute,
   DirectionGuide,
   TransitSubPath,
   SUBWAY_LINE_COLORS,
@@ -45,7 +45,7 @@ export async function getDirections(
   if (type === 'car' || type === 'walk') {
     return normalizeCarRoute(data as KakaoCarRoute, type);
   } else {
-    return normalizeTransitRoute(data as OdsayTransitRoute);
+    return normalizeTransitRoute(data as TmapTransitRoute);
   }
 }
 
@@ -101,111 +101,157 @@ function normalizeCarRoute(data: KakaoCarRoute, type: TransportType): Directions
 }
 
 /**
- * ODsay 대중교통 응답 정규화
+ * TMAP 대중교통 응답 정규화
  */
-function normalizeTransitRoute(data: OdsayTransitRoute): DirectionsResult {
-  if (!data.result || !data.result.path || data.result.path.length === 0) {
+function normalizeTransitRoute(data: TmapTransitRoute): DirectionsResult {
+  if (!data.metaData?.plan?.itineraries || data.metaData.plan.itineraries.length === 0) {
     throw new Error('대중교통 경로를 찾을 수 없습니다');
   }
 
   // 첫 번째 경로 사용 (최적 경로)
-  const route = data.result.path[0];
-  const info = route.info;
+  const itinerary = data.metaData.plan.itineraries[0];
 
   // 구간별 정보 추출
   const subPaths: TransitSubPath[] = [];
   const path: Coordinates[] = [];
   const guides: DirectionGuide[] = [];
 
-  for (const sub of route.subPath) {
-    // 시작/끝 좌표 추가
-    if (sub.startX && sub.startY) {
-      path.push({ lng: sub.startX, lat: sub.startY });
-    }
+  for (const leg of itinerary.legs) {
+    // 시작 좌표 추가
+    path.push({ lng: leg.start.lon, lat: leg.start.lat });
 
-    // 정거장 좌표 추가
-    if (sub.passStopList?.stations) {
-      for (const station of sub.passStopList.stations) {
+    // 경유 정거장 좌표 추가
+    if (leg.passStopList?.stationList) {
+      for (const station of leg.passStopList.stationList) {
         path.push({
-          lng: parseFloat(station.x),
-          lat: parseFloat(station.y),
+          lng: parseFloat(station.lon),
+          lat: parseFloat(station.lat),
         });
       }
     }
 
-    if (sub.endX && sub.endY) {
-      path.push({ lng: sub.endX, lat: sub.endY });
+    // 도보 구간 상세 좌표 (linestring 파싱)
+    if (leg.mode === 'WALK' && leg.steps) {
+      for (const step of leg.steps) {
+        if (step.linestring) {
+          const coords = parseLinestring(step.linestring);
+          path.push(...coords);
+        }
+      }
     }
+
+    // 끝 좌표 추가
+    path.push({ lng: leg.end.lon, lat: leg.end.lat });
 
     // 구간 타입 결정
     let subType: 'subway' | 'bus' | 'walk' = 'walk';
     let lineName = '';
     let lineColor = '';
+    let stationCount = 0;
 
-    if (sub.trafficType === 1) {
-      // 지하철
+    if (leg.mode === 'SUBWAY') {
       subType = 'subway';
-      if (sub.lane && sub.lane[0]) {
-        lineName = sub.lane[0].name || '';
-        const subwayCode = sub.lane[0].subwayCode;
-        if (subwayCode) {
-          lineColor = getSubwayColor(subwayCode);
-        }
-      }
-    } else if (sub.trafficType === 2) {
-      // 버스
+      lineName = leg.route || '';
+      lineColor = leg.routeColor || getSubwayColorByName(lineName);
+      stationCount = leg.passStopList?.stationList?.length || 0;
+    } else if (leg.mode === 'BUS') {
       subType = 'bus';
-      if (sub.lane && sub.lane[0]) {
-        lineName = sub.lane[0].busNo || sub.lane[0].name || '';
-        const busType = sub.lane[0].type;
-        if (busType) {
-          lineColor = getBusColor(busType);
-        }
-      }
+      lineName = leg.route || '';
+      lineColor = leg.routeColor || getBusColorByType(leg.service || 1);
+      stationCount = leg.passStopList?.stationList?.length || 0;
     }
+
+    const sectionTime = Math.round(leg.sectionTime / 60); // 초 → 분
 
     subPaths.push({
       type: subType,
       lineName,
       lineColor,
-      startName: sub.startName || '',
-      endName: sub.endName || '',
-      stationCount: sub.stationCount,
-      sectionTime: sub.sectionTime,
-      distance: sub.distance,
+      startName: leg.start.name,
+      endName: leg.end.name,
+      stationCount,
+      sectionTime,
+      distance: leg.distance,
     });
 
     // 안내 정보 추가
     if (subType === 'walk') {
       guides.push({
-        instruction: `도보 이동 ${sub.startName || ''} → ${sub.endName || ''}`,
-        distance: sub.distance,
-        duration: sub.sectionTime * 60, // 분 → 초
+        instruction: `도보 이동 ${leg.start.name} → ${leg.end.name}`,
+        distance: leg.distance,
+        duration: leg.sectionTime,
       });
     } else {
       guides.push({
-        instruction: `${lineName} 탑승 (${sub.startName} → ${sub.endName}, ${sub.stationCount || 0}정거장)`,
-        distance: sub.distance,
-        duration: sub.sectionTime * 60,
+        instruction: `${lineName} 탑승 (${leg.start.name} → ${leg.end.name}, ${stationCount}정거장)`,
+        distance: leg.distance,
+        duration: leg.sectionTime,
       });
     }
   }
 
   return {
     type: 'transit',
-    totalTime: info.totalTime,
-    totalDistance: info.totalDistance,
+    totalTime: itinerary.totalTime,
+    totalDistance: itinerary.totalDistance,
     fare: {
-      transit: info.payment,
+      transit: itinerary.fare.regular.totalFare,
     },
     path,
     guides,
     transitInfo: {
-      transfers: info.busTransitCount + info.subwayTransitCount - 1,
-      walkTime: Math.round(info.totalWalk / 80), // 80m/분 가정
+      transfers: itinerary.transferCount,
+      walkTime: itinerary.totalWalkTime,
       subPaths,
     },
   };
+}
+
+/**
+ * TMAP linestring 파싱 (좌표 문자열 → Coordinates[])
+ * 예: "126.977 37.566,126.978 37.567" → [{lng: 126.977, lat: 37.566}, ...]
+ */
+function parseLinestring(linestring: string): Coordinates[] {
+  const coords: Coordinates[] = [];
+  const pairs = linestring.split(',');
+  for (const pair of pairs) {
+    const [lng, lat] = pair.trim().split(' ').map(parseFloat);
+    if (!isNaN(lng) && !isNaN(lat)) {
+      coords.push({ lng, lat });
+    }
+  }
+  return coords;
+}
+
+/**
+ * 지하철 노선명으로 색상 추론
+ */
+function getSubwayColorByName(name: string): string {
+  const lineNumbers: Record<string, number> = {
+    '1호선': 1,
+    '2호선': 2,
+    '3호선': 3,
+    '4호선': 4,
+    '5호선': 5,
+    '6호선': 6,
+    '7호선': 7,
+    '8호선': 8,
+    '9호선': 9,
+  };
+
+  for (const [key, value] of Object.entries(lineNumbers)) {
+    if (name.includes(key)) {
+      return getSubwayColor(value);
+    }
+  }
+  return '#666666';
+}
+
+/**
+ * 버스 타입으로 색상 반환
+ */
+function getBusColorByType(type: number): string {
+  return getBusColor(type);
 }
 
 /**
