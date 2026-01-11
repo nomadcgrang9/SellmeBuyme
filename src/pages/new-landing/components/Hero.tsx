@@ -3,7 +3,9 @@ import { SCHOOL_LEVELS } from '../constants';
 import { useKakaoMaps } from '@/hooks/useKakaoMaps';
 import { fetchJobsByBoardRegion } from '@/lib/supabase/queries';
 import type { JobPostingCard } from '@/types';
+import type { Coordinates, DirectionsResult } from '@/types/directions';
 import { JobDetailPanel } from './JobDetailPanel';
+import { DirectionsPanel } from '@/components/directions/DirectionsPanel';
 
 export const Hero: React.FC = () => {
   // 지도 필터 옵션
@@ -23,6 +25,11 @@ export const Hero: React.FC = () => {
 
   // 선택된 공고 (상세 패널용)
   const [selectedJob, setSelectedJob] = useState<JobPostingCard | null>(null);
+
+  // 길찾기 관련 상태
+  const [directionsJob, setDirectionsJob] = useState<JobPostingCard | null>(null);
+  const [directionsCoords, setDirectionsCoords] = useState<Coordinates | null>(null);
+  const polylineRef = useRef<any>(null);
 
   // 필터 토글 핸들러
   const toggleMapFilter = (category: 'schoolLevels' | 'subjects', value: string) => {
@@ -298,6 +305,82 @@ export const Hero: React.FC = () => {
       }
     });
   }, [isLoaded, userLocation]);
+
+  // 길찾기 버튼 클릭 핸들러
+  const handleDirectionsClick = useCallback((job: JobPostingCard) => {
+    // 먼저 좌표 검색
+    const places = new window.kakao.maps.services.Places();
+    const keyword = job.organization || job.location;
+
+    if (!keyword) {
+      console.error('[Hero] 길찾기: 검색 키워드 없음');
+      return;
+    }
+
+    places.keywordSearch(keyword, (result: any[], status: string) => {
+      if (status === window.kakao.maps.services.Status.OK && result.length > 0) {
+        const coords: Coordinates = {
+          lat: parseFloat(result[0].y),
+          lng: parseFloat(result[0].x)
+        };
+        setDirectionsCoords(coords);
+        setDirectionsJob(job);
+        setSelectedJob(null); // 상세 패널 닫기
+      } else {
+        console.error('[Hero] 길찾기: 위치 검색 실패', keyword);
+      }
+    });
+  }, []);
+
+  // 길찾기 패널 닫기
+  const handleDirectionsClose = useCallback(() => {
+    setDirectionsJob(null);
+    setDirectionsCoords(null);
+    // 기존 경로선 제거
+    if (polylineRef.current) {
+      polylineRef.current.setMap(null);
+      polylineRef.current = null;
+    }
+  }, []);
+
+  // 경로 결과 받아서 지도에 Polyline 표시
+  const handleRouteFound = useCallback((result: DirectionsResult) => {
+    if (!mapInstanceRef.current || !result.path || result.path.length === 0) return;
+
+    // 기존 경로선 제거
+    if (polylineRef.current) {
+      polylineRef.current.setMap(null);
+    }
+
+    // 경로 좌표 변환
+    const linePath = result.path.map(
+      coord => new window.kakao.maps.LatLng(coord.lat, coord.lng)
+    );
+
+    // Polyline 스타일 (교통수단별 색상)
+    const colors = {
+      car: '#3B82F6',     // 파란색
+      transit: '#22C55E', // 초록색
+      walk: '#F97316'     // 주황색
+    };
+
+    // Polyline 생성
+    const polyline = new window.kakao.maps.Polyline({
+      path: linePath,
+      strokeWeight: 5,
+      strokeColor: colors[result.type] || '#3B82F6',
+      strokeOpacity: 0.8,
+      strokeStyle: result.type === 'walk' ? 'shortdash' : 'solid'
+    });
+
+    polyline.setMap(mapInstanceRef.current);
+    polylineRef.current = polyline;
+
+    // 경로가 모두 보이도록 지도 범위 조정
+    const bounds = new window.kakao.maps.LatLngBounds();
+    linePath.forEach(coord => bounds.extend(coord));
+    mapInstanceRef.current.setBounds(bounds, 50, 50, 50, 550); // 왼쪽 패널(카드+상세+길찾기) 고려한 여백
+  }, []);
 
   // 카드 클릭 핸들러 (상세 패널 열기 + 지도 이동)
   const handleCardClick = useCallback((job: JobPostingCard) => {
@@ -691,7 +774,7 @@ export const Hero: React.FC = () => {
                 {filteredJobPostings.map((job) => (
                   <div
                     key={job.id}
-                    className={`p-4 cursor-pointer transition-colors ${selectedJob?.id === job.id
+                    className={`group relative p-4 cursor-pointer transition-colors ${selectedJob?.id === job.id
                       ? 'bg-blue-50 border-l-2 border-l-[#5B6EF7]'
                       : 'hover:bg-gray-50'
                       }`}
@@ -764,6 +847,20 @@ export const Hero: React.FC = () => {
                         </div>
                       )}
                     </div>
+
+                    {/* 호버 시 길찾기 버튼 - 테마 컬러 사용 */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDirectionsClick(job);
+                      }}
+                      className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 px-2.5 py-1.5 bg-gray-700 hover:bg-gray-800 text-white text-xs font-semibold rounded-lg shadow-md flex items-center gap-1"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                      </svg>
+                      길찾기
+                    </button>
                   </div>
                 ))}
               </div>
@@ -780,6 +877,24 @@ export const Hero: React.FC = () => {
           />
         )}
       </div>
+
+      {/* 길찾기 패널 - 사이드 패널 방식 (상세 패널 옆에 위치) */}
+      {directionsJob && (
+        <div
+          className="absolute top-4 z-20"
+          style={{
+            // 카드목록(240px) + gap(12px) + 상세패널(260px, 있을 때) + gap(12px) = 위치
+            left: selectedJob ? 'calc(16px + 240px + 12px + 260px + 12px)' : 'calc(16px + 240px + 12px)'
+          }}
+        >
+          <DirectionsPanel
+            job={directionsJob}
+            destinationCoords={directionsCoords}
+            onClose={handleDirectionsClose}
+            onRouteFound={handleRouteFound}
+          />
+        </div>
+      )}
     </section>
   );
 };

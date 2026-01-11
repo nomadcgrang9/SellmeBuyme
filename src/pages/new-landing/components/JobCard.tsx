@@ -5,6 +5,7 @@ import { useSearchStore } from '@/stores/searchStore';
 interface JobCardProps {
   job: JobPostingCard;
   onClick?: () => void;
+  onDirectionsClick?: (job: JobPostingCard) => void;
   themeColor?: 'default' | 'orange' | 'blue' | 'green' | 'purple';
 }
 
@@ -16,7 +17,7 @@ const themeColors = {
   purple: { bar: 'from-purple-300 to-purple-500', text: 'text-purple-500' },
 };
 
-export const JobCard: React.FC<JobCardProps> = ({ job, onClick, themeColor = 'default' }) => {
+export const JobCard: React.FC<JobCardProps> = ({ job, onClick, onDirectionsClick, themeColor = 'default' }) => {
   const isUrgent = job.daysLeft !== undefined && job.daysLeft <= 3;
   const colors = themeColors[themeColor];
   const { filters } = useSearchStore();
@@ -182,7 +183,7 @@ export const JobCard: React.FC<JobCardProps> = ({ job, onClick, themeColor = 'de
                 href={job.source_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex-1 min-w-[80px] inline-flex items-center justify-center gap-1 rounded-lg bg-gray-100 text-gray-900 px-3 py-2 hover:bg-gray-200 transition-colors"
+                className="flex-1 min-w-[70px] inline-flex items-center justify-center gap-1 rounded-lg bg-gray-100 text-gray-900 px-3 py-2 hover:bg-gray-200 transition-colors"
                 onClick={(e) => e.stopPropagation()}
               >
                 원문링크
@@ -190,13 +191,16 @@ export const JobCard: React.FC<JobCardProps> = ({ job, onClick, themeColor = 'de
             )}
             <button
               type="button"
-              className="flex-1 min-w-[80px] inline-flex items-center justify-center rounded-lg bg-blue-50 text-blue-600 px-3 py-2 hover:bg-blue-100 transition-colors"
+              className="flex-1 min-w-[70px] inline-flex items-center justify-center gap-1 rounded-lg bg-green-50 text-green-600 px-3 py-2 hover:bg-green-100 transition-colors"
               onClick={(e) => {
                 e.stopPropagation();
-                // 지도보기 기능 (추후 구현)
+                onDirectionsClick?.(job);
               }}
             >
-              지도보기
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+              </svg>
+              길찾기
             </button>
           </div>
         </div>
