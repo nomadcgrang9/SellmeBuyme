@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase/client';
 import { ensureAuthInitialized } from '@/stores/authStore';
-import { fetchUserProfile } from '@/lib/supabase/profiles';
+import { createMinimalProfile } from '@/lib/supabase/profiles';
 
 export default function AuthCallbackPage() {
   const [status, setStatus] = useState<'pending' | 'error'>('pending');
@@ -67,17 +67,19 @@ export default function AuthCallbackPage() {
         }
 
         const userId = userData.user.id;
-        const { data: profileData, error: profileError } = await fetchUserProfile(userId);
+        const userEmail = userData.user.email;
 
-        if (profileError) {
-          console.error('프로필 조회 실패:', profileError.message);
+        // 이메일을 user_profiles에 저장 (최소 프로필 생성)
+        if (userEmail) {
+          const { error: profileError } = await createMinimalProfile(userId, userEmail);
+          if (profileError) {
+            console.error('프로필 생성 실패:', profileError.message);
+            // 프로필 생성 실패해도 로그인은 진행
+          }
         }
 
-        if (profileData) {
-          sessionStorage.removeItem('profileSetupPending');
-        } else {
-          sessionStorage.setItem('profileSetupPending', 'true');
-        }
+        // 프로필 설정 모달 강제 열기 제거 (사용자가 원할 때 마이페이지에서 설정)
+        sessionStorage.removeItem('profileSetupPending');
 
         await ensureAuthInitialized();
 
@@ -102,9 +104,8 @@ export default function AuthCallbackPage() {
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="w-full max-w-sm mx-auto rounded-2xl bg-white p-8 shadow-md text-center font-esamanru">
         <div className="flex flex-col items-center gap-4">
-          <div className={`h-12 w-12 rounded-full flex items-center justify-center ${
-            isError ? 'bg-red-100 text-red-500' : 'bg-[#e8f2fb] text-[#4b83c6]'
-          }`}>
+          <div className={`h-12 w-12 rounded-full flex items-center justify-center ${isError ? 'bg-red-100 text-red-500' : 'bg-[#e8f2fb] text-[#4b83c6]'
+            }`}>
             {isPending ? (
               <span className="animate-spin text-2xl">⏳</span>
             ) : (

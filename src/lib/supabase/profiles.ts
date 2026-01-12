@@ -3,6 +3,7 @@ import { supabase } from './client';
 
 export type UserProfileRow = {
   user_id: string;
+  email: string | null;
   display_name: string | null;
   phone: string | null;
   roles: string[] | null;
@@ -65,12 +66,12 @@ function calculateProfileCompletion(payload: ProfileUpsertInput): number {
   inc(Array.isArray(payload.roles) && payload.roles.length > 0);
   inc(
     !!payload.teacherLevel ||
-      !!payload.specialEducationType ||
-      (Array.isArray(payload.instructorFields) && payload.instructorFields.length > 0)
+    !!payload.specialEducationType ||
+    (Array.isArray(payload.instructorFields) && payload.instructorFields.length > 0)
   );
   inc(
     !!payload.primaryRegion ||
-      (Array.isArray(payload.interestRegions) && payload.interestRegions.length > 0)
+    (Array.isArray(payload.interestRegions) && payload.interestRegions.length > 0)
   );
   inc(!!payload.intro && payload.intro.trim().length >= 20);
   inc(Array.isArray(payload.preferredJobTypes) && payload.preferredJobTypes.length > 0);
@@ -142,4 +143,40 @@ export async function upsertUserProfile(
   }
 
   return { data: data || null, error: null };
+}
+
+/**
+ * 소셜 로그인 시 최소한의 프로필 생성 (이메일만 저장)
+ * 이미 프로필이 있으면 무시하고, 없으면 이메일만 저장
+ */
+export async function createMinimalProfile(
+  userId: string,
+  email: string
+): Promise<{ success: boolean; error: PostgrestError | null }> {
+  // 기존 프로필 확인
+  const { data: existingProfile } = await supabase
+    .from('user_profiles')
+    .select('user_id')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  // 이미 프로필이 있으면 성공 반환 (중복 생성 방지)
+  if (existingProfile) {
+    return { success: true, error: null };
+  }
+
+  // 새 프로필 생성 (이메일만)
+  const { error } = await supabase
+    .from('user_profiles')
+    .insert({
+      user_id: userId,
+      email: email
+    });
+
+  if (error) {
+    console.error('최소 프로필 생성 실패:', error.message);
+    return { success: false, error };
+  }
+
+  return { success: true, error: null };
 }

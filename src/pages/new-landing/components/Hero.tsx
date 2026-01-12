@@ -6,11 +6,11 @@ import type { JobPostingCard } from '@/types';
 import type { Coordinates, DirectionsResult } from '@/types/directions';
 import { JobDetailPanel } from './JobDetailPanel';
 import { DirectionsPanel } from '@/components/directions/DirectionsPanel';
-import MarkerFloatingButtons from '@/components/map/MarkerFloatingButtons';
 import TeacherMarkerModal from '@/components/map/TeacherMarkerModal';
 import ProgramMarkerModal from '@/components/map/ProgramMarkerModal';
-import MarkerLayerToggle from '@/components/map/MarkerLayerToggle';
+import BottomControlBar from '@/components/map/BottomControlBar';
 import MarkerPopup from '@/components/map/MarkerPopup';
+import AuthModal from '@/components/auth/AuthModal';
 import { useAuthStore } from '@/stores/authStore';
 import { fetchTeacherMarkers, fetchProgramMarkers } from '@/lib/supabase/markers';
 import { type MarkerLayer, type TeacherMarker, type ProgramMarker, MARKER_COLORS } from '@/types/markers';
@@ -50,6 +50,7 @@ export const Hero: React.FC = () => {
   const [pendingMarkerCoords, setPendingMarkerCoords] = useState<Coordinates | null>(null);
   const [pendingMarkerType, setPendingMarkerType] = useState<'teacher' | 'program' | null>(null);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
   // 마커 레이어 토글 상태
   const [activeLayers, setActiveLayers] = useState<MarkerLayer[]>(['job', 'teacher', 'program']);
@@ -848,36 +849,23 @@ export const Hero: React.FC = () => {
         />
       )}
 
-      {/* 우측 상단: 로그인/회원가입 + 마커 등록 버튼 (맵 위에 떠있음) */}
-      <div className="absolute top-4 right-4 z-20 flex flex-col items-end">
-        <div className="flex items-center gap-2">
-          <button className="px-4 py-2 text-sm text-gray-700 bg-white/90 backdrop-blur-sm border border-gray-200 rounded-lg hover:bg-white hover:shadow-md transition-all">
+      {/* 우측 상단: 로그인/회원가입만 (범례 위로 올려 겨침 방지) */}
+      {!user && (
+        <div className="absolute top-2 right-2 z-20 flex items-center gap-2">
+          <button
+            onClick={() => setIsAuthModalOpen(true)}
+            className="px-3 py-1.5 text-xs text-gray-600 bg-white/80 backdrop-blur-sm border border-gray-200 rounded-md hover:bg-white hover:shadow-sm transition-all"
+          >
             로그인
           </button>
-          <button className="px-4 py-2 text-sm font-semibold text-white bg-gray-900 rounded-lg hover:bg-gray-800 transition-colors shadow-md">
+          <button
+            onClick={() => setIsAuthModalOpen(true)}
+            className="px-3 py-1.5 text-xs font-medium text-white bg-gray-800 rounded-md hover:bg-gray-700 transition-colors"
+          >
             회원가입
           </button>
         </div>
-        {/* 마커 등록 플로팅 버튼 */}
-        <MarkerFloatingButtons
-          onTeacherMarkerClick={() => {
-            if (authStatus !== 'authenticated') {
-              setShowLoginPrompt(true);
-              return;
-            }
-            setIsTeacherModalOpen(true);
-          }}
-          onProgramMarkerClick={() => {
-            if (authStatus !== 'authenticated') {
-              setShowLoginPrompt(true);
-              return;
-            }
-            setIsProgramModalOpen(true);
-          }}
-          isLoggedIn={authStatus === 'authenticated'}
-          onLoginRequired={() => setShowLoginPrompt(true)}
-        />
-      </div>
+      )}
 
       {/* 로그인 필요 알림 */}
       {showLoginPrompt && (
@@ -895,7 +883,7 @@ export const Hero: React.FC = () => {
               <button
                 onClick={() => {
                   setShowLoginPrompt(false);
-                  // TODO: 로그인 모달 열기
+                  setIsAuthModalOpen(true);
                 }}
                 className="px-4 py-2 text-sm font-semibold text-white bg-gray-900 rounded-lg hover:bg-gray-800 transition-colors"
               >
@@ -905,6 +893,12 @@ export const Hero: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* 로그인/회원가입 모달 */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+      />
 
       {/* 구직 교사 마커 등록 모달 */}
       <TeacherMarkerModal
@@ -954,15 +948,24 @@ export const Hero: React.FC = () => {
         }}
       />
 
-      {/* 마커 레이어 토글 - 지도 하단 중앙 */}
-      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20">
-        <MarkerLayerToggle
+      {/* 하단 통합 컨트롤 바 - 레이어 토글 + 마커 등록 버튼 */}
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20">
+        <BottomControlBar
           activeLayers={activeLayers}
-          onToggle={toggleLayer}
-          counts={{
-            job: filteredJobPostings.length,
-            teacher: teacherMarkers.length,
-            program: programMarkers.length
+          onToggleLayer={toggleLayer}
+          onTeacherMarkerClick={() => {
+            if (authStatus !== 'authenticated') {
+              setShowLoginPrompt(true);
+              return;
+            }
+            setIsTeacherModalOpen(true);
+          }}
+          onProgramMarkerClick={() => {
+            if (authStatus !== 'authenticated') {
+              setShowLoginPrompt(true);
+              return;
+            }
+            setIsProgramModalOpen(true);
           }}
         />
       </div>
