@@ -3582,6 +3582,8 @@ async function executeJobSearch({
           console.log('[executeJobSearch] crawl_board_id 필터링:', crawlBoardIds.length, '개');
           for (const id of crawlBoardIds) {
             regionConditions.push(`crawl_board_id.eq.${id}`);
+            // 레거시 지원: crawl_source_id만 있는 공고도 검색
+            regionConditions.push(`crawl_source_id.eq.${id}`);
           }
         } else {
           // fallback: crawl_board_id 매핑이 없는 경우 기존 location 확장 로직 사용
