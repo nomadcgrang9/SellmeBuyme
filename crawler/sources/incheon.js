@@ -174,8 +174,12 @@ export async function crawlIncheon(page, config) {
         // 상세 페이지 크롤링 (텍스트 + 스크린샷)
         const detailData = await crawlDetailPage(page, absoluteLink, config);
 
-        // 지역 추출: 상세 페이지에서 기관위치 파싱 (인천은 광역자치단체)
-        const location = detailData.location || extractDistrictFromText(organization) || '인천';
+        // 지역 추출: 상세 페이지에서 기관위치 파싱
+        // 규칙1: 광역자치단체(인천) + 기초자치단체(남동 등) 둘 다 저장
+        // 규칙2: 구/군 접미사 제거 (예: 남동구 → 남동)
+        const rawDistrict = detailData.location || extractDistrictFromText(organization);
+        const basicLocation = rawDistrict ? rawDistrict.replace(/구$|군$/, '') : '인천';
+        const metropolitanLocation = '인천';
 
         jobs.push({
           title: title,
@@ -183,7 +187,8 @@ export async function crawlIncheon(page, config) {
           link: absoluteLink,
           organization: organization,
           jobField: jobType,
-          location: location, // 광역자치단체는 AI가 추출
+          location: basicLocation,                    // 기초자치단체 (접미사 제거)
+          metropolitanLocation: metropolitanLocation, // 광역자치단체
           detailContent: detailData.content,
           attachmentUrl: detailData.attachmentUrl,
           attachmentFilename: detailData.attachmentFilename,
@@ -191,7 +196,7 @@ export async function crawlIncheon(page, config) {
           screenshotBase64: detailData.screenshot,
         });
 
-        console.log(`  ✅ 신규 ${totalProcessedCount}. 완료 (지역: ${location})`);
+        console.log(`  ✅ 신규 ${totalProcessedCount}. 완료 (지역: ${metropolitanLocation} > ${basicLocation})`);
 
         // 목록 페이지로 돌아가기
         if (totalProcessedCount < SAFETY.maxItems) {

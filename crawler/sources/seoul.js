@@ -1,4 +1,4 @@
-import { loadPage, resolveUrl } from '../lib/playwright.js';
+import { loadPageWithRetry, resolveUrl } from '../lib/playwright.js';
 import { getExistingJobBySource } from '../lib/supabase.js';
 
 /**
@@ -17,11 +17,25 @@ const SEOUL_DISTRICTS = [
   '용산구', '은평구', '종로구', '중구', '중랑구'
 ];
 
+// 기본 selectors - #srchDataDiv가 공고 목록을 감싸는 컨테이너
+const DEFAULT_SELECTORS = {
+  listContainer: '#srchDataDiv',
+  rows: '#srchDataDiv > ul > li'
+};
+
 export async function crawlSeoul(page, config) {
   console.log(`\n📍 ${config.name} 크롤링 시작`);
 
+  // selectors 기본값 설정
+  const selectors = config.selectors || DEFAULT_SELECTORS;
+
   // 1. 목록 페이지 로딩
-  await loadPage(page, config.baseUrl, config.selectors.listContainer);
+  const loadResult = await loadPageWithRetry(page, config.baseUrl, { maxRetries: 3 });
+  if (!loadResult.success) {
+    console.error(`❌ 페이지 로드 실패: ${loadResult.error}`);
+    return [];
+  }
+  await page.waitForTimeout(2000);
 
   // 2. 페이지 구조 분석 (디버깅용)
   const pageTitle = await page.title();
@@ -50,7 +64,7 @@ export async function crawlSeoul(page, config) {
 
   try {
     // 목록 테이블 행 가져오기
-    const rows = await page.$$(config.selectors.rows);
+    const rows = await page.$$(selectors.rows);
 
     if (rows.length === 0) {
       console.warn('⚠️  공고 목록을 찾을 수 없습니다. HTML 구조 확인 필요');
@@ -109,7 +123,7 @@ export async function crawlSeoul(page, config) {
 
       try {
         // 매번 새로 rows를 가져와서 stale element 방지
-        const currentRows = await page.$$(config.selectors.rows);
+        const currentRows = await page.$$(selectors.rows);
         if (i >= currentRows.length) {
           console.warn(`  ⚠️  행 ${i + 1} 찾을 수 없음`);
           continue;
@@ -226,7 +240,11 @@ export async function crawlSeoul(page, config) {
         const detailData = await crawlDetailPage(page, absoluteLink, config);
 
         // 지역 추출: 목록에서 먼저 시도 → 상세 페이지 주소에서 구 파싱
-        const location = listData.location || detailData.location || extractDistrictFromAddress(detailData.address) || '서울';
+        // 규칙1: 광역자치단체(서울) + 기초자치단체(강남 등) 둘 다 저장
+        // 규칙2: 구 접미사 제거 (예: 강남구 → 강남)
+        const rawDistrict = listData.location || detailData.location || extractDistrictFromAddress(detailData.address);
+        const basicLocation = rawDistrict ? rawDistrict.replace(/구$/, '') : '서울';
+        const metropolitanLocation = '서울';
 
         // 마감일 파싱 (접수기간에서 추출)
         const deadline = parseDeadline(listData.applicationPeriod);
@@ -239,7 +257,8 @@ export async function crawlSeoul(page, config) {
           subject: listData.subject,
           headcount: listData.headcount,
           jobField: listData.jobCategory,
-          location: location,
+          location: basicLocation,                    // 기초자치단체 (구 접미사 제거)
+          metropolitanLocation: metropolitanLocation, // 광역자치단체
           compensation: listData.salary,
           applicationPeriod: listData.applicationPeriod,
           employmentPeriod: listData.employmentPeriod,
@@ -255,7 +274,7 @@ export async function crawlSeoul(page, config) {
           address: detailData.address,
         });
 
-        console.log(`  ✅ 신규 ${totalProcessedCount}. 완료 (지역: ${location})`);
+        console.log(`  ✅ 신규 ${totalProcessedCount}. 완료 (지역: ${metropolitanLocation} > ${basicLocation})`);
 
         // 목록 페이지로 돌아가기
         if (totalProcessedCount < SAFETY.maxItems) {

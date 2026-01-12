@@ -79,10 +79,12 @@
   },
   "gangwon": {
     "name": "강원특별자치도교육청 구인",
-    "baseUrl": "https://www.gwe.go.kr/gwe/na/ntt/selectNttList.do?mi=4879&bbsId=2530",
-    "detailUrlTemplate": "https://www.gwe.go.kr/gwe/na/ntt/selectNttInfo.do?mi=4879&bbsId=2530&nttSn=",
-    "parserType": "ntt",
-    "region": "강원특별자치도",
+    "baseUrl": "https://www.gwe.go.kr/main/bbs/list.do?key=bTIzMDcyMTA1ODU2MzM=",
+    "detailUrlTemplate": "https://www.gwe.go.kr/main/bbs/view.do?bbsSn=",
+    "boardKey": "m2307210585633",
+    "parserType": "custom",
+    "region": "강원",
+    "metropolitanRegion": "강원",
     "isLocalGovernment": false,
     "active": true
   },
@@ -139,33 +141,161 @@
     "name": "성남교육지원청 구인",
     "baseUrl": "https://www.goesn.kr/goesn/na/ntt/selectNttList.do?mi=23603&bbsId=17872",
     "detailUrlTemplate": "https://www.goesn.kr/goesn/na/ntt/selectNttInfo.do?mi=23603&bbsId=17872&nttSn=",
-    "type": "table",
-    "parserType": "html",
-    "selectors": {
-      "listContainer": ".BD_list table",
-      "row": "tbody tr",
-      "title": {
-        "selector": "td.subject a, td.ta_l a, .nttInfoBtn",
-        "extract": "text"
-      },
-      "date": {
-        "selector": "td:nth-child(3)",
-        "extract": "text"
-      },
-      "link": {
-        "selector": ".nttInfoBtn",
-        "extract": "attribute",
-        "attributeName": "data-id"
-      },
-      "attachment": "a[href*='.hwp'], a[href*='download']"
-    },
+    "parserType": "ntt",
     "region": "성남",
+    "metropolitanRegion": "경기",
     "isLocalGovernment": true,
-    "active": true,
-    "pagination": {
-      "type": "script",
-      "functionName": "goPaging"
-    }
+    "active": true
+  },
+  "gapyeong1": {
+    "name": "가평교육지원청 구인게시판1",
+    "baseUrl": "https://www.goegp.kr/goegp/na/ntt/selectNttList.do?mi=3284&bbsId=2721",
+    "detailUrlTemplate": "https://www.goegp.kr/goegp/na/ntt/selectNttInfo.do?mi=3284&bbsId=2721&nttSn=",
+    "parserType": "ntt",
+    "region": "가평",
+    "metropolitanRegion": "경기",
+    "isLocalGovernment": true,
+    "active": true
+  },
+  "gapyeong2": {
+    "name": "가평교육지원청 구인게시판2",
+    "baseUrl": "https://www.goegp.kr/goegp/na/ntt/selectNttList.do?mi=3286&bbsId=2723",
+    "detailUrlTemplate": "https://www.goegp.kr/goegp/na/ntt/selectNttInfo.do?mi=3286&bbsId=2723&nttSn=",
+    "parserType": "ntt",
+    "region": "가평",
+    "metropolitanRegion": "경기",
+    "isLocalGovernment": true,
+    "active": true
+  },
+  "goyang": {
+    "name": "고양교육지원청 기간제교사 채용",
+    "baseUrl": "https://www.goegy.kr/goegy/na/ntt/selectNttList.do?mi=20478&bbsId=11776",
+    "detailUrlTemplate": "https://www.goegy.kr/goegy/na/ntt/selectNttInfo.do?mi=20478&bbsId=11776&nttSn=",
+    "parserType": "ntt",
+    "region": "고양",
+    "metropolitanRegion": "경기",
+    "isLocalGovernment": true,
+    "active": true
+  },
+  "gwangmyeong": {
+    "name": "광명교육지원청 구인",
+    "baseUrl": "https://www.goegm.kr/goegm/na/ntt/selectNttList.do?mi=5826&bbsId=4225",
+    "detailUrlTemplate": "https://www.goegm.kr/goegm/na/ntt/selectNttInfo.do?mi=5826&bbsId=4225&nttSn=",
+    "parserType": "ntt",
+    "region": "광명",
+    "metropolitanRegion": "경기",
+    "isLocalGovernment": true,
+    "active": true
+  },
+  "gwangjuhanam": {
+    "name": "광주하남교육지원청 구인",
+    "baseUrl": "https://www.goegh.kr/goegh/na/ntt/selectNttList.do?mi=8754&bbsId=5088",
+    "detailUrlTemplate": "https://www.goegh.kr/goegh/na/ntt/selectNttInfo.do?mi=8754&bbsId=5088&nttSn=",
+    "parserType": "ntt",
+    "region": "광주하남",
+    "metropolitanRegion": "경기",
+    "isLocalGovernment": true,
+    "active": true
+  },
+  "gurinamyangju": {
+    "name": "구리남양주교육지원청 구인",
+    "baseUrl": "https://www.goegn.kr/goegn/na/ntt/selectNttList.do?mi=16003&bbsId=8653",
+    "detailUrlTemplate": "https://www.goegn.kr/goegn/na/ntt/selectNttInfo.do?mi=16003&bbsId=8653&nttSn=",
+    "parserType": "ntt",
+    "region": "구리남양주",
+    "metropolitanRegion": "경기",
+    "isLocalGovernment": true,
+    "active": true
+  },
+  "gimpo": {
+    "name": "김포교육지원청 구인",
+    "baseUrl": "https://www.gpoe.kr/gpoe/na/ntt/selectNttList.do?mi=9406&bbsId=5218",
+    "detailUrlTemplate": "https://www.gpoe.kr/gpoe/na/ntt/selectNttInfo.do?mi=9406&bbsId=5218&nttSn=",
+    "parserType": "ntt",
+    "region": "김포",
+    "metropolitanRegion": "경기",
+    "isLocalGovernment": true,
+    "active": true
+  },
+  "dongducheonyangjyu": {
+    "name": "동두천양주교육지원청 구인",
+    "baseUrl": "https://www.goedy.kr/goedy/na/ntt/selectNttList.do?mi=10336&bbsId=10228",
+    "detailUrlTemplate": "https://www.goedy.kr/goedy/na/ntt/selectNttInfo.do?mi=10336&bbsId=10228&nttSn=",
+    "parserType": "ntt",
+    "region": "동두천양주",
+    "metropolitanRegion": "경기",
+    "isLocalGovernment": true,
+    "active": true
+  },
+  "bucheon": {
+    "name": "부천교육지원청 구인",
+    "baseUrl": "https://www.goebc.kr/goebc/na/ntt/selectNttList.do?mi=11172&bbsId=6381",
+    "detailUrlTemplate": "https://www.goebc.kr/goebc/na/ntt/selectNttInfo.do?mi=11172&bbsId=6381&nttSn=",
+    "parserType": "ntt",
+    "region": "부천",
+    "metropolitanRegion": "경기",
+    "isLocalGovernment": true,
+    "active": true
+  },
+  "anseong": {
+    "name": "안성교육지원청 구인",
+    "baseUrl": "https://www.goean.kr/goean/na/ntt/selectNttList.do?mi=4565&bbsId=2801",
+    "detailUrlTemplate": "https://www.goean.kr/goean/na/ntt/selectNttInfo.do?mi=4565&bbsId=2801&nttSn=",
+    "parserType": "ntt",
+    "region": "안성",
+    "metropolitanRegion": "경기",
+    "isLocalGovernment": true,
+    "active": true
+  },
+  "yangpyeong": {
+    "name": "양평교육지원청 구인",
+    "baseUrl": "https://www.goeyp.kr/goeyp/na/ntt/selectNttList.do?mi=3608&bbsId=1906",
+    "detailUrlTemplate": "https://www.goeyp.kr/goeyp/na/ntt/selectNttInfo.do?mi=3608&bbsId=1906&nttSn=",
+    "parserType": "ntt",
+    "region": "양평",
+    "metropolitanRegion": "경기",
+    "isLocalGovernment": true,
+    "active": true
+  },
+  "yeoncheon": {
+    "name": "연천교육지원청 구인",
+    "baseUrl": "https://www.goeyc.kr/goeyc/na/ntt/selectNttList.do?mi=2379&bbsId=2215",
+    "detailUrlTemplate": "https://www.goeyc.kr/goeyc/na/ntt/selectNttInfo.do?mi=2379&bbsId=2215&nttSn=",
+    "parserType": "ntt",
+    "region": "연천",
+    "metropolitanRegion": "경기",
+    "isLocalGovernment": true,
+    "active": true
+  },
+  "paju": {
+    "name": "파주교육지원청 구인",
+    "baseUrl": "https://www.goepj.kr/goepj/na/ntt/selectNttList.do?mi=10838&bbsId=7202",
+    "detailUrlTemplate": "https://www.goepj.kr/goepj/na/ntt/selectNttInfo.do?mi=10838&bbsId=7202&nttSn=",
+    "parserType": "ntt",
+    "region": "파주",
+    "metropolitanRegion": "경기",
+    "isLocalGovernment": true,
+    "active": true
+  },
+  "pyeongtaek": {
+    "name": "평택교육지원청 구인",
+    "baseUrl": "https://www.goept.kr/goept/na/ntt/selectNttList.do?mi=10118&bbsId=10111",
+    "detailUrlTemplate": "https://www.goept.kr/goept/na/ntt/selectNttInfo.do?mi=10118&bbsId=10111&nttSn=",
+    "parserType": "ntt",
+    "region": "평택",
+    "metropolitanRegion": "경기",
+    "isLocalGovernment": true,
+    "active": true
+  },
+  "pocheon": {
+    "name": "포천교육지원청 구인",
+    "baseUrl": "https://www.goepc.kr/goepc/na/ntt/selectNttList.do?mi=2192&bbsId=2103",
+    "detailUrlTemplate": "https://www.goepc.kr/goepc/na/ntt/selectNttInfo.do?mi=2192&bbsId=2103&nttSn=",
+    "parserType": "ntt",
+    "region": "포천",
+    "metropolitanRegion": "경기",
+    "isLocalGovernment": true,
+    "active": true
   },
   "gyeonggi": {
     "name": "경기도 교육청 구인정보조회",
@@ -198,272 +328,28 @@
     "name": "의정부교육지원청 구인",
     "baseUrl": "https://www.goeujb.kr/goeujb/na/ntt/selectNttList.do?mi=7019&bbsId=4117",
     "detailUrlTemplate": "https://www.goeujb.kr/goeujb/na/ntt/selectNttInfo.do?mi=7019&bbsId=4117&nttSn=",
-    "type": "table",
-    "parserType": "html",
-    "selectors": {
-      "listContainer": ".BD_list table",
-      "row": "tbody tr",
-      "title": {
-        "selector": "td.ta_l a, .nttInfoBtn",
-        "extract": "text"
-      },
-      "date": {
-        "selector": "td:nth-child(4)",
-        "extract": "text"
-      },
-      "link": {
-        "selector": ".nttInfoBtn",
-        "extract": "attribute",
-        "attributeName": "data-id"
-      },
-      "attachment": "a[href*='.hwp'], a[href*='download']"
-    },
+    "parserType": "ntt",
     "region": "의정부",
+    "metropolitanRegion": "경기",
     "isLocalGovernment": true,
-    "active": true,
-    "pagination": {
-      "type": "script",
-      "functionName": "goPaging"
-    }
+    "active": true
   },
   "namyangju": {
     "name": "구리남양주교육지원청 인력풀",
     "baseUrl": "https://www.goegn.kr/goegn/na/ntt/selectNttList.do?mi=14084&bbsId=8656",
     "detailUrlTemplate": "https://www.goegn.kr/goegn/na/ntt/selectNttInfo.do?mi=14084&bbsId=8656&nttSn=",
-    "type": "table",
-    "parserType": "html",
-    "selectors": {
-      "listContainer": ".BD_list table",
-      "row": "tbody tr",
-      "title": {
-        "selector": "td.ta_l a, .nttInfoBtn",
-        "extract": "text"
-      },
-      "date": {
-        "selector": "td:nth-child(5)",
-        "extract": "text"
-      },
-      "link": {
-        "selector": ".nttInfoBtn",
-        "extract": "attribute",
-        "attributeName": "data-id"
-      },
-      "attachment": "a[href*='.hwp'], a[href*='download']"
-    },
+    "parserType": "ntt",
     "region": "구리남양주",
+    "metropolitanRegion": "경기",
     "isLocalGovernment": true,
     "active": true,
-    "pagination": {
-      "type": "script",
-      "functionName": "goPaging"
-    }
-  },
-  "busan": {
-    "name": "부산광역시교육청 학교인력채용",
-    "baseUrl": "https://www.pen.go.kr/main/na/ntt/selectNttList.do?mi=30367&bbsId=2364",
-    "detailUrlTemplate": "https://www.pen.go.kr/main/na/ntt/selectNttInfo.do?mi=30367&bbsId=2364&nttSn=",
-    "type": "table",
-    "parserType": "html",
-    "selectors": {
-      "listContainer": "table:has(.nttInfoBtn)",
-      "row": "tbody tr",
-      "title": {
-        "selector": "td.bbs_tit a, .nttInfoBtn",
-        "extract": "text"
-      },
-      "date": {
-        "selector": "td:nth-child(5)",
-        "extract": "text"
-      },
-      "link": {
-        "selector": ".nttInfoBtn",
-        "extract": "attribute",
-        "attributeName": "data-id"
-      },
-      "attachment": "a[href*='fileDown'], a[href*='download']"
-    },
-    "region": "부산",
-    "isLocalGovernment": false,
-    "active": false,
-    "pagination": {
-      "type": "script",
-      "functionName": "goPaging"
-    }
-  },
-  "daegu": {
-    "name": "대구광역시교육청 채용",
-    "baseUrl": "https://www.dge.go.kr/main/na/ntt/selectNttList.do?mi=5191&bbsId=1048",
-    "detailUrlTemplate": "https://www.dge.go.kr/main/na/ntt/selectNttInfo.do?mi=5191&bbsId=1048&nttSn=",
-    "type": "table",
-    "parserType": "html",
-    "selectors": {
-      "listContainer": "table",
-      "row": "tbody tr",
-      "title": {
-        "selector": ".nttInfoBtn",
-        "extract": "text"
-      },
-      "date": {
-        "selector": "td:nth-child(4)",
-        "extract": "text"
-      },
-      "link": {
-        "selector": ".nttInfoBtn",
-        "extract": "attribute",
-        "attributeName": "data-id"
-      },
-      "attachment": "a[href*='fileDown'], a[href*='download']"
-    },
-    "region": "대구",
-    "isLocalGovernment": false,
-    "active": false,
-    "pagination": {
-      "type": "script",
-      "functionName": "fn_egov_select_linkPage"
-    }
-  },
-  "incheon": {
-    "name": "인천광역시교육청 채용공고",
-    "baseUrl": "https://www.ice.go.kr/ice/na/ntt/selectNttList.do?mi=10997&bbsId=1981",
-    "detailUrlTemplate": "https://www.ice.go.kr/ice/na/ntt/selectNttInfo.do?mi=10997&bbsId=1981&nttSn=",
-    "type": "table",
-    "parserType": "html",
-    "selectors": {
-      "listContainer": "table:has-text('등록일')",
-      "row": "tbody tr",
-      "title": {
-        "selector": "td:nth-child(5)",
-        "extract": "text"
-      },
-      "date": {
-        "selector": "td:nth-child(1)",
-        "extract": "text"
-      },
-      "link": {
-        "selector": "td:nth-child(5) a, .nttInfoBtn",
-        "extract": "attribute",
-        "attributeName": "data-id"
-      },
-      "attachment": "a[href*='fileDown']"
-    },
-    "region": "인천",
-    "isLocalGovernment": false,
-    "active": false,
-    "pagination": {
-      "type": "script",
-      "functionName": "fn_egov_select_linkPage"
-    }
-  },
-  "gwangju": {
-    "name": "광주광역시교육청 채용공고",
-    "baseUrl": "https://www.gen.go.kr/xboard/board.php?tbnum=32",
-    "detailUrlTemplate": "https://www.gen.go.kr/xboard/board.php?mode=view&tbnum=32&number=",
-    "type": "table",
-    "parserType": "html",
-    "selectors": {
-      "listContainer": "table",
-      "row": "tbody tr",
-      "title": {
-        "selector": "td:nth-child(3) a",
-        "extract": "text"
-      },
-      "date": {
-        "selector": "td:nth-child(5)",
-        "extract": "text"
-      },
-      "link": {
-        "selector": "td:nth-child(3) a",
-        "extract": "href"
-      },
-      "attachment": "a[href*='download']"
-    },
-    "region": "광주",
-    "isLocalGovernment": false,
-    "active": true,
-    "pagination": {
-      "type": "none"
-    }
-  },
-  "daejeon": {
-    "name": "대전광역시교육청 학교인력채용",
-    "baseUrl": "https://www.dje.go.kr/boardCnts/list.do?boardID=54&m=030202&s=dje",
-    "detailUrlTemplate": "https://www.dje.go.kr/boardCnts/view.do?boardID=54&m=030202&s=dje&boardSeq=",
-    "type": "table",
-    "parserType": "html",
-    "selectors": {
-      "listContainer": "table",
-      "row": "tbody tr",
-      "title": {
-        "selector": "td.subject a",
-        "extract": "text"
-      },
-      "date": {
-        "selector": "td:nth-child(5)",
-        "extract": "text"
-      },
-      "link": {
-        "selector": "td.subject a",
-        "extract": "onclick",
-        "regex": "bg0001_[0-9]+_([0-9]+)"
-      },
-      "attachment": "a[href*='FileDown']"
-    },
-    "region": "대전",
-    "isLocalGovernment": false,
-    "active": false,
-    "pagination": {
-      "type": "script",
-      "functionName": "goPage"
-    }
-  },
-  "gangwon": {
-    "name": "강원특별자치도교육청 학교인력채용",
-    "baseUrl": "https://www.gwe.go.kr/main/bbs/list.do?key=bTIzMDcyMTA1ODU2MzM=",
-    "detailUrlTemplate": "https://www.gwe.go.kr/main/bbs/view.do?key=bTIzMDcyMTA1ODU2MzM=&bbsUuid=",
-    "type": "table",
-    "parserType": "html",
-    "selectors": {
-      "listContainer": "table",
-      "row": "tbody tr",
-      "title": {
-        "selector": "td.subject a",
-        "extract": "text"
-      },
-      "date": {
-        "selector": "td:nth-child(6)",
-        "extract": "text"
-      },
-      "link": {
-        "selector": "td.subject a",
-        "extract": "onclick",
-        "regex": "view\\('([^']+)'\\)"
-      },
-      "attachment": "a[href*='download']"
-    },
-    "region": "강원",
-    "isLocalGovernment": false,
-    "active": false,
-    "pagination": {
-      "type": "script",
-      "functionName": "fn_search"
-    }
-  },
-  "jeonbuk": {
-    "name": "전북특별자치도교육청",
-    "baseUrl": "https://www.jbe.go.kr/board/list.jbe?boardId=BBS_0000130&menuCd=DOM_000000103004006000",
-    "region": "전북",
-    "active": true
+    "note": "인력풀 게시판 (mi=14084). 별도 구인게시판(mi=16003)은 gurinamyangju 소스 참조"
   },
   "gyeongbuk": {
     "name": "경상북도교육청 구인",
     "baseUrl": "https://www.gbe.kr/main/na/ntt/selectNttList.do?mi=3626&bbsId=1887",
     "detailUrlTemplate": "https://www.gbe.kr/main/na/ntt/selectNttInfo.do?mi=3626&bbsId=1887&nttSn=",
     "parserType": "ntt",
-    "selectors": {
-      "rows": "tbody tr",
-      "link": "a.nttInfoBtn, a[data-id]",
-      "date": "td:nth-child(6)"
-    },
     "region": "경상북도",
     "isLocalGovernment": false,
     "active": true
@@ -473,9 +359,6 @@
     "baseUrl": "https://www.gne.go.kr/works/index.do",
     "detailUrlTemplate": "https://www.gne.go.kr/works/user/recruitment/BD_recruitmentDetail.do?regSn=",
     "parserType": "custom",
-    "selectors": {
-      "rows": "a[href*='BD_recruitmentDetail.do']"
-    },
     "region": "경상남도",
     "isLocalGovernment": false,
     "active": true,
@@ -485,15 +368,7 @@
     "name": "인천교육청 채용공고",
     "baseUrl": "https://www.ice.go.kr/ice/na/ntt/selectNttList.do?mi=10997&bbsId=1981",
     "detailUrlTemplate": "https://www.ice.go.kr/ice/na/ntt/selectNttInfo.do?mi=10997&bbsId=1981&nttSn=",
-    "parserType": "html",
-    "selectors": {
-      "listContainer": "#board-imgTxt, .bbs_ListA",
-      "rows": "#board-imgTxt tbody tr, .bbs_ListA tbody tr",
-      "title": ".nttInfoBtn",
-      "date": "td[data-table='date']",
-      "link": ".nttInfoBtn",
-      "attachment": "a[href*='.hwp'], a[href*='download'], a[onclick*='goFileDown']"
-    },
+    "parserType": "ntt",
     "region": "인천",
     "isLocalGovernment": false,
     "active": true
@@ -502,33 +377,20 @@
     "name": "서울교육일자리포털",
     "baseUrl": "https://work.sen.go.kr/work/search/recInfo/BD_selectSrchRecInfo.do",
     "detailUrlTemplate": "https://work.sen.go.kr/work/search/recInfo/BD_selectRecDetail.do?q_rcrtSn=",
-    "parserType": "html",
-    "selectors": {
-      "listContainer": "li.flex_cont",
-      "rows": "li.flex_cont",
-      "title": ".list_title a",
-      "date": ".s_title",
-      "link": ".list_title a",
-      "attachment": "a[href*='.hwp'], a[href*='download'], a[download]"
-    },
+    "parserType": "custom",
     "region": "서울",
+    "metropolitanRegion": "서울",
     "isLocalGovernment": false,
-    "active": true
+    "active": true,
+    "skipRobotsCheck": true,
+    "note": "robots.txt에서 /work/ 차단하지만 실제로 접근 허용됨"
   },
   "gangwon_v2": {
     "name": "강원특별자치도교육청 학교인력채용",
     "baseUrl": "https://www.gwe.go.kr/main/bbs/list.do?key=bTIzMDcyMTA1ODU2MzM=",
     "detailUrlTemplate": "https://www.gwe.go.kr/main/bbs/view.do?bbsSn=",
     "boardKey": "m2307210585633",
-    "parserType": "html",
-    "selectors": {
-      "listContainer": "table",
-      "rows": "table tbody tr",
-      "title": "td:nth-child(2) a",
-      "date": "td:nth-child(3)",
-      "link": "td:nth-child(2) a",
-      "attachment": "a[href*='fileDown.do'], a[href*='download']"
-    },
+    "parserType": "custom",
     "region": "강원",
     "isLocalGovernment": false,
     "active": true
@@ -537,15 +399,7 @@
     "name": "광주광역시교육청 채용공고",
     "baseUrl": "https://www.gen.go.kr/xboard/board.php?tbnum=32",
     "detailUrlTemplate": "https://www.gen.go.kr/xboard/board.php?mode=view&tbnum=32&number=",
-    "parserType": "html",
-    "selectors": {
-      "listContainer": "table",
-      "rows": "tbody tr",
-      "title": "td:nth-child(3) a",
-      "date": "td:nth-child(5)",
-      "link": "td:nth-child(3) a",
-      "attachment": "a[href*='download']"
-    },
+    "parserType": "custom",
     "region": "광주",
     "isLocalGovernment": false,
     "active": true
@@ -561,32 +415,15 @@
     "name": "제주특별자치도교육청 채용정보",
     "baseUrl": "https://www.jje.go.kr/board/list.jje?boardId=BBS_0000507&menuCd=DOM_000000103003009000",
     "detailUrlTemplate": "https://www.jje.go.kr/board/view.jje?boardId=BBS_0000507&menuCd=DOM_000000103003009000&dataSid=",
-    "type": "table",
-    "parserType": "html",
-    "selectors": {
-      "listContainer": "table",
-      "row": "tbody tr",
-      "title": {
-        "selector": "td.subject a",
-        "extract": "text"
-      },
-      "date": {
-        "selector": "td:nth-child(5)",
-        "extract": "text"
-      },
-      "link": {
-        "selector": "td.subject a",
-        "extract": "href",
-        "regex": "dataSid=([0-9]+)"
-      },
-      "attachment": "a[href*='fileDown']"
-    },
+    "parserType": "custom",
     "region": "제주",
     "isLocalGovernment": false,
-    "active": true,
-    "pagination": {
-      "type": "script",
-      "functionName": "goPage"
-    }
+    "active": true
+  },
+  "jeonbuk_v2": {
+    "name": "전북특별자치도교육청",
+    "baseUrl": "https://www.jbe.go.kr/board/list.jbe?boardId=BBS_0000130&menuCd=DOM_000000103004006000",
+    "region": "전북",
+    "active": true
   }
 }
