@@ -276,16 +276,16 @@ export const DirectionsPanel: React.FC<DirectionsPanelProps> = ({
 
   return (
     <div className="bg-white rounded-xl shadow-xl border border-gray-200 overflow-hidden flex flex-col w-[280px] max-h-[calc(100vh-32px)]">
-      {/* 헤더 - 카카오맵 스타일 (밝은 하늘색 그라데이션) */}
-      <div className="bg-gradient-to-r from-[#7EC8E3] to-[#5DADE2] text-white p-3.5">
+      {/* 헤더 - 라이트 모노톤 */}
+      <div className="border-b border-gray-100 text-gray-800 p-3.5">
         <div className="flex items-center justify-between">
           <div className="min-w-0 flex-1">
             <h3 className="text-base font-bold">길찾기</h3>
-            <p className="text-xs text-white/80 truncate">{job.organization}</p>
+            <p className="text-xs text-gray-500 truncate">{job.organization}</p>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 hover:bg-white/20 rounded-full transition-colors flex-shrink-0 ml-2"
+            className="p-1.5 hover:bg-gray-100 rounded-full transition-colors flex-shrink-0 ml-2 text-gray-400 hover:text-gray-600"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -300,7 +300,7 @@ export const DirectionsPanel: React.FC<DirectionsPanelProps> = ({
           {/* 출발지 */}
           <div className="space-y-1.5">
             <div className="flex items-center gap-2">
-              <div className="w-2.5 h-2.5 rounded-full bg-[#5DADE2] flex-shrink-0" />
+              <div className="w-2.5 h-2.5 rounded-full bg-gray-400 flex-shrink-0" />
               <div className="flex-1 min-w-0">
                 <p className="text-[10px] text-gray-400">출발</p>
                 <p className="text-xs font-medium text-gray-800 truncate">
@@ -329,7 +329,7 @@ export const DirectionsPanel: React.FC<DirectionsPanelProps> = ({
               <button
                 onClick={() => handleModeChange('current')}
                 className={`flex items-center gap-1 px-2 py-1 rounded-full text-[10px] transition-colors ${departureMode === 'current'
-                  ? 'bg-[#5DADE2] text-white'
+                  ? 'bg-gray-800 text-white'
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                   }`}
               >
@@ -342,7 +342,7 @@ export const DirectionsPanel: React.FC<DirectionsPanelProps> = ({
               <button
                 onClick={() => handleModeChange('search')}
                 className={`flex items-center gap-1 px-2 py-1 rounded-full text-[10px] transition-colors ${departureMode === 'search'
-                  ? 'bg-[#5DADE2] text-white'
+                  ? 'bg-gray-800 text-white'
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                   }`}
               >
@@ -354,7 +354,7 @@ export const DirectionsPanel: React.FC<DirectionsPanelProps> = ({
               <button
                 onClick={() => handleModeChange('map')}
                 className={`flex items-center gap-1 px-2 py-1 rounded-full text-[10px] transition-colors ${departureMode === 'map' || isWaitingMapClick
-                  ? 'bg-[#5DADE2] text-white'
+                  ? 'bg-gray-800 text-white'
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                   }`}
               >
@@ -374,11 +374,11 @@ export const DirectionsPanel: React.FC<DirectionsPanelProps> = ({
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="출발지 검색..."
-                  className="w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#5DADE2] focus:border-[#5DADE2]"
+                  className="w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400"
                 />
                 {isSearching && (
                   <div className="absolute right-2 top-1/2 -translate-y-1/2">
-                    <div className="w-3 h-3 border-2 border-[#5DADE2] border-t-transparent rounded-full animate-spin" />
+                    <div className="w-3 h-3 border-2 border-gray-600 border-t-transparent rounded-full animate-spin" />
                   </div>
                 )}
 
@@ -440,8 +440,8 @@ export const DirectionsPanel: React.FC<DirectionsPanelProps> = ({
               key={type}
               onClick={() => setTransportType(type)}
               className={`flex-1 py-2.5 px-2 flex flex-col items-center gap-0.5 transition-colors ${isActive
-                ? 'bg-[#5DADE2]/10 text-[#5DADE2] border-b-2 border-[#5DADE2]'
-                : 'text-gray-500 hover:bg-gray-50'
+                ? 'bg-gray-50 text-gray-900 border-b-2 border-gray-800'
+                : 'text-gray-400 hover:bg-gray-50'
                 }`}
             >
               {icons[type]}
@@ -455,14 +455,14 @@ export const DirectionsPanel: React.FC<DirectionsPanelProps> = ({
       <div className="flex-1 overflow-y-auto p-3">
         {isGettingLocation && (
           <div className="flex flex-col items-center justify-center py-6 text-gray-500">
-            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-[#5DADE2] mb-2" />
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-700 mb-2" />
             <p className="text-xs">위치를 확인하는 중...</p>
           </div>
         )}
 
         {isLoading && !isGettingLocation && (
           <div className="flex flex-col items-center justify-center py-6 text-gray-500">
-            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-[#5DADE2] mb-2" />
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-700 mb-2" />
             <p className="text-xs">경로를 검색하는 중...</p>
           </div>
         )}
@@ -593,11 +593,11 @@ export const DirectionsPanel: React.FC<DirectionsPanelProps> = ({
         )}
       </div>
 
-      {/* 하단 버튼 - amber 계열 (카카오 느낌은 유지하되 살짝 톤다운) */}
+      {/* 하단 버튼 - 카카오 노랑 (#FEE500) */}
       <div className="p-3 border-t border-gray-200 bg-gray-50 flex-shrink-0">
         <button
           onClick={openKakaoNavi}
-          className="w-full py-2.5 bg-amber-300 hover:bg-amber-400 text-gray-900 font-semibold rounded-lg transition-colors flex items-center justify-center gap-1.5 text-sm"
+          className="w-full py-2.5 bg-[#FEE500] hover:bg-[#FAE100] text-gray-900 font-semibold rounded-lg transition-colors flex items-center justify-center gap-1.5 text-sm"
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />

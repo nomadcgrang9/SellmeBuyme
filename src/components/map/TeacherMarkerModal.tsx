@@ -9,6 +9,7 @@ import {
     SUBJECT_OPTIONS,
     SCHOOL_LEVEL_OPTIONS,
     EXPERIENCE_OPTIONS,
+    REGION_OPTIONS,
     MARKER_COLORS,
     type TeacherMarkerInput
 } from '@/types/markers';
@@ -42,6 +43,7 @@ export default function TeacherMarkerModal({
     const [otherSubject, setOtherSubject] = useState('');
     const [schoolLevels, setSchoolLevels] = useState<string[]>([]);
     const [experienceYears, setExperienceYears] = useState('');
+    const [availableRegions, setAvailableRegions] = useState<string[]>([]);
     const [introduction, setIntroduction] = useState('');
     const [profileImage, setProfileImage] = useState<File | null>(null);
     const [profileImagePreview, setProfileImagePreview] = useState<string | null>(null);
@@ -77,6 +79,15 @@ export default function TeacherMarkerModal({
             prev.includes(level)
                 ? prev.filter(l => l !== level)
                 : [...prev, level]
+        );
+    };
+
+    // 활동 가능 지역 토글
+    const toggleRegion = (region: string) => {
+        setAvailableRegions(prev =>
+            prev.includes(region)
+                ? prev.filter(r => r !== region)
+                : [...prev, region]
         );
     };
 
@@ -134,6 +145,7 @@ export default function TeacherMarkerModal({
                 other_subject: subjects.includes('기타') ? otherSubject.trim() : undefined,
                 school_levels: schoolLevels.length > 0 ? schoolLevels : undefined,
                 experience_years: experienceYears || undefined,
+                available_regions: availableRegions.length > 0 ? availableRegions : undefined,
                 introduction: introduction.trim() || undefined,
                 profile_image_url: profileImageUrl
             };
@@ -159,6 +171,7 @@ export default function TeacherMarkerModal({
         setOtherSubject('');
         setSchoolLevels([]);
         setExperienceYears('');
+        setAvailableRegions([]);
         setIntroduction('');
         setProfileImage(null);
         setProfileImagePreview(null);
@@ -359,8 +372,8 @@ export default function TeacherMarkerModal({
                                             type="button"
                                             onClick={() => toggleSubject(subject)}
                                             className={`px-3 py-1.5 text-sm rounded-full border transition-all ${subjects.includes(subject)
-                                                    ? 'bg-red-50 border-red-300 text-red-700'
-                                                    : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
+                                                ? 'bg-red-50 border-red-300 text-red-700'
+                                                : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
                                                 }`}
                                         >
                                             {subject}
@@ -390,8 +403,8 @@ export default function TeacherMarkerModal({
                                             type="button"
                                             onClick={() => toggleSchoolLevel(level)}
                                             className={`px-3 py-1.5 text-sm rounded-full border transition-all ${schoolLevels.includes(level)
-                                                    ? 'bg-red-50 border-red-300 text-red-700'
-                                                    : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
+                                                ? 'bg-red-50 border-red-300 text-red-700'
+                                                : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
                                                 }`}
                                         >
                                             {level}
@@ -415,6 +428,36 @@ export default function TeacherMarkerModal({
                                         <option key={exp} value={exp}>{exp}</option>
                                     ))}
                                 </select>
+                            </div>
+
+                            {/* 활동 가능 지역 */}
+                            <div>
+                                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                    활동 가능 지역 (복수 선택)
+                                </label>
+                                <p className="text-xs text-gray-500 mb-2">
+                                    선택한 지역에서 검색 시 노출됩니다.
+                                </p>
+                                <div className="flex flex-wrap gap-2">
+                                    {REGION_OPTIONS.map((region) => (
+                                        <button
+                                            key={region}
+                                            type="button"
+                                            onClick={() => toggleRegion(region)}
+                                            className={`px-3 py-1.5 text-sm rounded-full border transition-all ${availableRegions.includes(region)
+                                                    ? 'bg-red-50 border-red-300 text-red-700'
+                                                    : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
+                                                }`}
+                                        >
+                                            {region}
+                                        </button>
+                                    ))}
+                                </div>
+                                {availableRegions.length > 0 && (
+                                    <p className="mt-2 text-xs text-gray-500">
+                                        선택됨: {availableRegions.join(', ')}
+                                    </p>
+                                )}
                             </div>
 
                             {/* 자기소개 */}

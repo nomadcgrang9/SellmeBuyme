@@ -1,5 +1,3 @@
-'use client';
-
 import { motion, AnimatePresence } from 'framer-motion';
 import { IconX } from '@tabler/icons-react';
 import { supabase } from '@/lib/supabase/client';

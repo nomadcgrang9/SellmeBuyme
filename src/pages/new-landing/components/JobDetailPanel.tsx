@@ -19,19 +19,18 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
 
   return (
     <div className="w-[260px] bg-white/95 backdrop-blur-sm rounded-xl border border-gray-200 shadow-lg overflow-hidden flex flex-col max-h-[calc(100vh-140px)]">
-      {/* 헤더 */}
+      {/* 헤더 - 라이트 모노톤 */}
       <div className="px-4 py-3 border-b border-gray-100 flex-shrink-0">
         <div className="flex items-center justify-between">
           <h4 className="font-bold text-gray-800 text-sm">상세 정보</h4>
           <div className="flex items-center gap-2">
             {job.daysLeft !== undefined && (
-              <span className={`text-xs font-bold px-2 py-0.5 rounded ${
-                isUrgent
-                  ? 'bg-red-100 text-red-600'
-                  : isNearDeadline
-                    ? 'bg-orange-100 text-orange-600'
-                    : 'bg-blue-100 text-blue-600'
-              }`}>
+              <span className={`text-xs font-bold px-2 py-0.5 rounded ${isUrgent
+                ? 'bg-red-100 text-red-600'
+                : isNearDeadline
+                  ? 'bg-orange-100 text-orange-600'
+                  : 'bg-blue-100 text-blue-600'
+                }`}>
                 D-{job.daysLeft}
               </span>
             )}
@@ -163,14 +162,14 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
         )}
       </div>
 
-      {/* 하단 버튼 */}
+      {/* 하단 버튼 - 학교공고 색상 (#3B82F6) */}
       <div className="p-4 border-t border-gray-100 flex-shrink-0">
         {job.source_url && (
           <a
             href={job.source_url}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 w-full px-4 py-2.5 text-sm font-medium text-white bg-[#5B6EF7] hover:bg-[#4F5FE0] rounded-lg transition-colors"
+            className="flex items-center justify-center gap-2 w-full px-4 py-2.5 text-sm font-medium text-white bg-[#3B82F6] hover:bg-[#2563EB] rounded-lg transition-colors"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />

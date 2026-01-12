@@ -14,7 +14,7 @@ export const NICKNAME_CHARACTERS = [
 
 // 과목 옵션
 export const SUBJECT_OPTIONS = [
-  '국어', '수학', '영어', '과학', '사회', 
+  '국어', '수학', '영어', '과학', '사회',
   '음악', '미술', '체육', '정보', '기타'
 ] as const;
 
@@ -28,7 +28,11 @@ export const EXPERIENCE_OPTIONS = [
   '신입', '1~3년', '3~5년', '5~10년', '10년 이상'
 ] as const;
 
-// 대상 학년 옵션
+// 활동 가능 지역 옵션
+export const REGION_OPTIONS = [
+  '서울', '경기', '인천', '부산', '대구', '광주', '대전', '울산', '세종',
+  '강원', '충북', '충남', '전북', '전남', '경북', '경남', '제주'
+] as const;
 export const TARGET_GRADE_OPTIONS = [
   '유아', '초1-2', '초3-4', '초5-6', '중등', '고등', '전학년'
 ] as const;
@@ -36,7 +40,7 @@ export const TARGET_GRADE_OPTIONS = [
 // 프로그램 카테고리 (고정)
 export const PROGRAM_CATEGORIES = [
   // 체험학습 분야
-  '진로체험', '과학체험', '코딩교육', '공예체험', 
+  '진로체험', '과학체험', '코딩교육', '공예체험',
   '요리체험', '생태환경', '역사문화',
   // 예체능 분야
   '음악', '미술', '체육/스포츠', '무용/댄스', '연극/공연',
@@ -49,9 +53,9 @@ export type MarkerLayer = 'job' | 'teacher' | 'program';
 
 // 마커 색상 정의
 export const MARKER_COLORS = {
-  job: '#3B82F6',      // Blue
-  teacher: '#EF4444',  // Red
-  program: '#22C55E'   // Green
+  job: '#3B82F6',      // Blue (학교공고)
+  teacher: '#10B981',  // Emerald (구직교사)
+  program: '#F59E0B'   // Amber (체험프로그램)
 } as const;
 
 // 구직 교사 마커 타입
@@ -66,6 +70,7 @@ export interface TeacherMarker {
   other_subject?: string;
   school_levels?: string[];
   experience_years?: string;
+  available_regions?: string[];
   introduction?: string;
   profile_image_url?: string;
   is_active: boolean;
@@ -83,6 +88,7 @@ export interface TeacherMarkerInput {
   other_subject?: string;
   school_levels?: string[];
   experience_years?: string;
+  available_regions?: string[];
   introduction?: string;
   profile_image_url?: string;
 }

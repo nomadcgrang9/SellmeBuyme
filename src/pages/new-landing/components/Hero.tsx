@@ -8,9 +8,11 @@ import { JobDetailPanel } from './JobDetailPanel';
 import { DirectionsPanel } from '@/components/directions/DirectionsPanel';
 import TeacherMarkerModal from '@/components/map/TeacherMarkerModal';
 import ProgramMarkerModal from '@/components/map/ProgramMarkerModal';
+import FullScreenLocationPicker from '@/components/map/FullScreenLocationPicker';
 import BottomControlBar from '@/components/map/BottomControlBar';
 import MarkerPopup from '@/components/map/MarkerPopup';
 import AuthModal from '@/components/auth/AuthModal';
+import ProfileButton from '@/components/auth/ProfileButton';
 import { useAuthStore } from '@/stores/authStore';
 import { fetchTeacherMarkers, fetchProgramMarkers } from '@/lib/supabase/markers';
 import { type MarkerLayer, type TeacherMarker, type ProgramMarker, MARKER_COLORS } from '@/types/markers';
@@ -47,6 +49,8 @@ export const Hero: React.FC = () => {
   const { user, status: authStatus } = useAuthStore();
   const [isTeacherModalOpen, setIsTeacherModalOpen] = useState(false);
   const [isProgramModalOpen, setIsProgramModalOpen] = useState(false);
+  const [isLocationPickerOpen, setIsLocationPickerOpen] = useState(false);
+  const [locationPickerType, setLocationPickerType] = useState<'teacher' | 'program'>('teacher');
   const [pendingMarkerCoords, setPendingMarkerCoords] = useState<Coordinates | null>(null);
   const [pendingMarkerType, setPendingMarkerType] = useState<'teacher' | 'program' | null>(null);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
@@ -220,6 +224,12 @@ export const Hero: React.FC = () => {
 
     return filtered;
   }, [jobPostings, mapFilters, activeLocationFilter, deduplicateJobs]);
+
+  // 인증 상태 초기화
+  const { initialize: initializeAuth } = useAuthStore();
+  useEffect(() => {
+    initializeAuth();
+  }, [initializeAuth]);
 
   // Load Kakao Maps SDK
   useEffect(() => {
@@ -528,7 +538,7 @@ export const Hero: React.FC = () => {
         };
         setDirectionsCoords(coords);
         setDirectionsJob(job);
-        setSelectedJob(null); // 상세 패널 닫기
+        // setSelectedJob(null); // 상세 패널 유지
       } else {
         console.error('[Hero] 길찾기: 위치 검색 실패', keyword);
       }
@@ -849,34 +859,33 @@ export const Hero: React.FC = () => {
         />
       )}
 
-      {/* 우측 상단: 로그인/회원가입만 (범례 위로 올려 겨침 방지) */}
-      {!user && (
-        <div className="absolute top-2 right-2 z-20 flex items-center gap-2">
-          <button
-            onClick={() => setIsAuthModalOpen(true)}
-            className="px-3 py-1.5 text-xs text-gray-600 bg-white/80 backdrop-blur-sm border border-gray-200 rounded-md hover:bg-white hover:shadow-sm transition-all"
-          >
-            로그인
-          </button>
-          <button
-            onClick={() => setIsAuthModalOpen(true)}
-            className="px-3 py-1.5 text-xs font-medium text-white bg-gray-800 rounded-md hover:bg-gray-700 transition-colors"
-          >
-            회원가입
-          </button>
-        </div>
-      )}
 
-      {/* 로그인 필요 알림 */}
+
+
+
+      {/* 로그인 필요 알림 - Anti-Vibe 미니멀 모노크롬 */}
       {showLoginPrompt && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => setShowLoginPrompt(false)}>
-          <div className="bg-white rounded-xl p-6 max-w-sm mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-lg font-bold text-gray-900 mb-2">로그인이 필요합니다</h3>
-            <p className="text-sm text-gray-600 mb-4">마커를 등록하려면 먼저 로그인해주세요.</p>
-            <div className="flex justify-end gap-2">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm" onClick={() => setShowLoginPrompt(false)}>
+          <div
+            className="bg-white rounded-xl p-8 max-w-sm mx-4 text-center"
+            style={{
+              boxShadow: '0 10px 40px rgba(0,0,0,0.12)',
+              border: '1px solid rgba(0,0,0,0.06)'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* 자물쇠 아이콘 */}
+            <div className="w-12 h-12 mx-auto mb-4 flex items-center justify-center rounded-full bg-gray-100">
+              <svg className="w-6 h-6 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-bold text-gray-800 mb-2">로그인이 필요합니다</h3>
+            <p className="text-sm text-gray-500 mb-6">마커를 등록하려면 먼저 로그인해주세요.</p>
+            <div className="flex justify-center gap-3">
               <button
                 onClick={() => setShowLoginPrompt(false)}
-                className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 transition-colors"
+                className="px-5 py-2.5 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
               >
                 닫기
               </button>
@@ -885,7 +894,7 @@ export const Hero: React.FC = () => {
                   setShowLoginPrompt(false);
                   setIsAuthModalOpen(true);
                 }}
-                className="px-4 py-2 text-sm font-semibold text-white bg-gray-900 rounded-lg hover:bg-gray-800 transition-colors"
+                className="px-5 py-2.5 text-sm font-semibold text-white bg-gray-800 rounded-lg hover:bg-gray-700 transition-colors"
               >
                 로그인하기
               </button>
@@ -948,7 +957,27 @@ export const Hero: React.FC = () => {
         }}
       />
 
-      {/* 하단 통합 컨트롤 바 - 레이어 토글 + 마커 등록 버튼 */}
+      {/* 전체화면 위치 선택기 */}
+      <FullScreenLocationPicker
+        isOpen={isLocationPickerOpen}
+        onClose={() => setIsLocationPickerOpen(false)}
+        markerType={locationPickerType}
+        onConfirm={(coords) => {
+          setIsLocationPickerOpen(false);
+          setPendingMarkerCoords(coords);
+          // 모달이 참조하는 타입 설정
+          setPendingMarkerType(locationPickerType);
+
+          // 해당 모달 열기
+          if (locationPickerType === 'teacher') {
+            setIsTeacherModalOpen(true);
+          } else {
+            setIsProgramModalOpen(true);
+          }
+        }}
+      />
+
+      {/* 하단 중앙: 컨트롤 바 */}
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20">
         <BottomControlBar
           activeLayers={activeLayers}
@@ -958,16 +987,44 @@ export const Hero: React.FC = () => {
               setShowLoginPrompt(true);
               return;
             }
-            setIsTeacherModalOpen(true);
+            // 전체화면 위치 선택 먼저 열기
+            setLocationPickerType('teacher');
+            setIsLocationPickerOpen(true);
           }}
           onProgramMarkerClick={() => {
             if (authStatus !== 'authenticated') {
               setShowLoginPrompt(true);
               return;
             }
-            setIsProgramModalOpen(true);
+            // 전체화면 위치 선택 먼저 열기
+            setLocationPickerType('program');
+            setIsLocationPickerOpen(true);
           }}
         />
+      </div>
+
+      {/* 우측 하단: 로그인/회원가입 또는 프로필 버튼 */}
+      <div className="absolute bottom-4 right-4 z-20">
+        {user ? (
+          <ProfileButton />
+        ) : (
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setIsAuthModalOpen(true)}
+              className="px-4 py-2.5 text-sm text-gray-600 bg-white/95 backdrop-blur-sm border border-gray-200 rounded-full hover:bg-white hover:text-gray-900 hover:shadow-md transition-all font-medium"
+              style={{ boxShadow: '0 4px 12px rgba(0, 0, 0, 0.08)' }}
+            >
+              로그인
+            </button>
+            <button
+              onClick={() => setIsAuthModalOpen(true)}
+              className="px-4 py-2.5 text-sm font-semibold text-white bg-gray-900 rounded-full hover:bg-gray-800 hover:shadow-lg hover:-translate-y-0.5 transition-all"
+              style={{ boxShadow: '0 4px 14px rgba(0,0,0,0.2)' }}
+            >
+              회원가입
+            </button>
+          </div>
+        )}
       </div>
 
       {/* 마커 팝업 */}
