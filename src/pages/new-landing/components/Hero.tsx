@@ -6,6 +6,14 @@ import type { JobPostingCard } from '@/types';
 import type { Coordinates, DirectionsResult } from '@/types/directions';
 import { JobDetailPanel } from './JobDetailPanel';
 import { DirectionsPanel } from '@/components/directions/DirectionsPanel';
+import MarkerFloatingButtons from '@/components/map/MarkerFloatingButtons';
+import TeacherMarkerModal from '@/components/map/TeacherMarkerModal';
+import ProgramMarkerModal from '@/components/map/ProgramMarkerModal';
+import MarkerLayerToggle from '@/components/map/MarkerLayerToggle';
+import MarkerPopup from '@/components/map/MarkerPopup';
+import { useAuthStore } from '@/stores/authStore';
+import { fetchTeacherMarkers, fetchProgramMarkers } from '@/lib/supabase/markers';
+import { type MarkerLayer, type TeacherMarker, type ProgramMarker, MARKER_COLORS } from '@/types/markers';
 
 export const Hero: React.FC = () => {
   // 지도 필터 옵션
@@ -30,6 +38,41 @@ export const Hero: React.FC = () => {
   const [directionsJob, setDirectionsJob] = useState<JobPostingCard | null>(null);
   const [directionsCoords, setDirectionsCoords] = useState<Coordinates | null>(null);
   const polylineRef = useRef<any>(null);
+
+  // 지도 클릭 모드 (출발지 선택용)
+  const [mapClickMode, setMapClickMode] = useState(false);
+  const mapClickCallbackRef = useRef<((coords: Coordinates) => void) | null>(null);
+
+  // 마커 등록 관련 상태
+  const { user, status: authStatus } = useAuthStore();
+  const [isTeacherModalOpen, setIsTeacherModalOpen] = useState(false);
+  const [isProgramModalOpen, setIsProgramModalOpen] = useState(false);
+  const [pendingMarkerCoords, setPendingMarkerCoords] = useState<Coordinates | null>(null);
+  const [pendingMarkerType, setPendingMarkerType] = useState<'teacher' | 'program' | null>(null);
+  const [showLoginPrompt, setShowLoginPrompt] = useState(false);
+
+  // 마커 레이어 토글 상태
+  const [activeLayers, setActiveLayers] = useState<MarkerLayer[]>(['job', 'teacher', 'program']);
+  const [teacherMarkers, setTeacherMarkers] = useState<TeacherMarker[]>([]);
+  const [programMarkers, setProgramMarkers] = useState<ProgramMarker[]>([]);
+  const teacherMapMarkersRef = useRef<any[]>([]);
+  const programMapMarkersRef = useRef<any[]>([]);
+
+  // 마커 팝업 상태
+  const [selectedMarker, setSelectedMarker] = useState<{
+    type: 'teacher' | 'program';
+    marker: TeacherMarker | ProgramMarker;
+    position: { x: number; y: number };
+  } | null>(null);
+
+  // 레이어 토글 핸들러
+  const toggleLayer = useCallback((layer: MarkerLayer) => {
+    setActiveLayers(prev =>
+      prev.includes(layer)
+        ? prev.filter(l => l !== layer)
+        : [...prev, layer]
+    );
+  }, []);
 
   // 필터 토글 핸들러
   const toggleMapFilter = (category: 'schoolLevels' | 'subjects', value: string) => {
@@ -263,6 +306,38 @@ export const Hero: React.FC = () => {
     loadJobPostings('서울');
   }, [isLoaded, mapCenter.lat, mapCenter.lng]);
 
+  // 지도 클릭 이벤트 - 출발지 선택 모드 (별도 useEffect로 분리하여 mapClickMode 변경 시에만 업데이트)
+  useEffect(() => {
+    // SDK가 로드되지 않았거나 지도가 없으면 리턴
+    if (!isLoaded || !window.kakao?.maps?.event) return;
+    const map = mapInstanceRef.current;
+    if (!map) return;
+
+    // 기존 클릭 이벤트 제거하고 새로 등록
+    const clickHandler = (mouseEvent: any) => {
+      if (mapClickCallbackRef.current) {
+        const latlng = mouseEvent.latLng;
+        const coords: Coordinates = {
+          lat: latlng.getLat(),
+          lng: latlng.getLng()
+        };
+        console.log('[Hero] 지도 클릭 감지:', coords); // 디버그용 로그
+        mapClickCallbackRef.current(coords);
+        mapClickCallbackRef.current = null;
+        setMapClickMode(false);
+      }
+    };
+
+    window.kakao.maps.event.addListener(map, 'click', clickHandler);
+    console.log('[Hero] 지도 클릭 이벤트 리스너 등록됨, mapClickMode:', mapClickMode); // 디버그용 로그
+
+    return () => {
+      if (window.kakao?.maps?.event) {
+        window.kakao.maps.event.removeListener(map, 'click', clickHandler);
+      }
+    };
+  }, [isLoaded, mapClickMode]);
+
   // 사용자 위치 변경 시 지도 중심 업데이트
   useEffect(() => {
     if (!mapInstanceRef.current || !userLocation) return;
@@ -281,6 +356,133 @@ export const Hero: React.FC = () => {
       console.error('[Hero] 공고 데이터 로드 실패:', error);
     }
   };
+
+  // 구직교사/프로그램 마커 로드 함수
+  const loadMarkerData = useCallback(async () => {
+    try {
+      console.log('[Hero] 마커 데이터 로드 시작');
+      const [teachers, programs] = await Promise.all([
+        fetchTeacherMarkers(),
+        fetchProgramMarkers()
+      ]);
+      console.log('[Hero] 마커 로드 완료 - 구직교사:', teachers.length, '개, 프로그램:', programs.length, '개');
+      setTeacherMarkers(teachers);
+      setProgramMarkers(programs);
+    } catch (error) {
+      console.error('[Hero] 마커 데이터 로드 실패:', error);
+    }
+  }, []);
+
+  // 초기 마커 데이터 로드
+  useEffect(() => {
+    if (isLoaded) {
+      loadMarkerData();
+    }
+  }, [isLoaded, loadMarkerData]);
+
+  // 구직교사 마커 지도에 표시
+  useEffect(() => {
+    if (!isLoaded || !mapInstanceRef.current || !activeLayers.includes('teacher')) {
+      // 레이어 비활성화 시 마커 제거
+      teacherMapMarkersRef.current.forEach(m => m.setMap(null));
+      teacherMapMarkersRef.current = [];
+      return;
+    }
+
+    // 기존 마커 정리
+    teacherMapMarkersRef.current.forEach(m => m.setMap(null));
+    teacherMapMarkersRef.current = [];
+
+    const map = mapInstanceRef.current;
+
+    teacherMarkers.forEach(marker => {
+      const position = new window.kakao.maps.LatLng(marker.latitude, marker.longitude);
+
+      // 커스텀 마커 이미지 (빨간색 원)
+      const markerSize = new window.kakao.maps.Size(16, 16);
+      const markerImage = new window.kakao.maps.MarkerImage(
+        `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><circle cx="8" cy="8" r="7" fill="${MARKER_COLORS.teacher}" stroke="white" stroke-width="2"/></svg>`)}`,
+        markerSize
+      );
+
+      const kakaoMarker = new window.kakao.maps.Marker({
+        position,
+        map,
+        image: markerImage,
+        clickable: true
+      });
+
+      // 마커 클릭 이벤트
+      window.kakao.maps.event.addListener(kakaoMarker, 'click', () => {
+        const proj = map.getProjection();
+        const point = proj.containerPointFromCoords(position);
+        setSelectedMarker({
+          type: 'teacher',
+          marker,
+          position: { x: point.x + 20, y: point.y - 100 }
+        });
+      });
+
+      teacherMapMarkersRef.current.push(kakaoMarker);
+    });
+
+    return () => {
+      teacherMapMarkersRef.current.forEach(m => m.setMap(null));
+      teacherMapMarkersRef.current = [];
+    };
+  }, [isLoaded, teacherMarkers, activeLayers]);
+
+  // 프로그램 마커 지도에 표시
+  useEffect(() => {
+    if (!isLoaded || !mapInstanceRef.current || !activeLayers.includes('program')) {
+      // 레이어 비활성화 시 마커 제거
+      programMapMarkersRef.current.forEach(m => m.setMap(null));
+      programMapMarkersRef.current = [];
+      return;
+    }
+
+    // 기존 마커 정리
+    programMapMarkersRef.current.forEach(m => m.setMap(null));
+    programMapMarkersRef.current = [];
+
+    const map = mapInstanceRef.current;
+
+    programMarkers.forEach(marker => {
+      const position = new window.kakao.maps.LatLng(marker.latitude, marker.longitude);
+
+      // 커스텀 마커 이미지 (초록색 원)
+      const markerSize = new window.kakao.maps.Size(16, 16);
+      const markerImage = new window.kakao.maps.MarkerImage(
+        `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><circle cx="8" cy="8" r="7" fill="${MARKER_COLORS.program}" stroke="white" stroke-width="2"/></svg>`)}`,
+        markerSize
+      );
+
+      const kakaoMarker = new window.kakao.maps.Marker({
+        position,
+        map,
+        image: markerImage,
+        clickable: true
+      });
+
+      // 마커 클릭 이벤트
+      window.kakao.maps.event.addListener(kakaoMarker, 'click', () => {
+        const proj = map.getProjection();
+        const point = proj.containerPointFromCoords(position);
+        setSelectedMarker({
+          type: 'program',
+          marker,
+          position: { x: point.x + 20, y: point.y - 100 }
+        });
+      });
+
+      programMapMarkersRef.current.push(kakaoMarker);
+    });
+
+    return () => {
+      programMapMarkersRef.current.forEach(m => m.setMap(null));
+      programMapMarkersRef.current = [];
+    };
+  }, [isLoaded, programMarkers, activeLayers]);
 
   // 사용자 위치 기반 공고 데이터 가져오기
   useEffect(() => {
@@ -601,17 +803,179 @@ export const Hero: React.FC = () => {
   return (
     <section className="h-full w-full relative">
       {/* 지도 영역 */}
-      <div ref={mapContainerRef} className="absolute inset-0 w-full h-full" />
+      <div
+        ref={mapContainerRef}
+        className="absolute inset-0 w-full h-full"
+      />
 
-      {/* 우측 상단: 로그인/회원가입 (맵 위에 떠있음 - 카카오맵 스타일) */}
-      <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
-        <button className="px-4 py-2 text-sm text-gray-700 bg-white/90 backdrop-blur-sm border border-gray-200 rounded-lg hover:bg-white hover:shadow-md transition-all">
-          로그인
-        </button>
-        <button className="px-4 py-2 text-sm font-semibold text-white bg-gray-900 rounded-lg hover:bg-gray-800 transition-colors shadow-md">
-          회원가입
-        </button>
+      {/* 맵 클릭 모드 오버레이 - 카카오맵 위에 투명하게 표시되어 커서와 클릭 이벤트를 처리 */}
+      {mapClickMode && (
+        <div
+          className="absolute inset-0 w-full h-full z-[5]"
+          style={{
+            cursor: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='10' fill='%2364B5F6' stroke='%23ffffff' stroke-width='2'/%3E%3C/svg%3E") 12 12, crosshair`,
+          }}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+
+            // 클릭 위치를 지도 좌표로 변환
+            const map = mapInstanceRef.current;
+            if (!map || !mapClickCallbackRef.current) return;
+
+            const rect = mapContainerRef.current?.getBoundingClientRect();
+            if (!rect) return;
+
+            // 클릭 위치의 픽셀 좌표 계산
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+
+            // 픽셀 좌표를 지도 좌표로 변환
+            const projection = map.getProjection();
+            const point = new window.kakao.maps.Point(x, y);
+            const latlng = projection.coordsFromContainerPoint(point);
+
+            const coords: Coordinates = {
+              lat: latlng.getLat(),
+              lng: latlng.getLng()
+            };
+
+            console.log('[Hero] 오버레이 클릭 감지:', coords);
+            mapClickCallbackRef.current(coords);
+            mapClickCallbackRef.current = null;
+            setMapClickMode(false);
+          }}
+        />
+      )}
+
+      {/* 우측 상단: 로그인/회원가입 + 마커 등록 버튼 (맵 위에 떠있음) */}
+      <div className="absolute top-4 right-4 z-20 flex flex-col items-end">
+        <div className="flex items-center gap-2">
+          <button className="px-4 py-2 text-sm text-gray-700 bg-white/90 backdrop-blur-sm border border-gray-200 rounded-lg hover:bg-white hover:shadow-md transition-all">
+            로그인
+          </button>
+          <button className="px-4 py-2 text-sm font-semibold text-white bg-gray-900 rounded-lg hover:bg-gray-800 transition-colors shadow-md">
+            회원가입
+          </button>
+        </div>
+        {/* 마커 등록 플로팅 버튼 */}
+        <MarkerFloatingButtons
+          onTeacherMarkerClick={() => {
+            if (authStatus !== 'authenticated') {
+              setShowLoginPrompt(true);
+              return;
+            }
+            setIsTeacherModalOpen(true);
+          }}
+          onProgramMarkerClick={() => {
+            if (authStatus !== 'authenticated') {
+              setShowLoginPrompt(true);
+              return;
+            }
+            setIsProgramModalOpen(true);
+          }}
+          isLoggedIn={authStatus === 'authenticated'}
+          onLoginRequired={() => setShowLoginPrompt(true)}
+        />
       </div>
+
+      {/* 로그인 필요 알림 */}
+      {showLoginPrompt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => setShowLoginPrompt(false)}>
+          <div className="bg-white rounded-xl p-6 max-w-sm mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-bold text-gray-900 mb-2">로그인이 필요합니다</h3>
+            <p className="text-sm text-gray-600 mb-4">마커를 등록하려면 먼저 로그인해주세요.</p>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setShowLoginPrompt(false)}
+                className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 transition-colors"
+              >
+                닫기
+              </button>
+              <button
+                onClick={() => {
+                  setShowLoginPrompt(false);
+                  // TODO: 로그인 모달 열기
+                }}
+                className="px-4 py-2 text-sm font-semibold text-white bg-gray-900 rounded-lg hover:bg-gray-800 transition-colors"
+              >
+                로그인하기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 구직 교사 마커 등록 모달 */}
+      <TeacherMarkerModal
+        isOpen={isTeacherModalOpen}
+        onClose={() => {
+          setIsTeacherModalOpen(false);
+          setPendingMarkerCoords(null);
+        }}
+        onSuccess={() => {
+          loadMarkerData();
+          console.log('구직 마커 등록 성공');
+        }}
+        initialCoords={pendingMarkerType === 'teacher' ? pendingMarkerCoords : null}
+        onRequestMapClick={(callback) => {
+          setIsTeacherModalOpen(false);
+          setPendingMarkerType('teacher');
+          setMapClickMode(true);
+          mapClickCallbackRef.current = (coords) => {
+            setPendingMarkerCoords(coords);
+            setIsTeacherModalOpen(true);
+            callback(coords);
+          };
+        }}
+      />
+
+      {/* 프로그램 마커 등록 모달 */}
+      <ProgramMarkerModal
+        isOpen={isProgramModalOpen}
+        onClose={() => {
+          setIsProgramModalOpen(false);
+          setPendingMarkerCoords(null);
+        }}
+        onSuccess={() => {
+          loadMarkerData();
+          console.log('프로그램 마커 등록 성공');
+        }}
+        initialCoords={pendingMarkerType === 'program' ? pendingMarkerCoords : null}
+        onRequestMapClick={(callback) => {
+          setIsProgramModalOpen(false);
+          setPendingMarkerType('program');
+          setMapClickMode(true);
+          mapClickCallbackRef.current = (coords) => {
+            setPendingMarkerCoords(coords);
+            setIsProgramModalOpen(true);
+            callback(coords);
+          };
+        }}
+      />
+
+      {/* 마커 레이어 토글 - 지도 하단 중앙 */}
+      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20">
+        <MarkerLayerToggle
+          activeLayers={activeLayers}
+          onToggle={toggleLayer}
+          counts={{
+            job: filteredJobPostings.length,
+            teacher: teacherMarkers.length,
+            program: programMarkers.length
+          }}
+        />
+      </div>
+
+      {/* 마커 팝업 */}
+      {selectedMarker && (
+        <MarkerPopup
+          type={selectedMarker.type}
+          marker={selectedMarker.marker}
+          position={selectedMarker.position}
+          onClose={() => setSelectedMarker(null)}
+        />
+      )}
 
       {/* 왼쪽 패널 컨테이너: 로고 + 카드 목록 + 상세 패널 */}
       <div className="absolute top-4 left-4 z-10 flex gap-3">
@@ -892,6 +1256,10 @@ export const Hero: React.FC = () => {
             destinationCoords={directionsCoords}
             onClose={handleDirectionsClose}
             onRouteFound={handleRouteFound}
+            onRequestMapClick={(callback) => {
+              setMapClickMode(true);
+              mapClickCallbackRef.current = callback;
+            }}
           />
         </div>
       )}
