@@ -1298,6 +1298,7 @@ export const Hero: React.FC = () => {
             job={selectedJob}
             isOpen={!!selectedJob}
             onClose={() => setSelectedJob(null)}
+            onDirectionsClick={handleDirectionsClick}
           />
         )}
       </div>

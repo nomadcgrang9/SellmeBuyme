@@ -1,7 +1,7 @@
 // Developer Page - 셀바 개발자노트
 // Mobile-first design with max-width 640px
 import { useState, useEffect } from 'react';
-import { Lightbulb, Globe, Rocket, Home, FolderOpen, ExternalLink, Shield, Megaphone } from 'lucide-react';
+import { Lightbulb, Globe, Rocket, Home, FolderOpen, ExternalLink, Shield, Megaphone, Activity } from 'lucide-react';
 import DeploymentList from '@/components/developer/DeploymentList';
 import IdeaForm from '@/components/developer/IdeaForm';
 import BoardSubmissionForm from '@/components/developer/BoardSubmissionForm';
@@ -18,6 +18,7 @@ import ProjectFormModal from '@/components/developer/ProjectFormModal';
 import ProjectDashboard from '@/components/developer/ProjectDashboard';
 import KanbanView from '@/components/developer/KanbanView';
 import ErrorLogSection from '@/components/developer/ErrorLogSection';
+import CrawlerHealthSection from '@/components/developer/CrawlerHealthSection';
 import NoticeCard from '@/components/developer/NoticeCard';
 import NoticeForm from '@/components/developer/NoticeForm';
 // NoticeDetailModal 제거됨 - 인라인 펼침 방식으로 변경
@@ -405,6 +406,17 @@ export default function DeveloperPage() {
                 onLoadMore={loadMoreSubmissions}
                 isLoading={submissionsLoading}
               />
+            </div>
+          </CollapsibleSection>
+
+          {/* 크롤링 현황 자동점검 */}
+          <CollapsibleSection
+            title="크롤링 현황 자동점검"
+            icon={<Activity className="w-5 h-5" />}
+            defaultOpen={false}
+          >
+            <div className="p-4">
+              <CrawlerHealthSection />
             </div>
           </CollapsibleSection>
 

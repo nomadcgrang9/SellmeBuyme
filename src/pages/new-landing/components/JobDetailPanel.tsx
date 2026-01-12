@@ -5,12 +5,14 @@ interface JobDetailPanelProps {
   job: JobPostingCard | null;
   isOpen: boolean;
   onClose: () => void;
+  onDirectionsClick?: (job: JobPostingCard) => void;
 }
 
 export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
   job,
   isOpen,
   onClose,
+  onDirectionsClick,
 }) => {
   if (!isOpen || !job) return null;
 
@@ -162,21 +164,34 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
         )}
       </div>
 
-      {/* 하단 버튼 - 학교공고 색상 (#3B82F6) */}
+      {/* 하단 버튼 - 2등분 (길찾기: 검정, 원문링크: 파랑) */}
       <div className="p-4 border-t border-gray-100 flex-shrink-0">
-        {job.source_url && (
-          <a
-            href={job.source_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 w-full px-4 py-2.5 text-sm font-medium text-white bg-[#3B82F6] hover:bg-[#2563EB] rounded-lg transition-colors"
+        <div className="flex gap-2">
+          {/* 길찾기 버튼 */}
+          <button
+            onClick={() => onDirectionsClick?.(job)}
+            className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-lg transition-colors"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
             </svg>
-            원문 링크 바로가기
-          </a>
-        )}
+            길찾기
+          </button>
+          {/* 원문 링크 버튼 */}
+          {job.source_url && (
+            <a
+              href={job.source_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 text-sm font-medium text-white bg-[#3B82F6] hover:bg-[#2563EB] rounded-lg transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+              </svg>
+              원문 링크
+            </a>
+          )}
+        </div>
       </div>
     </div>
   );

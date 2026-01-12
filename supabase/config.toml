@@ -335,6 +335,13 @@ verify_jwt = false
 [functions.generate-crawler]
 verify_jwt = false
 
+# health-check 관련 함수들도 JWT 검증 비활성화
+[functions.trigger-health-check-job]
+verify_jwt = false
+
+[functions.get-health-check-status]
+verify_jwt = false
+
 [analytics]
 enabled = true
 port = 54327

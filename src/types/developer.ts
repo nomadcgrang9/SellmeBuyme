@@ -404,3 +404,222 @@ export const DEPLOYMENT_STATUS_CONFIG: Record<DeploymentStatus, StatusBadgeConfi
   success: { status: 'success', label: '성공', colorClass: 'bg-green-100 text-green-800' },
   failure: { status: 'failure', label: '실패', colorClass: 'bg-red-100 text-red-800' },
 };
+
+// =============================================================================
+// 크롤링 상태 점검 타입
+// =============================================================================
+
+export type CrawlerHealthStatus = 'healthy' | 'warning' | 'critical' | 'inactive' | 'error';
+
+export interface CrawlerHealthResult {
+  regionCode: string;
+  regionName: string;
+  assignee: string;
+  boardUrl: string;
+
+  // 원본 게시판 정보 (AI 분석)
+  originalCount: number;
+  originalTitles: string[];
+
+  // DB 정보
+  dbCount: number;
+  latestCrawlDate: string | null;
+  daysSinceCrawl: number | null;
+
+  // 비교 결과
+  matchCount: number;
+  missingCount: number;
+  collectionRate: number;
+  missingTitles: string[];
+
+  // 상태
+  status: CrawlerHealthStatus;
+  statusReason: string;
+
+  // AI 분석
+  aiComment: string;
+
+  checkedAt: string;
+}
+
+export interface CrawlerHealthSummary {
+  critical: number;
+  warning: number;
+  healthy: number;
+  inactive: number;
+  error: number;
+  total: number;
+}
+
+// 지역별 게시판 URL 매핑 (sources.json 기반)
+export const REGION_BOARDS: Record<string, {
+  code: string;
+  name: string;
+  boardUrl: string;
+  active: boolean;
+  assignee: string;
+}> = {
+  seoul: {
+    code: 'seoul',
+    name: '서울',
+    boardUrl: 'https://work.sen.go.kr/work/search/recInfo/BD_selectSrchRecInfo.do',
+    active: true,
+    assignee: '김성균'
+  },
+  busan: {
+    code: 'busan',
+    name: '부산',
+    boardUrl: 'https://www.pen.go.kr/main/na/ntt/selectNttList.do?mi=30367&bbsId=2364',
+    active: false,
+    assignee: '최선결'
+  },
+  daegu: {
+    code: 'daegu',
+    name: '대구',
+    boardUrl: 'https://www.dge.go.kr/main/na/ntt/selectNttList.do?mi=8026&bbsId=4261',
+    active: true,
+    assignee: '최선결'
+  },
+  incheon: {
+    code: 'incheon',
+    name: '인천',
+    boardUrl: 'https://www.ice.go.kr/ice/na/ntt/selectNttList.do?mi=10997&bbsId=1981',
+    active: true,
+    assignee: '김성균'
+  },
+  gwangju: {
+    code: 'gwangju',
+    name: '광주',
+    boardUrl: 'https://www.gen.go.kr/xboard/board.php?tbnum=32',
+    active: true,
+    assignee: '이진혁'
+  },
+  daejeon: {
+    code: 'daejeon',
+    name: '대전',
+    boardUrl: 'https://www.dje.go.kr/boardCnts/list.do?boardID=54&m=030202&s=dje',
+    active: false,
+    assignee: '최선결'
+  },
+  ulsan: {
+    code: 'ulsan',
+    name: '울산',
+    boardUrl: 'https://www.use.go.kr/subPage.do?page=sub06_06_01&m=0606&s=use',
+    active: false,
+    assignee: '최선결'
+  },
+  sejong: {
+    code: 'sejong',
+    name: '세종',
+    boardUrl: 'https://www.sje.go.kr/sje/na/ntt/selectNttList.do?mi=52132&bbsId=108',
+    active: true,
+    assignee: '김성균'
+  },
+  gyeonggi: {
+    code: 'gyeonggi',
+    name: '경기',
+    boardUrl: 'https://www.goe.go.kr/recruit/ad/func/pb/hnfpPbancList.do?mi=10502',
+    active: true,
+    assignee: '김성균'
+  },
+  gangwon: {
+    code: 'gangwon',
+    name: '강원',
+    boardUrl: 'https://www.gwe.go.kr/main/bbs/list.do?key=bTIzMDcyMTA1ODU2MzM=',
+    active: true,
+    assignee: '김성균'
+  },
+  chungbuk: {
+    code: 'chungbuk',
+    name: '충북',
+    boardUrl: 'https://www.cbe.go.kr/cbe/na/ntt/selectNttList.do?mi=11716&bbsId=1798',
+    active: true,
+    assignee: '이진혁'
+  },
+  chungnam: {
+    code: 'chungnam',
+    name: '충남',
+    boardUrl: 'https://www.cne.go.kr/boardCnts/list.do?boardID=642&m=020201&s=cne',
+    active: true,
+    assignee: '이진혁'
+  },
+  jeonbuk: {
+    code: 'jeonbuk',
+    name: '전북',
+    boardUrl: 'https://www.jbe.go.kr/board/list.jbe?boardId=BBS_0000130&menuCd=DOM_000000103004006000',
+    active: true,
+    assignee: '이진혁'
+  },
+  jeonnam: {
+    code: 'jeonnam',
+    name: '전남',
+    boardUrl: 'https://www.jne.go.kr/main/na/ntt/selectNttList.do?mi=265&bbsId=117',
+    active: true,
+    assignee: '이진혁'
+  },
+  gyeongbuk: {
+    code: 'gyeongbuk',
+    name: '경북',
+    boardUrl: 'https://www.gbe.kr/main/na/ntt/selectNttList.do?mi=3626&bbsId=1887',
+    active: true,
+    assignee: '최선결'
+  },
+  gyeongnam: {
+    code: 'gyeongnam',
+    name: '경남',
+    boardUrl: 'https://www.gne.go.kr/works/index.do',
+    active: true,
+    assignee: '최선결'
+  },
+  jeju: {
+    code: 'jeju',
+    name: '제주',
+    boardUrl: 'https://www.jje.go.kr/board/list.jje?boardId=BBS_0000507&menuCd=DOM_000000103003009000',
+    active: true,
+    assignee: '이진혁'
+  }
+};
+
+export const CRAWLER_HEALTH_STATUS_CONFIG: Record<CrawlerHealthStatus, {
+  label: string;
+  emoji: string;
+  bgColor: string;
+  borderColor: string;
+  textColor: string;
+}> = {
+  healthy: {
+    label: '정상',
+    emoji: '🟢',
+    bgColor: 'bg-green-50',
+    borderColor: 'border-green-200',
+    textColor: 'text-green-600'
+  },
+  warning: {
+    label: '주의',
+    emoji: '🟡',
+    bgColor: 'bg-yellow-50',
+    borderColor: 'border-yellow-200',
+    textColor: 'text-yellow-600'
+  },
+  critical: {
+    label: '긴급',
+    emoji: '🔴',
+    bgColor: 'bg-red-50',
+    borderColor: 'border-red-200',
+    textColor: 'text-red-600'
+  },
+  inactive: {
+    label: '비활성',
+    emoji: '⚪',
+    bgColor: 'bg-gray-50',
+    borderColor: 'border-gray-200',
+    textColor: 'text-gray-400'
+  },
+  error: {
+    label: '오류',
+    emoji: '⚠️',
+    bgColor: 'bg-orange-50',
+    borderColor: 'border-orange-200',
+    textColor: 'text-orange-600'
+  }
+};
