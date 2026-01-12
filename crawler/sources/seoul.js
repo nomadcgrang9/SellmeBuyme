@@ -242,8 +242,12 @@ export async function crawlSeoul(page, config) {
         // 지역 추출: 목록에서 먼저 시도 → 상세 페이지 주소에서 구 파싱
         // 규칙1: 광역자치단체(서울) + 기초자치단체(강남 등) 둘 다 저장
         // 규칙2: 구 접미사 제거 (예: 강남구 → 강남)
+        // 규칙2 예외: 중구, 동구, 남구, 서구, 북구 등 '구' 자체가 이름인 경우 유지
         const rawDistrict = listData.location || detailData.location || extractDistrictFromAddress(detailData.address);
-        const basicLocation = rawDistrict ? rawDistrict.replace(/구$/, '') : '서울';
+        const EXCEPTION_DISTRICTS = ['중구', '동구', '남구', '서구', '북구'];
+        const basicLocation = rawDistrict
+          ? (EXCEPTION_DISTRICTS.includes(rawDistrict) ? rawDistrict : rawDistrict.replace(/구$/, ''))
+          : '서울';
         const metropolitanLocation = '서울';
 
         // 마감일 파싱 (접수기간에서 추출)
