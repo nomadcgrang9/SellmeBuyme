@@ -15,7 +15,7 @@ interface UseCrawlerHealthResult {
   error: Error | null;
   lastChecked: string | null;
   checkHealth: () => Promise<void>;
-  triggerManualCheck: () => Promise<{ triggered: boolean; message: string }>;
+  triggerManualCheck: (regionCodes?: string[]) => Promise<{ triggered: boolean; message: string }>;
   refreshResults: () => Promise<void>;
 }
 
@@ -110,14 +110,14 @@ export function useCrawlerHealth(): UseCrawlerHealthResult {
   }, []);
 
   // 수동 점검 트리거 (GitHub Actions 또는 로컬 Worker)
-  const triggerManualCheck = useCallback(async (): Promise<{ triggered: boolean; message: string }> => {
+  const triggerManualCheck = useCallback(async (regionCodes?: string[]): Promise<{ triggered: boolean; message: string }> => {
     try {
-      console.log('[useCrawlerHealth] Triggering manual health check...');
+      console.log('[useCrawlerHealth] Triggering manual health check...', regionCodes ? `regions: ${regionCodes.join(', ')}` : 'all regions');
 
       const { data, error: funcError } = await supabase.functions.invoke(
         'trigger-health-check-job',
         {
-          body: { mode: 'trigger' }
+          body: { mode: 'trigger', regionCodes }
         }
       );
 
