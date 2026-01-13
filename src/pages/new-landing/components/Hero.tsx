@@ -1177,6 +1177,17 @@ export const Hero: React.FC = () => {
             </div>
           </div>
 
+          {/* 히어로 카드 - 브랜딩 영역 */}
+          <div className="mx-3 my-3 flex-shrink-0">
+            <div className="bg-[#3B82F6] rounded-lg px-4 py-4">
+              <p className="text-white text-sm font-semibold leading-snug">
+                공고와 선생님을 찾는
+                <br />
+                가장 쉬운 방법
+              </p>
+            </div>
+          </div>
+
           {/* 공고 목록 헤더 */}
           <div className="px-3 py-2.5 border-b border-gray-100 flex-shrink-0">
             <div className="flex items-center justify-between">
