@@ -13,7 +13,8 @@
     "db:grant-admin": "tsx scripts/db/grant-admin-role.ts",
     "db:apply-migration": "tsx scripts/db/apply-migration.ts",
     "db:run-migration": "tsx scripts/db/run-migration.ts",
-    "crawler:health-worker": "cd crawler && node health-check-worker.js"
+    "crawler:health-worker": "cd crawler && node health-check-worker.js",
+    "crawler:health-run": "cd crawler && node health-check-runner.js"
   },
   "dependencies": {
     "@blocknote/core": "^0.45.0",
