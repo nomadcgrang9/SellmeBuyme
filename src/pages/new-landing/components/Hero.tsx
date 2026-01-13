@@ -1183,7 +1183,7 @@ export const Hero: React.FC = () => {
               <p className="text-white text-sm font-semibold leading-snug">
                 공고와 선생님을 찾는
                 <br />
-                가장 쉬운 방법
+                가장 쉬운 방법 - 쌤찾기
               </p>
             </div>
           </div>
