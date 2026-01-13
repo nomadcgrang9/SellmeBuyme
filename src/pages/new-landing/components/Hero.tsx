@@ -5,6 +5,7 @@ import { fetchJobsByBoardRegion } from '@/lib/supabase/queries';
 import type { JobPostingCard } from '@/types';
 import type { Coordinates, DirectionsResult } from '@/types/directions';
 import { JobDetailPanel } from './JobDetailPanel';
+import HeroCard from './HeroCard';
 import { DirectionsPanel } from '@/components/directions/DirectionsPanel';
 import TeacherMarkerModal from '@/components/map/TeacherMarkerModal';
 import ProgramMarkerModal from '@/components/map/ProgramMarkerModal';
@@ -1177,16 +1178,8 @@ export const Hero: React.FC = () => {
             </div>
           </div>
 
-          {/* 히어로 카드 - 브랜딩 영역 */}
-          <div className="mx-3 my-3 flex-shrink-0">
-            <div className="bg-[#3B82F6] rounded-lg px-4 py-4">
-              <p className="text-white text-sm font-semibold leading-snug">
-                공고와 선생님을 찾는
-                <br />
-                가장 쉬운 방법 - 쌤찾기
-              </p>
-            </div>
-          </div>
+          {/* 히어로 카드 - 브랜딩 영역 (캐러셀) */}
+          <HeroCard />
 
           {/* 공고 목록 헤더 */}
           <div className="px-3 py-2.5 border-b border-gray-100 flex-shrink-0">

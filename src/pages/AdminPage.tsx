@@ -9,6 +9,7 @@ import BoardSubmissionList from '@/components/admin/BoardSubmissionList';
 import BoardApprovalModal from '@/components/admin/BoardApprovalModal';
 import DashboardOverview from '@/components/admin/dashboard/DashboardOverview';
 import AdminUserManagement from '@/components/admin/AdminUserManagement';
+import HeroBannerManagement from '@/components/admin/HeroBannerManagement';
 import { CollapsibleSection } from '@/components/developer/CollapsibleSection';
 import type { CrawlBoard, CreateCrawlBoardInput } from '@/types';
 import { createCrawlBoard, updateCrawlBoard } from '@/lib/supabase/queries';
@@ -30,7 +31,8 @@ interface AdminTab {
 const ADMIN_TABS: AdminTab[] = [
   { key: 'overview', label: '대시보드', description: '요약 지표' },
   { key: 'crawl', label: '크롤링 게시판 관리', description: '개발자 제출 승인 및 게시판 관리', badge: 'NEW' },
-  { key: 'promo', label: '홍보카드 관리', description: '추천 섹션 프로모·띠지 배너 편집' },
+  // { key: 'promo', label: '홍보카드 관리', description: '추천 섹션 프로모·띠지 배너 편집' },
+  { key: 'banner', label: '배너 관리', description: '히어로 배너 및 네이티브 광고 관리' },
   { key: 'users', label: '사용자 관리', description: '가입 사용자 목록 및 프로필 조회' },
   { key: 'content', label: '콘텐츠 관리', description: '공고 / 인력 검수' },
   { key: 'settings', label: '설정', description: '권한 및 시스템 설정' }
@@ -180,11 +182,10 @@ export default function AdminPageWithHamburger() {
           <Fragment>
             {notice && (
               <div
-                className={`mb-4 rounded-md border px-4 py-3 text-sm ${
-                  notice.type === 'success'
+                className={`mb-4 rounded-md border px-4 py-3 text-sm ${notice.type === 'success'
                     ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
                     : 'border-red-200 bg-red-50 text-red-700'
-                }`}
+                  }`}
               >
                 {notice.message}
               </div>
@@ -237,6 +238,8 @@ export default function AdminPageWithHamburger() {
         );
       case 'promo':
         return <PromoTabManager />;
+      case 'banner':
+        return <HeroBannerManagement />;
       case 'users':
         return <AdminUserManagement />;
       default:
@@ -284,9 +287,8 @@ export default function AdminPageWithHamburger() {
 
       {/* 사이드바 */}
       <aside
-        className={`fixed left-0 top-[73px] z-50 h-[calc(100vh-73px)] w-64 transform border-r border-slate-200 bg-white transition-transform duration-300 ${
-          isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
-        }`}
+        className={`fixed left-0 top-[73px] z-50 h-[calc(100vh-73px)] w-64 transform border-r border-slate-200 bg-white transition-transform duration-300 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
+          }`}
       >
         <div className="relative flex h-full flex-col">
           {/* 네비게이션 */}
@@ -297,11 +299,10 @@ export default function AdminPageWithHamburger() {
                 <button
                   key={tab.key}
                   onClick={() => handleTabClick(tab.key)}
-                  className={`flex w-full flex-col rounded-lg border px-4 py-3 text-left transition ${
-                    isActive
+                  className={`flex w-full flex-col rounded-lg border px-4 py-3 text-left transition ${isActive
                       ? 'border-primary bg-primary/10 text-primary shadow-sm'
                       : 'border-transparent bg-white text-slate-600 hover:border-slate-200 hover:bg-slate-50'
-                  }`}
+                    }`}
                 >
                   <span className="flex items-center gap-2 text-sm font-semibold">
                     {tab.label}

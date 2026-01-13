@@ -454,3 +454,5 @@ export interface BookmarkRow {
   card_id: string;
   created_at: string;
 }
+
+export * from './hero-banner';
