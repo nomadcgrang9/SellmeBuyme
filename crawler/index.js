@@ -407,23 +407,27 @@ async function main() {
     // 토큰 사용량 초기화
     resetTokenUsage();
 
-    // 2.5. robots.txt 사전 검증
-    logStep('access', 'robots.txt 검증 시작', { baseUrl: config.baseUrl });
-    const robotsCheck = await checkRobotsTxt(config.baseUrl);
+    // 2.5. robots.txt 사전 검증 (skipRobotsCheck 설정 시 건너뛰기)
+    if (config.skipRobotsCheck) {
+      logInfo('access', 'robots.txt 검증 건너뛰기 (skipRobotsCheck 설정)', { baseUrl: config.baseUrl });
+    } else {
+      logStep('access', 'robots.txt 검증 시작', { baseUrl: config.baseUrl });
+      const robotsCheck = await checkRobotsTxt(config.baseUrl);
 
-    if (!robotsCheck.allowed) {
-      logError('access', 'robots.txt에서 크롤링 차단됨', null, {
-        baseUrl: config.baseUrl,
-        reason: robotsCheck.reason,
-        rules: robotsCheck.rules
-      });
-      console.log('\n⚠️  크롤링 중단: ' + robotsCheck.reason);
-      console.log('   이 사이트는 robots.txt에서 봇 접근을 금지하고 있습니다.');
-      console.log('   합법적인 데이터 수집을 위해 해당 교육청에 공식 요청이 필요합니다.\n');
-      process.exit(0); // 정상 종료 (에러가 아님)
+      if (!robotsCheck.allowed) {
+        logError('access', 'robots.txt에서 크롤링 차단됨', null, {
+          baseUrl: config.baseUrl,
+          reason: robotsCheck.reason,
+          rules: robotsCheck.rules
+        });
+        console.log('\n⚠️  크롤링 중단: ' + robotsCheck.reason);
+        console.log('   이 사이트는 robots.txt에서 봇 접근을 금지하고 있습니다.');
+        console.log('   합법적인 데이터 수집을 위해 해당 교육청에 공식 요청이 필요합니다.\n');
+        process.exit(0); // 정상 종료 (에러가 아님)
+      }
+
+      logInfo('access', 'robots.txt 검증 통과', { baseUrl: config.baseUrl, reason: robotsCheck.reason });
     }
-
-    logInfo('access', 'robots.txt 검증 통과', { baseUrl: config.baseUrl, reason: robotsCheck.reason });
 
     // 3. Supabase에서 크롤링 소스 정보 가져오기
     if (!config) {
@@ -469,10 +473,10 @@ async function main() {
     } else if (targetSource === 'incheon') {
       logStep('crawler', '인천교육청 크롤링 호출');
       rawJobs = await crawlIncheon(page, config);
-    } else if (targetSource === 'seoul') {
+    } else if (targetSource === 'seoul' || targetSource === 'seoul_v2') {
       logStep('crawler', '서울교육일자리포털 크롤링 호출');
       rawJobs = await crawlSeoul(page, config);
-    } else if (targetSource === 'gangwon') {
+    } else if (targetSource === 'gangwon' || targetSource === 'gangwon_v2') {
       logStep('crawler', '강원특별자치도교육청 크롤링 호출');
       rawJobs = await crawlGangwon(page, config);
     } else if (targetSource === 'gwangju') {
@@ -881,6 +885,9 @@ async function main() {
           // 상세 정보
           detail_content: rawJob.detailContent,
           attachment_url: attachmentUrlWithFilename,
+
+          // 광역자치단체 정보 (규칙 1: 광역+기초 둘 다 저장)
+          metropolitan_region: config.metropolitanRegion || null,
 
           // 날짜 및 기간 정보 (게시판 > AI > Vision)
           application_period: rawJob.applicationStart && rawJob.applicationEnd

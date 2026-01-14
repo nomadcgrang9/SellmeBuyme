@@ -1,25 +1,30 @@
-import { loadPage, resolveUrl } from '../lib/playwright.js';
+import { loadPageWithRetry, resolveUrl } from '../lib/playwright.js';
 import { getExistingJobBySource } from '../lib/supabase.js';
 
 /**
- * 강원특별자치도교육청 크롤러
- * 패턴: 클릭 기반 네비게이션 (JavaScript onclick 처리)
+ * 강원특별자치도교육청 크롤러 (v2)
+ * 패턴: /main/bbs/list.do 기반 테이블 목록 + onclick 상세 페이지
  * 광역자치단체: 상세 페이지 주소에서 지역(시/군) 추출
  */
 
 // 강원도 시/군 목록 (지역 매핑용)
+// 규칙2: '시', '군' 접미사 제거하여 저장
 const GANGWON_REGIONS = [
-  '춘천시', '원주시', '강릉시', '동해시', '태백시',
-  '속초시', '삼척시', '홍천군', '횡성군', '영월군',
-  '평창군', '정선군', '철원군', '화천군', '양구군',
-  '인제군', '고성군', '양양군'
+  '춘천', '원주', '강릉', '동해', '태백',
+  '속초', '삼척', '홍천', '횡성', '영월',
+  '평창', '정선', '철원', '화천', '양구',
+  '인제', '고성', '양양'
 ];
 
 export async function crawlGangwon(page, config) {
   console.log(`\n📍 ${config.name} 크롤링 시작`);
 
   // 1. 목록 페이지 로딩
-  await page.goto(config.baseUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
+  const loadResult = await loadPageWithRetry(page, config.baseUrl, { maxRetries: 3 });
+  if (!loadResult.success) {
+    console.error(`❌ 페이지 로드 실패: ${loadResult.error}`);
+    return [];
+  }
   await page.waitForTimeout(2000);
 
   // 2. 페이지 구조 분석 (디버깅용)
@@ -48,8 +53,9 @@ export async function crawlGangwon(page, config) {
   console.log(`   중복률 ${SAFETY.batchDuplicateThreshold * 100}% 이상이면 종료`);
 
   try {
-    // 테이블 행 선택 (tbody tr)
-    const rows = await page.$$(config.selectors.rows);
+    // 테이블 행 선택 (tbody tr) - 새 구조에서는 caption 있는 테이블의 tbody tr
+    const rowSelector = 'table tbody tr';
+    const rows = await page.$$(rowSelector);
 
     if (rows.length === 0) {
       console.warn('⚠️  공고 목록을 찾을 수 없습니다. HTML 구조 확인 필요');
@@ -111,7 +117,7 @@ export async function crawlGangwon(page, config) {
         await page.goto(config.baseUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
         await page.waitForTimeout(1500);
 
-        const currentRows = await page.$$(config.selectors.rows);
+        const currentRows = await page.$$(rowSelector);
         if (i >= currentRows.length) {
           console.warn(`  ⚠️  행 ${i + 1} 찾을 수 없음`);
           continue;
@@ -121,18 +127,22 @@ export async function crawlGangwon(page, config) {
 
         console.log(`\n  🔍 행 ${i + 1} 처리 중...`);
 
-        // 목록에서 기본 정보 추출
+        // 목록에서 기본 정보 추출 (새 구조: 번호|제목|작성일|채용여부|기관명|마감일자|파일)
         const listData = await row.evaluate((el) => {
           const cells = el.querySelectorAll('td');
-          if (cells.length < 6) return null;
+          if (cells.length < 5) return null;
 
           // 번호 (첫 번째 컬럼)
           const number = cells[0]?.textContent?.trim() || '';
 
-          // 제목과 링크 (두 번째 컬럼)
+          // 제목과 링크 (두 번째 컬럼) - onclick으로 상세 페이지 이동
           const titleCell = cells[1];
           const titleLink = titleCell?.querySelector('a');
           let title = titleLink?.textContent?.trim() || titleCell?.textContent?.trim() || '';
+
+          // NEW 라벨 제거
+          title = title.replace(/^NEW\s*/i, '').trim();
+
           // 제목에서 카테고리 태그 추출 (예: [기간제교사])
           const categoryMatch = title.match(/^\[([^\]]+)\]/);
           const category = categoryMatch ? categoryMatch[1] : '';
@@ -223,7 +233,10 @@ export async function crawlGangwon(page, config) {
         const detailData = await crawlDetailPage(page, currentUrl, config);
 
         // 지역 추출: 상세 페이지 주소에서 시/군 추출
-        const location = detailData.location || extractRegionFromText(listData.organization) || '강원';
+        // 규칙1: 광역자치단체(강원) + 기초자치단체(춘천 등) 둘 다 저장
+        // 규칙2: 시/군 접미사 제거 (GANGWON_REGIONS 배열에서 이미 처리됨)
+        const basicLocation = detailData.location || extractRegionFromText(listData.organization) || '강원';
+        const metropolitanLocation = '강원';
 
         jobs.push({
           title: listData.category ? `[${listData.category}] ${listData.title}` : listData.title,
@@ -231,7 +244,8 @@ export async function crawlGangwon(page, config) {
           link: currentUrl,
           organization: detailData.organization || listData.organization,
           jobField: listData.category,
-          location: location,
+          location: basicLocation,                    // 기초자치단체 (접미사 제거됨)
+          metropolitanLocation: metropolitanLocation, // 광역자치단체
           recruitStatus: detailData.recruitStatus || listData.recruitStatus,
           deadline: detailData.deadline || listData.deadline,
           detailContent: detailData.content,
@@ -244,7 +258,7 @@ export async function crawlGangwon(page, config) {
           manager: detailData.manager,
         });
 
-        console.log(`  ✅ 신규 ${totalProcessedCount}. 완료 (지역: ${location})`);
+        console.log(`  ✅ 신규 ${totalProcessedCount}. 완료 (지역: ${metropolitanLocation} > ${basicLocation})`);
 
       } catch (error) {
         console.warn(`  ⚠️  행 ${i + 1} 파싱 실패: ${error.message}`);

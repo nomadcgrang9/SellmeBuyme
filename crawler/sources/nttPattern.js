@@ -163,26 +163,32 @@ export async function crawlNttPattern(page, config) {
         const screenshot = await page.screenshot({ fullPage: true, type: 'png' });
         const screenshotBase64 = screenshot.toString('base64');
 
-        // 데이터 병합 (Supabase 형식)
+        // 데이터 병합 (index.js가 기대하는 형식으로)
         const jobData = {
           organization: config.name || '교육청',
           title: listInfo.title,
           tags: ['교육청', 'NTT패턴'],
           location: config.region || '미상',
+          metropolitanRegion: config.metropolitanRegion || null,  // 규칙 1: 광역자치단체
           compensation: null,
           deadline: listInfo.registeredDate,
           isUrgent: true,
           schoolLevel: 'mixed',
           subject: null,
           requiredLicense: null,
-          sourceUrl: detailUrl,
+          link: detailUrl,                           // sourceUrl → link (index.js 형식)
           crawledAt: new Date().toISOString(),
+          detailContent: detailData.content,         // 본문 (최상위 레벨)
+          hasContentImages: detailData.hasContentImages,  // 이미지 유무 (최상위 레벨)
+          attachmentUrl: detailData.attachmentUrl,   // 첨부파일 URL
+          attachmentFilename: detailData.attachmentFilename,
           structuredContent: {
             nttId: nttId,
             content: detailData.content,
             attachmentUrl: detailData.attachmentUrl,
             attachmentFilename: detailData.attachmentFilename,
-            hasContentImages: detailData.hasContentImages
+            hasContentImages: detailData.hasContentImages,
+            metropolitanRegion: config.metropolitanRegion || null  // 구조화된 정보에도 포함
           },
           screenshotBase64
         };
@@ -232,13 +238,17 @@ async function extractDetailContent(page, config) {
         document.querySelectorAll(selector).forEach(el => el.remove());
       });
 
-      // 본문 선택자 우선순위
+      // 본문 선택자 우선순위 (경기 지역교육청 셀렉터 추가)
       const contentSelectors = [
-        'td.nttCn',           // 가장 일반적
+        '.bbsV_cont',         // 경기 지역교육청 (가평, 성남 등)
+        '.bbs_ViewA',         // 경기 지역교육청 대체
+        'td.nttCn',           // 일반 NTT 패턴
         'div.nttCn',
+        '.nttCtnt',
         '.view_con',
         '.board_view',
         '.view-content',
+        '.view_content',
         '.content',
         '#content',
         'article',
@@ -255,7 +265,8 @@ async function extractDetailContent(page, config) {
             .replace(/\n{3,}/g, '\n\n')
             .trim();
 
-          if (text.length > 50) {
+          // 텍스트가 있으면 반환 (이미지만 있는 경우 텍스트가 0일 수 있음)
+          if (text.length > 0) {
             return text;
           }
         }
@@ -320,9 +331,17 @@ async function extractDetailContent(page, config) {
       result.attachmentFilename = attachmentData.filename;
     }
 
-    // 본문 내 이미지 확인
+    // 본문 내 이미지 확인 (경기 지역교육청 셀렉터 포함)
     result.hasContentImages = await page.evaluate(() => {
-      const contentSelectors = ['.board_view', '.nttCn', '.content', '.view_con', 'article'];
+      const contentSelectors = [
+        '.bbsV_cont',         // 경기 지역교육청
+        '.bbs_ViewA',
+        '.board_view',
+        '.nttCn',
+        '.content',
+        '.view_con',
+        'article'
+      ];
       let contentArea = null;
 
       for (const selector of contentSelectors) {
@@ -336,7 +355,10 @@ async function extractDetailContent(page, config) {
       const realImages = Array.from(images).filter(img => {
         const width = img.naturalWidth || img.width || 0;
         const height = img.naturalHeight || img.height || 0;
-        return width > 100 && height > 100;
+        const src = img.src || '';
+        // 아이콘, 로고, 버튼 이미지 제외
+        const isIcon = src.includes('icon') || src.includes('logo') || src.includes('btn') || src.includes('bullet');
+        return width > 100 && height > 100 && !isIcon;
       });
 
       return realImages.length > 0;

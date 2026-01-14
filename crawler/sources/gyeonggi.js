@@ -3,30 +3,64 @@ import { getExistingJobBySource } from '../lib/supabase.js';
 
 /**
  * 교육지원청 도메인 → 관할 지역 매핑
+ * 규칙2: '도', '시', '군' 접미사 제거 (예외: 중구, 남구 등 구 자체가 이름인 경우)
  */
 const EDUCATION_OFFICE_REGIONS = {
-  'goegp.kr': '가평군',           // 가평교육지원청
-  'www.goegp.kr': '가평군',       // 가평교육지원청 (www)
-  'goegn.kr': '구리남양주',       // 구리남양주교육지원청
-  'www.goegn.kr': '구리남양주',   // 구리남양주교육지원청 (www)
-  'goeujb.kr': '의정부',          // 의정부교육지원청
-  'www.goeujb.kr': '의정부',      // 의정부교육지원청 (www)
-  '222.120.4.134': '의정부',      // 의정부교육지원청 (IP)
-  'goesn.kr': '성남',             // 성남교육지원청
-  'www.goesn.kr': '성남',         // 성남교육지원청 (www)
-  'goeyp.kr': '양평군',           // 양평교육지원청
-  'www.goeyp.kr': '양평군',       // 양평교육지원청 (www)
-  'goepy.kr': '평택',             // 평택교육지원청
-  'www.goepy.kr': '평택',         // 평택교육지원청 (www)
-  'goeguri.kr': '구리',           // 구리교육지원청 (별도)
-  'www.goeguri.kr': '구리',       // 구리교육지원청 (www)
-  'goegj.kr': '광주',             // 광주하남교육지원청
-  'www.goegj.kr': '광주',         // 광주하남교육지원청 (www)
-  'goeysn.kr': '용인',            // 용인교육지원청
-  'www.goeysn.kr': '용인',        // 용인교육지원청 (www)
-  'goesw.kr': '수원',             // 수원교육지원청
-  'www.goesw.kr': '수원',         // 수원교육지원청 (www)
-  // 추가 교육지원청은 필요시 여기에 추가
+  // 가평교육지원청
+  'goegp.kr': '가평',
+  'www.goegp.kr': '가평',
+  // 고양교육지원청
+  'goegy.kr': '고양',
+  'www.goegy.kr': '고양',
+  // 광명교육지원청
+  'goegm.kr': '광명',
+  'www.goegm.kr': '광명',
+  // 광주하남교육지원청 (도메인: goegh.kr)
+  'goegh.kr': '광주하남',
+  'www.goegh.kr': '광주하남',
+  // 구리남양주교육지원청
+  'goegn.kr': '구리남양주',
+  'www.goegn.kr': '구리남양주',
+  // 김포교육지원청
+  'gpoe.kr': '김포',
+  'www.gpoe.kr': '김포',
+  // 동두천양주교육지원청
+  'goedy.kr': '동두천양주',
+  'www.goedy.kr': '동두천양주',
+  // 부천교육지원청
+  'goebc.kr': '부천',
+  'www.goebc.kr': '부천',
+  // 성남교육지원청
+  'goesn.kr': '성남',
+  'www.goesn.kr': '성남',
+  // 수원교육지원청
+  'goesw.kr': '수원',
+  'www.goesw.kr': '수원',
+  // 안성교육지원청
+  'goean.kr': '안성',
+  'www.goean.kr': '안성',
+  // 양평교육지원청
+  'goeyp.kr': '양평',
+  'www.goeyp.kr': '양평',
+  // 연천교육지원청
+  'goeyc.kr': '연천',
+  'www.goeyc.kr': '연천',
+  // 용인교육지원청
+  'goeysn.kr': '용인',
+  'www.goeysn.kr': '용인',
+  // 의정부교육지원청
+  'goeujb.kr': '의정부',
+  'www.goeujb.kr': '의정부',
+  '222.120.4.134': '의정부',
+  // 파주교육지원청
+  'goepj.kr': '파주',
+  'www.goepj.kr': '파주',
+  // 평택교육지원청 (도메인: goept.kr)
+  'goept.kr': '평택',
+  'www.goept.kr': '평택',
+  // 포천교육지원청
+  'goepc.kr': '포천',
+  'www.goepc.kr': '포천',
 };
 
 /**
@@ -330,6 +364,8 @@ export async function crawlGyeonggi(page, config) {
         const detailData = await crawlDetailPage(page, config, pbancSn);
 
         // 지역 정보 결정 (우선순위: 게시판 정규식 추출 > URL 기반 매핑 > 학교명 추론)
+        // 규칙1: 광역자치단체(경기) + 기초자치단체(성남 등) 둘 다 저장
+        // 규칙2: 시/군 접미사 제거 (예: 성남시 → 성남)
         let finalLocation = listInfo.location;
 
         // 지역이 비어있거나 잘못된 경우 URL 기반 매핑 시도
@@ -343,13 +379,18 @@ export async function crawlGyeonggi(page, config) {
           finalLocation = inferRegionFromSchoolName(listInfo.schoolName);
         }
 
+        // 기초자치단체 접미사 제거 (시/군)
+        const basicLocation = (finalLocation || '경기').replace(/시$|군$/, '');
+        const metropolitanLocation = '경기';
+
         // 게시판 정보와 상세 정보 병합
         const mergedJob = {
           // 기본 정보 (게시판 우선)
           title: listInfo.title || detailData.title,
           schoolName: listInfo.schoolName,
           phone: listInfo.phone,
-          location: finalLocation || listInfo.location,
+          location: basicLocation,                    // 기초자치단체 (접미사 제거)
+          metropolitanLocation: metropolitanLocation, // 광역자치단체
           
           // 날짜 정보 (게시판 우선)
           applicationStart: listInfo.applicationStart,
@@ -382,7 +423,7 @@ export async function crawlGyeonggi(page, config) {
         };
         
         jobs.push(mergedJob);
-        console.log(`  ✅ 완료: ${mergedJob.title}`);
+        console.log(`  ✅ 완료: ${mergedJob.title} (지역: ${metropolitanLocation} > ${basicLocation})`);
         
       } catch (error) {
         console.warn(`  ⚠️  공고 ${pbancSn} 처리 실패: ${error.message}`);

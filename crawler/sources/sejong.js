@@ -248,6 +248,12 @@ export async function crawlSejong(page, config) {
           // 상세 페이지 크롤링
           const detailData = await crawlDetailPage(page, detailUrl, config);
 
+          // 규칙1: 광역자치단체(세종) + 기초자치단체(세종) 둘 다 저장
+          // 세종은 특별자치시로 기초자치단체가 없는 단일 행정구역
+          // 규칙2: 접미사 제거 (세종특별자치시 → 세종)
+          const metropolitanLocation = '세종';
+          const basicLocation = '세종';  // 단일 행정구역
+
           jobs.push({
             title: item.title,
             date: item.registeredDate.replace(/\./g, '-'),
@@ -256,7 +262,8 @@ export async function crawlSejong(page, config) {
             schoolName: item.schoolName,
             subject: item.subject,
             jobField: item.subject,
-            location: config.region || '세종',
+            location: basicLocation,                    // 기초자치단체
+            metropolitanLocation: metropolitanLocation, // 광역자치단체
             recruitStatus: item.recruitStatus,
             deadline: item.deadline,
             detailContent: detailData.content,
@@ -266,7 +273,7 @@ export async function crawlSejong(page, config) {
             screenshotBase64: detailData.screenshot,
           });
 
-          console.log(`     ✅ 완료 (본문 ${detailData.content?.length || 0}자)`);
+          console.log(`     ✅ 완료 (지역: ${metropolitanLocation} > ${basicLocation}, 본문 ${detailData.content?.length || 0}자)`);
 
           // 다음 공고 전 대기
           await page.waitForTimeout(1000);
