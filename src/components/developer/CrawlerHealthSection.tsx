@@ -23,16 +23,11 @@ function formatRelativeTime(dateStr: string | null): string {
   return `${diffDays}일 전`;
 }
 
-// 상태 도트 컴포넌트 (색상 최소화)
+// 상태 도트 컴포넌트 (단순화: 정상=녹색, 나머지=빨간색)
 function StatusDot({ status }: { status: CrawlerHealthStatus }) {
-  const colors: Record<CrawlerHealthStatus, string> = {
-    healthy: 'bg-emerald-500',
-    warning: 'bg-amber-500',
-    critical: 'bg-red-500',
-    inactive: 'bg-gray-300',
-    error: 'bg-orange-500',
-  };
-  return <span className={`inline-block w-2 h-2 rounded-full ${colors[status]}`} />;
+  // 정상(healthy)만 녹색, 나머지(warning, critical, inactive, error)는 모두 빨간색
+  const color = status === 'healthy' ? 'bg-emerald-500' : 'bg-red-500';
+  return <span className={`inline-block w-2 h-2 rounded-full ${color}`} />;
 }
 
 // 지역 칩 컴포넌트 (체크박스 제거 - 간소화)
@@ -193,14 +188,15 @@ function AssigneeGroup({
           <span className="text-sm text-gray-400">({results.length})</span>
         </div>
         <div className="flex items-center gap-2 text-xs">
-          {statusCounts.critical > 0 && (
-            <span className="text-red-600">{statusCounts.critical} 긴급</span>
-          )}
-          {statusCounts.warning > 0 && (
-            <span className="text-amber-600">{statusCounts.warning} 주의</span>
-          )}
+          {/* 정상(healthy) 개수 */}
           {statusCounts.healthy > 0 && (
             <span className="text-emerald-600">{statusCounts.healthy} 정상</span>
+          )}
+          {/* 문제(warning, critical, error, inactive 합계) 개수 */}
+          {(statusCounts.critical + statusCounts.warning + statusCounts.error + statusCounts.inactive) > 0 && (
+            <span className="text-red-600">
+              {statusCounts.critical + statusCounts.warning + statusCounts.error + statusCounts.inactive} 문제있음
+            </span>
           )}
         </div>
       </div>
@@ -319,12 +315,10 @@ export default function CrawlerHealthSection() {
         </div>
       )}
 
-      {/* 범례 */}
-      <div className="flex items-center gap-4 text-xs text-gray-500 border-b border-gray-100 pb-4">
-        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500" />긴급</span>
-        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-500" />주의</span>
-        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500" />정상</span>
-        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-orange-500" />오류</span>
+      {/* 범례 (단순화) */}
+      <div className="flex items-center gap-6 text-xs text-gray-500 border-b border-gray-100 pb-4">
+        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />정상</span>
+        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-red-500" />문제있음</span>
       </div>
 
       {/* 담당자별 그룹 */}

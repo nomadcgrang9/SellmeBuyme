@@ -301,7 +301,7 @@ export default function DeveloperPage() {
           </CollapsibleSection>
 
           {/* 아이디어 목록 */}
-          <CollapsibleSection 
+          <CollapsibleSection
             title="아이디어 살펴보기"
             icon={<Lightbulb className="w-5 h-5" />}
             defaultOpen={false}
@@ -358,8 +358,8 @@ export default function DeveloperPage() {
             </div>
           </CollapsibleSection>
 
-          {/* 게시판 제출 목록 */}
-          <CollapsibleSection 
+          {/* 게시판 제출 목록 - 숨김 처리 */}
+          {false && <CollapsibleSection
             title="공고게시판 등록하기"
             icon={<Globe className="w-5 h-5" />}
             defaultOpen={false}
@@ -407,7 +407,7 @@ export default function DeveloperPage() {
                 isLoading={submissionsLoading}
               />
             </div>
-          </CollapsibleSection>
+          </CollapsibleSection>}
 
           {/* 크롤링 현황 자동점검 */}
           <CollapsibleSection
