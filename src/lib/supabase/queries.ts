@@ -4513,6 +4513,11 @@ export interface CrawlBoardRegionStat {
     isActive: boolean;
     lastCrawledAt: string | null;
   }>;
+  // 오늘 크롤링 상태: 'success' | 'failed' | 'partial' | 'pending'
+  // success: 모든 게시판 성공, failed: 모든 게시판 실패, partial: 일부 성공/실패, pending: 아직 미실행
+  todayCrawlStatus: 'success' | 'failed' | 'partial' | 'pending' | 'not_registered';
+  todaySuccessCount: number;
+  todayFailedCount: number;
 }
 
 export interface TodayCrawlStatus {
@@ -4554,15 +4559,18 @@ export async function fetchCrawlBoardStatusData(): Promise<CrawlBoardStatusData>
     throw boardsError;
   }
 
-  // 2. 오늘 크롤링 로그 조회
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const todayIso = today.toISOString();
+  // 2. 오늘 날짜 계산 (KST 기준)
+  const now = new Date();
+  const kstOffset = 9 * 60 * 60 * 1000; // KST = UTC+9
+  const kstNow = new Date(now.getTime() + kstOffset);
+  const todayKst = new Date(kstNow.getFullYear(), kstNow.getMonth(), kstNow.getDate());
+  const todayStartUtc = new Date(todayKst.getTime() - kstOffset); // KST 00:00을 UTC로 변환
 
+  // 3. 오늘 크롤링 로그 조회 (crawl_logs 테이블 - Edge Function에서 기록)
   const { data: todayLogs, error: logsError } = await supabase
     .from('crawl_logs')
     .select('id, board_id, status, error_log, started_at, completed_at')
-    .gte('started_at', todayIso)
+    .gte('started_at', todayStartUtc.toISOString())
     .order('started_at', { ascending: false });
 
   if (logsError) {
@@ -4570,7 +4578,7 @@ export async function fetchCrawlBoardStatusData(): Promise<CrawlBoardStatusData>
     // 로그 조회 실패 시에도 게시판 현황은 표시
   }
 
-  // 3. 지역별 게시판 그룹화
+  // 4. 지역별 게시판 그룹화
   const regionMap = new Map<string, CrawlBoardRegionStat>();
   const regionCodeToName: Record<string, string> = {
     '11': '서울', '26': '부산', '27': '대구', '28': '인천',
@@ -4579,15 +4587,76 @@ export async function fetchCrawlBoardStatusData(): Promise<CrawlBoardStatusData>
     '45': '전북', '46': '전남', '47': '경북', '48': '경남', '50': '제주',
   };
 
+  // 게시판 이름에서 지역 추출하는 함수
+  const extractRegionFromName = (name: string): string | null => {
+    // 광역시/도 직접 매칭
+    const directPatterns: [RegExp, string][] = [
+      [/^서울|서울교육/, '서울'],
+      [/^부산|부산교육/, '부산'],
+      [/^대구|대구교육/, '대구'],
+      [/^인천|인천교육/, '인천'],
+      [/^광주광역|광주교육/, '광주'],
+      [/^대전|대전교육/, '대전'],
+      [/^울산|울산교육/, '울산'],
+      [/^세종|세종교육/, '세종'],
+      [/^제주|제주교육/, '제주'],
+      [/^강원|강원교육/, '강원'],
+      [/경기도|경기교육/, '경기'],
+      [/충청북도|충북교육/, '충북'],
+      [/충청남도|충남교육/, '충남'],
+      [/전라북도|전북교육/, '전북'],
+      [/전라남도|전남교육/, '전남'],
+      [/경상북도|경북교육/, '경북'],
+      [/경상남도|경남교육|^경남/, '경남'],
+    ];
+    for (const [pattern, region] of directPatterns) {
+      if (pattern.test(name)) return region;
+    }
+
+    // 경기도 기초자치단체 매칭 (교육지원청 이름에서)
+    const gyeonggiCities = [
+      '수원', '성남', '고양', '용인', '부천', '안산', '안양', '남양주', '화성', '평택',
+      '의정부', '시흥', '파주', '김포', '광명', '광주', '군포', '하남', '오산', '이천',
+      '안성', '의왕', '양평', '여주', '과천', '가평', '연천', '동두천', '포천', '양주',
+      '구리', '구리남양주'
+    ];
+    for (const city of gyeonggiCities) {
+      if (name.includes(city)) return '경기';
+    }
+
+    return null;
+  };
+
+  // 오늘 로그를 board_id별로 정리 (가장 최근 로그만)
+  const todayBoardLogs = new Map<string, { status: string; error?: string; time: string }>();
+  (todayLogs ?? []).forEach((log: any) => {
+    if (!todayBoardLogs.has(log.board_id)) {
+      todayBoardLogs.set(log.board_id, {
+        status: log.status,
+        error: log.error_log,
+        time: log.started_at,
+      });
+    }
+  });
+
   (boards ?? []).forEach((board: any) => {
-    const regionCode = board.region_code || 'unknown';
-    const regionName = board.region_display_name?.split(' ')[0] || regionCodeToName[regionCode] || '기타';
+    const rawRegionCode = board.region_code || 'unknown';
+    // KR-41 형식에서 41만 추출, 또는 그대로 사용
+    const regionCode = rawRegionCode.startsWith('KR-') ? rawRegionCode.slice(3) : rawRegionCode;
+    // 지역명 결정: region_code > 게시판 이름에서 추출 > region_display_name > 기타
+    const regionName = regionCodeToName[regionCode]
+      || extractRegionFromName(board.name)
+      || board.region_display_name?.split(' ')[0]
+      || '기타';
 
     if (!regionMap.has(regionName)) {
       regionMap.set(regionName, {
         region: regionName,
         boardCount: 0,
         boards: [],
+        todayCrawlStatus: 'pending',
+        todaySuccessCount: 0,
+        todayFailedCount: 0,
       });
     }
 
@@ -4599,31 +4668,51 @@ export async function fetchCrawlBoardStatusData(): Promise<CrawlBoardStatusData>
       isActive: board.is_active,
       lastCrawledAt: board.last_crawled_at,
     });
+
+    // 오늘 크롤링 상태 집계:
+    // 1. crawl_logs 테이블에서 오늘 로그 확인 (Edge Function에서 기록)
+    // 2. last_crawled_at이 오늘이면 성공으로 간주 (GitHub Actions에서 기록)
+    const logInfo = todayBoardLogs.get(board.id);
+    const lastCrawledToday = board.last_crawled_at &&
+      new Date(board.last_crawled_at) >= todayStartUtc;
+
+    if (logInfo) {
+      // crawl_logs에 오늘 기록이 있는 경우
+      if (logInfo.status === 'success' || logInfo.status === 'completed') {
+        stat.todaySuccessCount += 1;
+      } else if (logInfo.status === 'error' || logInfo.status === 'failed') {
+        stat.todayFailedCount += 1;
+      }
+    } else if (lastCrawledToday) {
+      // crawl_logs에는 없지만 last_crawled_at이 오늘인 경우 (GitHub Actions 크롤러)
+      stat.todaySuccessCount += 1;
+    }
+  });
+
+  // 지역별 오늘 크롤링 상태 결정
+  regionMap.forEach((stat) => {
+    const totalExecuted = stat.todaySuccessCount + stat.todayFailedCount;
+    if (totalExecuted === 0) {
+      stat.todayCrawlStatus = 'pending';
+    } else if (stat.todayFailedCount === 0) {
+      stat.todayCrawlStatus = 'success';
+    } else if (stat.todaySuccessCount === 0) {
+      stat.todayCrawlStatus = 'failed';
+    } else {
+      stat.todayCrawlStatus = 'partial';
+    }
   });
 
   const registeredBoards = Array.from(regionMap.values()).sort((a, b) =>
     b.boardCount - a.boardCount
   );
 
-  // 4. 오늘 크롤링 현황 집계
-  const boardIdSet = new Set((boards ?? []).map((b: any) => b.id));
-  const todayBoardLogs = new Map<string, { status: string; error?: string; time: string }>();
-
-  (todayLogs ?? []).forEach((log: any) => {
-    if (boardIdSet.has(log.board_id) && !todayBoardLogs.has(log.board_id)) {
-      // 가장 최근 로그만 사용
-      todayBoardLogs.set(log.board_id, {
-        status: log.status,
-        error: log.error_log,
-        time: log.started_at,
-      });
-    }
-  });
-
+  // 5. 오늘 크롤링 현황 집계
   let successCount = 0;
   let failedCount = 0;
   const recentFailures: TodayCrawlStatus['recentFailures'] = [];
 
+  // crawl_logs에서 실패 기록 집계
   todayBoardLogs.forEach((logInfo, boardId) => {
     if (logInfo.status === 'success' || logInfo.status === 'completed') {
       successCount += 1;
@@ -4641,12 +4730,27 @@ export async function fetchCrawlBoardStatusData(): Promise<CrawlBoardStatusData>
     }
   });
 
-  // 오늘 로그가 없는 게시판 수 = pending
-  const pendingCount = (boards ?? []).filter((b: any) =>
-    b.is_active && !todayBoardLogs.has(b.id)
-  ).length;
+  // last_crawled_at이 오늘인 게시판도 성공에 포함 (GitHub Actions 크롤러)
+  (boards ?? []).forEach((board: any) => {
+    if (!todayBoardLogs.has(board.id)) {
+      const lastCrawledToday = board.last_crawled_at &&
+        new Date(board.last_crawled_at) >= todayStartUtc;
+      if (lastCrawledToday) {
+        successCount += 1;
+      }
+    }
+  });
 
-  // 5. 게시판 통계
+  // 미실행 게시판 수 계산
+  const pendingCount = (boards ?? []).filter((b: any) => {
+    if (!b.is_active) return false;
+    const hasLog = todayBoardLogs.has(b.id);
+    const lastCrawledToday = b.last_crawled_at &&
+      new Date(b.last_crawled_at) >= todayStartUtc;
+    return !hasLog && !lastCrawledToday;
+  }).length;
+
+  // 6. 게시판 통계
   const activeCount = (boards ?? []).filter((b: any) => b.is_active).length;
 
   return {

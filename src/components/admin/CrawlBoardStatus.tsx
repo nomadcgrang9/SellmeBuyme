@@ -165,27 +165,65 @@ export default function CrawlBoardStatus({ refreshToken }: CrawlBoardStatusProps
           </span>
         </div>
 
-        {/* 시도 체크박스 그리드 */}
+        {/* 시도 체크박스 그리드 - 오늘 크롤링 상태에 따른 색상 표시 */}
         <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-9 gap-2 mb-4">
           {ALL_REGIONS.map((region) => {
             const isRegistered = registeredRegions.includes(region);
             const regionData = regionBoardMap.get(region);
             const boardCount = regionData?.boardCount || 0;
+            const todayStatus = regionData?.todayCrawlStatus || 'not_registered';
+
+            // 오늘 크롤링 상태에 따른 스타일 결정
+            let statusStyle = '';
+            let statusIcon = '⬜';
+            let statusText = '';
+
+            if (!isRegistered) {
+              statusStyle = 'bg-white text-slate-400 border border-slate-200';
+              statusIcon = '⬜';
+            } else {
+              switch (todayStatus) {
+                case 'success':
+                  statusStyle = 'bg-emerald-50 text-emerald-700 border-2 border-emerald-400';
+                  statusIcon = '✅';
+                  statusText = '성공';
+                  break;
+                case 'failed':
+                  statusStyle = 'bg-red-50 text-red-700 border-2 border-red-400';
+                  statusIcon = '❌';
+                  statusText = '실패';
+                  break;
+                case 'partial':
+                  statusStyle = 'bg-amber-50 text-amber-700 border-2 border-amber-400';
+                  statusIcon = '⚠️';
+                  statusText = '일부실패';
+                  break;
+                case 'pending':
+                default:
+                  statusStyle = 'bg-slate-50 text-slate-500 border-2 border-slate-300';
+                  statusIcon = '⏳';
+                  statusText = '대기중';
+                  break;
+              }
+            }
+
             return (
               <div
                 key={region}
-                className={`relative px-2 py-2 rounded-lg text-center text-xs font-medium transition-colors ${
-                  isRegistered
-                    ? 'bg-blue-100 text-blue-700 border-2 border-blue-300'
-                    : 'bg-white text-slate-400 border border-slate-200'
-                }`}
+                className={`relative px-2 py-2 rounded-lg text-center text-xs font-medium transition-colors ${statusStyle}`}
+                title={isRegistered ? `${region}: ${statusText} (${regionData?.todaySuccessCount || 0}성공/${regionData?.todayFailedCount || 0}실패)` : `${region}: 미등록`}
               >
                 <div className="mb-1">{region}</div>
                 <div className="text-base">
-                  {isRegistered ? '✅' : '⬜'}
+                  {statusIcon}
                 </div>
                 {boardCount > 0 && (
-                  <div className="text-[10px] text-blue-600 mt-0.5">
+                  <div className={`text-[10px] mt-0.5 ${
+                    todayStatus === 'success' ? 'text-emerald-600' :
+                    todayStatus === 'failed' ? 'text-red-600' :
+                    todayStatus === 'partial' ? 'text-amber-600' :
+                    'text-slate-500'
+                  }`}>
                     {boardCount}개
                   </div>
                 )}
@@ -219,8 +257,9 @@ export default function CrawlBoardStatus({ refreshToken }: CrawlBoardStatusProps
               <thead className="bg-slate-50">
                 <tr>
                   <th className="px-3 py-2 text-left text-xs font-medium text-slate-500">시도</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-slate-500">상태</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-slate-500">등록 게시판 수</th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-slate-500">등록 상태</th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-slate-500">오늘 크롤링</th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-slate-500">게시판 수</th>
                   <th className="px-3 py-2 text-left text-xs font-medium text-slate-500">마지막 크롤링</th>
                 </tr>
               </thead>
@@ -229,6 +268,7 @@ export default function CrawlBoardStatus({ refreshToken }: CrawlBoardStatusProps
                   const regionData = regionBoardMap.get(region);
                   const isRegistered = !!regionData;
                   const boardCount = regionData?.boardCount || 0;
+                  const todayStatus = regionData?.todayCrawlStatus || 'not_registered';
 
                   // 가장 최근 크롤링 시간 찾기
                   let lastCrawledDisplay = '-';
@@ -247,12 +287,47 @@ export default function CrawlBoardStatus({ refreshToken }: CrawlBoardStatusProps
                     }
                   }
 
+                  // 오늘 크롤링 상태 뱃지
+                  const getTodayStatusBadge = () => {
+                    if (!isRegistered) return null;
+                    switch (todayStatus) {
+                      case 'success':
+                        return (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">
+                            <IconCheck size={12} />
+                            성공 ({regionData?.todaySuccessCount})
+                          </span>
+                        );
+                      case 'failed':
+                        return (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">
+                            <IconX size={12} />
+                            실패 ({regionData?.todayFailedCount})
+                          </span>
+                        );
+                      case 'partial':
+                        return (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">
+                            ⚠️ {regionData?.todaySuccessCount}성공/{regionData?.todayFailedCount}실패
+                          </span>
+                        );
+                      case 'pending':
+                      default:
+                        return (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-500">
+                            <IconClock size={12} />
+                            대기중
+                          </span>
+                        );
+                    }
+                  };
+
                   return (
                     <tr key={region} className={isRegistered ? '' : 'bg-slate-50/50 opacity-60'}>
                       <td className="px-3 py-2 font-medium text-slate-700">{region}</td>
                       <td className="px-3 py-2">
                         {isRegistered ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
                             <IconCheck size={12} />
                             등록됨
                           </span>
@@ -261,6 +336,9 @@ export default function CrawlBoardStatus({ refreshToken }: CrawlBoardStatusProps
                             미등록
                           </span>
                         )}
+                      </td>
+                      <td className="px-3 py-2">
+                        {getTodayStatusBadge() || '-'}
                       </td>
                       <td className="px-3 py-2 text-slate-600">
                         {boardCount > 0 ? `${boardCount}개` : '-'}

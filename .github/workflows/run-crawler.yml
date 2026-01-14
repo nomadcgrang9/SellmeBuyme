@@ -26,6 +26,8 @@ on:
           - seoul
           - gangwon
           - sejong
+          - chungbuk
+          - chungnam
       mode:
         description: 'Crawl mode (run or test)'
         required: false
@@ -110,6 +112,8 @@ jobs:
           - seoul
           - gangwon
           - sejong
+          - chungbuk
+          - chungnam
 
     steps:
       - name: Checkout code

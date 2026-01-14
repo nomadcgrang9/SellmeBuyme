@@ -104,6 +104,7 @@
     "region": "충청남도",
     "isLocalGovernment": false,
     "active": true,
+    "skipRobotsCheck": true,
     "note": "별도 크롤러 사용 (chungnam.js) - 7개 카테고리 보드 크롤링"
   },
   "jeonbuk": {
@@ -132,8 +133,9 @@
     "parserType": "custom",
     "region": "제주특별자치도",
     "isLocalGovernment": false,
-    "active": false,
-    "note": "별도 크롤러 필요 (jje 패턴)"
+    "active": true,
+    "skipRobotsCheck": true,
+    "note": "별도 크롤러 사용 (jeju.js)"
   },
   "seongnam": {
     "name": "성남교육지원청 구인",
@@ -359,27 +361,11 @@
     "baseUrl": "https://www.gen.go.kr/xboard/board.php?tbnum=32",
     "detailUrlTemplate": "https://www.gen.go.kr/xboard/board.php?mode=view&tbnum=32&number=",
     "type": "table",
-    "parserType": "html",
-    "selectors": {
-      "listContainer": "table",
-      "row": "tbody tr",
-      "title": {
-        "selector": "td:nth-child(3) a",
-        "extract": "text"
-      },
-      "date": {
-        "selector": "td:nth-child(5)",
-        "extract": "text"
-      },
-      "link": {
-        "selector": "td:nth-child(3) a",
-        "extract": "href"
-      },
-      "attachment": "a[href*='download']"
-    },
+    "parserType": "custom",
     "region": "광주",
     "isLocalGovernment": false,
     "active": true,
+    "skipRobotsCheck": true,
     "pagination": {
       "type": "none"
     }

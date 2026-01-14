@@ -1,75 +1,66 @@
+import { getExistingJobBySource } from '../lib/supabase.js';
 
 /**
  * 전북특별자치도교육청 크롤러
+ *
+ * 규칙: 게시판 1페이지(최신 페이지)만 크롤링
+ * - 중복된 것만 제외 (source_url 기준)
  */
 export async function crawlJeonbuk(page, config) {
     console.log(`\n📍 ${config.name} 크롤링 시작`);
     let jobs = [];
+    let skippedCount = 0;
 
     try {
-        const cutoffDate = getCutoffDate();
-        console.log(`📅 수집 기준: ${cutoffDate.toISOString().split('T')[0]}`);
-
-        // Phase 1: 목록에서 링크만 먼저 수집
+        // Phase 1: 목록 1페이지에서 링크 수집
         const collectedItems = [];
-        let stopCrawling = false;
-        let pageNum = 1;
 
-        while (!stopCrawling && pageNum <= 10) {
-            console.log(`📄 목록 페이지 ${pageNum}...`);
-            const listUrl = `${config.baseUrl}&startPage=${pageNum}`;
-            await page.goto(listUrl, { waitUntil: 'domcontentloaded' });
+        console.log(`📄 목록 페이지 1 크롤링...`);
+        const listUrl = `${config.baseUrl}&startPage=1`;
+        await page.goto(listUrl, { waitUntil: 'domcontentloaded' });
 
-            const rows = await page.$$('table.bbs_list_t tbody tr');
-            if (rows.length === 0) break;
+        const rows = await page.$$('table.bbs_list_t tbody tr');
 
-            for (const row of rows) {
-                const columns = await row.$$('td');
-                if (columns.length < 5) continue;
+        for (const row of rows) {
+            const columns = await row.$$('td');
+            if (columns.length < 5) continue;
 
-                const numText = await columns[0].innerText().then(t => t.trim());
-                const schoolText = await columns[2].innerText().then(t => t.trim());
-                const titleText = await columns[3].innerText().then(t => t.trim());
-                const linkEl = await columns[2].$('a');
+            const numText = await columns[0].innerText().then(t => t.trim());
+            const schoolText = await columns[2].innerText().then(t => t.trim());
+            const titleText = await columns[3].innerText().then(t => t.trim());
+            const linkEl = await columns[2].$('a');
 
-                if (!linkEl) continue;
-                const href = await linkEl.getAttribute('href');
-                const fullLink = new URL(href, config.baseUrl).href;
+            if (!linkEl) continue;
+            const href = await linkEl.getAttribute('href');
+            const fullLink = new URL(href, config.baseUrl).href;
 
-                collectedItems.push({
-                    numText,
-                    title: titleText,
-                    schoolName: schoolText,
-                    link: fullLink,
-                    location: config.region,
-                });
-            }
-
-            pageNum++;
+            collectedItems.push({
+                numText,
+                title: titleText,
+                schoolName: schoolText,
+                link: fullLink,
+                location: config.region,
+            });
         }
 
-        console.log(`✅ Phase 1: ${collectedItems.length}개 링크 수집`);
+        console.log(`✅ Phase 1: ${collectedItems.length}개 링크 수집 (1페이지)`);
 
-        // Phase 2: 상세 페이지 수집 (날짜 필터링 포함)
+        // Phase 2: 상세 페이지 수집 (중복만 제외)
         for (const item of collectedItems) {
+            // 중복 체크 (source_url 기준)
+            const existing = await getExistingJobBySource(item.link);
+            if (existing) {
+                skippedCount++;
+                continue;
+            }
+
             console.log(`  🔍 상세 확인: ${item.title}`);
             try {
                 const detailData = await crawlDetailPage(page, item.link);
 
-                if (detailData.postDate) {
-                    const pd = new Date(detailData.postDate);
-                    const isNotice = isNaN(parseInt(item.numText));
-
-                    if (pd < cutoffDate) {
-                        if (isNotice) continue;
-                        console.log(`  🛑 날짜 초과 (${detailData.postDate}) -> 종료`);
-                        break;
-                    }
-                }
-
                 jobs.push({
                     ...item,
-                    date: detailData.postDate,
+                    date: detailData.postDate || new Date().toISOString().split('T')[0],
                     ...detailData
                 });
 
@@ -83,24 +74,12 @@ export async function crawlJeonbuk(page, config) {
         console.error(e);
         throw e;
     }
+
+    console.log(`\n✅ ${config.name} 크롤링 완료`);
+    console.log(`   - 신규: ${jobs.length}개`);
+    console.log(`   - 중복 스킵: ${skippedCount}개\n`);
+
     return jobs;
-}
-
-function getCutoffDate() {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const mode = process.env.CRAWL_MODE || 'initial';
-
-    // test 모드: 날짜 필터 없음
-    if (mode === 'test') {
-        return new Date('2020-01-01');
-    }
-
-    // daily 모드: 오늘만, initial 모드: 2일 전부터
-    const daysToSubtract = (mode === 'daily') ? 0 : 2;
-    const cutoffDate = new Date(today);
-    cutoffDate.setDate(today.getDate() - daysToSubtract);
-    return cutoffDate;
 }
 
 async function crawlDetailPage(page, url) {
