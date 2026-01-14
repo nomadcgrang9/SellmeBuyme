@@ -48,16 +48,6 @@
     "active": false,
     "note": "별도 크롤러 필요 (xboard 패턴)"
   },
-  "daejeon": {
-    "name": "대전광역시교육청 채용공고",
-    "baseUrl": "https://www.edurecruit.go.kr/jobList.do",
-    "detailUrlTemplate": "https://www.edurecruit.go.kr/jobDetail.do?jobId=",
-    "parserType": "custom",
-    "region": "대전광역시",
-    "isLocalGovernment": false,
-    "active": false,
-    "note": "별도 크롤러 필요 (edurecruit 패턴)"
-  },
   "ulsan": {
     "name": "울산광역시교육청 인력풀",
     "baseUrl": "https://www.use.go.kr/subPage.do?page=sub06_06_01&m=0606&s=use",
@@ -359,16 +349,6 @@
     "isLocalGovernment": false,
     "active": true,
     "note": "NTT 패턴 사용"
-  },
-  "daegu": {
-    "name": "대구광역시교육청 채용",
-    "baseUrl": "https://www.dge.go.kr/main/na/ntt/selectNttList.do?mi=5191&bbsId=1048",
-    "detailUrlTemplate": "https://www.dge.go.kr/main/na/ntt/selectNttInfo.do?mi=5191&bbsId=1048&nttSn=",
-    "parserType": "ntt",
-    "region": "대구광역시",
-    "isLocalGovernment": false,
-    "active": false,
-    "note": "SSO 로그인 필요 (NEIS 통합인증) - 크롤링 불가"
   },
   "incheon": {
     "name": "인천광역시교육청 채용공고",
