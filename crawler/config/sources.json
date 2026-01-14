@@ -66,7 +66,7 @@
     "region": "울산광역시",
     "isLocalGovernment": false,
     "active": false,
-    "note": "별도 크롤러 필요 (subPage 패턴)"
+    "note": "SSL 인증서 오류 - 크롤링 불가"
   },
   "sejong": {
     "name": "세종특별자치시교육청 구인",
@@ -262,65 +262,26 @@
     "name": "부산광역시교육청 학교인력채용",
     "baseUrl": "https://www.pen.go.kr/main/na/ntt/selectNttList.do?mi=30367&bbsId=2364",
     "detailUrlTemplate": "https://www.pen.go.kr/main/na/ntt/selectNttInfo.do?mi=30367&bbsId=2364&nttSn=",
-    "type": "table",
-    "parserType": "html",
+    "parserType": "ntt",
     "selectors": {
-      "listContainer": "table:has(.nttInfoBtn)",
-      "row": "tbody tr",
-      "title": {
-        "selector": "td.bbs_tit a, .nttInfoBtn",
-        "extract": "text"
-      },
-      "date": {
-        "selector": "td:nth-child(5)",
-        "extract": "text"
-      },
-      "link": {
-        "selector": ".nttInfoBtn",
-        "extract": "attribute",
-        "attributeName": "data-id"
-      },
-      "attachment": "a[href*='fileDown'], a[href*='download']"
+      "rows": "table tbody tr",
+      "link": "a.nttInfoBtn, a[data-id], td a",
+      "date": "td:nth-child(5)"
     },
-    "region": "부산",
+    "region": "부산광역시",
     "isLocalGovernment": false,
-    "active": false,
-    "pagination": {
-      "type": "script",
-      "functionName": "goPaging"
-    }
+    "active": true,
+    "note": "NTT 패턴 사용"
   },
   "daegu": {
     "name": "대구광역시교육청 채용",
     "baseUrl": "https://www.dge.go.kr/main/na/ntt/selectNttList.do?mi=5191&bbsId=1048",
     "detailUrlTemplate": "https://www.dge.go.kr/main/na/ntt/selectNttInfo.do?mi=5191&bbsId=1048&nttSn=",
-    "type": "table",
-    "parserType": "html",
-    "selectors": {
-      "listContainer": "table",
-      "row": "tbody tr",
-      "title": {
-        "selector": ".nttInfoBtn",
-        "extract": "text"
-      },
-      "date": {
-        "selector": "td:nth-child(4)",
-        "extract": "text"
-      },
-      "link": {
-        "selector": ".nttInfoBtn",
-        "extract": "attribute",
-        "attributeName": "data-id"
-      },
-      "attachment": "a[href*='fileDown'], a[href*='download']"
-    },
-    "region": "대구",
+    "parserType": "ntt",
+    "region": "대구광역시",
     "isLocalGovernment": false,
     "active": false,
-    "pagination": {
-      "type": "script",
-      "functionName": "fn_egov_select_linkPage"
-    }
+    "note": "SSO 로그인 필요 (NEIS 통합인증) - 크롤링 불가"
   },
   "incheon": {
     "name": "인천광역시교육청 채용공고",
@@ -387,34 +348,12 @@
   "daejeon": {
     "name": "대전광역시교육청 학교인력채용",
     "baseUrl": "https://www.dje.go.kr/boardCnts/list.do?boardID=54&m=030202&s=dje",
-    "detailUrlTemplate": "https://www.dje.go.kr/boardCnts/view.do?boardID=54&m=030202&s=dje&boardSeq=",
-    "type": "table",
-    "parserType": "html",
-    "selectors": {
-      "listContainer": "table",
-      "row": "tbody tr",
-      "title": {
-        "selector": "td.subject a",
-        "extract": "text"
-      },
-      "date": {
-        "selector": "td:nth-child(5)",
-        "extract": "text"
-      },
-      "link": {
-        "selector": "td.subject a",
-        "extract": "onclick",
-        "regex": "bg0001_[0-9]+_([0-9]+)"
-      },
-      "attachment": "a[href*='FileDown']"
-    },
-    "region": "대전",
+    "detailUrlTemplate": "https://www.dje.go.kr/boardCnts/view.do?boardID=54&m=030202&s=dje&boardSeq={SEQ}",
+    "parserType": "custom",
+    "region": "대전광역시",
     "isLocalGovernment": false,
-    "active": false,
-    "pagination": {
-      "type": "script",
-      "functionName": "goPage"
-    }
+    "active": true,
+    "note": "별도 크롤러 사용 (daejeon.js) - goView(boardSeq, ...) 패턴"
   },
   "gangwon": {
     "name": "강원특별자치도교육청 학교인력채용",

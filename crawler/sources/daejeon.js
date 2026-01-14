@@ -44,10 +44,15 @@ export async function crawlDaejeon(page, config) {
           const title = titleLink.textContent.trim();
           if (!title) return;
 
-          // onclick에서 boardSeq 추출: goView('54','3339894', ...)
+          // onclick에서 boardSeq 추출: goView(49849, 0, 0, 'N', 'Y', ...) 형식
           const onclick = titleLink.getAttribute('onclick') || '';
-          const match = onclick.match(/goView\('54',\s*'(\d+)'/);
-          if (!match) return;
+
+          // 패턴: goView(49849, ...) - 첫번째 파라미터가 게시글 번호
+          const match = onclick.match(/goView\s*\(\s*(\d+)/);
+          if (!match) {
+            console.log(`[DEBUG] 행 ${idx}: goView 패턴 불일치 - ${onclick.substring(0, 50)}`);
+            return;
+          }
 
           const boardSeq = match[1];
 
