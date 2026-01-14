@@ -168,7 +168,8 @@ export async function crawlUlsan(page, config) {
           schoolLevel: 'mixed',
           subject: null,
           requiredLicense: null,
-          sourceUrl: detailUrl,
+          link: detailUrl,  // index.js가 rawJob.link로 접근
+          detailContent: detailData.content,  // index.js가 rawJob.detailContent로 접근
           crawledAt: new Date().toISOString(),
           structuredContent: {
             docNo: docNo,
