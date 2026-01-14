@@ -2625,15 +2625,18 @@ export async function fetchJobsByBoardRegion(
   boardIds = [...new Set(boardIds)];
   console.log(`[fetchJobsByBoardRegion] Total unique board IDs:`, boardIds.length);
 
-  // 3. 해당 crawl_board_id의 job_postings 조회
+  // 3. 해당 crawl_board_id 또는 crawl_source_id의 job_postings 조회
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const todayIso = today.toISOString();
 
+  // crawl_board_id 또는 crawl_source_id (레거시) 모두 검색
+  const boardIdConditions = boardIds.map(id => `crawl_board_id.eq.${id},crawl_source_id.eq.${id}`).join(',');
+
   const { data: jobs, error: jobsError } = await supabase
     .from('job_postings')
     .select('*')
-    .in('crawl_board_id', boardIds)
+    .or(boardIdConditions)
     .or(`deadline.is.null,deadline.gte.${todayIso}`)
     .order('created_at', { ascending: false })
     .limit(limit);
@@ -3582,6 +3585,8 @@ async function executeJobSearch({
           console.log('[executeJobSearch] crawl_board_id 필터링:', crawlBoardIds.length, '개');
           for (const id of crawlBoardIds) {
             regionConditions.push(`crawl_board_id.eq.${id}`);
+            // 레거시 지원: crawl_source_id만 있는 공고도 검색
+            regionConditions.push(`crawl_source_id.eq.${id}`);
           }
         } else {
           // fallback: crawl_board_id 매핑이 없는 경우 기존 location 확장 로직 사용
@@ -3593,9 +3598,20 @@ async function executeJobSearch({
         }
       } else if (PROVINCE_NAMES.includes(r)) {
         // 광역시도명만 있는 경우 (예: "경기", "서울") - 해당 광역시도 전체 검색
-        const allLocations = [r, ...(PROVINCE_TO_CITIES[r] || [])];
-        for (const loc of allLocations) {
-          regionConditions.push(`location.ilike.%${loc}%`);
+        const crawlBoardIds = getCrawlBoardIdsForProvince(r);
+        if (crawlBoardIds && crawlBoardIds.length > 0) {
+          console.log('[executeJobSearch] 광역시도명 crawl_board_id 필터링:', crawlBoardIds.length, '개');
+          for (const id of crawlBoardIds) {
+            regionConditions.push(`crawl_board_id.eq.${id}`);
+            // 레거시 지원: crawl_source_id만 있는 공고도 검색
+            regionConditions.push(`crawl_source_id.eq.${id}`);
+          }
+        } else {
+          // fallback: crawl_board_id 매핑이 없는 경우 기존 location 확장 로직 사용
+          const allLocations = [r, ...(PROVINCE_TO_CITIES[r] || [])];
+          for (const loc of allLocations) {
+            regionConditions.push(`location.ilike.%${loc}%`);
+          }
         }
       } else {
         // 기존 로직: 특정 지역 검색 (예: "의정부", "남양주")
