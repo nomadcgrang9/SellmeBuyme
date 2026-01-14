@@ -48,29 +48,11 @@ function extractRegionFromText(text) {
 }
 
 /**
- * 날짜 컷오프 계산
- */
-function getCutoffDate() {
-  const mode = process.env.CRAWL_MODE || 'initial';
-
-  // 테스트 모드: 날짜 필터 비활성화 (아주 오래된 날짜 반환)
-  if (mode === 'test') {
-    return new Date('2020-01-01');
-  }
-
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  // daily 모드: 오늘만, initial 모드: 2일 전부터
-  const daysToSubtract = (mode === 'daily') ? 0 : 2;
-  const cutoffDate = new Date(today);
-  cutoffDate.setDate(today.getDate() - daysToSubtract);
-  return cutoffDate;
-}
-
-/**
  * 충청남도교육청 크롤러 메인 함수
- * 모든 카테고리 게시판을 순회하며 오늘 날짜 데이터만 크롤링
+ *
+ * 규칙: 게시판 1페이지(최신 페이지)만 크롤링
+ * - 모든 카테고리 게시판 순회 (각 카테고리 1페이지씩)
+ * - 중복된 것만 제외 (source_url 기준)
  */
 export async function crawlChungnam(page, config) {
   console.log(`\n📍 ${config.name} 크롤링 시작`);
@@ -78,8 +60,6 @@ export async function crawlChungnam(page, config) {
   const allJobs = [];
   let totalSkippedCount = 0;
 
-  const cutoffDate = getCutoffDate();
-  console.log(`📅 수집 기준: ${cutoffDate.toISOString().split('T')[0]} 이후`);
   console.log(`📂 크롤링 대상 카테고리: ${CHUNGNAM_CATEGORIES.length}개\n`);
 
   // 모든 카테고리 게시판 순회
@@ -91,7 +71,7 @@ export async function crawlChungnam(page, config) {
     console.log(`   URL: ${categoryUrl}`);
 
     try {
-      const { jobs, skippedCount } = await crawlCategoryPage(page, categoryUrl, category, cutoffDate, config);
+      const { jobs, skippedCount } = await crawlCategoryPage(page, categoryUrl, category, config);
       allJobs.push(...jobs);
       totalSkippedCount += skippedCount;
 
@@ -117,7 +97,7 @@ export async function crawlChungnam(page, config) {
 /**
  * 개별 카테고리 페이지 크롤링
  */
-async function crawlCategoryPage(page, categoryUrl, category, cutoffDate, config) {
+async function crawlCategoryPage(page, categoryUrl, category, config) {
   const jobs = [];
   let skippedCount = 0;
 
@@ -209,13 +189,11 @@ async function crawlCategoryPage(page, categoryUrl, category, cutoffDate, config
       return { jobs: [], skippedCount: 0 };
     }
 
-    // 3. 각 공고 상세 페이지 크롤링
+    // 3. 각 공고 상세 페이지 크롤링 (중복만 제외)
     const SAFETY = {
       maxItems: 50, // 카테고리당 최대 50개
-      duplicateThreshold: 3,
     };
 
-    let consecutiveDuplicates = 0;
     let processedCount = 0;
 
     for (const listInfo of jobListData) {
@@ -224,46 +202,17 @@ async function crawlCategoryPage(page, categoryUrl, category, cutoffDate, config
         break;
       }
 
-      // 연속 중복 시 중단
-      if (consecutiveDuplicates >= SAFETY.duplicateThreshold) {
-        break;
-      }
-
-      // 날짜 필터링
-      if (listInfo.registeredDate) {
-        // 날짜 형식 정규화: "2026.01.05" -> "2026-01-05"
-        const dateStr = listInfo.registeredDate
-          .replace(/\./g, '-')
-          .replace(/\//g, '-')
-          .replace(/-+$/, '')
-          .trim();
-        const postDate = new Date(dateStr);
-        postDate.setHours(0, 0, 0, 0);
-
-        if (postDate < cutoffDate) {
-          if (listInfo.isNotice) continue;
-          // 날짜 제한 도달 시 이 카테고리 크롤링 종료
-          break;
-        }
-      }
-
       // 상세 URL 생성
       const detailUrl = `https://www.cne.go.kr/boardCnts/view.do?boardID=${listInfo.boardId}&boardSeq=${listInfo.boardSeq}&lev=${listInfo.lev}&searchType=null&statusYN=${listInfo.statusYN}&page=${listInfo.currPage}&s=cne&m=020201&opType=N`;
 
-      // 중복 체크
+      // 중복 체크 (source_url 기준)
       const existing = await getExistingJobBySource(detailUrl);
 
       if (existing) {
-        consecutiveDuplicates++;
         skippedCount++;
-        if (consecutiveDuplicates >= SAFETY.duplicateThreshold) {
-          break;
-        }
         continue;
       }
 
-      // 신규 공고 발견 - 중복 카운터 리셋
-      consecutiveDuplicates = 0;
       processedCount++;
 
       console.log(`   🔍 [${category.name}] ${listInfo.title.substring(0, 40)}...`);

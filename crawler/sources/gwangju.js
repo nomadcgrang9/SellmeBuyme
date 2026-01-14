@@ -1,6 +1,10 @@
+import { getExistingJobBySource } from '../lib/supabase.js';
 
 /**
  * 광주광역시교육청 크롤러
+ *
+ * 규칙: 게시판 1페이지(최신 페이지)만 크롤링
+ * - 중복된 것만 제외 (source_url 기준)
  */
 export async function crawlGwangju(page, config) {
     console.log(`\n📍 ${config.name} 크롤링 시작`);
@@ -12,85 +16,55 @@ export async function crawlGwangju(page, config) {
     });
 
     let jobs = [];
+    let skippedCount = 0;
 
     try {
-        const cutoffDate = getCutoffDate();
-        console.log(`📅 수집 기준: ${cutoffDate.toISOString().split('T')[0]} 이후 데이터`);
-
-        // Phase 1: 목록 수집
+        // Phase 1: 목록 1페이지 수집
         const collectedItems = [];
-        let stopCrawling = false;
-        let pageNum = 1;
-        const maxPages = 10;
 
-        while (!stopCrawling && pageNum <= maxPages) {
-            console.log(`📄 목록 페이지 ${pageNum} 접근 중...`);
-            const listUrl = `${config.baseUrl}&page=${pageNum}`;
-            await page.goto(listUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+        console.log(`📄 목록 페이지 1 크롤링...`);
+        const listUrl = `${config.baseUrl}&page=1`;
+        await page.goto(listUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
 
-            const rows = await page.$$('table tbody tr');
-            if (rows.length === 0) break;
+        const rows = await page.$$('table tbody tr');
 
-            let validItemsInPage = 0;
+        for (const row of rows) {
+            const columns = await row.$$('td');
+            if (columns.length < 5) continue;
 
-            for (const row of rows) {
-                const columns = await row.$$('td');
-                if (columns.length < 5) continue;
+            const numText = await columns[0].textContent().then(t => t.trim());
+            const titleText = await columns[2].innerText().then(t => t.trim());
+            const dateText = await columns[4].textContent().then(t => t.trim());
+            const linkEl = await columns[2].$('a');
 
-                const numText = await columns[0].textContent().then(t => t.trim());
-                const titleText = await columns[2].innerText().then(t => t.trim());
-                const dateText = await columns[4].textContent().then(t => t.trim()); // 2025.01.02
-                const linkEl = await columns[2].$('a');
+            if (!titleText || !linkEl) continue;
+            const linkHref = await linkEl.getAttribute('href');
 
-                if (!titleText || !linkEl) continue;
-                const linkHref = await linkEl.getAttribute('href');
-
-                // 날짜 파싱
-                let postDate = null;
-                const dateParts = dateText.split('.');
-                if (dateParts.length === 3) {
-                    postDate = new Date(`${dateParts[0]}-${dateParts[1]}-${dateParts[2]}`);
-                    postDate.setHours(0, 0, 0, 0);
-                }
-
-                const isNotice = numText === '공지';
-
-                // 날짜 필터링
-                if (postDate) {
-                    if (postDate < cutoffDate) {
-                        if (isNotice) continue;
-                        stopCrawling = true;
-                        console.log(`  🛑 날짜 제한 도달 (${dateText})`);
-                        continue;
-                    }
-                }
-
-                // 링크 절대경로 변환
-                let fullLink = linkHref;
-                if (linkHref && !linkHref.startsWith('http')) {
-                    fullLink = new URL(linkHref, config.baseUrl).href;
-                }
-
-                collectedItems.push({
-                    title: titleText,
-                    date: dateText.replace(/\./g, '-'),
-                    link: fullLink,
-                    schoolName: "광주광역시교육청",
-                });
-                validItemsInPage++;
+            // 링크 절대경로 변환
+            let fullLink = linkHref;
+            if (linkHref && !linkHref.startsWith('http')) {
+                fullLink = new URL(linkHref, config.baseUrl).href;
             }
 
-            if (validItemsInPage === 0 && stopCrawling) break;
-            pageNum++;
+            collectedItems.push({
+                title: titleText,
+                date: dateText.replace(/\./g, '-'),
+                link: fullLink,
+                schoolName: "광주광역시교육청",
+            });
         }
 
-        console.log(`✅ Phase 1 완료: 총 ${collectedItems.length}개 링크 식별`);
+        console.log(`✅ Phase 1 완료: ${collectedItems.length}개 링크 식별 (1페이지)`);
 
-        // Phase 2: 상세 수집
-        const batchSize = config.crawlBatchSize || 10;
-        // 최대 batchSize만큼만 처리하도록 제한 (또는 전체 처리)
-        // 여기서는 전체 처리를 하되, 필요시 slice
+        // Phase 2: 상세 수집 (중복만 제외)
         for (const item of collectedItems) {
+            // 중복 체크 (source_url 기준)
+            const existing = await getExistingJobBySource(item.link);
+            if (existing) {
+                skippedCount++;
+                continue;
+            }
+
             console.log(`  🔍 상세 크롤링: ${item.title}`);
             try {
                 const detailData = await crawlDetailPage(page, item.link);
@@ -110,24 +84,11 @@ export async function crawlGwangju(page, config) {
         throw error;
     }
 
+    console.log(`\n✅ ${config.name} 크롤링 완료`);
+    console.log(`   - 신규: ${jobs.length}개`);
+    console.log(`   - 중복 스킵: ${skippedCount}개\n`);
+
     return jobs;
-}
-
-function getCutoffDate() {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const mode = process.env.CRAWL_MODE || 'initial';
-
-    // test 모드: 날짜 필터 없음
-    if (mode === 'test') {
-        return new Date('2020-01-01');
-    }
-
-    // daily 모드: 오늘만, initial 모드: 2일 전부터
-    const daysToSubtract = (mode === 'daily') ? 0 : 2;
-    const cutoffDate = new Date(today);
-    cutoffDate.setDate(today.getDate() - daysToSubtract);
-    return cutoffDate;
 }
 
 async function crawlDetailPage(page, url) {

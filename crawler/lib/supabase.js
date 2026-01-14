@@ -321,21 +321,91 @@ export async function saveJobPosting(jobData, crawlSourceId, hasContentImages = 
 }
 
 /**
- * 크롤링 성공 시간 업데이트
+ * 크롤링 성공 시간 업데이트 (crawl_boards 테이블)
+ * @param {string} crawlBoardId - crawl_boards 테이블의 ID
+ * @param {object} stats - 크롤링 통계 (선택적)
  */
-export async function updateCrawlSuccess(crawlSourceId) {
-  await supabase
-    .from('crawl_sources')
+export async function updateCrawlSuccess(crawlBoardId, stats = {}) {
+  const now = new Date().toISOString();
+
+  // 1. crawl_boards 테이블의 last_crawled_at 업데이트
+  const { error: boardError } = await supabase
+    .from('crawl_boards')
     .update({
-      last_successful: new Date().toISOString(),
-      error_count: 0
+      last_crawled_at: now
     })
-    .eq('id', crawlSourceId);
+    .eq('id', crawlBoardId);
+
+  if (boardError) {
+    console.warn(`⚠️ crawl_boards 업데이트 실패: ${boardError.message}`);
+  } else {
+    console.log(`✅ crawl_boards.last_crawled_at 업데이트 완료 (board_id: ${crawlBoardId})`);
+  }
+
+  // 2. crawl_logs 테이블에 성공 로그 기록
+  const { error: logError } = await supabase
+    .from('crawl_logs')
+    .insert({
+      board_id: crawlBoardId,
+      status: 'success',
+      started_at: now,
+      completed_at: now,
+    });
+
+  if (logError) {
+    console.warn(`⚠️ crawl_logs 기록 실패: ${logError.message}`);
+  } else {
+    console.log(`✅ crawl_logs 성공 기록 완료`);
+  }
+
+  // 통계 정보 로깅
+  if (stats.jobsFound !== undefined) {
+    console.log(`📊 크롤링 통계: 발견 ${stats.jobsFound}개, 저장 ${stats.jobsSaved || 0}개, 스킵 ${stats.jobsSkipped || 0}개`);
+  }
 }
 
 /**
- * 크롤링 실패 카운트 증가
+ * 크롤링 실패 기록 (crawl_boards + crawl_logs)
+ * @param {string} crawlBoardId - crawl_boards 테이블의 ID
+ * @param {string} errorMessage - 오류 메시지
+ */
+export async function recordCrawlFailure(crawlBoardId, errorMessage) {
+  const now = new Date().toISOString();
+
+  // 1. crawl_boards 테이블 업데이트
+  const { error: boardError } = await supabase
+    .from('crawl_boards')
+    .update({
+      last_crawled_at: now
+    })
+    .eq('id', crawlBoardId);
+
+  if (boardError) {
+    console.warn(`⚠️ crawl_boards 실패 업데이트 오류: ${boardError.message}`);
+  }
+
+  // 2. crawl_logs 테이블에 실패 로그 기록
+  const { error: logError } = await supabase
+    .from('crawl_logs')
+    .insert({
+      board_id: crawlBoardId,
+      status: 'failed',
+      started_at: now,
+      completed_at: now,
+      error_log: errorMessage,
+    });
+
+  if (logError) {
+    console.warn(`⚠️ crawl_logs 실패 기록 오류: ${logError.message}`);
+  }
+
+  console.log(`❌ 크롤링 실패 기록 완료 (board_id: ${crawlBoardId}, error: ${errorMessage})`);
+}
+
+/**
+ * 크롤링 실패 카운트 증가 (deprecated - recordCrawlFailure 사용)
  */
 export async function incrementErrorCount(crawlSourceId) {
-  await supabase.rpc('increment_error_count', { source_id: crawlSourceId });
+  // 구버전 호환성 유지
+  await recordCrawlFailure(crawlSourceId, 'Unknown error');
 }

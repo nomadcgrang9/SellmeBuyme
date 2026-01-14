@@ -1,7 +1,7 @@
 import { readFileSync, writeFileSync, unlinkSync } from 'fs';
 import { createBrowser } from './lib/playwright.js';
 import { normalizeJobData, validateJobData, analyzePageScreenshot, structureDetailContent, inferMissingJobAttributes } from './lib/gemini.js';
-import { getOrCreateCrawlSource, saveJobPosting, updateCrawlSuccess, incrementErrorCount, getExistingJobBySource, supabase } from './lib/supabase.js';
+import { getOrCreateCrawlSource, saveJobPosting, updateCrawlSuccess, incrementErrorCount, recordCrawlFailure, getExistingJobBySource, supabase } from './lib/supabase.js';
 import { crawlGyeonggi } from './sources/gyeonggi.js';
 import { crawlGyeongnam } from './sources/gyeongnam.js';
 import { crawlNttPattern } from './sources/nttPattern.js';
@@ -375,8 +375,12 @@ async function main() {
         }
       }
 
-      // 8. 크롤링 성공 업데이트
-      await updateCrawlSuccess(crawlSourceId);
+      // 8. 크롤링 성공 업데이트 (통계 포함)
+      await updateCrawlSuccess(crawlSourceId, {
+        jobsFound: jobs.length,
+        jobsSaved: successCount,
+        jobsSkipped: skippedCount
+      });
 
       // 9. 정리
       await browser.close();
@@ -402,6 +406,7 @@ async function main() {
   let failCount = 0;
   let skippedCount = 0;
   let rawJobs = [];
+  let crawlSourceId = null;
 
   try {
     // 토큰 사용량 초기화
@@ -438,7 +443,7 @@ async function main() {
     }
 
     const crawlSourceInfo = await getOrCreateCrawlSource(config);
-    const crawlSourceId = crawlSourceInfo.id;
+    crawlSourceId = crawlSourceInfo.id;
     const crawlBatchSize = crawlSourceInfo.crawlBatchSize || 10;
 
     logStep('main', '크롤링 소스 정보 확보', { crawlSourceId, crawlBatchSize });
@@ -516,7 +521,7 @@ async function main() {
 
     if (rawJobs.length === 0) {
       logWarn('crawler', '수집된 공고 없음, HTML 구조 변경 의심', { targetSource });
-      await incrementErrorCount(crawlSourceId);
+      await recordCrawlFailure(crawlSourceId, '수집된 공고 없음 - HTML 구조 변경 의심');
       process.exit(0);
     }
 
@@ -931,12 +936,20 @@ async function main() {
       }
     }
 
-    // 7. 성공 시간 업데이트
+    // 7. 성공 시간 업데이트 (통계 포함)
     logStep('supabase', '크롤링 성공 시간 업데이트', { crawlSourceId });
-    await updateCrawlSuccess(crawlSourceId);
+    await updateCrawlSuccess(crawlSourceId, {
+      jobsFound: rawJobs.length,
+      jobsSaved: successCount,
+      jobsSkipped: skippedCount
+    });
 
   } catch (error) {
     logError('main', '크롤링 실패', error, { targetSource });
+    // 실패 로그 기록
+    if (crawlSourceId) {
+      await recordCrawlFailure(crawlSourceId, error.message || '알 수 없는 오류');
+    }
     process.exit(1);
   } finally {
     if (browser) {

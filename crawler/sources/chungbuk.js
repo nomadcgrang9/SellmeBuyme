@@ -28,28 +28,10 @@ function extractRegionFromText(text) {
 }
 
 /**
- * 날짜 컷오프 계산
- */
-function getCutoffDate() {
-  const mode = process.env.CRAWL_MODE || 'initial';
-
-  // 테스트 모드: 날짜 필터 없음
-  if (mode === 'test') {
-    return new Date('2020-01-01');
-  }
-
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  // daily 모드: 오늘만, initial 모드: 2일 전부터
-  const daysToSubtract = (mode === 'daily') ? 0 : 2;
-  const cutoffDate = new Date(today);
-  cutoffDate.setDate(today.getDate() - daysToSubtract);
-  return cutoffDate;
-}
-
-/**
  * 충청북도교육청 크롤러 메인 함수
+ *
+ * 규칙: 게시판 1페이지(최신 페이지)만 크롤링
+ * - 중복된 것만 제외 (source_url 기준)
  */
 export async function crawlChungbuk(page, config) {
   console.log(`\n📍 ${config.name} 크롤링 시작`);
@@ -58,9 +40,6 @@ export async function crawlChungbuk(page, config) {
   let skippedCount = 0;
 
   try {
-    const cutoffDate = getCutoffDate();
-    console.log(`📅 수집 기준: ${cutoffDate.toISOString().split('T')[0]} 이후`);
-
     // 1. 목록 페이지 로드
     console.log(`🌐 목록 페이지 접속: ${config.baseUrl}`);
     await page.goto(config.baseUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
@@ -175,13 +154,11 @@ export async function crawlChungbuk(page, config) {
       return [];
     }
 
-    // 3. 각 공고 상세 페이지 크롤링 (중복 발견 시 중단)
+    // 3. 각 공고 상세 페이지 크롤링 (중복만 제외)
     const SAFETY = {
       maxItems: 100,
-      duplicateThreshold: 3,
     };
 
-    let consecutiveDuplicates = 0;
     let processedCount = 0;
 
     for (const listInfo of jobListData) {
@@ -191,48 +168,17 @@ export async function crawlChungbuk(page, config) {
         break;
       }
 
-      // 연속 중복 시 중단
-      if (consecutiveDuplicates >= SAFETY.duplicateThreshold) {
-        break;
-      }
-
-      // 날짜 필터링
-      if (listInfo.registeredDate) {
-        // 날짜 형식 정규화: "2026.01.05." -> "2026-01-05"
-        const dateStr = listInfo.registeredDate
-          .replace(/\./g, '-')
-          .replace(/\//g, '-')
-          .replace(/-+$/, '')  // 끝의 불필요한 - 제거
-          .trim();
-        const postDate = new Date(dateStr);
-        postDate.setHours(0, 0, 0, 0);
-
-        if (postDate < cutoffDate) {
-          if (listInfo.isNotice) continue;
-          console.log(`  🛑 날짜 제한 도달 (${listInfo.registeredDate} < ${cutoffDate.toISOString().split('T')[0]})`);
-          break;
-        }
-      }
-
       const nttId = listInfo.nttId;
       const detailUrl = `${config.detailUrlTemplate}${nttId}`;
 
-      // 중복 체크
+      // 중복 체크 (source_url 기준)
       const existing = await getExistingJobBySource(detailUrl);
 
       if (existing) {
-        consecutiveDuplicates++;
         skippedCount++;
-        console.log(`  ⏭️ 중복 ${consecutiveDuplicates}/${SAFETY.duplicateThreshold}: ${listInfo.title?.substring(0, 30)}...`);
-
-        if (consecutiveDuplicates >= SAFETY.duplicateThreshold) {
-          console.log(`  🛑 연속 ${SAFETY.duplicateThreshold}개 중복 - 기존 영역 도달, 크롤링 완료`);
-        }
         continue;
       }
 
-      // 신규 공고 발견 - 중복 카운터 리셋
-      consecutiveDuplicates = 0;
       processedCount++;
 
       console.log(`\n  🔍 신규 공고 ${processedCount} (ID: ${nttId})`);
