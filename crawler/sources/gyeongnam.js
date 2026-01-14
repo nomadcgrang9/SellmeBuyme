@@ -176,7 +176,7 @@ export async function crawlGyeongnam(page, config) {
         // 지역 정보 결정
         const location = listInfo.region ? `경상남도 ${listInfo.region}` : '경상남도';
 
-        // 데이터 병합
+        // 데이터 병합 (index.js가 기대하는 형식으로)
         const jobData = {
           organization: '경상남도교육청',
           title: listInfo.title,
@@ -188,7 +188,8 @@ export async function crawlGyeongnam(page, config) {
           schoolLevel: 'mixed',
           subject: null,
           requiredLicense: null,
-          sourceUrl: detailUrl,
+          link: detailUrl,  // index.js가 rawJob.link로 접근
+          detailContent: detailData.content,  // index.js가 rawJob.detailContent로 접근
           crawledAt: new Date().toISOString(),
           structuredContent: {
             regSn: regSn,
