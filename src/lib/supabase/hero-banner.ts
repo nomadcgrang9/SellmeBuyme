@@ -4,7 +4,12 @@ import type {
     HeroBanner,
     UpdateHeroBannerConfigInput,
     CreateHeroBannerInput,
-    UpdateHeroBannerInput
+    UpdateHeroBannerInput,
+    NativeBannerConfig,
+    NativeBanner,
+    UpdateNativeBannerConfigInput,
+    CreateNativeBannerInput,
+    UpdateNativeBannerInput,
 } from '@/types/hero-banner';
 
 // ========================================
@@ -250,6 +255,206 @@ function mapBannerFromDb(row: Record<string, unknown>): HeroBanner {
         icon: row.icon as string | undefined,
         bgColor: row.bg_color as string,
         textColor: row.text_color as string,
+        linkUrl: row.link_url as string | undefined,
+        displayOrder: row.display_order as number,
+        isActive: row.is_active as boolean,
+        createdAt: row.created_at as string,
+        updatedAt: row.updated_at as string
+    };
+}
+
+// ========================================
+// Native Banner Functions
+// ========================================
+
+/**
+ * 네이티브 배너 설정 조회
+ */
+export async function getNativeBannerConfig(): Promise<NativeBannerConfig | null> {
+    const { data, error } = await supabase
+        .from('native_banner_config')
+        .select('*')
+        .limit(1)
+        .maybeSingle();
+
+    if (error) {
+        console.error('Error fetching native banner config:', error);
+        return null;
+    }
+
+    if (!data) return null;
+    return mapNativeConfigFromDb(data);
+}
+
+/**
+ * 네이티브 배너 설정 업데이트 (없으면 생성)
+ */
+export async function updateNativeBannerConfig(
+    updates: UpdateNativeBannerConfigInput
+): Promise<NativeBannerConfig | null> {
+    const current = await getNativeBannerConfig();
+    const dbUpdates: Record<string, unknown> = {
+        updated_at: new Date().toISOString()
+    };
+    if (updates.isActive !== undefined) dbUpdates.is_active = updates.isActive;
+    if (updates.insertionInterval !== undefined) dbUpdates.insertion_interval = updates.insertionInterval;
+
+    let query;
+    if (current) {
+        query = supabase
+            .from('native_banner_config')
+            .update(dbUpdates)
+            .eq('id', current.id)
+            .select()
+            .single();
+    } else {
+        query = supabase
+            .from('native_banner_config')
+            .insert({
+                is_active: updates.isActive ?? true,
+                insertion_interval: updates.insertionInterval ?? 5,
+                ...dbUpdates
+            })
+            .select()
+            .single();
+    }
+    const { data, error } = await query;
+    if (error) {
+        console.error('Error updating native banner config:', error);
+        return null;
+    }
+    return mapNativeConfigFromDb(data);
+}
+
+/**
+ * 네이티브 배너 목록 조회
+ */
+export async function getNativeBanners(filterActive: boolean = false): Promise<NativeBanner[]> {
+    let query = supabase.from('native_banners').select('*').order('display_order');
+    if (filterActive) {
+        query = query.eq('is_active', true);
+    }
+    const { data, error } = await query;
+    if (error) {
+        console.error('Error fetching native banners:', error);
+        return [];
+    }
+    return data.map(mapNativeBannerFromDb);
+}
+
+/**
+ * 네이티브 배너 생성
+ */
+export async function createNativeBanner(
+    input: CreateNativeBannerInput
+): Promise<NativeBanner | null> {
+    const { data, error } = await supabase
+        .from('native_banners')
+        .insert({
+            image_url: input.imageUrl,
+            link_url: input.linkUrl,
+            display_order: input.displayOrder || 0,
+            is_active: input.isActive ?? true,
+        })
+        .select()
+        .single();
+
+    if (error) {
+        console.error('Error creating native banner:', error);
+        return null;
+    }
+    return mapNativeBannerFromDb(data);
+}
+
+/**
+ * 네이티브 배너 수정
+ */
+export async function updateNativeBanner(
+    id: string,
+    updates: UpdateNativeBannerInput
+): Promise<NativeBanner | null> {
+    const dbUpdates: Record<string, unknown> = {
+        updated_at: new Date().toISOString()
+    };
+    if (updates.imageUrl !== undefined) dbUpdates.image_url = updates.imageUrl;
+    if (updates.linkUrl !== undefined) dbUpdates.link_url = updates.linkUrl;
+    if (updates.displayOrder !== undefined) dbUpdates.display_order = updates.displayOrder;
+    if (updates.isActive !== undefined) dbUpdates.is_active = updates.isActive;
+
+    const { data, error } = await supabase
+        .from('native_banners')
+        .update(dbUpdates)
+        .eq('id', id)
+        .select()
+        .single();
+
+    if (error) {
+        console.error('Error updating native banner:', error);
+        return null;
+    }
+    return mapNativeBannerFromDb(data);
+}
+
+/**
+ * 네이티브 배너 삭제
+ */
+export async function deleteNativeBanner(id: string): Promise<boolean> {
+    const { error } = await supabase
+        .from('native_banners')
+        .delete()
+        .eq('id', id);
+    if (error) {
+        console.error('Error deleting native banner:', error);
+        return false;
+    }
+    return true;
+}
+
+/**
+ * 네이티브 배너 이미지 업로드
+ */
+export async function uploadNativeBannerImage(file: File): Promise<string | null> {
+    try {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${Date.now()}_${Math.random().toString(36).substring(2)}.${fileExt}`;
+        // native-banners 버킷의 최상위에 저장
+        const filePath = `${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+            .from('native-banners')
+            .upload(filePath, file);
+
+        if (uploadError) {
+            console.error('Error uploading image:', uploadError);
+            return null;
+        }
+
+        const { data: { publicUrl } } = supabase.storage
+            .from('native-banners')
+            .getPublicUrl(filePath);
+
+        return publicUrl;
+    } catch (error) {
+        console.error('Upload exception:', error);
+        return null;
+    }
+}
+
+// 매핑 함수 추가
+function mapNativeConfigFromDb(row: Record<string, unknown>): NativeBannerConfig {
+    return {
+        id: row.id as string,
+        isActive: row.is_active as boolean,
+        insertionInterval: row.insertion_interval as number,
+        createdAt: row.created_at as string,
+        updatedAt: row.updated_at as string
+    };
+}
+
+function mapNativeBannerFromDb(row: Record<string, unknown>): NativeBanner {
+    return {
+        id: row.id as string,
+        imageUrl: row.image_url as string,
         linkUrl: row.link_url as string | undefined,
         displayOrder: row.display_order as number,
         isActive: row.is_active as boolean,

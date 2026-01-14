@@ -46,3 +46,44 @@ export interface UpdateHeroBannerInput {
     displayOrder?: number;
     isActive?: boolean;
 }
+
+// ========================================
+// Native Banner Types
+// ========================================
+
+export interface NativeBannerConfig {
+    id: string;
+    isActive: boolean;
+    insertionInterval: number;
+    createdAt: string;
+    updatedAt: string;
+}
+
+export interface NativeBanner {
+    id: string;
+    imageUrl: string;
+    linkUrl?: string;
+    displayOrder: number;
+    isActive: boolean;
+    createdAt: string;
+    updatedAt: string;
+}
+
+export interface UpdateNativeBannerConfigInput {
+    isActive?: boolean;
+    insertionInterval?: number;
+}
+
+export interface CreateNativeBannerInput {
+    imageUrl: string;
+    linkUrl?: string;
+    displayOrder?: number;
+    isActive?: boolean;
+}
+
+export interface UpdateNativeBannerInput {
+    imageUrl?: string;
+    linkUrl?: string;
+    displayOrder?: number;
+    isActive?: boolean;
+}

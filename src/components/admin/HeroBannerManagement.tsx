@@ -17,7 +17,11 @@ import {
     IconSchool,
     IconSpeakerphone,
     IconConfetti,
-    IconBriefcase
+    IconBriefcase,
+    IconPhoto,
+    IconLink,
+    IconUpload,
+    IconX
 } from '@tabler/icons-react';
 import {
     getHeroBannerConfig,
@@ -25,9 +29,16 @@ import {
     updateHeroBannerConfig,
     createHeroBanner,
     updateHeroBanner,
-    deleteHeroBanner
+    deleteHeroBanner,
+    getNativeBannerConfig,
+    getNativeBanners,
+    updateNativeBannerConfig,
+    createNativeBanner,
+    updateNativeBanner,
+    deleteNativeBanner as deleteNativeBannerApi,
+    uploadNativeBannerImage
 } from '@/lib/supabase/hero-banner';
-import type { HeroBanner, HeroBannerConfig } from '@/types/hero-banner';
+import type { HeroBanner, HeroBannerConfig, NativeBanner, NativeBannerConfig } from '@/types/hero-banner';
 
 // ----------------------------------------------------------------------
 // Icons Map
@@ -41,12 +52,12 @@ const ICON_MAP: Record<string, React.ReactNode> = {
 };
 
 const ICON_OPTIONS = [
-    { value: 'none', label: '없음' },
-    { value: 'search', label: '돋보기 (검색)' },
-    { value: 'school', label: '학교' },
-    { value: 'notice', label: '확성기 (공지)' },
-    { value: 'party', label: '폭죽 (이벤트)' },
-    { value: 'bag', label: '가방 (채용)' },
+    { value: 'none', label: '?�음' },
+    { value: 'search', label: '?�보�?(검??' },
+    { value: 'school', label: '?�교' },
+    { value: 'notice', label: '?�성�?(공�?)' },
+    { value: 'party', label: '??�� (?�벤??' },
+    { value: 'bag', label: '가�?(채용)' },
 ];
 
 // ----------------------------------------------------------------------
@@ -60,55 +71,55 @@ interface PreviewProps {
 }
 
 function HeroBannerPreview({ banners, config, activeIndex }: PreviewProps) {
-    // 실제 렌더링될 배너 필터링 (활성화된 것만)
-    // 관리자 모드에서는 모든 배너를 보여주되, 비활성화된 것은 흐릿하게 처리하는 등의 UX가 필요할 수 있음
-    // 하지만 여기서는 선택된 배너를 보여주거나 캐러셀 동작을 시뮬레이션
+    // ?�제 ?�더링될 배너 ?�터�?(?�성?�된 것만)
+    // 관리자 모드?�서??모든 배너�?보여주되, 비활?�화??것�? ?�릿?�게 처리?�는 ?�의 UX가 ?�요?????�음
+    // ?��?�??�기?�는 ?�택??배너�?보여주거??캐러?� ?�작???��??�이??
 
     const currentBanner = banners[activeIndex];
 
     if (!currentBanner) {
         return (
             <div className="w-[240px] h-[100px] bg-gray-100 rounded-lg flex items-center justify-center text-xs text-gray-400">
-                배너가 없습니다
+                배너가 ?�습?�다
             </div>
         );
     }
 
-    // 글자 수 체크
+    // 글????체크
     const titleLen = currentBanner.title.length;
     const subtitleLen = currentBanner.subtitle?.length || 0;
     const isTitleOver = titleLen > 14;
     const isSubtitleOver = subtitleLen > 14;
-    const isTotalOver = titleLen + subtitleLen > 30; // 대략적인 기준
+    const isTotalOver = titleLen + subtitleLen > 30; // ?�?�적??기�?
 
     return (
         <div className="flex flex-col gap-4">
             <div className="flex items-center justify-between text-xs text-slate-500 mb-2">
-                <span className="font-semibold">실제 크기 미리보기 (240px)</span>
+                <span className="font-semibold">?�제 ?�기 미리보기 (240px)</span>
                 {currentBanner.isActive ? (
-                    <span className="text-green-600 flex items-center gap-1"><IconCheck size={12} /> 노출 중</span>
+                    <span className="text-green-600 flex items-center gap-1"><IconCheck size={12} /> ?�출 �?/span>
                 ) : (
-                    <span className="text-slate-400">비활성화됨</span>
+                    <span className="text-slate-400">비활?�화??/span>
                 )}
             </div>
 
-            {/* 배너 미리보기 컨테이너 (실제 Hero 영역 시뮬레이션) */}
+            {/* 배너 미리보기 컨테?�너 (?�제 Hero ?�역 ?��??�이?? */}
             <div className="w-[240px] bg-white border border-gray-200 p-3 rounded-xl shadow-sm">
-                {/* Hero Card 영역 */}
+                {/* Hero Card ?�역 */}
                 <div className="mx-0 my-0 flex-shrink-0">
                     <div
                         className="rounded-lg px-4 py-4 transition-all duration-300 relative overflow-hidden"
                         style={{ backgroundColor: currentBanner.bgColor }}
                     >
                         <div className="flex items-start gap-3">
-                            {/* 아이콘 */}
+                            {/* ?�이�?*/}
                             {currentBanner.icon && ICON_MAP[currentBanner.icon] && (
                                 <div style={{ color: currentBanner.textColor }} className="mt-0.5 flex-shrink-0">
                                     {ICON_MAP[currentBanner.icon]}
                                 </div>
                             )}
 
-                            {/* 텍스트 */}
+                            {/* ?�스??*/}
                             <div className="flex-1 min-w-0">
                                 <p
                                     className="text-sm font-semibold leading-snug break-keep"
@@ -125,7 +136,7 @@ function HeroBannerPreview({ banners, config, activeIndex }: PreviewProps) {
                             </div>
                         </div>
 
-                        {/* 인디케이터 (배너가 2개 이상일 때) */}
+                        {/* ?�디케?�터 (배너가 2�??�상???? */}
                         {banners.filter(b => b.isActive).length > 1 && (
                             <div className="flex gap-1 mt-3 justify-center">
                                 {banners.filter(b => b.isActive).map((_, idx) => (
@@ -138,11 +149,11 @@ function HeroBannerPreview({ banners, config, activeIndex }: PreviewProps) {
                                         }}
                                     />
                                 ))}
-                                {/* 활성 인디케이터 덮어쓰기 시뮬레이션은 생략하거나 단순히 첫번째꺼 진하게 */}
+                                {/* ?�성 ?�디케?�터 ??��?�기 ?��??�이?��? ?�략?�거???�순??첫번째꺼 진하�?*/}
                                 <div
                                     className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex gap-1"
                                 >
-                                    {/* 실제로는 active index에 따라 다름 */}
+                                    {/* ?�제로는 active index???�라 ?�름 */}
                                 </div>
                             </div>
                         )}
@@ -155,11 +166,11 @@ function HeroBannerPreview({ banners, config, activeIndex }: PreviewProps) {
                 <div className="flex items-start gap-2 text-xs text-amber-600 bg-amber-50 p-2 rounded border border-amber-200">
                     <IconExclamationCircle size={16} className="flex-shrink-0 mt-0.5" />
                     <div>
-                        <p className="font-bold">텍스트 길이 주의</p>
-                        <p>모바일 화면에서 줄바꿈이 과도하게 발생할 수 있습니다.</p>
+                        <p className="font-bold">?�스??길이 주의</p>
+                        <p>모바???�면?�서 줄바꿈이 과도?�게 발생?????�습?�다.</p>
                         <ul className="list-disc list-inside mt-1 space-y-0.5 opacity-80">
-                            {isTitleOver && <li>제목이 14자를 초과함 ({titleLen}자)</li>}
-                            {isSubtitleOver && <li>부제가 14자를 초과함 ({subtitleLen}자)</li>}
+                            {isTitleOver && <li>?�목??14?��? 초과??({titleLen}??</li>}
+                            {isSubtitleOver && <li>부?��? 14?��? 초과??({subtitleLen}??</li>}
                         </ul>
                     </div>
                 </div>
@@ -185,6 +196,85 @@ export default function HeroBannerManagement() {
     const [editingBannerId, setEditingBannerId] = useState<string | null>(null);
     const [previewBannerIndex, setPreviewBannerIndex] = useState(0);
 
+    // Native Banner State
+    const [nativeConfig, setNativeConfig] = useState<NativeBannerConfig | null>(null);
+    const [nativeBanners, setNativeBanners] = useState<NativeBanner[]>([]);
+    const [editingNativeId, setEditingNativeId] = useState<string | null>(null);
+
+    const handleNativeConfigChange = async (key: string, value: any) => {
+        if (!nativeConfig) return;
+        const updated = { ...nativeConfig, [key]: value };
+        setNativeConfig(updated);
+        // Debounce ?�이 즉시 ?�??(간단??구현)
+        try {
+            await updateNativeBannerConfig({ isActive: updated.isActive, insertionInterval: updated.insertionInterval });
+        } catch (e) {
+            console.error('Failed to update native config:', e);
+        }
+    };
+
+    const handleAddNativeBanner = async () => {
+        try {
+            const created = await createNativeBanner({
+                imageUrl: '',
+                linkUrl: '',
+                displayOrder: nativeBanners.length,
+                isActive: true
+            });
+            if (created) {
+                setNativeBanners(prev => [...prev, created]);
+                setEditingNativeId(created.id);
+            }
+        } catch (e) {
+            console.error('Failed to create native banner:', e);
+            alert('배너 추�? ?�패');
+        }
+    };
+
+    const handleDeleteNativeBanner = async (id: string) => {
+        if (!window.confirm('?�말 ??��?�시겠습?�까?')) return;
+        try {
+            const success = await deleteNativeBannerApi(id);
+            if (success) {
+                setNativeBanners(prev => prev.filter(b => b.id !== id));
+                if (editingNativeId === id) setEditingNativeId(null);
+            }
+        } catch (e) {
+            console.error('Failed to delete native banner:', e);
+            alert('??�� ?�패');
+        }
+    };
+
+    const handleNativeBannerChange = async (id: string, field: string, value: any) => {
+        // 로컬 ?�태 먼�? ?�데?�트 (즉각?�인 UI 반영)
+        setNativeBanners(prev => prev.map(b => b.id === id ? { ...b, [field]: value } : b));
+        // DB ?�데?�트
+        try {
+            await updateNativeBanner(id, { [field]: value });
+        } catch (e) {
+            console.error('Failed to update native banner:', e);
+        }
+    };
+
+    const handleNativeImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, bannerId: string) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        try {
+            setIsSaving(true);
+            const publicUrl = await uploadNativeBannerImage(file);
+            if (publicUrl) {
+                await handleNativeBannerChange(bannerId, 'imageUrl', publicUrl);
+            } else {
+                alert('?��?지 ?�로???�패');
+            }
+        } catch (error) {
+            console.error('Upload failed', error);
+            alert('?��?지 ?�로???�패');
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
     // Initial Load
     useEffect(() => {
         loadData();
@@ -193,12 +283,14 @@ export default function HeroBannerManagement() {
     const loadData = async () => {
         setIsLoading(true);
         try {
-            const [configData, bannersData] = await Promise.all([
+            const [configData, bannersData, nativeConfigData, nativeBannersData] = await Promise.all([
                 getHeroBannerConfig(),
-                getAllHeroBanners()
+                getAllHeroBanners(),
+                getNativeBannerConfig(),
+                getNativeBanners()
             ]);
 
-            // Config가 없으면 기본값으로 생성해야 함 (여기선 null 처리만 하고 저장 시 생성)
+            // Hero Banner Config
             setConfig(configData || {
                 id: '',
                 isActive: true,
@@ -211,9 +303,23 @@ export default function HeroBannerManagement() {
             if (bannersData.length > 0) {
                 setEditingBannerId(bannersData[0].id);
             }
+
+            // Native Banner Config
+            setNativeConfig(nativeConfigData || {
+                id: '',
+                isActive: true,
+                insertionInterval: 5,
+                createdAt: '',
+                updatedAt: ''
+            });
+            setNativeBanners(nativeBannersData);
+
+            if (nativeBannersData.length > 0) {
+                setEditingNativeId(nativeBannersData[0].id);
+            }
         } catch (e) {
             console.error(e);
-            alert('데이터를 불러오는 중 오류가 발생했습니다.');
+            alert('?�이?��? 불러?�는 �??�류가 발생?�습?�다.');
         } finally {
             setIsLoading(false);
         }
@@ -236,10 +342,10 @@ export default function HeroBannerManagement() {
                 isActive: config.isActive,
                 rotationSpeed: config.rotationSpeed
             });
-            alert('설정이 저장되었습니다.');
+            alert('?�정???�?�되?�습?�다.');
         } catch (e) {
             console.error(e);
-            alert('저장 실패');
+            alert('?�???�패');
         } finally {
             setIsSaving(false);
         }
@@ -253,16 +359,16 @@ export default function HeroBannerManagement() {
         const banner = banners.find(b => b.id === id);
         if (!banner) return;
 
-        // 유효성 검사
+        // ?�효??검??
         if (!banner.title.trim()) {
-            alert('제목을 입력해주세요.');
+            alert('?�목???�력?�주?�요.');
             return;
         }
 
         setIsSaving(true);
         try {
             if (id.startsWith('temp-')) {
-                // 생성
+                // ?�성
                 const created = await createHeroBanner({
                     title: banner.title,
                     subtitle: banner.subtitle,
@@ -278,7 +384,7 @@ export default function HeroBannerManagement() {
                     setEditingBannerId(created.id);
                 }
             } else {
-                // 수정
+                // ?�정
                 await updateHeroBanner(id, {
                     title: banner.title,
                     subtitle: banner.subtitle,
@@ -290,10 +396,10 @@ export default function HeroBannerManagement() {
                     isActive: banner.isActive
                 });
             }
-            alert('배너가 저장되었습니다.');
+            alert('배너가 ?�?�되?�습?�다.');
         } catch (e) {
             console.error(e);
-            alert('저장 실패');
+            alert('?�???�패');
         } finally {
             setIsSaving(false);
         }
@@ -302,7 +408,7 @@ export default function HeroBannerManagement() {
     const handleAddBanner = () => {
         const newBanner: HeroBanner = {
             id: `temp-${Date.now()}`,
-            title: '새 배너',
+            title: '??배너',
             subtitle: '',
             bgColor: '#3B82F6',
             textColor: '#FFFFFF',
@@ -313,11 +419,11 @@ export default function HeroBannerManagement() {
         };
         setBanners([...banners, newBanner]);
         setEditingBannerId(newBanner.id);
-        setPreviewBannerIndex(banners.length); // 마지막으로 이동
+        setPreviewBannerIndex(banners.length); // 마�?막으�??�동
     };
 
     const handleDeleteBanner = async (id: string) => {
-        if (!window.confirm('정말 삭제하시겠습니까?')) return;
+        if (!window.confirm('?�말 ??��?�시겠습?�까?')) return;
 
         if (!id.startsWith('temp-')) {
             setIsSaving(true);
@@ -325,7 +431,7 @@ export default function HeroBannerManagement() {
                 await deleteHeroBanner(id);
             } catch (e) {
                 console.error(e);
-                alert('삭제 실패');
+                alert('??�� ?�패');
                 setIsSaving(false);
                 return;
             } finally {
@@ -358,65 +464,66 @@ export default function HeroBannerManagement() {
     return (
         <div className="space-y-6">
             <div className="flex flex-col gap-2">
-                <h2 className="text-2xl font-bold tracking-tight text-slate-900">배너 관리</h2>
+                <h2 className="text-2xl font-bold tracking-tight text-slate-900">배너 관�?/h2>
                 <p className="text-slate-500">
-                    서비스 곳곳에 노출되는 배너와 광고를 관리합니다.
+                    ?�비??곳곳???�출?�는 배너?� 광고�?관리합?�다.
                 </p>
             </div>
 
-            {/* 탭 네비게이션 */}
-            <div className="border-b border-gray-200">
-                <nav className="-mb-px flex space-x-8" aria-label="Tabs">
-                    <button
-                        onClick={() => setActiveTab('hero')}
-                        className={`
-              whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm
-              ${activeTab === 'hero'
-                                ? 'border-blue-500 text-blue-600'
-                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}
-            `}
-                    >
-                        히어로 배너
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('native')}
-                        className={`
-              whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm
-              ${activeTab === 'native'
-                                ? 'border-blue-500 text-blue-600'
-                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}
-            `}
-                    >
-                        네이티브 배너 (준비중)
-                    </button>
-                </nav>
+            {/* ???�비게이??(Pill Style) */}
+            <div className="flex items-center gap-2 mb-2">
+                <button
+                    onClick={() => setActiveTab('hero')}
+                    className={`
+                        rounded-full border px-4 py-2 text-sm font-medium transition-colors flex items-center gap-2
+                        ${activeTab === 'hero'
+                            ? 'border-blue-500 bg-blue-50 text-blue-600'
+                            : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'}
+                    `}
+                >
+                    <IconLayoutBoard size={16} />
+                    ?�어�?배너
+                </button>
+                <button
+                    onClick={() => setActiveTab('native')}
+                    className={`
+                        rounded-full border px-4 py-2 text-sm font-medium transition-colors flex items-center gap-2
+                        ${activeTab === 'native'
+                            ? 'border-blue-500 bg-blue-50 text-blue-600'
+                            : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'}
+                    `}
+                >
+                    <IconPhoto size={16} />
+                    ?�이?�브 배너
+                </button>
             </div>
+            {/* 구분???�거 */}
 
-            {/* 히어로 배너 탭 콘텐츠 */}
+            {/* ?�어�?배너 ??콘텐�?*/}
             {activeTab === 'hero' && config && (
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
 
                     {/* Main Content (Left, 2 cols) */}
                     <div className="lg:col-span-2 space-y-8">
 
-                        {/* 1. 기본 설정 */}
+                        {/* 1. 기본 ?�정 */}
                         <section className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
                             <div className="flex items-center justify-between mb-4">
-                                <h3 className="text-lg font-bold text-slate-900">기본 설정</h3>
+                                <h3 className="text-lg font-bold text-slate-900">기본 ?�정</h3>
                                 <button
                                     onClick={handleConfigSave}
                                     disabled={isSaving}
                                     className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition disabled:opacity-50"
                                 >
-                                    <IconDeviceFloppy size={16} /> 저장
+                                    <IconDeviceFloppy size={16} /> ?�??
                                 </button>
                             </div>
 
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                                 <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-100">
                                     <div className="flex flex-col">
-                                        <span className="text-sm font-medium text-slate-900">배너 노출</span>
-                                        <span className="text-xs text-slate-500">히어로 영역 전체 표시 여부</span>
+                                        <span className="text-sm font-medium text-slate-900">배너 ?�출</span>
+                                        <span className="text-xs text-slate-500">?�어�??�역 ?�체 ?�시 ?��?</span>
                                     </div>
                                     <label className="relative inline-flex items-center cursor-pointer">
                                         <input
@@ -431,8 +538,8 @@ export default function HeroBannerManagement() {
 
                                 <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-100">
                                     <div className="flex flex-col">
-                                        <span className="text-sm font-medium text-slate-900">캐러셀 속도</span>
-                                        <span className="text-xs text-slate-500">자동 전환 주기 (3~10초)</span>
+                                        <span className="text-sm font-medium text-slate-900">캐러?� ?�도</span>
+                                        <span className="text-xs text-slate-500">?�동 ?�환 주기 (3~10�?</span>
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <input
@@ -443,13 +550,13 @@ export default function HeroBannerManagement() {
                                             onChange={(e) => handleConfigChange('rotationSpeed', Number(e.target.value))}
                                             className="w-16 px-2 py-1 text-sm border border-slate-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
                                         />
-                                        <span className="text-sm text-slate-500">초</span>
+                                        <span className="text-sm text-slate-500">�?/span>
                                     </div>
                                 </div>
                             </div>
                         </section>
 
-                        {/* 2. 배너 목록 및 편집 */}
+                        {/* 2. 배너 목록 �??�집 */}
                         <section className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
                             <div className="flex items-center justify-between mb-6">
                                 <h3 className="text-lg font-bold text-slate-900">배너 목록</h3>
@@ -457,7 +564,7 @@ export default function HeroBannerManagement() {
                                     onClick={handleAddBanner}
                                     className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-slate-900 rounded-lg hover:bg-slate-800 transition"
                                 >
-                                    <IconPlus size={16} /> 새 배너 추가
+                                    <IconPlus size={16} /> ??배너 추�?
                                 </button>
                             </div>
 
@@ -475,10 +582,10 @@ export default function HeroBannerManagement() {
                     `}
                                     >
                                         <span className={`text-xs font-bold mb-1 ${banner.isActive ? 'text-green-600' : 'text-slate-400'}`}>
-                                            {banner.isActive ? '● 활성' : '○ 비활성'}
+                                            {banner.isActive ? '???�성' : '??비활??}
                                         </span>
                                         <span className="text-sm font-medium text-slate-900 line-clamp-1">
-                                            {banner.title || '(제목 없음)'}
+                                            {banner.title || '(?�목 ?�음)'}
                                         </span>
                                         <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                             <IconEdit size={14} className="text-slate-400" />
@@ -489,21 +596,21 @@ export default function HeroBannerManagement() {
 
                             <hr className="my-6 border-slate-100" />
 
-                            {/* 선택된 배너 편집 폼 */}
+                            {/* ?�택??배너 ?�집 ??*/}
                             {editingBanner ? (
                                 <div className="space-y-6 animate-fadeIn">
                                     <div className="flex items-center justify-between">
                                         <h4 className="text-base font-bold text-slate-800 flex items-center gap-2">
-                                            배너 편집
+                                            배너 ?�집
                                             <span className="text-xs font-normal text-slate-500 px-2 py-0.5 bg-slate-100 rounded-full">
-                                                {editingBanner.id.startsWith('temp') ? '신규 작성' : '기존 배너 수정'}
+                                                {editingBanner.id.startsWith('temp') ? '?�규 ?�성' : '기존 배너 ?�정'}
                                             </span>
                                         </h4>
                                         <div className="flex items-center gap-2">
                                             <button
                                                 onClick={() => handleDeleteBanner(editingBanner.id)}
                                                 className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition"
-                                                title="삭제"
+                                                title="??��"
                                             >
                                                 <IconTrash size={18} />
                                             </button>
@@ -512,7 +619,7 @@ export default function HeroBannerManagement() {
                                                 disabled={isSaving}
                                                 className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition shadow-sm disabled:opacity-50"
                                             >
-                                                <IconCheck size={16} /> 저장
+                                                <IconCheck size={16} /> ?�??
                                             </button>
                                         </div>
                                     </div>
@@ -520,7 +627,7 @@ export default function HeroBannerManagement() {
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                         <div className="space-y-4">
                                             <div className="flex items-center justify-between bg-slate-50 p-3 rounded-lg border border-slate-100">
-                                                <span className="text-sm font-medium text-slate-700">이 배너 활성화</span>
+                                                <span className="text-sm font-medium text-slate-700">??배너 ?�성??/span>
                                                 <label className="relative inline-flex items-center cursor-pointer">
                                                     <input
                                                         type="checkbox"
@@ -533,41 +640,41 @@ export default function HeroBannerManagement() {
                                             </div>
 
                                             <div>
-                                                <label className="block text-sm font-medium text-slate-700 mb-1">제목 (1줄)</label>
+                                                <label className="block text-sm font-medium text-slate-700 mb-1">?�목 (1�?</label>
                                                 <input
                                                     type="text"
                                                     value={editingBanner.title}
                                                     onChange={(e) => handleBannerChange(editingBanner.id, 'title', e.target.value)}
                                                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm"
-                                                    placeholder="공고와 선생님을 찾는"
+                                                    placeholder="공고?� ?�생?�을 찾는"
                                                 />
                                                 <p className="mt-1 text-xs text-slate-500 flex justify-end">
                                                     <span className={editingBanner.title.length > 14 ? 'text-red-500 font-bold' : ''}>
                                                         {editingBanner.title.length}
-                                                    </span> / 14자 권장
+                                                    </span> / 14??권장
                                                 </p>
                                             </div>
 
                                             <div>
-                                                <label className="block text-sm font-medium text-slate-700 mb-1">부제 (2줄)</label>
+                                                <label className="block text-sm font-medium text-slate-700 mb-1">부??(2�?</label>
                                                 <input
                                                     type="text"
                                                     value={editingBanner.subtitle || ''}
                                                     onChange={(e) => handleBannerChange(editingBanner.id, 'subtitle', e.target.value)}
                                                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm"
-                                                    placeholder="가장 쉬운 방법 - 쌤찾기"
+                                                    placeholder="가???�운 방법 - ?�찾�?
                                                 />
                                                 <p className="mt-1 text-xs text-slate-500 flex justify-end">
                                                     <span className={(editingBanner.subtitle?.length || 0) > 14 ? 'text-red-500 font-bold' : ''}>
                                                         {editingBanner.subtitle?.length || 0}
-                                                    </span> / 14자 권장
+                                                    </span> / 14??권장
                                                 </p>
                                             </div>
                                         </div>
 
                                         <div className="space-y-4">
                                             <div>
-                                                <label className="block text-sm font-medium text-slate-700 mb-1">아이콘 (선택)</label>
+                                                <label className="block text-sm font-medium text-slate-700 mb-1">?�이�?(?�택)</label>
                                                 <select
                                                     value={editingBanner.icon || 'none'}
                                                     onChange={(e) => handleBannerChange(editingBanner.id, 'icon', e.target.value === 'none' ? undefined : e.target.value)}
@@ -581,7 +688,7 @@ export default function HeroBannerManagement() {
 
                                             <div className="grid grid-cols-2 gap-4">
                                                 <div>
-                                                    <label className="block text-sm font-medium text-slate-700 mb-1">배경색</label>
+                                                    <label className="block text-sm font-medium text-slate-700 mb-1">배경??/label>
                                                     <div className="flex items-center gap-2">
                                                         <input
                                                             type="color"
@@ -598,7 +705,7 @@ export default function HeroBannerManagement() {
                                                     </div>
                                                 </div>
                                                 <div>
-                                                    <label className="block text-sm font-medium text-slate-700 mb-1">텍스트색</label>
+                                                    <label className="block text-sm font-medium text-slate-700 mb-1">?�스?�색</label>
                                                     <div className="flex items-center gap-2">
                                                         <input
                                                             type="color"
@@ -617,7 +724,7 @@ export default function HeroBannerManagement() {
                                             </div>
 
                                             <div>
-                                                <label className="block text-sm font-medium text-slate-700 mb-1">링크 URL (선택)</label>
+                                                <label className="block text-sm font-medium text-slate-700 mb-1">링크 URL (?�택)</label>
                                                 <input
                                                     type="text"
                                                     value={editingBanner.linkUrl || ''}
@@ -631,7 +738,7 @@ export default function HeroBannerManagement() {
                                 </div>
                             ) : (
                                 <div className="flex items-center justify-center py-12 bg-slate-50 rounded-xl border border-dashed border-slate-200 text-slate-400 text-sm">
-                                    배너를 선택하거나 새로 추가해주세요.
+                                    배너�??�택?�거???�로 추�??�주?�요.
                                 </div>
                             )}
                         </section>
@@ -648,14 +755,14 @@ export default function HeroBannerManagement() {
                                         activeIndex={previewBannerIndex}
                                     />
                                 ) : (
-                                    <div className="text-center text-slate-400 py-10">미리보기 준비 중</div>
+                                    <div className="text-center text-slate-400 py-10">미리보기 준�?�?/div>
                                 )}
 
                                 <div className="mt-6 p-4 bg-slate-50 rounded-lg border border-slate-100 text-xs text-slate-600 space-y-2">
-                                    <p className="font-bold border-b border-slate-200 pb-2 mb-2">도움말</p>
-                                    <p>• 히어로 배너는 공고 목록 최상단에 고정됩니다.</p>
-                                    <p>• 제목과 부제는 가급적 짧게(14자 이내) 작성해주세요.</p>
-                                    <p>• 여러 개의 배너를 활성화하면 지정된 시간 간격으로 자동 회전됩니다.</p>
+                                    <p className="font-bold border-b border-slate-200 pb-2 mb-2">?��?�?/p>
+                                    <p>???�어�?배너??공고 목록 최상?�에 고정?�니??</p>
+                                    <p>???�목�?부?�는 가급적 짧게(14???�내) ?�성?�주?�요.</p>
+                                    <p>???�러 개의 배너�??�성?�하�?지?�된 ?�간 간격?�로 ?�동 ?�전?�니??</p>
                                 </div>
                             </div>
                         </div>
@@ -664,12 +771,243 @@ export default function HeroBannerManagement() {
                 </div>
             )}
 
-            {/* 네이티브 배너 탭 콘텐츠 */}
-            {activeTab === 'native' && (
-                <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-12 text-center">
-                    <IconLayoutBoard size={48} className="mx-auto text-slate-300 mb-4" />
-                    <h3 className="text-lg font-medium text-slate-900">준비 중입니다</h3>
-                    <p className="text-slate-500 mt-2">네이티브 배너 관리 기능은 추후 업데이트될 예정입니다.</p>
+            {/* ?�이?�브 배너 ??콘텐�?*/}
+            {activeTab === 'native' && nativeConfig && (
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    {/* ?�정 �?목록 (Left) */}
+                    <div className="lg:col-span-2 space-y-8">
+
+                        {/* 1. 기본 ?�정 */}
+                        <section className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+                            <h3 className="text-lg font-bold text-slate-900 mb-4">기본 ?�정</h3>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                                <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-100">
+                                    <div className="flex flex-col">
+                                        <span className="text-sm font-medium text-slate-900">?�이?�브 배너 ?�출</span>
+                                        <span className="text-xs text-slate-500">공고 목록 ?�이 ?�입 ?��?</span>
+                                    </div>
+                                    <label className="relative inline-flex items-center cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            className="sr-only peer"
+                                            checked={nativeConfig.isActive}
+                                            onChange={(e) => handleNativeConfigChange('isActive', e.target.checked)}
+                                        />
+                                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                                    </label>
+                                </div>
+
+                                <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-100">
+                                    <div className="flex flex-col">
+                                        <span className="text-sm font-medium text-slate-900">?�출 주기</span>
+                                        <span className="text-xs text-slate-500">�?번째 공고마다 ?�출?��? ?�정</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-sm text-slate-600">�?/span>
+                                        <input
+                                            type="number"
+                                            min={1}
+                                            max={20}
+                                            value={nativeConfig.insertionInterval}
+                                            onChange={(e) => handleNativeConfigChange('insertionInterval', Number(e.target.value))}
+                                            className="w-16 px-2 py-1 text-sm border border-slate-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-center"
+                                        />
+                                        <span className="text-sm text-slate-600">번째</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+
+                        {/* 2. 배너 목록 �??�집 */}
+                        <section className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+                            <div className="flex items-center justify-between mb-6">
+                                <h3 className="text-lg font-bold text-slate-900">배너 목록</h3>
+                                <button
+                                    onClick={handleAddNativeBanner}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-slate-900 rounded-lg hover:bg-slate-800 transition"
+                                >
+                                    <IconPlus size={16} /> 배너 추�?
+                                </button>
+                            </div>
+
+                            {/* 목록 */}
+                            <div className="space-y-3 mb-6">
+                                {nativeBanners.map((banner) => (
+                                    <div
+                                        key={banner.id}
+                                        onClick={() => setEditingNativeId(banner.id)}
+                                        className={`flex items-center gap-4 p-3 rounded-lg border cursor-pointer transition-all
+                                            ${editingNativeId === banner.id
+                                                ? 'border-blue-500 bg-blue-50 ring-1 ring-blue-500'
+                                                : 'border-slate-200 hover:bg-slate-50'}
+                                        `}
+                                    >
+                                        <div className="w-16 h-10 bg-slate-200 rounded flex-shrink-0 overflow-hidden flex items-center justify-center text-slate-400">
+                                            {banner.imageUrl ? (
+                                                <img src={banner.imageUrl} alt="thumbnail" className="w-full h-full object-cover" />
+                                            ) : (
+                                                <IconPhoto size={20} />
+                                            )}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-sm font-medium text-slate-900 truncate">
+                                                {banner.linkUrl || '(링크 ?�음)'}
+                                            </p>
+                                            <p className="text-xs text-slate-500">
+                                                {banner.isActive ? '?�출 �? : '비활??}
+                                            </p>
+                                        </div>
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); handleDeleteNativeBanner(banner.id); }}
+                                            className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-md transition"
+                                        >
+                                            <IconTrash size={16} />
+                                        </button>
+                                    </div>
+                                ))}
+
+                                {nativeBanners.length === 0 && (
+                                    <div className="text-center py-8 text-slate-400 text-sm border border-dashed border-slate-200 rounded-lg">
+                                        ?�록???�이?�브 배너가 ?�습?�다.
+                                    </div>
+                                )}
+                            </div>
+
+                            <hr className="my-6 border-slate-100" />
+
+                            {/* ?�집 ??*/}
+                            {editingNativeId ? (
+                                (() => {
+                                    const banner = nativeBanners.find(b => b.id === editingNativeId);
+                                    if (!banner) return null;
+                                    return (
+                                        <div className="space-y-6 animate-fadeIn">
+                                            <h4 className="text-base font-bold text-slate-800">배너 ?�집</h4>
+
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                                <div className="space-y-4">
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-slate-700 mb-1">배너 ?��?지</label>
+                                                        <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-slate-300 border-dashed rounded-lg hover:bg-slate-50 transition cursor-pointer">
+                                                            <div className="space-y-1 text-center">
+                                                                {banner.imageUrl ? (
+                                                                    <div className="relative group">
+                                                                        <img src={banner.imageUrl} alt="preview" className="max-h-32 mx-auto rounded" />
+                                                                        <button
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                handleNativeBannerChange(banner.id, 'imageUrl', '');
+                                                                            }}
+                                                                            className="absolute top-1 right-1 p-1 bg-white rounded-full shadow text-red-500 opacity-0 group-hover:opacity-100 transition"
+                                                                        >
+                                                                            <IconTrash size={14} />
+                                                                        </button>
+                                                                    </div>
+                                                                ) : (
+                                                                    <>
+                                                                        <IconUpload className="mx-auto h-12 w-12 text-slate-400" />
+                                                                        <div className="flex text-sm text-slate-600 justify-center">
+                                                                            <span className="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-blue-500">
+                                                                                <span>?�일 ?�로??/span>
+                                                                                <input type="file" accept="image/*" onChange={(e) => handleNativeImageUpload(e, banner.id)} className="sr-only" />
+                                                                            </span>
+                                                                            <p className="pl-1">?�는 ?�래�????�롭</p>
+                                                                        </div>
+                                                                        <p className="text-xs text-slate-500">PNG, JPG, GIF up to 2MB</p>
+                                                                    </>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="flex items-center justify-between bg-slate-50 p-3 rounded-lg border border-slate-100">
+                                                        <span className="text-sm font-medium text-slate-700">?�성??/span>
+                                                        <label className="relative inline-flex items-center cursor-pointer">
+                                                            <input
+                                                                type="checkbox"
+                                                                className="sr-only peer"
+                                                                checked={banner.isActive}
+                                                                onChange={(e) => handleNativeBannerChange(banner.id, 'isActive', e.target.checked)}
+                                                            />
+                                                            <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-500"></div>
+                                                        </label>
+                                                    </div>
+                                                </div>
+
+                                                <div className="space-y-4">
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-slate-700 mb-1">?�결 링크 URL</label>
+                                                        <div className="flex items-center">
+                                                            <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-slate-300 bg-slate-50 text-slate-500 sm:text-sm">
+                                                                <IconLink size={16} />
+                                                            </span>
+                                                            <input
+                                                                type="text"
+                                                                value={banner.linkUrl}
+                                                                onChange={(e) => handleNativeBannerChange(banner.id, 'linkUrl', e.target.value)}
+                                                                className="flex-1 min-w-0 block w-full px-3 py-2 rounded-none rounded-r-md border border-slate-300 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                                                                placeholder="https://example.com"
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })()
+                            ) : null}
+                        </section>
+                    </div>
+
+                    {/* Preview (Right) */}
+                    <div className="lg:col-span-1">
+                        <div className="sticky top-6">
+                            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+                                <h3 className="text-sm font-bold text-slate-900 mb-3">미리보기 ?�시</h3>
+                                <div className="space-y-3">
+                                    {/* 가�?공고 카드??*/}
+                                    <div className="p-3 bg-white border border-slate-100 rounded-lg shadow-sm opacity-50">
+                                        <div className="h-3 w-3/4 bg-slate-100 rounded mb-2"></div>
+                                        <div className="h-2 w-1/2 bg-slate-100 rounded"></div>
+                                    </div>
+
+                                    {/* ?�이?�브 배너 미리보기 */}
+                                    {editingNativeId && (() => {
+                                        const banner = nativeBanners.find(b => b.id === editingNativeId);
+                                        if (!banner || !banner.isActive) return null;
+                                        return (
+                                            <div className="relative overflow-hidden rounded-lg border border-transparent shadow-sm hover:shadow transition-all group">
+                                                {banner.imageUrl ? (
+                                                    <img src={banner.imageUrl} className="w-full h-32 object-cover" alt="Banner" />
+                                                ) : (
+                                                    <div className="w-full h-32 bg-slate-100 flex flex-col items-center justify-center text-slate-400">
+                                                        <IconPhoto size={24} className="mb-1" />
+                                                        <span className="text-xs">?��?지 ?�음</span>
+                                                    </div>
+                                                )}
+                                                {banner.linkUrl && (
+                                                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors flex items-center justify-center">
+                                                        <span className="opacity-0 group-hover:opacity-100 bg-white/90 text-slate-700 text-xs px-2 py-1 rounded-full shadow-sm flex items-center gap-1">
+                                                            <IconLink size={12} /> 링크 ?�동
+                                                        </span>
+                                                    </div>
+                                                )}
+                                                <div className="absolute top-2 right-2 bg-black/20 text-white text-[10px] px-1.5 py-0.5 rounded">Ad</div>
+                                            </div>
+                                        );
+                                    })()}
+
+                                    <div className="p-3 bg-white border border-slate-100 rounded-lg shadow-sm opacity-50">
+                                        <div className="h-3 w-2/3 bg-slate-100 rounded mb-2"></div>
+                                        <div className="h-2 w-1/2 bg-slate-100 rounded"></div>
+                                    </div>
+                                </div>
+                                <div className="mt-4 p-3 bg-blue-50 text-blue-700 text-xs rounded-lg">
+                                    목록 ?�이???�연?�럽�?배치?�니??
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             )}
         </div>

@@ -33,7 +33,8 @@ interface AdminTab {
 
 const ADMIN_TABS: AdminTab[] = [
   { key: 'overview', label: '대시보드', description: '요약 지표' },
-  { key: 'crawl', label: '크롤링 게시판 관리', description: '개발자 제출 승인 및 게시판 관리', badge: 'NEW' },
+  // 크롤링 게시판 관리는 개발자노트로 이동됨
+  // { key: 'crawl', label: '크롤링 게시판 관리', description: '개발자 제출 승인 및 게시판 관리', badge: 'NEW' },
   { key: 'promo', label: '홍보카드 관리', description: '추천 섹션 프로모·띠지 배너 편집' },
   { key: 'users', label: '사용자 관리', description: '가입 사용자 목록 및 프로필 조회' },
   { key: 'content', label: '콘텐츠 관리', description: '공고 / 인력 검수' },
@@ -194,11 +195,10 @@ export default function TeamConsolePage() {
                       setPasswordError(false);
                     }}
                     placeholder="비밀번호를 입력하세요"
-                    className={`w-full px-4 py-3 rounded-xl border-2 transition-colors outline-none ${
-                      passwordError
+                    className={`w-full px-4 py-3 rounded-xl border-2 transition-colors outline-none ${passwordError
                         ? 'border-red-300 bg-red-50 focus:border-red-500'
                         : 'border-slate-200 focus:border-primary'
-                    }`}
+                      }`}
                     autoFocus
                   />
                   {passwordError && (
@@ -241,11 +241,10 @@ export default function TeamConsolePage() {
           <Fragment>
             {notice && (
               <div
-                className={`mb-4 rounded-md border px-4 py-3 text-sm ${
-                  notice.type === 'success'
+                className={`mb-4 rounded-md border px-4 py-3 text-sm ${notice.type === 'success'
                     ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
                     : 'border-red-200 bg-red-50 text-red-700'
-                }`}
+                  }`}
               >
                 {notice.message}
               </div>
@@ -348,9 +347,8 @@ export default function TeamConsolePage() {
 
       {/* 사이드바 */}
       <aside
-        className={`fixed left-0 top-[73px] z-50 h-[calc(100vh-73px)] w-64 transform border-r border-slate-200 bg-white transition-transform duration-300 ${
-          isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
-        }`}
+        className={`fixed left-0 top-[73px] z-50 h-[calc(100vh-73px)] w-64 transform border-r border-slate-200 bg-white transition-transform duration-300 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
+          }`}
       >
         <div className="relative flex h-full flex-col">
           {/* 네비게이션 */}
@@ -361,11 +359,10 @@ export default function TeamConsolePage() {
                 <button
                   key={tab.key}
                   onClick={() => handleTabClick(tab.key)}
-                  className={`flex w-full flex-col rounded-lg border px-4 py-3 text-left transition ${
-                    isActive
+                  className={`flex w-full flex-col rounded-lg border px-4 py-3 text-left transition ${isActive
                       ? 'border-primary bg-primary/10 text-primary shadow-sm'
                       : 'border-transparent bg-white text-slate-600 hover:border-slate-200 hover:bg-slate-50'
-                  }`}
+                    }`}
                 >
                   <span className="flex items-center gap-2 text-sm font-semibold">
                     {tab.label}
