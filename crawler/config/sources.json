@@ -491,7 +491,7 @@
   },
   "gyeongnam": {
     "name": "경상남도교육청 구인구직포털",
-    "baseUrl": "https://www.gne.go.kr/works/index.do",
+    "baseUrl": "https://www.gne.go.kr/works/user/recruitment/BD_recruitmentList.do?q_searchStatus=1004",
     "detailUrlTemplate": "https://www.gne.go.kr/works/user/recruitment/BD_recruitmentDetail.do?regSn=",
     "parserType": "custom",
     "region": "경상남도",
