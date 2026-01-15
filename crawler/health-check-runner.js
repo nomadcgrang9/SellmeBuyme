@@ -7,12 +7,13 @@ import { createBrowser, loadPageWithRetry } from './lib/playwright.js';
 import { supabase } from './lib/supabase.js';
 import { logInfo, logStep, logWarn, logError } from './lib/logger.js';
 
+// sources.json과 동기화된 URL (2026-01-15)
 const REGION_BOARDS = {
   seoul: { name: '서울', location: '서울', boardUrl: 'https://work.sen.go.kr/recruit/job/pageListJob.do' },
-  busan: { name: '부산', location: '부산', boardUrl: 'https://www.pen.go.kr/selectBbsNttList.do?bbsNo=397&key=1553' },
-  daegu: { name: '대구', location: '대구', boardUrl: 'https://www.dge.go.kr/main/na/ntt/selectNttList.do?mi=8026&bbsId=4261' },
-  incheon: { name: '인천', location: '인천', boardUrl: 'https://www.ice.go.kr/ice/na/ntt/selectNttList.do?mi=10997&bbsId=1981' },
-  gwangju: { name: '광주', location: '광주', boardUrl: 'https://www.gen.go.kr/xboard/board.php?tbnum=32' },
+  busan: { name: '부산', location: '부산', boardUrl: 'https://www.pen.go.kr/main/na/ntt/selectNttList.do?mi=30367&bbsId=2364' },
+  daegu: { name: '대구', location: '대구', boardUrl: 'https://www.dge.go.kr/main/na/ntt/selectNttList.do?mi=5186&bbsId=1047' },
+  incheon: { name: '인천', location: '인천', boardUrl: 'https://www.ice.go.kr/boardCnts/list.do?boardID=1639&m=040802&s=ice' },
+  gwangju: { name: '광주', location: '광주', boardUrl: 'https://www.gen.go.kr/xboard/list.xboard?menuId=0001000000&searchOptYn=Y' },
   daejeon: { name: '대전', location: '대전', boardUrl: 'https://www.dje.go.kr/boardCnts/list.do?boardID=54&m=030202&s=dje' },
   ulsan: { name: '울산', location: '울산', boardUrl: 'https://www.use.go.kr/subPage.do?page=sub06_06_01&m=0606&s=use' },
   sejong: { name: '세종', location: '세종', boardUrl: 'https://www.sje.go.kr/sje/na/ntt/selectNttList.do?mi=52132&bbsId=108' },
@@ -23,7 +24,7 @@ const REGION_BOARDS = {
   jeonbuk: { name: '전북', location: '전북', boardUrl: 'https://www.jbe.go.kr/board/list.jbe?boardId=BBS_0000130&menuCd=DOM_000000103004006000' },
   jeonnam: { name: '전남', location: '전남', boardUrl: 'https://www.jne.go.kr/main/na/ntt/selectNttList.do?mi=265&bbsId=117' },
   gyeongbuk: { name: '경북', location: '경북', boardUrl: 'https://www.gbe.kr/main/na/ntt/selectNttList.do?mi=3626&bbsId=1887' },
-  gyeongnam: { name: '경남', location: '경남', boardUrl: 'https://www.gne.go.kr/works/index.do' },
+  gyeongnam: { name: '경남', location: '경남', boardUrl: 'https://www.gne.go.kr/works/user/recruitment/BD_recruitmentList.do' },
   jeju: { name: '제주', location: '제주', boardUrl: 'https://www.jje.go.kr/board/list.jje?boardId=BBS_0000507&menuCd=DOM_000000103003009000' },
 };
 
