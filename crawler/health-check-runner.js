@@ -10,7 +10,7 @@ import { logInfo, logStep, logWarn, logError } from './lib/logger.js';
 // sources.json과 동기화된 URL (2026-01-15)
 const REGION_BOARDS = {
   seoul: { name: '서울', location: '서울', boardUrl: 'https://work.sen.go.kr/recruit/job/pageListJob.do' },
-  busan: { name: '부산', location: '부산', boardUrl: 'https://www.pen.go.kr/main/na/ntt/selectNttList.do?mi=30367&bbsId=2364' },
+  busan: { name: '부산', location: '부산', boardUrl: 'https://www.pen.go.kr/selectBbsNttList.do?bbsNo=397&key=1553' },
   daegu: { name: '대구', location: '대구', boardUrl: 'https://www.dge.go.kr/main/na/ntt/selectNttList.do?mi=5186&bbsId=1047' },
   incheon: { name: '인천', location: '인천', boardUrl: 'https://www.ice.go.kr/boardCnts/list.do?boardID=1639&m=040802&s=ice' },
   gwangju: { name: '광주', location: '광주', boardUrl: 'https://www.gen.go.kr/xboard/list.xboard?menuId=0001000000&searchOptYn=Y' },
@@ -73,10 +73,11 @@ async function getDbPostings(regionCode) {
 
   const locationName = regionConfig.location; // '대전', '서울' 등
 
+  // location 부분 매칭 (예: '대구' → '대구광역시', '대구' 등 매칭)
   const { data, error } = await supabase
     .from('job_postings')
     .select('title, created_at')
-    .eq('location', locationName)
+    .ilike('location', `%${locationName}%`)
     .order('created_at', { ascending: false })
     .limit(100); // 최근 100개까지 확인
 
