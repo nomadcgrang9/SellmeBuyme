@@ -1,24 +1,23 @@
-import { loadPageWithRetry } from '../lib/playwright.js';
+import { getExistingJobBySource } from '../lib/supabase.js';
 
 /**
  * 울산광역시교육청 인력풀 크롤러
- * URL: https://use.go.kr/job/user/bbs/BD_selectBbsList.do?q_bbsSn=2249
+ *
+ * 규칙: 게시판 1페이지(최신 페이지)만 크롤링
+ * - 중복된 것만 제외 (source_url 기준)
+ *
+ * URL: https://www.use.go.kr/job/user/bbs/BD_selectBbsList.do?q_bbsSn=2249
  */
 export async function crawlUlsan(page, config) {
   console.log(`\n📍 [울산] ${config.name} 크롤링 시작`);
 
   const jobs = [];
+  let skippedCount = 0;
 
   try {
     // 1. 목록 페이지 로드
     console.log(`🌐 목록 페이지 접속: ${config.baseUrl}`);
-    const loadResult = await loadPageWithRetry(page, config.baseUrl, { maxRetries: 3 });
-
-    if (!loadResult.success) {
-      console.error(`❌ 페이지 로드 실패: ${loadResult.error}`);
-      return [];
-    }
-
+    await page.goto(config.baseUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
     await page.waitForTimeout(2000);
 
     // 2. 게시글 목록 추출
@@ -82,28 +81,28 @@ export async function crawlUlsan(page, config) {
       return [];
     }
 
-    // 3. 각 공고 상세 페이지 크롤링
-    const batchSize = config.crawlBatchSize || 10;
-    const maxJobs = Math.min(jobListData.length, batchSize);
-
-    for (let i = 0; i < maxJobs; i++) {
+    // 3. 각 공고 상세 페이지 크롤링 (중복만 제외)
+    for (let i = 0; i < jobListData.length; i++) {
       const listInfo = jobListData[i];
       const docNo = listInfo.docNo;
 
-      console.log(`\n  🔍 공고 ${i + 1}/${maxJobs} (DocNo: ${docNo})`);
+      // 상세 페이지 URL 구성
+      const detailUrl = `${config.detailUrlTemplate}${docNo}`;
+
+      // 중복 체크 (source_url 기준) - 상세 페이지 크롤링 전에!
+      const existing = await getExistingJobBySource(detailUrl);
+      if (existing) {
+        skippedCount++;
+        continue;
+      }
+
+      console.log(`\n  🔍 신규 공고 ${i + 1} (DocNo: ${docNo})`);
       console.log(`     제목: ${listInfo.title}`);
 
       try {
-        // 상세 페이지 URL 구성
-        const detailUrl = `${config.detailUrlTemplate}${docNo}`;
         console.log(`     URL: ${detailUrl}`);
 
-        const detailResult = await loadPageWithRetry(page, detailUrl, { maxRetries: 2 });
-        if (!detailResult.success) {
-          console.warn(`     ⚠️ 상세 페이지 로드 실패: ${detailResult.error}`);
-          continue;
-        }
-
+        await page.goto(detailUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
         await page.waitForTimeout(1500);
 
         // 상세 페이지 데이터 추출
@@ -156,27 +155,18 @@ export async function crawlUlsan(page, config) {
         const screenshot = await page.screenshot({ fullPage: true, type: 'png' });
         const screenshotBase64 = screenshot.toString('base64');
 
-        // 데이터 병합 (Supabase 형식)
+        // 데이터 병합 (index.js가 기대하는 형식)
         const jobData = {
-          organization: '울산광역시교육청',
           title: listInfo.title,
-          tags: ['교육청', '인력풀'],
-          location: config.region || '울산광역시',
-          compensation: null,
-          deadline: listInfo.registeredDate,
-          isUrgent: true,
-          schoolLevel: 'mixed',
-          subject: null,
-          requiredLicense: null,
+          date: listInfo.registeredDate || new Date().toISOString().split('T')[0],
           link: detailUrl,  // index.js가 rawJob.link로 접근
+          location: config.region || '울산광역시',
+          organization: '울산광역시교육청',
+          deadline: listInfo.registeredDate,
           detailContent: detailData.content,  // index.js가 rawJob.detailContent로 접근
-          crawledAt: new Date().toISOString(),
-          structuredContent: {
-            docNo: docNo,
-            content: detailData.content,
-            attachmentUrl: detailData.attachmentUrl,
-            attachmentFilename: detailData.attachmentFilename
-          },
+          attachmentUrl: detailData.attachmentUrl,
+          attachmentFilename: detailData.attachmentFilename,
+          hasContentImages: false,
           screenshotBase64
         };
 
@@ -192,11 +182,14 @@ export async function crawlUlsan(page, config) {
       }
     }
 
-    console.log(`\n✅ [울산] ${config.name} 크롤링 완료: ${jobs.length}개 수집`);
-    return jobs;
-
   } catch (error) {
     console.error(`❌ 크롤링 오류: ${error.message}`);
     throw error;
   }
+
+  console.log(`\n✅ [울산] ${config.name} 크롤링 완료`);
+  console.log(`   - 신규: ${jobs.length}개`);
+  console.log(`   - 중복 스킵: ${skippedCount}개\n`);
+
+  return jobs;
 }

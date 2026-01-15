@@ -1,29 +1,25 @@
-import { loadPageWithRetry } from '../lib/playwright.js';
+import { getExistingJobBySource } from '../lib/supabase.js';
 
 /**
  * 대전광역시교육청 학교인사 크롤러
+ *
+ * 규칙: 게시판 1페이지(최신 페이지)만 크롤링
+ * - 중복된 것만 제외 (source_url 기준)
+ *
  * 패턴: goView() 함수 기반
  * URL: https://www.dje.go.kr/boardCnts/list.do?boardID=54&m=030202&s=dje
- * @param {import('playwright').Page} page - Playwright Page 객체
- * @param {object} config - 크롤러 설정 객체
- * @returns {Promise<object[]>} - 크롤링된 채용 정보 배열
  */
 export async function crawlDaejeon(page, config) {
   console.log(`\n📍 ${config.name || '대전광역시교육청'} 크롤링 시작`);
 
   const jobs = [];
+  let skippedCount = 0;
   const listUrl = config.baseUrl;
 
   try {
     // 1. 목록 페이지 로드
     console.log(`🌐 목록 페이지 접속: ${listUrl}`);
-    const loadResult = await loadPageWithRetry(page, listUrl, { maxRetries: 3 });
-
-    if (!loadResult.success) {
-      console.error(`❌ 페이지 로드 실패: ${loadResult.error}`);
-      return [];
-    }
-
+    await page.goto(listUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
     await page.waitForTimeout(2000);
 
     // 2. 게시글 목록 추출
@@ -50,7 +46,6 @@ export async function crawlDaejeon(page, config) {
           // 패턴: goView(49849, ...) - 첫번째 파라미터가 게시글 번호
           const match = onclick.match(/goView\s*\(\s*(\d+)/);
           if (!match) {
-            console.log(`[DEBUG] 행 ${idx}: goView 패턴 불일치 - ${onclick.substring(0, 50)}`);
             return;
           }
 
@@ -83,28 +78,28 @@ export async function crawlDaejeon(page, config) {
       return [];
     }
 
-    // 3. 각 공고 상세 페이지 크롤링
-    const batchSize = config.crawlBatchSize || 10;
-    const maxJobs = Math.min(jobListData.length, batchSize);
-
-    for (let i = 0; i < maxJobs; i++) {
+    // 3. 각 공고 상세 페이지 크롤링 (중복만 제외)
+    for (let i = 0; i < jobListData.length; i++) {
       const listInfo = jobListData[i];
       const boardSeq = listInfo.boardSeq;
 
-      console.log(`\n  🔍 공고 ${i + 1}/${maxJobs} (BoardSeq: ${boardSeq})`);
+      // 상세 페이지 URL 구성 ({SEQ} 치환)
+      const detailUrl = config.detailUrlTemplate.replace('{SEQ}', boardSeq);
+
+      // 중복 체크 (source_url 기준) - 상세 페이지 크롤링 전에!
+      const existing = await getExistingJobBySource(detailUrl);
+      if (existing) {
+        skippedCount++;
+        continue;
+      }
+
+      console.log(`\n  🔍 신규 공고 ${i + 1} (BoardSeq: ${boardSeq})`);
       console.log(`     제목: ${listInfo.title}`);
 
       try {
-        // 상세 페이지 URL 구성 ({SEQ} 치환)
-        const detailUrl = config.detailUrlTemplate.replace('{SEQ}', boardSeq);
         console.log(`     URL: ${detailUrl}`);
 
-        const detailResult = await loadPageWithRetry(page, detailUrl, { maxRetries: 2 });
-        if (!detailResult.success) {
-          console.warn(`     ⚠️ 상세 페이지 로드 실패: ${detailResult.error}`);
-          continue;
-        }
-
+        await page.goto(detailUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
         await page.waitForTimeout(1500);
 
         // 상세 페이지 데이터 추출
@@ -157,27 +152,18 @@ export async function crawlDaejeon(page, config) {
         const screenshot = await page.screenshot({ fullPage: true, type: 'png' });
         const screenshotBase64 = screenshot.toString('base64');
 
-        // 데이터 병합 (Supabase 형식)
+        // 데이터 병합 (index.js가 기대하는 형식)
         const jobData = {
-          organization: '대전광역시교육청',
           title: listInfo.title,
-          tags: ['교육청', '학교인사'],
-          location: config.region || '대전광역시',
-          compensation: null,
-          deadline: listInfo.periodText || listInfo.dateText,
-          isUrgent: true,
-          schoolLevel: 'mixed',
-          subject: null,
-          requiredLicense: null,
+          date: listInfo.dateText || new Date().toISOString().split('T')[0],
           link: detailUrl,  // index.js가 rawJob.link로 접근
+          location: config.region || '대전광역시',
+          organization: '대전광역시교육청',
+          deadline: listInfo.periodText || listInfo.dateText,
           detailContent: detailData.content,  // index.js가 rawJob.detailContent로 접근
-          crawledAt: new Date().toISOString(),
-          structuredContent: {
-            boardSeq: boardSeq,
-            content: detailData.content,
-            attachmentUrl: detailData.attachmentUrl,
-            attachmentFilename: detailData.attachmentFilename
-          },
+          attachmentUrl: detailData.attachmentUrl,
+          attachmentFilename: detailData.attachmentFilename,
+          hasContentImages: false,
           screenshotBase64
         };
 
@@ -193,11 +179,14 @@ export async function crawlDaejeon(page, config) {
       }
     }
 
-    console.log(`\n✅ [대전] ${config.name} 크롤링 완료: ${jobs.length}개 수집`);
-    return jobs;
-
   } catch (error) {
     console.error(`❌ 크롤링 오류: ${error.message}`);
     throw error;
   }
+
+  console.log(`\n✅ ${config.name || '대전광역시교육청'} 크롤링 완료`);
+  console.log(`   - 신규: ${jobs.length}개`);
+  console.log(`   - 중복 스킵: ${skippedCount}개\n`);
+
+  return jobs;
 }

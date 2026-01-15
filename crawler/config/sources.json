@@ -20,9 +20,9 @@
     "note": "별도 크롤러 필요 (selectBbsNttList 패턴)"
   },
   "daegu": {
-    "name": "대구광역시교육청 채용",
-    "baseUrl": "https://www.dge.go.kr/main/na/ntt/selectNttList.do?mi=2626&bbsId=106",
-    "detailUrlTemplate": "https://www.dge.go.kr/main/na/ntt/selectNttInfo.do?mi=2626&bbsId=106&nttSn=",
+    "name": "대구광역시교육청 기간제교사·강사",
+    "baseUrl": "https://www.dge.go.kr/main/na/ntt/selectNttList.do?mi=5186&bbsId=1047",
+    "detailUrlTemplate": "https://www.dge.go.kr/main/na/ntt/selectNttInfo.do?mi=5186&bbsId=1047&nttSn=",
     "parserType": "ntt",
     "region": "대구광역시",
     "isLocalGovernment": false,
