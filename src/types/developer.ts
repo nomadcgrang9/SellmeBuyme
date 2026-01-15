@@ -451,7 +451,7 @@ export interface CrawlerHealthSummary {
   total: number;
 }
 
-// 지역별 게시판 URL 매핑 (sources.json 기반)
+// 지역별 게시판 URL 매핑 (sources.json 기반 - 동기화됨)
 export const REGION_BOARDS: Record<string, {
   code: string;
   name: string;
@@ -462,36 +462,36 @@ export const REGION_BOARDS: Record<string, {
   seoul: {
     code: 'seoul',
     name: '서울',
-    boardUrl: 'https://work.sen.go.kr/work/search/recInfo/BD_selectSrchRecInfo.do',
-    active: true,
+    boardUrl: 'https://work.sen.go.kr/recruit/job/pageListJob.do',
+    active: false,
     assignee: '김성균'
   },
   busan: {
     code: 'busan',
     name: '부산',
-    boardUrl: 'https://www.pen.go.kr/main/na/ntt/selectNttList.do?mi=30367&bbsId=2364',
+    boardUrl: 'https://www.pen.go.kr/selectBbsNttList.do?bbsNo=397&key=1553',
     active: false,
     assignee: '최선결'
   },
   daegu: {
     code: 'daegu',
     name: '대구',
-    boardUrl: 'https://www.dge.go.kr/main/na/ntt/selectNttList.do?mi=8026&bbsId=4261',
+    boardUrl: 'https://www.dge.go.kr/main/na/ntt/selectNttList.do?mi=5186&bbsId=1047',
     active: true,
     assignee: '최선결'
   },
   incheon: {
     code: 'incheon',
     name: '인천',
-    boardUrl: 'https://www.ice.go.kr/ice/na/ntt/selectNttList.do?mi=10997&bbsId=1981',
-    active: true,
+    boardUrl: 'https://www.ice.go.kr/boardCnts/list.do?boardID=1639&m=040802&s=ice',
+    active: false,
     assignee: '김성균'
   },
   gwangju: {
     code: 'gwangju',
     name: '광주',
-    boardUrl: 'https://www.gen.go.kr/xboard/board.php?tbnum=32',
-    active: true,
+    boardUrl: 'https://www.gen.go.kr/xboard/list.xboard?menuId=0001000000&searchOptYn=Y',
+    active: false,
     assignee: '이진혁'
   },
   daejeon: {
@@ -567,7 +567,7 @@ export const REGION_BOARDS: Record<string, {
   gyeongnam: {
     code: 'gyeongnam',
     name: '경남',
-    boardUrl: 'https://www.gne.go.kr/works/index.do',
+    boardUrl: 'https://www.gne.go.kr/works/user/recruitment/BD_recruitmentList.do',
     active: true,
     assignee: '최선결'
   },
