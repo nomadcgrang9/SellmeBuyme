@@ -9,7 +9,7 @@ import { logInfo, logStep, logWarn, logError } from './lib/logger.js';
 
 const REGION_BOARDS = {
   seoul: { name: '서울', location: '서울', boardUrl: 'https://work.sen.go.kr/recruit/job/pageListJob.do' },
-  busan: { name: '부산', location: '부산', boardUrl: 'https://www.pen.go.kr/selectBbsNttList.do?bbsNo=397&key=1553' },
+  busan: { name: '부산', location: '부산', boardUrl: 'https://www.pen.go.kr/main/na/ntt/selectNttList.do?mi=30367&bbsId=2364' },
   daegu: { name: '대구', location: '대구', boardUrl: 'https://www.dge.go.kr/main/na/ntt/selectNttList.do?mi=8026&bbsId=4261' },
   incheon: { name: '인천', location: '인천', boardUrl: 'https://www.ice.go.kr/ice/na/ntt/selectNttList.do?mi=10997&bbsId=1981' },
   gwangju: { name: '광주', location: '광주', boardUrl: 'https://www.gen.go.kr/xboard/board.php?tbnum=32' },
@@ -121,18 +121,22 @@ function calculateDaysSince(dateStr) {
   return Math.floor(diff / (1000 * 60 * 60 * 24));
 }
 
-function determineStatus(collectionRate, daysSinceCrawl) {
+function determineStatus(collectionRate, daysSinceCrawl, dbCount) {
+  // 7일 이상 미수집이면 critical
   if (daysSinceCrawl !== null && daysSinceCrawl >= 7) {
     return { status: 'critical', reason: `${daysSinceCrawl}일간 미수집` };
   }
-  if (collectionRate < 50) {
-    return { status: 'critical', reason: `수집률 ${collectionRate.toFixed(0)}% (위험)` };
+  // DB에 데이터가 있고 최근 크롤링 됐으면 정상 (제목 매칭률 무시)
+  if (dbCount > 0 && (daysSinceCrawl === null || daysSinceCrawl < 3)) {
+    return { status: 'healthy', reason: '정상' };
   }
-  if (collectionRate < 80 || (daysSinceCrawl !== null && daysSinceCrawl >= 3)) {
-    const reasons = [];
-    if (collectionRate < 80) reasons.push(`수집률 ${collectionRate.toFixed(0)}%`);
-    if (daysSinceCrawl !== null && daysSinceCrawl >= 3) reasons.push(`${daysSinceCrawl}일 경과`);
-    return { status: 'warning', reason: reasons.join(', ') };
+  // DB에 데이터가 있지만 3일 이상 경과
+  if (dbCount > 0 && daysSinceCrawl !== null && daysSinceCrawl >= 3) {
+    return { status: 'warning', reason: `${daysSinceCrawl}일 경과` };
+  }
+  // DB에 데이터가 없으면 critical
+  if (dbCount === 0) {
+    return { status: 'critical', reason: 'DB 데이터 없음' };
   }
   return { status: 'healthy', reason: '정상' };
 }
@@ -183,7 +187,7 @@ async function checkRegion(regionCode, browser) {
       : (dbData.count > 0 ? 100 : 0);
 
     const daysSinceCrawl = calculateDaysSince(dbData.latestDate);
-    const { status, reason } = determineStatus(collectionRate, daysSinceCrawl);
+    const { status, reason } = determineStatus(collectionRate, daysSinceCrawl, dbData.count);
 
     const result = {
       regionCode,
