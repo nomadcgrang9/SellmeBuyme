@@ -22,7 +22,7 @@ const REGION_BOARDS = {
   chungnam: { name: '충남', location: '충남', boardUrl: 'https://www.cne.go.kr/boardCnts/list.do?boardID=642&m=020201&s=cne' },
   jeonbuk: { name: '전북', location: '전북', boardUrl: 'https://www.jbe.go.kr/board/list.jbe?boardId=BBS_0000130&menuCd=DOM_000000103004006000' },
   jeonnam: { name: '전남', location: '전남', boardUrl: 'https://www.jne.go.kr/main/na/ntt/selectNttList.do?mi=265&bbsId=117' },
-  gyeongbuk: { name: '경북', location: '경북', boardUrl: 'https://www.gbe.kr/main/na/ntt/selectNttList.do?mi=3626&bbsId=1887' },
+  gyeongbuk: { name: '경북', location: '경상북', boardUrl: 'https://www.gbe.kr/main/na/ntt/selectNttList.do?mi=3626&bbsId=1887' },
   gyeongnam: { name: '경남', location: '경남', boardUrl: 'https://www.gne.go.kr/works/index.do' },
   jeju: { name: '제주', location: '제주', boardUrl: 'https://www.jje.go.kr/board/list.jje?boardId=BBS_0000507&menuCd=DOM_000000103003009000' },
 };
