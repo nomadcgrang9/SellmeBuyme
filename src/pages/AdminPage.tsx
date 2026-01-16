@@ -9,7 +9,6 @@ import BoardSubmissionList from '@/components/admin/BoardSubmissionList';
 import BoardApprovalModal from '@/components/admin/BoardApprovalModal';
 import DashboardOverview from '@/components/admin/dashboard/DashboardOverview';
 import AdminUserManagement from '@/components/admin/AdminUserManagement';
-import HeroBannerManagement from '@/components/admin/HeroBannerManagement';
 import { CollapsibleSection } from '@/components/developer/CollapsibleSection';
 import type { CrawlBoard, CreateCrawlBoardInput } from '@/types';
 import { createCrawlBoard, updateCrawlBoard } from '@/lib/supabase/queries';
@@ -239,7 +238,12 @@ export default function AdminPageWithHamburger() {
       case 'promo':
         return <PromoTabManager />;
       case 'banner':
-        return <HeroBannerManagement />;
+        return (
+          <div className="flex h-full flex-col items-center justify-center rounded-lg border border-dashed border-slate-300 bg-white p-10 text-center text-sm text-slate-500">
+            <p className="font-medium text-slate-700">배너 관리 기능 준비 중</p>
+            <p className="mt-2 text-xs text-slate-400">히어로 배너 관리 기능이 곧 추가될 예정입니다.</p>
+          </div>
+        );
       case 'users':
         return <AdminUserManagement />;
       default:

@@ -11,16 +11,6 @@
     "skipRobotsCheck": true,
     "note": "robots.txt에서 /work/ 차단하지만 실제로 접근 허용됨"
   },
-  "busan": {
-    "name": "부산광역시교육청 학교인력채용",
-    "baseUrl": "https://www.pen.go.kr/selectBbsNttList.do?bbsNo=397&key=1553",
-    "detailUrlTemplate": "https://www.pen.go.kr/selectBbsNttView.do?bbsNo=397&key=1553&nttNo=",
-    "parserType": "custom",
-    "region": "부산광역시",
-    "isLocalGovernment": false,
-    "active": false,
-    "note": "별도 크롤러 필요 (selectBbsNttList 패턴)"
-  },
   "daegu": {
     "name": "대구광역시교육청 기간제교사·강사",
     "baseUrl": "https://www.dge.go.kr/main/na/ntt/selectNttList.do?mi=5186&bbsId=1047",
@@ -29,26 +19,6 @@
     "region": "대구광역시",
     "isLocalGovernment": false,
     "active": true
-  },
-  "incheon": {
-    "name": "인천광역시교육청 채용공고",
-    "baseUrl": "https://www.ice.go.kr/boardCnts/list.do?boardID=1639&m=040802&s=ice",
-    "detailUrlTemplate": "https://www.ice.go.kr/boardCnts/view.do?boardID=1639&m=040802&s=ice&boardSeq=",
-    "parserType": "custom",
-    "region": "인천광역시",
-    "isLocalGovernment": false,
-    "active": false,
-    "note": "별도 크롤러 필요 (boardCnts 패턴)"
-  },
-  "gwangju": {
-    "name": "광주광역시교육청 구인",
-    "baseUrl": "https://www.gen.go.kr/xboard/list.xboard?menuId=0001000000&searchOptYn=Y",
-    "detailUrlTemplate": "https://www.gen.go.kr/xboard/view.xboard?menuId=0001000000&bid=0000000056&seq=",
-    "parserType": "custom",
-    "region": "광주광역시",
-    "isLocalGovernment": false,
-    "active": false,
-    "note": "별도 크롤러 필요 (xboard 패턴)"
   },
   "ulsan": {
     "name": "울산광역시교육청 인력풀",
@@ -66,17 +36,6 @@
     "detailUrlTemplate": "https://www.sje.go.kr/sje/na/ntt/selectNttInfo.do?mi=52132&bbsId=108&nttSn=",
     "parserType": "custom",
     "region": "세종",
-    "isLocalGovernment": false,
-    "active": true
-  },
-  "gangwon": {
-    "name": "강원특별자치도교육청 구인",
-    "baseUrl": "https://www.gwe.go.kr/main/bbs/list.do?key=bTIzMDcyMTA1ODU2MzM=",
-    "detailUrlTemplate": "https://www.gwe.go.kr/main/bbs/view.do?bbsSn=",
-    "boardKey": "m2307210585633",
-    "parserType": "custom",
-    "region": "강원",
-    "metropolitanRegion": "강원",
     "isLocalGovernment": false,
     "active": true
   },
@@ -100,16 +59,6 @@
     "active": true,
     "skipRobotsCheck": true,
     "note": "별도 크롤러 사용 (chungnam.js) - 7개 카테고리 보드 크롤링"
-  },
-  "jeonbuk": {
-    "name": "전북특별자치도교육청 채용공고",
-    "baseUrl": "https://www.jbe.go.kr/board/list.jbe?boardId=BBS_0000357&menuCd=DOM_000000102003006000",
-    "detailUrlTemplate": "https://www.jbe.go.kr/board/view.jbe?boardId=BBS_0000357&menuCd=DOM_000000102003006000&dataSid=",
-    "parserType": "custom",
-    "region": "전북특별자치도",
-    "isLocalGovernment": false,
-    "active": false,
-    "note": "별도 크롤러 필요 (jbe 패턴)"
   },
   "jeonnam": {
     "name": "전라남도교육청 채용정보",
