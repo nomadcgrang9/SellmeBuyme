@@ -112,6 +112,15 @@ export const Hero: React.FC = () => {
   // 마커 클러스터러 참조
   const clustererRef = useRef<any>(null);
 
+  // 마커가 로드된 공고 ID 목록 (같은 지역 내 이동 시 재로드 방지)
+  const loadedJobIdsRef = useRef<Set<string>>(new Set());
+
+  // 마지막으로 로드한 지역 (같은 지역 내 이동 시 재로드 방지)
+  const lastRegionRef = useRef<string>('');
+
+  // 로딩 중 여부 (중복 요청 방지)
+  const isLoadingRef = useRef<boolean>(false);
+
   // 중복 제거 함수 (organization + title 기준)
   const deduplicateJobs = useCallback((jobs: JobPostingCard[]): JobPostingCard[] => {
     const seen = new Map<string, JobPostingCard>();
@@ -317,7 +326,7 @@ export const Hero: React.FC = () => {
             .replace(/특별자치도$/, '')
             .replace(/도$/, '');
 
-          console.log('[Hero] 지도 이동 감지, 새 지역:', regionName);
+          // loadJobPostingsData 내부에서 같은 지역 체크함
           loadJobPostingsData(regionName);
         }
       });
@@ -367,8 +376,22 @@ export const Hero: React.FC = () => {
 
   // 공고 로드 함수
   const loadJobPostingsData = async (regionName: string) => {
+    // 같은 지역이면 재로드 스킵
+    if (lastRegionRef.current === regionName) {
+      console.log('[Hero] 같은 지역, 공고 재로드 스킵:', regionName);
+      return;
+    }
+
+    // 이미 로딩 중이면 스킵
+    if (isLoadingRef.current) {
+      console.log('[Hero] 이미 로딩 중, 스킵:', regionName);
+      return;
+    }
+
     try {
-      console.log('[Hero] 공고 데이터 로드 시작, 지역:', regionName);
+      isLoadingRef.current = true;
+      console.log('[Hero] 공고 데이터 로드 시작, 지역:', regionName, '(이전:', lastRegionRef.current, ')');
+      lastRegionRef.current = regionName;
 
       // 전국 조회인 경우 fetchJobPostings 사용 (성능 최적화)
       const isNationwide = !regionName || regionName === '' || regionName === '전국' || regionName === '전체';
@@ -381,6 +404,8 @@ export const Hero: React.FC = () => {
       setJobPostings(jobs);
     } catch (error) {
       console.error('[Hero] 공고 데이터 로드 실패:', error);
+    } finally {
+      isLoadingRef.current = false;
     }
   };
 
@@ -642,17 +667,37 @@ export const Hero: React.FC = () => {
     }
   }, []);
 
+  // 마지막으로 마커를 생성한 공고 수 (변경 감지용)
+  const lastMarkerCountRef = useRef<number>(0);
+
   // 공고 마커 표시 (클러스터링 적용)
   useEffect(() => {
     if (!isLoaded || !mapInstanceRef.current) return;
 
-    // 기존 마커 및 클러스터러 정리
+    // 이미 로드된 공고와 현재 공고가 동일하면 스킵 (같은 지역 내 이동 시)
+    // 공고 수와 첫 번째/마지막 ID를 비교하여 동일 여부 판단
+    const currentCount = filteredJobPostings.length;
+    const loadedIds = loadedJobIdsRef.current;
+
+    if (currentCount > 0 && currentCount === lastMarkerCountRef.current && mapMarkersRef.current.length > 0) {
+      // 모든 공고가 이미 로드되었는지 확인
+      const allLoaded = filteredJobPostings.every(job => loadedIds.has(job.id));
+      if (allLoaded) {
+        console.log('[Hero] 같은 공고, 마커 재로드 스킵 (count:', currentCount, ')');
+        return;
+      }
+    }
+
+    console.log('[Hero] 마커 생성 시작 - 이전:', lastMarkerCountRef.current, '현재:', currentCount);
+
+    // 새로운 공고 목록이면 기존 마커 정리
     if (clustererRef.current) {
       clustererRef.current.clear();
     }
     mapMarkersRef.current.forEach(marker => marker.setMap(null));
     mapMarkersRef.current = [];
     markerJobMapRef.current.clear();
+    loadedJobIdsRef.current.clear();
     setMarkerCount(0);
 
     if (filteredJobPostings.length === 0) {
@@ -677,7 +722,7 @@ export const Hero: React.FC = () => {
       clustererRef.current = new window.kakao.maps.MarkerClusterer({
         map: map,
         averageCenter: true,
-        minLevel: 1, // 모든 줌 레벨에서 클러스터링 적용
+        minLevel: 5, // 레벨 5 이상에서만 클러스터링, 4 이하에서는 개별 마커 표시
         minClusterSize: 1, // 1개부터 클러스터로 표시
         gridSize: 60, // 클러스터 그리드 크기 (줌 레벨 변경 시 자동 재계산)
         disableClickZoom: false,
@@ -751,6 +796,7 @@ export const Hero: React.FC = () => {
       mapMarkersRef.current.push(marker);
       markerJobMapRef.current.set(marker, job);
       pendingMarkers.push(marker);
+      loadedJobIdsRef.current.add(job.id); // 로드된 공고 ID 기록
       setMarkerCount(prev => prev + 1);
 
       // 마커 클릭 시 상세 패널 열기
@@ -817,7 +863,8 @@ export const Hero: React.FC = () => {
             clustererRef.current.addMarkers(pendingMarkers);
             console.log(`[Hero] 클러스터러에 ${pendingMarkers.length}개 마커 추가됨`);
           }
-          // 마커 로딩 완료
+          // 마커 로딩 완료 및 카운트 기록
+          lastMarkerCountRef.current = filteredJobPostings.length;
           setIsLoadingMarkers(false);
         }
         return;
