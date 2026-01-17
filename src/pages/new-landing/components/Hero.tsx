@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { SCHOOL_LEVELS } from '../constants';
 import { useKakaoMaps } from '@/hooks/useKakaoMaps';
-import { fetchJobsByBoardRegion } from '@/lib/supabase/queries';
+import { fetchJobsByBoardRegion, fetchJobPostings } from '@/lib/supabase/queries';
 import type { JobPostingCard } from '@/types';
 import type { Coordinates, DirectionsResult } from '@/types/directions';
 import { JobDetailPanel } from './JobDetailPanel';
@@ -310,12 +310,12 @@ export const Hero: React.FC = () => {
             .replace(/도$/, '');
 
           console.log('[Hero] 지도 이동 감지, 새 지역:', regionName);
-          loadJobPostings(regionName);
+          loadJobPostingsData(regionName);
         }
       });
     });
 
-    loadJobPostings('서울');
+    loadJobPostingsData('서울');
   }, [isLoaded, mapCenter.lat, mapCenter.lng]);
 
   // 지도 클릭 이벤트 - 출발지 선택 모드 (별도 useEffect로 분리하여 mapClickMode 변경 시에만 업데이트)
@@ -358,10 +358,17 @@ export const Hero: React.FC = () => {
   }, [userLocation]);
 
   // 공고 로드 함수
-  const loadJobPostings = async (regionName: string) => {
+  const loadJobPostingsData = async (regionName: string) => {
     try {
       console.log('[Hero] 공고 데이터 로드 시작, 지역:', regionName);
-      const jobs = await fetchJobsByBoardRegion(regionName, 250);
+
+      // 전국 조회인 경우 fetchJobPostings 사용 (성능 최적화)
+      const isNationwide = !regionName || regionName === '' || regionName === '전국' || regionName === '전체';
+
+      const jobs = isNationwide
+        ? await fetchJobPostings(500)
+        : await fetchJobsByBoardRegion(regionName, 250);
+
       console.log('[Hero] 공고 데이터 로드 완료:', jobs.length, '개');
       setJobPostings(jobs);
     } catch (error) {
@@ -515,7 +522,7 @@ export const Hero: React.FC = () => {
           .replace(/특별자치도$/, '')
           .replace(/도$/, '');
 
-        loadJobPostings(simplifiedRegion);
+        loadJobPostingsData(simplifiedRegion);
       }
     });
   }, [isLoaded, userLocation]);
