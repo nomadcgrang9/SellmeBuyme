@@ -102,6 +102,7 @@ export const Hero: React.FC = () => {
   // 공고 데이터 상태
   const [jobPostings, setJobPostings] = useState<JobPostingCard[]>([]);
   const [markerCount, setMarkerCount] = useState(0);
+  const [isLoadingMarkers, setIsLoadingMarkers] = useState(false);
   const mapMarkersRef = useRef<any[]>([]);
   const coordsCacheRef = useRef<Map<string, { lat: number; lng: number }>>(new Map());
 
@@ -293,9 +294,9 @@ export const Hero: React.FC = () => {
     const map = new window.kakao.maps.Map(mapContainerRef.current, mapOption);
     mapInstanceRef.current = map;
 
-    // 줌 레벨 제한: 1(최대 확대) ~ 8(시/도 단위)
+    // 줌 레벨 제한: 1(최대 확대) ~ 9(광역 단위)
     map.setMinLevel(1);
-    map.setMaxLevel(8);
+    map.setMaxLevel(9);
 
     const zoomControl = new window.kakao.maps.ZoomControl();
     map.addControl(zoomControl, window.kakao.maps.ControlPosition.RIGHT);
@@ -654,7 +655,13 @@ export const Hero: React.FC = () => {
     markerJobMapRef.current.clear();
     setMarkerCount(0);
 
-    if (filteredJobPostings.length === 0) return;
+    if (filteredJobPostings.length === 0) {
+      setIsLoadingMarkers(false);
+      return;
+    }
+
+    // 마커 로딩 시작
+    setIsLoadingMarkers(true);
 
     const map = mapInstanceRef.current;
     const places = new window.kakao.maps.services.Places();
@@ -670,41 +677,54 @@ export const Hero: React.FC = () => {
       clustererRef.current = new window.kakao.maps.MarkerClusterer({
         map: map,
         averageCenter: true,
-        minLevel: 5, // 줌 레벨 5 이상에서 클러스터링
+        minLevel: 1, // 모든 줌 레벨에서 클러스터링 적용
         minClusterSize: 1, // 1개부터 클러스터로 표시
+        gridSize: 60, // 클러스터 그리드 크기 (줌 레벨 변경 시 자동 재계산)
         disableClickZoom: false,
+        calculator: [10, 30, 100], // 10개 미만, 30개 미만, 100개 미만, 100개 이상으로 스타일 분류
         styles: [
           {
             width: '36px',
             height: '36px',
-            background: 'rgba(91, 110, 247, 0.9)',
+            background: 'rgba(91, 110, 247, 0.85)',
             borderRadius: '50%',
             color: '#fff',
             textAlign: 'center',
             fontWeight: 'bold',
             lineHeight: '36px',
-            fontSize: '14px',
+            fontSize: '13px',
           },
           {
-            width: '46px',
-            height: '46px',
+            width: '44px',
+            height: '44px',
             background: 'rgba(91, 110, 247, 0.9)',
             borderRadius: '50%',
             color: '#fff',
             textAlign: 'center',
             fontWeight: 'bold',
-            lineHeight: '46px',
-            fontSize: '15px',
+            lineHeight: '44px',
+            fontSize: '14px',
           },
           {
-            width: '56px',
-            height: '56px',
-            background: 'rgba(91, 110, 247, 0.95)',
+            width: '52px',
+            height: '52px',
+            background: 'rgba(79, 70, 229, 0.9)',
             borderRadius: '50%',
             color: '#fff',
             textAlign: 'center',
             fontWeight: 'bold',
-            lineHeight: '56px',
+            lineHeight: '52px',
+            fontSize: '15px',
+          },
+          {
+            width: '60px',
+            height: '60px',
+            background: 'rgba(67, 56, 202, 0.95)',
+            borderRadius: '50%',
+            color: '#fff',
+            textAlign: 'center',
+            fontWeight: 'bold',
+            lineHeight: '60px',
             fontSize: '16px',
           }
         ]
@@ -797,6 +817,8 @@ export const Hero: React.FC = () => {
             clustererRef.current.addMarkers(pendingMarkers);
             console.log(`[Hero] 클러스터러에 ${pendingMarkers.length}개 마커 추가됨`);
           }
+          // 마커 로딩 완료
+          setIsLoadingMarkers(false);
         }
         return;
       }
@@ -850,6 +872,7 @@ export const Hero: React.FC = () => {
 
     return () => {
       cancelled = true;
+      setIsLoadingMarkers(false);
       if (currentInfowindow) currentInfowindow.close();
       if (clustererRef.current) {
         clustererRef.current.clear();
@@ -880,6 +903,16 @@ export const Hero: React.FC = () => {
         ref={mapContainerRef}
         className="absolute inset-0 w-full h-full"
       />
+
+      {/* 마커 로딩 인디케이터 */}
+      {isLoadingMarkers && (
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-30 bg-white/95 backdrop-blur-sm px-4 py-2 rounded-full shadow-lg flex items-center gap-2">
+          <div className="w-4 h-4 border-2 border-[#5B6EF7] border-t-transparent rounded-full animate-spin" />
+          <span className="text-sm font-medium text-gray-700">
+            공고 마커 로딩 중... ({markerCount}/{filteredJobPostings.length})
+          </span>
+        </div>
+      )}
 
       {/* 맵 클릭 모드 오버레이 - 카카오맵 위에 투명하게 표시되어 커서와 클릭 이벤트를 처리 */}
       {mapClickMode && (
