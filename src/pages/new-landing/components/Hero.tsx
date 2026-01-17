@@ -305,7 +305,7 @@ export const Hero: React.FC = () => {
 
     // 줌 레벨 제한: 1(최대 확대) ~ 9(광역 단위)
     map.setMinLevel(1);
-    map.setMaxLevel(9);
+    map.setMaxLevel(8);
 
     const zoomControl = new window.kakao.maps.ZoomControl();
     map.addControl(zoomControl, window.kakao.maps.ControlPosition.RIGHT);
