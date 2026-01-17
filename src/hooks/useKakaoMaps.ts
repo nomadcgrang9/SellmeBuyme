@@ -20,7 +20,7 @@ interface UseKakaoMapsReturn {
  */
 // 환경변수에서 API 키를 가져오거나 기본값 사용
 const KAKAO_APP_KEY = import.meta.env.VITE_KAKAO_MAP_KEY || '69b6d6d11aa571c7001a92ba25a99c49';
-const KAKAO_SDK_URL = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${KAKAO_APP_KEY}&libraries=services&autoload=false`;
+const KAKAO_SDK_URL = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${KAKAO_APP_KEY}&libraries=services,clusterer&autoload=false`;
 
 export function useKakaoMaps(): UseKakaoMapsReturn {
   const [isLoaded, setIsLoaded] = useState(false);

@@ -108,6 +108,9 @@ export const Hero: React.FC = () => {
   // 마커-공고 매핑 (마커 클릭 시 상세 패널 열기용)
   const markerJobMapRef = useRef<Map<any, JobPostingCard>>(new Map());
 
+  // 마커 클러스터러 참조
+  const clustererRef = useRef<any>(null);
+
   // 중복 제거 함수 (organization + title 기준)
   const deduplicateJobs = useCallback((jobs: JobPostingCard[]): JobPostingCard[] => {
     const seen = new Map<string, JobPostingCard>();
@@ -289,6 +292,10 @@ export const Hero: React.FC = () => {
 
     const map = new window.kakao.maps.Map(mapContainerRef.current, mapOption);
     mapInstanceRef.current = map;
+
+    // 줌 레벨 제한: 1(최대 확대) ~ 8(시/도 단위)
+    map.setMinLevel(1);
+    map.setMaxLevel(8);
 
     const zoomControl = new window.kakao.maps.ZoomControl();
     map.addControl(zoomControl, window.kakao.maps.ControlPosition.RIGHT);
@@ -634,11 +641,14 @@ export const Hero: React.FC = () => {
     }
   }, []);
 
-  // 공고 마커 표시
+  // 공고 마커 표시 (클러스터링 적용)
   useEffect(() => {
     if (!isLoaded || !mapInstanceRef.current) return;
 
-    // 기존 마커 정리
+    // 기존 마커 및 클러스터러 정리
+    if (clustererRef.current) {
+      clustererRef.current.clear();
+    }
     mapMarkersRef.current.forEach(marker => marker.setMap(null));
     mapMarkersRef.current = [];
     markerJobMapRef.current.clear();
@@ -653,7 +663,53 @@ export const Hero: React.FC = () => {
     let currentInfowindow: any = null;
 
     const coordsJobsMap = new Map<string, JobPostingCard[]>();
-    const coordsMarkerMap = new Map<string, any>();
+    const pendingMarkers: any[] = [];
+
+    // 클러스터러 초기화 (없으면 생성)
+    if (!clustererRef.current && window.kakao.maps.MarkerClusterer) {
+      clustererRef.current = new window.kakao.maps.MarkerClusterer({
+        map: map,
+        averageCenter: true,
+        minLevel: 5, // 줌 레벨 5 이상에서 클러스터링
+        minClusterSize: 1, // 1개부터 클러스터로 표시
+        disableClickZoom: false,
+        styles: [
+          {
+            width: '36px',
+            height: '36px',
+            background: 'rgba(91, 110, 247, 0.9)',
+            borderRadius: '50%',
+            color: '#fff',
+            textAlign: 'center',
+            fontWeight: 'bold',
+            lineHeight: '36px',
+            fontSize: '14px',
+          },
+          {
+            width: '46px',
+            height: '46px',
+            background: 'rgba(91, 110, 247, 0.9)',
+            borderRadius: '50%',
+            color: '#fff',
+            textAlign: 'center',
+            fontWeight: 'bold',
+            lineHeight: '46px',
+            fontSize: '15px',
+          },
+          {
+            width: '56px',
+            height: '56px',
+            background: 'rgba(91, 110, 247, 0.95)',
+            borderRadius: '50%',
+            color: '#fff',
+            textAlign: 'center',
+            fontWeight: 'bold',
+            lineHeight: '56px',
+            fontSize: '16px',
+          }
+        ]
+      });
+    }
 
     const createMarker = (coords: { lat: number; lng: number }, job: JobPostingCard) => {
       if (cancelled) return;
@@ -665,23 +721,16 @@ export const Hero: React.FC = () => {
       }
       coordsJobsMap.get(coordKey)!.push(job);
 
-      let finalCoords = coords;
-      if (coordsMarkerMap.has(coordKey)) {
-        const offsetLat = (Math.random() - 0.5) * 0.0005;
-        const offsetLng = (Math.random() - 0.5) * 0.0005;
-        finalCoords = { lat: coords.lat + offsetLat, lng: coords.lng + offsetLng };
-      }
+      const position = new window.kakao.maps.LatLng(coords.lat, coords.lng);
 
-      const position = new window.kakao.maps.LatLng(finalCoords.lat, finalCoords.lng);
-
+      // 마커 생성 (map에 직접 추가하지 않음 - 클러스터러가 관리)
       const marker = new window.kakao.maps.Marker({
         position: position,
-        map: map,
       });
 
       mapMarkersRef.current.push(marker);
       markerJobMapRef.current.set(marker, job);
-      coordsMarkerMap.set(coordKey, marker);
+      pendingMarkers.push(marker);
       setMarkerCount(prev => prev + 1);
 
       // 마커 클릭 시 상세 패널 열기
@@ -691,10 +740,8 @@ export const Hero: React.FC = () => {
         const jobsAtLocation = coordsJobsMap.get(coordKey) || [job];
 
         if (jobsAtLocation.length === 1) {
-          // 단일 공고: 바로 상세 패널 열기
           setSelectedJob(jobsAtLocation[0]);
         } else {
-          // 여러 공고: 인포윈도우로 목록 표시
           const jobItems = jobsAtLocation.map((j, idx) => `
             <div style="padding:6px 0;${idx > 0 ? 'border-top:1px solid #eee;' : ''}cursor:pointer;"
                  onclick="window.selectJobFromMarker && window.selectJobFromMarker('${j.id}')">
@@ -721,11 +768,10 @@ export const Hero: React.FC = () => {
           currentInfowindow = infowindow;
         }
 
-        // 지도 살짝 이동 (마커가 가려지지 않게)
         const offsetLng = 0.002;
         const adjustedCoords = new window.kakao.maps.LatLng(
-          finalCoords.lat,
-          finalCoords.lng + offsetLng
+          coords.lat,
+          coords.lng + offsetLng
         );
         map.panTo(adjustedCoords);
       });
@@ -746,6 +792,11 @@ export const Hero: React.FC = () => {
       if (cancelled || index >= filteredJobPostings.length) {
         if (index >= filteredJobPostings.length) {
           console.log(`[Hero] 마커 생성 완료: 성공 ${filteredJobPostings.length - failedCount}개, 실패 ${failedCount}개`);
+          // 모든 마커 생성 완료 후 클러스터러에 추가
+          if (clustererRef.current && pendingMarkers.length > 0) {
+            clustererRef.current.addMarkers(pendingMarkers);
+            console.log(`[Hero] 클러스터러에 ${pendingMarkers.length}개 마커 추가됨`);
+          }
         }
         return;
       }
@@ -756,13 +807,13 @@ export const Hero: React.FC = () => {
       const keyword = job.organization || job.location;
       if (!keyword) {
         failedCount++;
-        setTimeout(processNext, 30);
+        setTimeout(processNext, 10); // 30ms → 10ms로 단축
         return;
       }
 
       if (cache.has(keyword)) {
         createMarker(cache.get(keyword)!, job);
-        setTimeout(processNext, 30);
+        setTimeout(processNext, 10);
         return;
       }
 
@@ -784,14 +835,14 @@ export const Hero: React.FC = () => {
               } else {
                 failedCount++;
               }
-              setTimeout(processNext, 30);
+              setTimeout(processNext, 10);
             });
             return;
           } else {
             failedCount++;
           }
         }
-        setTimeout(processNext, 30);
+        setTimeout(processNext, 10);
       });
     };
 
@@ -800,6 +851,9 @@ export const Hero: React.FC = () => {
     return () => {
       cancelled = true;
       if (currentInfowindow) currentInfowindow.close();
+      if (clustererRef.current) {
+        clustererRef.current.clear();
+      }
       mapMarkersRef.current.forEach(marker => marker.setMap(null));
       mapMarkersRef.current = [];
       markerJobMapRef.current.clear();

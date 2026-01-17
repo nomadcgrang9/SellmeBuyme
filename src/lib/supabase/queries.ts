@@ -2503,13 +2503,45 @@ async function logSearchEvent(payload: SearchLogPayload): Promise<void> {
   }
 }
 
+// 마커 표시 및 카드 목록에 필요한 최소 컬럼 (페이로드 최적화)
+const JOB_POSTING_LIGHT_COLUMNS = `
+  id,
+  title,
+  organization,
+  location,
+  compensation,
+  deadline,
+  tags,
+  is_urgent,
+  school_level,
+  created_at
+`;
+
+// 상세 정보에 필요한 추가 컬럼
+const JOB_POSTING_DETAIL_COLUMNS = `
+  ${JOB_POSTING_LIGHT_COLUMNS},
+  detail_content,
+  structured_content,
+  form_payload,
+  attachment_url,
+  attachment_path,
+  source_url,
+  qualifications,
+  work_period,
+  application_period,
+  work_time,
+  contact,
+  user_id,
+  source
+`;
+
 /**
- * 크롤링된 공고 목록 가져오기
+ * 크롤링된 공고 목록 가져오기 (경량 버전 - 마커/목록용)
  */
 export async function fetchJobPostings(limit = 20) {
   const { data, error } = await supabase
     .from('job_postings')
-    .select('*')
+    .select(JOB_POSTING_LIGHT_COLUMNS)
     .order('created_at', { ascending: false })
     .limit(limit);
 
@@ -2635,7 +2667,7 @@ export async function fetchJobsByBoardRegion(
 
   const { data: jobs, error: jobsError } = await supabase
     .from('job_postings')
-    .select('*')
+    .select(JOB_POSTING_LIGHT_COLUMNS)
     .or(boardIdConditions)
     .or(`deadline.is.null,deadline.gte.${todayIso}`)
     .order('created_at', { ascending: false })
