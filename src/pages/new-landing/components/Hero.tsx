@@ -1189,26 +1189,27 @@ export const Hero: React.FC = () => {
           {/* 히어로 카드 - 브랜딩 영역 (캐러셀) */}
           <HeroCard />
 
-          {/* 공고 목록 헤더 */}
-          <div className="px-3 py-2.5 border-b border-gray-100 flex-shrink-0">
+          {/* 공고 목록 헤더 - 클릭 시 접기/펼치기 */}
+          <div
+            className="px-3 py-2.5 border-b border-gray-100 flex-shrink-0 cursor-pointer hover:bg-gray-50 transition-colors"
+            onClick={() => setIsJobListCollapsed(!isJobListCollapsed)}
+          >
             <div className="flex items-center justify-between">
               <span className="text-sm font-semibold text-gray-700">공고 목록</span>
               <div className="flex items-center gap-2">
                 <span className="text-xs font-medium text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
                   {filteredJobPostings.length}개
                 </span>
-                <button
-                  onClick={() => setIsJobListCollapsed(!isJobListCollapsed)}
-                  className="p-1.5 rounded-lg border border-blue-200 bg-blue-50 hover:bg-blue-100 transition-colors text-blue-600"
+                <div
+                  className="p-1.5 rounded-lg border border-blue-200 bg-blue-50 text-blue-600"
                   aria-label={isJobListCollapsed ? '목록 펼치기' : '목록 접기'}
-                  title={isJobListCollapsed ? '목록 펼치기' : '목록 접기'}
                 >
                   {isJobListCollapsed ? (
                     <ChevronDown size={18} strokeWidth={2.5} />
                   ) : (
                     <ChevronUp size={18} strokeWidth={2.5} />
                   )}
-                </button>
+                </div>
               </div>
             </div>
           </div>
