@@ -1199,14 +1199,14 @@ export const Hero: React.FC = () => {
                 </span>
                 <button
                   onClick={() => setIsJobListCollapsed(!isJobListCollapsed)}
-                  className="p-1 rounded-md hover:bg-gray-100 transition-colors text-gray-500 hover:text-gray-700"
+                  className="p-1.5 rounded-lg border border-blue-200 bg-blue-50 hover:bg-blue-100 transition-colors text-blue-600"
                   aria-label={isJobListCollapsed ? '목록 펼치기' : '목록 접기'}
                   title={isJobListCollapsed ? '목록 펼치기' : '목록 접기'}
                 >
                   {isJobListCollapsed ? (
-                    <ChevronDown size={16} />
+                    <ChevronDown size={18} strokeWidth={2.5} />
                   ) : (
-                    <ChevronUp size={16} />
+                    <ChevronUp size={18} strokeWidth={2.5} />
                   )}
                 </button>
               </div>
