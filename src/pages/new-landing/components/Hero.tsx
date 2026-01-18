@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { ChevronUp, ChevronDown } from 'lucide-react';
+import { ChevronUp, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { SCHOOL_LEVELS } from '../constants';
 import { useKakaoMaps } from '@/hooks/useKakaoMaps';
 import { fetchJobsByBoardRegion } from '@/lib/supabase/queries';
@@ -106,6 +106,7 @@ export const Hero: React.FC = () => {
   const [jobPostings, setJobPostings] = useState<JobPostingCard[]>([]);
   const [isJobsLoading, setIsJobsLoading] = useState(false);
   const [isJobListCollapsed, setIsJobListCollapsed] = useState(false);
+  const [isPanelHidden, setIsPanelHidden] = useState(false);
   const [markerCount, setMarkerCount] = useState(0);
   const mapMarkersRef = useRef<any[]>([]);
   const coordsCacheRef = useRef<Map<string, { lat: number; lng: number }>>(new Map());
@@ -1046,8 +1047,12 @@ export const Hero: React.FC = () => {
         />
       )}
 
-      {/* 왼쪽 패널 컨테이너: 로고 + 카드 목록 + 상세 패널 */}
-      <div className="absolute top-4 left-4 z-10 flex gap-3">
+      {/* 왼쪽 패널 컨테이너: 로고 + 카드 목록 + 상세 패널 + 토글 버튼 */}
+      <div
+        className={`absolute top-4 z-10 flex gap-3 transition-all duration-300 ease-in-out ${
+          isPanelHidden ? '-left-[256px]' : 'left-4'
+        }`}
+      >
         {/* 왼쪽 패널: 로고 + 필터 + 공고 목록 (한 몸처럼) */}
         <div className="w-[240px] bg-white/95 backdrop-blur-sm rounded-xl border border-gray-200 shadow-lg overflow-hidden flex flex-col max-h-[calc(100vh-32px)]">
 
@@ -1338,15 +1343,33 @@ export const Hero: React.FC = () => {
             onDirectionsClick={handleDirectionsClick}
           />
         )}
+
+        {/* 패널 접기/펼치기 토글 버튼 (네이버 지도 스타일) */}
+        <button
+          onClick={() => setIsPanelHidden(!isPanelHidden)}
+          className="self-center flex items-center justify-center w-6 h-14 bg-white/95 backdrop-blur-sm border border-gray-200 rounded-r-lg shadow-md hover:bg-gray-50 transition-colors"
+          aria-label={isPanelHidden ? '패널 펼치기' : '패널 접기'}
+          title={isPanelHidden ? '패널 펼치기' : '패널 접기'}
+        >
+          {isPanelHidden ? (
+            <ChevronRight size={18} strokeWidth={2} className="text-gray-600" />
+          ) : (
+            <ChevronLeft size={18} strokeWidth={2} className="text-gray-600" />
+          )}
+        </button>
       </div>
 
       {/* 길찾기 패널 - 사이드 패널 방식 (상세 패널 옆에 위치) */}
       {directionsJob && (
         <div
-          className="absolute top-4 z-20"
+          className="absolute top-4 z-20 transition-all duration-300 ease-in-out"
           style={{
-            // 카드목록(240px) + gap(12px) + 상세패널(260px, 있을 때) + gap(12px) = 위치
-            left: selectedJob ? 'calc(16px + 240px + 12px + 260px + 12px)' : 'calc(16px + 240px + 12px)'
+            // 패널 숨김 시: 16px, 패널 보임 시: 카드목록(240px) + gap(12px) + 상세패널(260px, 있을 때) + gap(12px) + 토글버튼(24px) = 위치
+            left: isPanelHidden
+              ? '16px'
+              : selectedJob
+                ? 'calc(16px + 240px + 12px + 260px + 12px + 24px + 8px)'
+                : 'calc(16px + 240px + 12px + 24px + 8px)'
           }}
         >
           <DirectionsPanel
