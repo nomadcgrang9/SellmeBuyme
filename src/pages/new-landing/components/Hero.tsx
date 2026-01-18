@@ -14,6 +14,8 @@ import BottomControlBar from '@/components/map/BottomControlBar';
 import MarkerPopup from '@/components/map/MarkerPopup';
 import AuthModal from '@/components/auth/AuthModal';
 import ProfileButton from '@/components/auth/ProfileButton';
+import EmptyState from '@/components/common/EmptyState';
+import { ListSkeleton } from '@/components/common/CardSkeleton';
 import { useAuthStore } from '@/stores/authStore';
 import { fetchTeacherMarkers, fetchProgramMarkers } from '@/lib/supabase/markers';
 import { type MarkerLayer, type TeacherMarker, type ProgramMarker, MARKER_COLORS } from '@/types/markers';
@@ -101,6 +103,7 @@ export const Hero: React.FC = () => {
 
   // 공고 데이터 상태
   const [jobPostings, setJobPostings] = useState<JobPostingCard[]>([]);
+  const [isJobsLoading, setIsJobsLoading] = useState(false);
   const [markerCount, setMarkerCount] = useState(0);
   const mapMarkersRef = useRef<any[]>([]);
   const coordsCacheRef = useRef<Map<string, { lat: number; lng: number }>>(new Map());
@@ -360,12 +363,15 @@ export const Hero: React.FC = () => {
   // 공고 로드 함수
   const loadJobPostings = async (regionName: string) => {
     try {
+      setIsJobsLoading(true);
       console.log('[Hero] 공고 데이터 로드 시작, 지역:', regionName);
       const jobs = await fetchJobsByBoardRegion(regionName, 250);
       console.log('[Hero] 공고 데이터 로드 완료:', jobs.length, '개');
       setJobPostings(jobs);
     } catch (error) {
       console.error('[Hero] 공고 데이터 로드 실패:', error);
+    } finally {
+      setIsJobsLoading(false);
     }
   };
 
@@ -1193,10 +1199,15 @@ export const Hero: React.FC = () => {
 
           {/* 공고 카드 목록 */}
           <div className="flex-1 overflow-y-auto">
-            {filteredJobPostings.length === 0 ? (
-              <div className="p-4 text-center text-gray-400 text-xs">
-                표시할 공고가 없습니다
-              </div>
+            {isJobsLoading ? (
+              <ListSkeleton count={5} />
+            ) : filteredJobPostings.length === 0 ? (
+              <EmptyState
+                type="filter"
+                title="조건에 맞는 공고가 없어요"
+                description="필터를 조정하거나 다른 지역을 선택해 보세요"
+                size="sm"
+              />
             ) : (
               <div className="divide-y divide-gray-100">
                 {filteredJobPostings.map((job) => (
