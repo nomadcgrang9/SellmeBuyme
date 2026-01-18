@@ -1054,7 +1054,7 @@ export const Hero: React.FC = () => {
         }`}
       >
         {/* 왼쪽 패널: 로고 + 필터 + 공고 목록 (한 몸처럼) */}
-        <div className="w-[240px] bg-white/95 backdrop-blur-sm rounded-l-xl rounded-r-none border border-gray-200 border-r-0 shadow-lg overflow-hidden flex flex-col max-h-[calc(100vh-32px)]">
+        <div className="w-[240px] bg-white/95 backdrop-blur-sm rounded-xl border border-gray-200 shadow-lg overflow-hidden flex flex-col max-h-[calc(100vh-32px)]">
 
           {/* 로고 영역 - 패널 최상단 */}
           <div className="px-3 py-3 border-b border-gray-200 flex-shrink-0">
@@ -1344,17 +1344,17 @@ export const Hero: React.FC = () => {
           />
         )}
 
-        {/* 패널 접기/펼치기 토글 버튼 (네이버 지도 스타일) - 패널에 바로 붙어있음 */}
+        {/* 패널 접기/펼치기 토글 버튼 (네이버 지도 스타일 탭) */}
         <button
           onClick={() => setIsPanelHidden(!isPanelHidden)}
-          className="self-center flex items-center justify-center w-5 h-12 bg-white/95 backdrop-blur-sm border border-gray-200 border-l-0 rounded-r-lg shadow-md hover:bg-gray-50 transition-colors -ml-px"
+          className="self-center -ml-[1px] flex items-center justify-center w-5 h-14 bg-white border border-gray-200 border-l-0 rounded-r-md shadow-sm hover:bg-gray-50 active:bg-gray-100 transition-colors"
           aria-label={isPanelHidden ? '패널 펼치기' : '패널 접기'}
           title={isPanelHidden ? '패널 펼치기' : '패널 접기'}
         >
           {isPanelHidden ? (
-            <ChevronRight size={16} strokeWidth={2} className="text-gray-500" />
+            <ChevronRight size={14} strokeWidth={2} className="text-gray-400" />
           ) : (
-            <ChevronLeft size={16} strokeWidth={2} className="text-gray-500" />
+            <ChevronLeft size={14} strokeWidth={2} className="text-gray-400" />
           )}
         </button>
       </div>
