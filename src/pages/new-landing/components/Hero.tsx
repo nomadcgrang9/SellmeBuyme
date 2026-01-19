@@ -1303,9 +1303,9 @@ export const Hero: React.FC = () => {
                 {filteredJobPostings.map((job) => (
                   <div
                     key={job.id}
-                    className={`group relative p-4 cursor-pointer transition-colors border-l-2 ${selectedJob?.id === job.id
-                      ? 'bg-blue-50 border-l-[#5B6EF7]'
-                      : 'border-l-transparent hover:bg-gray-50'
+                    className={`group relative p-4 cursor-pointer transition-colors border-l-4 border-l-transparent ${selectedJob?.id === job.id
+                      ? 'bg-blue-50 !border-l-[#5B6EF7]'
+                      : 'hover:bg-gray-50'
                       }`}
                     onClick={() => handleCardClick(job)}
                   >
