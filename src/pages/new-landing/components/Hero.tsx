@@ -1398,30 +1398,19 @@ export const Hero: React.FC = () => {
         </div>
 
         {/* 상세 패널 - 카드 목록 옆에 배치 (flex 아이템) */}
-        <AnimatePresence mode="popLayout">
-          {selectedJob && (
-            <motion.div
-              layout
-              initial={{ opacity: 0, width: 0 }}
-              animate={{ opacity: 1, width: 'auto' }}
-              exit={{ opacity: 0, width: 0 }}
-              transition={{ duration: 0.1, ease: [0.4, 0, 0.2, 1] }}
-              data-panel="detail"
-            >
-              <JobDetailPanel
-                job={selectedJob}
-                isOpen={!!selectedJob}
-                onClose={() => setSelectedJob(null)}
-                onDirectionsClick={handleDirectionsClick}
-              />
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {selectedJob && (
+          <div data-panel="detail">
+            <JobDetailPanel
+              job={selectedJob}
+              isOpen={!!selectedJob}
+              onClose={() => setSelectedJob(null)}
+              onDirectionsClick={handleDirectionsClick}
+            />
+          </div>
+        )}
 
         {/* 패널 접기/펼치기 토글 버튼 (네이버 지도 스타일 탭) */}
-        <motion.button
-          layout
-          transition={{ duration: 0.1, ease: [0.4, 0, 0.2, 1] }}
+        <button
           onClick={() => setIsPanelHidden(!isPanelHidden)}
           className="self-center -ml-[1px] flex items-center justify-center w-5 h-14 bg-white border border-gray-200 border-l-0 rounded-r-md shadow-sm hover:bg-gray-50 active:bg-gray-100 transition-colors"
           aria-label={isPanelHidden ? '패널 펼치기' : '패널 접기'}
@@ -1432,7 +1421,7 @@ export const Hero: React.FC = () => {
           ) : (
             <ChevronLeft size={14} strokeWidth={2} className="text-gray-400" />
           )}
-        </motion.button>
+        </button>
       </div>
 
       {/* 길찾기 패널 - 사이드 패널 방식 (상세 패널 옆에 위치) */}
