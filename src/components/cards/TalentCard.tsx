@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { TalentCard as TalentCardType } from '@/types';
 import { IconMapPin, IconBriefcase, IconStar, IconPhone, IconAt, IconHeart } from '@tabler/icons-react';
 import { MessageCircle } from 'lucide-react';
@@ -15,10 +16,13 @@ interface TalentCardProps {
   onOpenChatModal?: (roomId: string) => void;
 }
 
-export default function TalentCard({ talent, onEditClick, isHighlight, onOpenChatModal }: TalentCardProps) {
-  const { user } = useAuthStore((s) => ({ user: s.user }));
-  const { isBookmarked, addBookmark: addToStore, removeBookmark: removeFromStore } = useBookmarkStore();
-  const showToast = useToastStore((state) => state.showToast);
+function TalentCard({ talent, onEditClick, isHighlight, onOpenChatModal }: TalentCardProps) {
+  // Zustand selector 최적화: 개별 구독
+  const user = useAuthStore((s) => s.user);
+  const isBookmarked = useBookmarkStore((s) => s.isBookmarked);
+  const addToStore = useBookmarkStore((s) => s.addBookmark);
+  const removeFromStore = useBookmarkStore((s) => s.removeBookmark);
+  const showToast = useToastStore((s) => s.showToast);
   const isOwner = Boolean(user && talent.user_id && user.id === talent.user_id);
   const bookmarked = isBookmarked(talent.id);
 
@@ -233,3 +237,5 @@ export default function TalentCard({ talent, onEditClick, isHighlight, onOpenCha
     </article>
   );
 }
+
+export default memo(TalentCard);

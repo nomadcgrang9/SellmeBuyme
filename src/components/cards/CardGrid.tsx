@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import type { Card } from '@/types';
 import JobCard from './JobCard';
 import TalentCard from './TalentCard';
@@ -28,7 +29,7 @@ interface CardGridProps {
   viewType?: 'job' | 'talent' | 'experience' | 'all';
 }
 
-export default function CardGrid({
+function CardGrid({
   cards,
   onCardClick,
   onJobEditClick,
@@ -119,3 +120,5 @@ export default function CardGrid({
     </div>
   );
 }
+
+export default memo(CardGrid);
