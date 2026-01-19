@@ -1402,10 +1402,10 @@ export const Hero: React.FC = () => {
           {selectedJob && (
             <motion.div
               layout
-              initial={{ opacity: 0, x: -20, width: 0 }}
-              animate={{ opacity: 1, x: 0, width: 'auto' }}
-              exit={{ opacity: 0, x: -20, width: 0 }}
-              transition={{ duration: 0.2, ease: 'easeOut' }}
+              initial={{ opacity: 0, width: 0 }}
+              animate={{ opacity: 1, width: 'auto' }}
+              exit={{ opacity: 0, width: 0 }}
+              transition={{ duration: 0.1, ease: [0.4, 0, 0.2, 1] }}
               data-panel="detail"
             >
               <JobDetailPanel
@@ -1421,7 +1421,7 @@ export const Hero: React.FC = () => {
         {/* 패널 접기/펼치기 토글 버튼 (네이버 지도 스타일 탭) */}
         <motion.button
           layout
-          transition={{ duration: 0.2, ease: 'easeOut' }}
+          transition={{ duration: 0.1, ease: [0.4, 0, 0.2, 1] }}
           onClick={() => setIsPanelHidden(!isPanelHidden)}
           className="self-center -ml-[1px] flex items-center justify-center w-5 h-14 bg-white border border-gray-200 border-l-0 rounded-r-md shadow-sm hover:bg-gray-50 active:bg-gray-100 transition-colors"
           aria-label={isPanelHidden ? '패널 펼치기' : '패널 접기'}
