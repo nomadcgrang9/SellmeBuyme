@@ -27,11 +27,11 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
           <h4 className="font-bold text-gray-800 text-sm">상세 정보</h4>
           <div className="flex items-center gap-2">
             {job.daysLeft !== undefined && (
-              <span className={`text-xs font-bold px-2 py-0.5 rounded ${isUrgent
-                ? 'bg-red-100 text-red-600'
+              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${isUrgent
+                ? 'bg-red-100 text-red-700'
                 : isNearDeadline
-                  ? 'bg-orange-100 text-orange-600'
-                  : 'bg-blue-100 text-blue-600'
+                  ? 'bg-orange-100 text-orange-700'
+                  : 'bg-blue-50 text-blue-600'
                 }`}>
                 D-{job.daysLeft}
               </span>

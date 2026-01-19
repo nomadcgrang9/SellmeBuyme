@@ -709,7 +709,7 @@ export const Hero: React.FC = () => {
                  onclick="window.selectJobFromMarker && window.selectJobFromMarker('${j.id}')">
               <div style="font-size:10px;color:#666;margin-bottom:2px;">${j.organization || ''}</div>
               <div style="font-size:11px;font-weight:600;color:#333;line-height:1.3;">${(j.title || '').slice(0, 25)}${(j.title || '').length > 25 ? '...' : ''}</div>
-              ${j.daysLeft !== undefined ? `<span style="font-size:9px;padding:2px 5px;border-radius:3px;background:${j.daysLeft <= 3 ? '#FEE2E2' : '#E0E7FF'};color:${j.daysLeft <= 3 ? '#DC2626' : '#4F46E5'};">D-${j.daysLeft}</span>` : ''}
+              ${j.daysLeft !== undefined ? `<span style="font-size:9px;padding:2px 5px;border-radius:3px;background:${j.daysLeft <= 3 ? '#FEE2E2' : j.daysLeft <= 7 ? '#FFEDD5' : '#EFF6FF'};color:${j.daysLeft <= 3 ? '#B91C1C' : j.daysLeft <= 7 ? '#C2410C' : '#2563EB'};">D-${j.daysLeft}</span>` : ''}
             </div>
           `).join('');
 
@@ -1309,13 +1309,19 @@ export const Hero: React.FC = () => {
                       }`}
                     onClick={() => handleCardClick(job)}
                   >
-                    {/* 기관명 + D-day (긴급한 것만 표시) */}
+                    {/* 기관명 + D-day (카드와 동일한 색상 시스템) */}
                     <div className="flex items-center justify-between mb-1.5">
                       <span className="text-xs text-gray-500 truncate flex-1">
                         {job.organization || '기관 정보 없음'}
                       </span>
-                      {job.daysLeft !== undefined && job.daysLeft <= 3 && (
-                        <span className="text-xs font-bold px-1.5 py-0.5 rounded ml-1.5 bg-red-100 text-red-600">
+                      {job.daysLeft !== undefined && (
+                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ml-1.5 ${
+                          job.daysLeft <= 3
+                            ? 'bg-red-100 text-red-700'
+                            : job.daysLeft <= 7
+                              ? 'bg-orange-100 text-orange-700'
+                              : 'bg-blue-50 text-blue-600'
+                        }`}>
                           D-{job.daysLeft}
                         </span>
                       )}
