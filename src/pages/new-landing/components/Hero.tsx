@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronUp, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { SCHOOL_LEVELS } from '../constants';
 import { useKakaoMaps } from '@/hooks/useKakaoMaps';
@@ -59,6 +60,7 @@ export const Hero: React.FC = () => {
   const [pendingMarkerType, setPendingMarkerType] = useState<'teacher' | 'program' | null>(null);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authModalInitialTab, setAuthModalInitialTab] = useState<'login' | 'signup'>('login');
 
   // 마커 레이어 토글 상태
   const [activeLayers, setActiveLayers] = useState<MarkerLayer[]>(['job', 'teacher', 'program']);
@@ -101,6 +103,7 @@ export const Hero: React.FC = () => {
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [locationSearchQuery, setLocationSearchQuery] = useState('');
   const [activeLocationFilter, setActiveLocationFilter] = useState<string | null>(null);
+  const [isLocationSearching, setIsLocationSearching] = useState(false);
 
   // 공고 데이터 상태
   const [jobPostings, setJobPostings] = useState<JobPostingCard[]>([]);
@@ -245,10 +248,12 @@ export const Hero: React.FC = () => {
 
   // 주소 검색 핸들러
   const handleLocationSearch = useCallback(() => {
-    if (!locationSearchQuery.trim() || !isLoaded) return;
+    if (!locationSearchQuery.trim() || !isLoaded || isLocationSearching) return;
 
     const searchQuery = locationSearchQuery.trim();
     const geocoder = new window.kakao.maps.services.Geocoder();
+
+    setIsLocationSearching(true);
 
     geocoder.addressSearch(searchQuery, (result: any[], status: string) => {
       if (status === window.kakao.maps.services.Status.OK && result.length > 0) {
@@ -256,6 +261,7 @@ export const Hero: React.FC = () => {
         setUserLocation({ lat: parseFloat(lat), lng: parseFloat(lng) });
         setActiveLocationFilter(searchQuery);
         setLocationSearchQuery('');
+        setIsLocationSearching(false);
       } else {
         const places = new window.kakao.maps.services.Places();
         places.keywordSearch(searchQuery, (result: any[], status: string) => {
@@ -265,10 +271,11 @@ export const Hero: React.FC = () => {
             setActiveLocationFilter(searchQuery);
             setLocationSearchQuery('');
           }
+          setIsLocationSearching(false);
         });
       }
     });
-  }, [locationSearchQuery, isLoaded]);
+  }, [locationSearchQuery, isLoaded, isLocationSearching]);
 
   // 지역 필터 취소 핸들러
   const clearLocationFilter = useCallback(() => {
@@ -827,6 +834,17 @@ export const Hero: React.FC = () => {
       <div
         ref={mapContainerRef}
         className="absolute inset-0 w-full h-full"
+        onClick={(e) => {
+          // 지도 클릭 시 상세 패널 닫기 (맵 클릭 모드가 아닐 때만)
+          if (!mapClickMode && selectedJob) {
+            // 클릭 이벤트가 패널 내부에서 발생했는지 확인
+            const target = e.target as HTMLElement;
+            const isInsidePanel = target.closest('[data-panel]');
+            if (!isInsidePanel) {
+              setSelectedJob(null);
+            }
+          }
+        }}
       />
 
       {/* 맵 클릭 모드 오버레이 - 카카오맵 위에 투명하게 표시되어 커서와 클릭 이벤트를 처리 */}
@@ -917,6 +935,7 @@ export const Hero: React.FC = () => {
       <AuthModal
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
+        initialTab={authModalInitialTab}
       />
 
       {/* 구직 교사 마커 등록 모달 */}
@@ -1020,15 +1039,21 @@ export const Hero: React.FC = () => {
         ) : (
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setIsAuthModalOpen(true)}
-              className="px-4 py-2.5 text-sm text-gray-600 bg-white/95 backdrop-blur-sm border border-gray-200 rounded-full hover:bg-white hover:text-gray-900 hover:shadow-md transition-all font-medium"
+              onClick={() => {
+                setAuthModalInitialTab('login');
+                setIsAuthModalOpen(true);
+              }}
+              className="px-4 py-2.5 text-sm text-gray-600 bg-white/95 backdrop-blur-sm border border-gray-200 rounded-full hover:bg-white hover:text-gray-900 hover:shadow-md transition-all font-medium active:scale-95"
               style={{ boxShadow: '0 4px 12px rgba(0, 0, 0, 0.08)' }}
             >
               로그인
             </button>
             <button
-              onClick={() => setIsAuthModalOpen(true)}
-              className="px-4 py-2.5 text-sm font-semibold text-white bg-gray-900 rounded-full hover:bg-gray-800 hover:shadow-lg hover:-translate-y-0.5 transition-all"
+              onClick={() => {
+                setAuthModalInitialTab('signup');
+                setIsAuthModalOpen(true);
+              }}
+              className="px-4 py-2.5 text-sm font-semibold text-white bg-gray-900 rounded-full hover:bg-gray-800 hover:shadow-lg hover:-translate-y-0.5 transition-all active:scale-95"
               style={{ boxShadow: '0 4px 14px rgba(0,0,0,0.2)' }}
             >
               회원가입
@@ -1054,17 +1079,33 @@ export const Hero: React.FC = () => {
         }`}
       >
         {/* 왼쪽 패널: 로고 + 필터 + 공고 목록 (한 몸처럼) */}
-        <div className="w-[240px] bg-white/95 backdrop-blur-sm rounded-xl border border-gray-200 shadow-lg overflow-hidden flex flex-col max-h-[calc(100vh-32px)]">
+        <div className="w-[240px] bg-white/95 backdrop-blur-sm rounded-xl border border-gray-200 shadow-lg overflow-hidden flex flex-col max-h-[calc(100vh-32px)]" data-panel="list">
 
           {/* 로고 영역 - 패널 최상단 */}
           <div className="px-3 py-3 border-b border-gray-200 flex-shrink-0">
-            <a href="/" className="flex items-center justify-center">
+            <button
+              onClick={() => {
+                // 필터 초기화
+                setMapFilters({ schoolLevels: [], subjects: [] });
+                setLocationSearchQuery('');
+                setActiveLocationFilter(null);
+                // 목록 펼치기
+                setIsJobListCollapsed(false);
+                // 선택된 공고 해제
+                setSelectedJob(null);
+                // 패널 열기
+                setIsPanelHidden(false);
+              }}
+              className="flex items-center justify-center w-full hover:opacity-80 transition-opacity active:scale-[0.98]"
+              aria-label="필터 초기화 및 홈으로"
+              title="필터 초기화"
+            >
               <img
                 src="/logo.png"
                 alt="쌤찾기"
                 className="h-[68px] w-auto"
               />
-            </a>
+            </button>
           </div>
 
           {/* 필터 영역 */}
@@ -1078,10 +1119,15 @@ export const Hero: React.FC = () => {
                     e.stopPropagation();
                     setOpenDropdown(openDropdown === 'schoolLevel' ? null : 'schoolLevel');
                   }}
-                  className={`w-full px-3 py-2 text-xs rounded-lg border flex items-center justify-between gap-1 ${mapFilters.schoolLevels.length > 0
-                    ? 'bg-[#5B6EF7]/10 border-[#5B6EF7] text-[#5B6EF7]'
-                    : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
-                    }`}
+                  className={`w-full px-3 py-2 text-xs rounded-lg border flex items-center justify-between gap-1 transition-all active:scale-[0.98] ${
+                    openDropdown === 'schoolLevel'
+                      ? 'bg-[#5B6EF7]/15 border-[#5B6EF7] text-[#5B6EF7] shadow-sm'
+                      : mapFilters.schoolLevels.length > 0
+                        ? 'bg-[#5B6EF7]/10 border-[#5B6EF7] text-[#5B6EF7]'
+                        : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50'
+                  }`}
+                  aria-expanded={openDropdown === 'schoolLevel'}
+                  aria-haspopup="listbox"
                 >
                   <span className="truncate">
                     {mapFilters.schoolLevels.length > 0
@@ -1119,10 +1165,15 @@ export const Hero: React.FC = () => {
                     e.stopPropagation();
                     setOpenDropdown(openDropdown === 'subject' ? null : 'subject');
                   }}
-                  className={`w-full px-3 py-2 text-xs rounded-lg border flex items-center justify-between gap-1 ${mapFilters.subjects.length > 0
-                    ? 'bg-[#5B6EF7]/10 border-[#5B6EF7] text-[#5B6EF7]'
-                    : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
-                    }`}
+                  className={`w-full px-3 py-2 text-xs rounded-lg border flex items-center justify-between gap-1 transition-all active:scale-[0.98] ${
+                    openDropdown === 'subject'
+                      ? 'bg-[#5B6EF7]/15 border-[#5B6EF7] text-[#5B6EF7] shadow-sm'
+                      : mapFilters.subjects.length > 0
+                        ? 'bg-[#5B6EF7]/10 border-[#5B6EF7] text-[#5B6EF7]'
+                        : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50'
+                  }`}
+                  aria-expanded={openDropdown === 'subject'}
+                  aria-haspopup="listbox"
                 >
                   <span className="truncate">
                     {mapFilters.subjects.length > 0
@@ -1161,7 +1212,9 @@ export const Hero: React.FC = () => {
                   <span className="text-[#5B6EF7] font-medium truncate">{activeLocationFilter}</span>
                   <button
                     onClick={clearLocationFilter}
-                    className="ml-1 p-0.5 text-[#5B6EF7] hover:text-red-500 transition-colors flex-shrink-0"
+                    className="ml-1 p-1.5 text-[#5B6EF7] hover:text-red-500 hover:bg-red-50 rounded-md transition-colors flex-shrink-0 active:scale-95"
+                    aria-label="필터 해제"
+                    title="필터 해제"
                   >
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1180,11 +1233,21 @@ export const Hero: React.FC = () => {
                   />
                   <button
                     onClick={handleLocationSearch}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 text-gray-400 hover:text-[#5B6EF7]"
+                    disabled={isLocationSearching}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-[#5B6EF7] hover:bg-gray-100 rounded-md transition-colors active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                    aria-label={isLocationSearching ? "검색 중..." : "검색"}
+                    title={isLocationSearching ? "검색 중..." : "검색"}
                   >
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                    </svg>
+                    {isLocationSearching ? (
+                      <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                    ) : (
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                      </svg>
+                    )}
                   </button>
                 </>
               )}
@@ -1335,14 +1398,24 @@ export const Hero: React.FC = () => {
         </div>
 
         {/* 상세 패널 - 카드 목록 옆에 배치 (flex 아이템) */}
-        {selectedJob && (
-          <JobDetailPanel
-            job={selectedJob}
-            isOpen={!!selectedJob}
-            onClose={() => setSelectedJob(null)}
-            onDirectionsClick={handleDirectionsClick}
-          />
-        )}
+        <AnimatePresence>
+          {selectedJob && (
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              transition={{ duration: 0.2, ease: 'easeOut' }}
+              data-panel="detail"
+            >
+              <JobDetailPanel
+                job={selectedJob}
+                isOpen={!!selectedJob}
+                onClose={() => setSelectedJob(null)}
+                onDirectionsClick={handleDirectionsClick}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* 패널 접기/펼치기 토글 버튼 (네이버 지도 스타일 탭) */}
         <button
@@ -1360,30 +1433,37 @@ export const Hero: React.FC = () => {
       </div>
 
       {/* 길찾기 패널 - 사이드 패널 방식 (상세 패널 옆에 위치) */}
-      {directionsJob && (
-        <div
-          className="absolute top-4 z-20 transition-all duration-300 ease-in-out"
-          style={{
-            // 패널 숨김 시: 16px, 패널 보임 시: 카드목록(240px) + 토글버튼(20px) + gap(12px) + 상세패널(260px, 있을 때) + gap(12px) = 위치
-            left: isPanelHidden
-              ? '16px'
-              : selectedJob
-                ? 'calc(16px + 240px + 20px + 12px + 260px + 12px)'
-                : 'calc(16px + 240px + 20px + 12px)'
-          }}
-        >
-          <DirectionsPanel
-            job={directionsJob}
-            destinationCoords={directionsCoords}
-            onClose={handleDirectionsClose}
-            onRouteFound={handleRouteFound}
-            onRequestMapClick={(callback) => {
-              setMapClickMode(true);
-              mapClickCallbackRef.current = callback;
+      <AnimatePresence>
+        {directionsJob && (
+          <motion.div
+            initial={{ opacity: 0, x: -20, scale: 0.95 }}
+            animate={{ opacity: 1, x: 0, scale: 1 }}
+            exit={{ opacity: 0, x: -20, scale: 0.95 }}
+            transition={{ duration: 0.25, ease: 'easeOut' }}
+            className="absolute top-4 z-20"
+            data-panel="directions"
+            style={{
+              // 패널 숨김 시: 16px, 패널 보임 시: 카드목록(240px) + 토글버튼(20px) + gap(12px) + 상세패널(260px, 있을 때) + gap(12px) = 위치
+              left: isPanelHidden
+                ? '16px'
+                : selectedJob
+                  ? 'calc(16px + 240px + 20px + 12px + 260px + 12px)'
+                  : 'calc(16px + 240px + 20px + 12px)'
             }}
-          />
-        </div>
-      )}
+          >
+            <DirectionsPanel
+              job={directionsJob}
+              destinationCoords={directionsCoords}
+              onClose={handleDirectionsClose}
+              onRouteFound={handleRouteFound}
+              onRequestMapClick={(callback) => {
+                setMapClickMode(true);
+                mapClickCallbackRef.current = callback;
+              }}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </section>
   );
 };

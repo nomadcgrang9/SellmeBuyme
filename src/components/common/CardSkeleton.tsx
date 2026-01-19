@@ -28,7 +28,8 @@ function SkeletonCard({ type = 'job', index = 0 }: { type?: CardSkeletonProps['t
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ delay: index * 0.05 }}
-      className="bg-white border border-gray-200 rounded-lg shadow-md overflow-hidden"
+      className="bg-white border border-gray-200 rounded-lg shadow-md overflow-hidden pointer-events-none select-none"
+      aria-hidden="true"
     >
       {/* 상단 컬러 바 */}
       <div className={`h-1 bg-gradient-to-r ${getBarColor()}`} />

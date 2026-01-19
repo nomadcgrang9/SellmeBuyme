@@ -8,6 +8,8 @@ export type AuthProvider = 'google' | 'kakao';
 interface AuthModalProps {
     isOpen: boolean;
     onClose: () => void;
+    /** 초기 탭 - 로그인 또는 회원가입 */
+    initialTab?: 'login' | 'signup';
 }
 
 // 구글 로고 SVG
@@ -42,8 +44,9 @@ const KakaoLogo = () => (
     </svg>
 );
 
-export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
+export default function AuthModal({ isOpen, onClose, initialTab = 'login' }: AuthModalProps) {
     const [loadingProvider, setLoadingProvider] = useState<AuthProvider | null>(null);
+    const isSignup = initialTab === 'signup';
 
     const handleSelectProvider = async (provider: AuthProvider) => {
         try {
@@ -96,8 +99,21 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                         </button>
 
                         {/* 로고 */}
-                        <div className="flex justify-center mb-6">
-                            <img src="/logo.png" alt="쌤찾기" className="h-12" />
+                        <div className="flex justify-center mb-4">
+                            <img src="/logo.png" alt="쌤찾기" className="h-10" />
+                        </div>
+
+                        {/* 모달 제목 */}
+                        <div className="text-center mb-5">
+                            <h2 className="text-lg font-bold text-gray-900">
+                                {isSignup ? '회원가입' : '로그인'}
+                            </h2>
+                            <p className="text-xs text-gray-500 mt-1">
+                                {isSignup
+                                    ? '소셜 계정으로 간편하게 가입하세요'
+                                    : '소셜 계정으로 간편하게 로그인하세요'
+                                }
+                            </p>
                         </div>
 
                         {/* 소셜 로그인 버튼들 */}
