@@ -345,5 +345,4 @@ className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 m
 ---
 
 **작성일**: 2026-01-18
-**업데이트**: 2026-01-19 (라이브 사이트 테스트 결과 추가)
-**작성자**: Claude (피드백 기반 분석 + 라이브 테스트)
+**작성자**: Claude (피드백 기반 분석)
