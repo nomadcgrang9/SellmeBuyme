@@ -26,15 +26,13 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
         <div className="flex items-center justify-between">
           <h4 className="font-bold text-gray-800 text-sm">상세 정보</h4>
           <div className="flex items-center gap-2">
-            {job.daysLeft !== undefined && (
+            {job.daysLeft !== undefined && job.daysLeft <= 5 && (
               <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
                 job.daysLeft === 0
                   ? 'bg-red-500 text-white'
-                  : isUrgent
+                  : job.daysLeft <= 3
                     ? 'bg-red-100 text-red-700'
-                    : isNearDeadline
-                      ? 'bg-orange-100 text-orange-700'
-                      : 'bg-blue-50 text-blue-600'
+                    : 'bg-orange-100 text-orange-700'
                 }`}>
                 {job.daysLeft === 0 ? 'D-Day' : `D-${job.daysLeft}`}
               </span>

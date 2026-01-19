@@ -59,16 +59,14 @@ export const JobCard: React.FC<JobCardProps> = ({ job, onClick, onDirectionsClic
                   긴급
                 </span>
               )}
-              {job.daysLeft !== undefined && (
+              {job.daysLeft !== undefined && job.daysLeft <= 5 && (
                 <span
                   className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
                     job.daysLeft === 0
                       ? 'bg-red-500 text-white'
-                      : isUrgent
+                      : job.daysLeft <= 3
                         ? 'bg-red-100 text-red-700'
-                        : isNearDeadline
-                          ? 'bg-orange-100 text-orange-700'
-                          : 'bg-blue-50 text-blue-600'
+                        : 'bg-orange-100 text-orange-700'
                   }`}
                 >
                   {job.daysLeft === 0 ? 'D-Day' : `D-${job.daysLeft}`}
