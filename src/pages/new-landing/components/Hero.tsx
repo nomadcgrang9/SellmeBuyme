@@ -709,7 +709,7 @@ export const Hero: React.FC = () => {
                  onclick="window.selectJobFromMarker && window.selectJobFromMarker('${j.id}')">
               <div style="font-size:10px;color:#666;margin-bottom:2px;">${j.organization || ''}</div>
               <div style="font-size:11px;font-weight:600;color:#333;line-height:1.3;">${(j.title || '').slice(0, 25)}${(j.title || '').length > 25 ? '...' : ''}</div>
-              ${j.daysLeft !== undefined ? `<span style="font-size:9px;padding:2px 5px;border-radius:3px;background:${j.daysLeft <= 3 ? '#FEE2E2' : j.daysLeft <= 7 ? '#FFEDD5' : '#EFF6FF'};color:${j.daysLeft <= 3 ? '#B91C1C' : j.daysLeft <= 7 ? '#C2410C' : '#2563EB'};">D-${j.daysLeft}</span>` : ''}
+              ${j.daysLeft !== undefined ? `<span style="font-size:9px;padding:2px 5px;border-radius:3px;background:${j.daysLeft === 0 ? '#EF4444' : j.daysLeft <= 3 ? '#FEE2E2' : j.daysLeft <= 7 ? '#FFEDD5' : '#EFF6FF'};color:${j.daysLeft === 0 ? '#FFFFFF' : j.daysLeft <= 3 ? '#B91C1C' : j.daysLeft <= 7 ? '#C2410C' : '#2563EB'};">${j.daysLeft === 0 ? 'D-Day' : `D-${j.daysLeft}`}</span>` : ''}
             </div>
           `).join('');
 
@@ -1303,9 +1303,9 @@ export const Hero: React.FC = () => {
                 {filteredJobPostings.map((job) => (
                   <div
                     key={job.id}
-                    className={`group relative p-4 cursor-pointer transition-colors ${selectedJob?.id === job.id
-                      ? 'bg-blue-50 border-l-2 border-l-[#5B6EF7]'
-                      : 'hover:bg-gray-50'
+                    className={`group relative p-4 cursor-pointer transition-colors border-l-2 ${selectedJob?.id === job.id
+                      ? 'bg-blue-50 border-l-[#5B6EF7]'
+                      : 'border-l-transparent hover:bg-gray-50'
                       }`}
                     onClick={() => handleCardClick(job)}
                   >
@@ -1316,13 +1316,15 @@ export const Hero: React.FC = () => {
                       </span>
                       {job.daysLeft !== undefined && (
                         <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ml-1.5 ${
-                          job.daysLeft <= 3
-                            ? 'bg-red-100 text-red-700'
-                            : job.daysLeft <= 7
-                              ? 'bg-orange-100 text-orange-700'
-                              : 'bg-blue-50 text-blue-600'
+                          job.daysLeft === 0
+                            ? 'bg-red-500 text-white'
+                            : job.daysLeft <= 3
+                              ? 'bg-red-100 text-red-700'
+                              : job.daysLeft <= 7
+                                ? 'bg-orange-100 text-orange-700'
+                                : 'bg-blue-50 text-blue-600'
                         }`}>
-                          D-{job.daysLeft}
+                          {job.daysLeft === 0 ? 'D-Day' : `D-${job.daysLeft}`}
                         </span>
                       )}
                     </div>
