@@ -2667,13 +2667,15 @@ function formatDeadline(deadline: string): string {
 }
 
 /**
- * D-day 계산
+ * D-day 계산 (마감 당일 D-Day 포함)
  */
 function calculateDaysLeft(deadline: string): number | undefined {
   const today = new Date();
+  today.setHours(0, 0, 0, 0); // 시간 제거하여 날짜만 비교
   const deadlineDate = new Date(deadline);
+  deadlineDate.setHours(0, 0, 0, 0);
   const diff = Math.ceil((deadlineDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-  return diff > 0 ? diff : undefined;
+  return diff >= 0 ? diff : undefined; // 0 이상이면 반환 (D-Day 포함)
 }
 
 /**
