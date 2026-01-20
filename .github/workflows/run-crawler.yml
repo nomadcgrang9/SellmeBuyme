@@ -37,7 +37,8 @@ on:
           - run
           - test
   schedule:
-    - cron: '0 1 * * *'
+    - cron: '0 1 * * *'  # UTC 1 AM = Korea 10 AM
+    - cron: '0 9 * * *'  # UTC 9 AM = Korea 6 PM
 
 jobs:
   crawl-manual:
