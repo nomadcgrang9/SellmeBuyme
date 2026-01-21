@@ -1,4 +1,5 @@
 import { loadPageWithRetry, resolveUrl } from '../lib/playwright.js';
+import { getExistingJobBySource } from '../lib/supabase.js';
 
 /**
  * 범용 selectNttList.do 패턴 크롤러
@@ -19,6 +20,25 @@ export async function crawlNttPattern(page, config) {
   console.log(`\n📍 [NTT패턴] ${config.name} 크롤링 시작`);
 
   const jobs = [];
+  let skippedCount = 0;
+
+  // 배치 반복 방식 설정 (서울/경기/인천과 동일하게 개선)
+  const SAFETY = {
+    maxItems: 150,                // 절대 최대 수집 개수
+    maxBatches: 15,               // 최대 배치 반복 횟수
+    batchDuplicateThreshold: 0.8, // 배치 내 중복률 80% 이상이면 종료
+    consecutiveDuplicateLimit: 10, // 연속 10개 중복 시 즉시 중단
+  };
+
+  const batchSize = config.crawlBatchSize || 10;
+  let consecutiveDuplicates = 0;
+  let totalProcessedCount = 0;
+  let batchNumber = 0;
+  let batchNewCount = 0;
+  let batchDuplicateCount = 0;
+
+  console.log(`\n🔄 배치 반복 모드: 배치당 ${batchSize}개, 최대 ${SAFETY.maxBatches}회`);
+  console.log(`   중복률 ${SAFETY.batchDuplicateThreshold * 100}% 이상이면 종료`);
 
   try {
     // 1. 목록 페이지 로드
@@ -131,21 +151,74 @@ export async function crawlNttPattern(page, config) {
       return [];
     }
 
-    // 3. 각 공고 상세 페이지 크롤링
-    const batchSize = config.crawlBatchSize || 10;
-    const maxJobs = Math.min(jobListData.length, batchSize);
+    // 3. 각 공고 상세 페이지 크롤링 (SAFETY 로직 적용)
+    for (let i = 0; i < jobListData.length; i++) {
+      // SAFETY: 최대 수집 개수 체크
+      if (jobs.length >= SAFETY.maxItems) {
+        console.log(`\n🛑 최대 수집 개수(${SAFETY.maxItems}개) 도달, 크롤링 종료`);
+        break;
+      }
 
-    for (let i = 0; i < maxJobs; i++) {
+      // SAFETY: 연속 중복 10개 이상이면 종료
+      if (consecutiveDuplicates >= SAFETY.consecutiveDuplicateLimit) {
+        console.log(`\n🛑 연속 ${SAFETY.consecutiveDuplicateLimit}개 중복, 크롤링 종료`);
+        break;
+      }
+
+      // 배치 시작
+      if (i % batchSize === 0) {
+        batchNumber++;
+        batchNewCount = 0;
+        batchDuplicateCount = 0;
+
+        // SAFETY: 최대 배치 횟수 체크
+        if (batchNumber > SAFETY.maxBatches) {
+          console.log(`\n🛑 최대 배치 횟수(${SAFETY.maxBatches}회) 도달, 크롤링 종료`);
+          break;
+        }
+
+        console.log(`\n📦 배치 ${batchNumber} 시작 (${i + 1}번째 공고부터)`);
+      }
+
       const listInfo = jobListData[i];
       const nttId = listInfo.nttId;
 
-      console.log(`\n  🔍 공고 ${i + 1}/${maxJobs} (ID: ${nttId})`);
+      // 상세 페이지 URL 구성
+      const detailUrl = `${config.detailUrlTemplate}${nttId}`;
+
+      console.log(`\n  🔍 공고 ${i + 1}/${jobListData.length} (ID: ${nttId})`);
       console.log(`     제목: ${listInfo.title}`);
+      console.log(`     URL: ${detailUrl}`);
 
       try {
-        // 상세 페이지 URL 구성
-        const detailUrl = `${config.detailUrlTemplate}${nttId}`;
-        console.log(`     URL: ${detailUrl}`);
+        // SAFETY: DB 중복 체크
+        const existing = await getExistingJobBySource(detailUrl);
+        if (existing) {
+          console.log(`     ⏭️  이미 존재하는 공고, 스킵`);
+          skippedCount++;
+          consecutiveDuplicates++;
+          batchDuplicateCount++;
+          totalProcessedCount++;
+
+          // 배치 완료 체크
+          if ((i + 1) % batchSize === 0 || i === jobListData.length - 1) {
+            const batchTotal = batchNewCount + batchDuplicateCount;
+            const duplicateRate = batchTotal > 0 ? batchDuplicateCount / batchTotal : 0;
+            console.log(`\n📊 배치 ${batchNumber} 완료: 신규 ${batchNewCount}개, 중복 ${batchDuplicateCount}개 (중복률 ${(duplicateRate * 100).toFixed(1)}%)`);
+
+            // SAFETY: 중복률 80% 이상이면 종료
+            if (duplicateRate >= SAFETY.batchDuplicateThreshold && batchTotal >= 3) {
+              console.log(`\n🛑 배치 중복률 ${(duplicateRate * 100).toFixed(1)}% >= ${SAFETY.batchDuplicateThreshold * 100}%, 크롤링 종료`);
+              break;
+            }
+          }
+          continue;
+        }
+
+        // 신규 공고 - 연속 중복 카운터 리셋
+        consecutiveDuplicates = 0;
+        batchNewCount++;
+        totalProcessedCount++;
 
         const detailResult = await loadPageWithRetry(page, detailUrl, { maxRetries: 2 });
         if (!detailResult.success) {
@@ -169,18 +242,18 @@ export async function crawlNttPattern(page, config) {
           title: listInfo.title,
           tags: ['교육청', 'NTT패턴'],
           location: config.region || '미상',
-          metropolitanRegion: config.metropolitanRegion || null,  // 규칙 1: 광역자치단체
+          metropolitanRegion: config.metropolitanRegion || null,
           compensation: null,
           deadline: listInfo.registeredDate,
           isUrgent: true,
           schoolLevel: 'mixed',
           subject: null,
           requiredLicense: null,
-          link: detailUrl,                           // sourceUrl → link (index.js 형식)
+          link: detailUrl,
           crawledAt: new Date().toISOString(),
-          detailContent: detailData.content,         // 본문 (최상위 레벨)
-          hasContentImages: detailData.hasContentImages,  // 이미지 유무 (최상위 레벨)
-          attachmentUrl: detailData.attachmentUrl,   // 첨부파일 URL
+          detailContent: detailData.content,
+          hasContentImages: detailData.hasContentImages,
+          attachmentUrl: detailData.attachmentUrl,
           attachmentFilename: detailData.attachmentFilename,
           structuredContent: {
             nttId: nttId,
@@ -188,7 +261,7 @@ export async function crawlNttPattern(page, config) {
             attachmentUrl: detailData.attachmentUrl,
             attachmentFilename: detailData.attachmentFilename,
             hasContentImages: detailData.hasContentImages,
-            metropolitanRegion: config.metropolitanRegion || null  // 구조화된 정보에도 포함
+            metropolitanRegion: config.metropolitanRegion || null
           },
           screenshotBase64
         };
@@ -199,13 +272,27 @@ export async function crawlNttPattern(page, config) {
         // 다음 공고 전 잠시 대기
         await page.waitForTimeout(1000);
 
+        // 배치 완료 체크
+        if ((i + 1) % batchSize === 0 || i === jobListData.length - 1) {
+          const batchTotal = batchNewCount + batchDuplicateCount;
+          const duplicateRate = batchTotal > 0 ? batchDuplicateCount / batchTotal : 0;
+          console.log(`\n📊 배치 ${batchNumber} 완료: 신규 ${batchNewCount}개, 중복 ${batchDuplicateCount}개 (중복률 ${(duplicateRate * 100).toFixed(1)}%)`);
+
+          // SAFETY: 중복률 80% 이상이면 종료
+          if (duplicateRate >= SAFETY.batchDuplicateThreshold && batchTotal >= 3) {
+            console.log(`\n🛑 배치 중복률 ${(duplicateRate * 100).toFixed(1)}% >= ${SAFETY.batchDuplicateThreshold * 100}%, 크롤링 종료`);
+            break;
+          }
+        }
+
       } catch (error) {
         console.error(`     ❌ 상세 페이지 크롤링 실패: ${error.message}`);
         continue;
       }
     }
 
-    console.log(`\n✅ [NTT패턴] ${config.name} 크롤링 완료: ${jobs.length}개 수집`);
+    console.log(`\n✅ [NTT패턴] ${config.name} 크롤링 완료`);
+    console.log(`   📊 총 처리: ${totalProcessedCount}개, 신규 수집: ${jobs.length}개, 스킵(중복): ${skippedCount}개`);
     return jobs;
 
   } catch (error) {

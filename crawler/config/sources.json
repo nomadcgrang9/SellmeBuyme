@@ -308,6 +308,13 @@
     "baseUrl": "https://www.ice.go.kr/ice/na/ntt/selectNttList.do?mi=10997&bbsId=1981",
     "detailUrlTemplate": "https://www.ice.go.kr/ice/na/ntt/selectNttInfo.do?mi=10997&bbsId=1981&nttSn=",
     "parserType": "ntt",
+    "selectors": {
+      "listContainer": "table",
+      "rows": "table tbody tr",
+      "title": "td:nth-child(5) a",
+      "link": "td:nth-child(5) a",
+      "date": "td:nth-child(1)"
+    },
     "region": "인천",
     "isLocalGovernment": false,
     "active": true
