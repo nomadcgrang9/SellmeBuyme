@@ -18,9 +18,18 @@ interface UseKakaoMapsReturn {
  *
  * @returns {UseKakaoMapsReturn} SDK 로드 상태와 로드 함수
  */
-// 환경변수에서 API 키를 가져오거나 기본값 사용
-const KAKAO_APP_KEY = import.meta.env.VITE_KAKAO_MAP_KEY || '69b6d6d11aa571c7001a92ba25a99c49';
-const KAKAO_SDK_URL = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${KAKAO_APP_KEY}&libraries=services&autoload=false`;
+// 환경변수에서 API 키 가져오기
+const KAKAO_APP_KEY = import.meta.env.VITE_KAKAO_MAP_KEY;
+
+if (!KAKAO_APP_KEY) {
+  console.error('[useKakaoMaps] ❌ VITE_KAKAO_MAP_KEY 환경변수가 설정되지 않았습니다.');
+  console.error('[useKakaoMaps] 📝 .env 파일에 VITE_KAKAO_MAP_KEY를 추가하세요.');
+  console.error('[useKakaoMaps] 📚 가이드: docs/CLOUDFLARE_ENV_SETUP.md 참고');
+}
+
+const KAKAO_SDK_URL = KAKAO_APP_KEY
+  ? `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${KAKAO_APP_KEY}&libraries=services&autoload=false`
+  : '';
 
 export function useKakaoMaps(): UseKakaoMapsReturn {
   const [isLoaded, setIsLoaded] = useState(false);

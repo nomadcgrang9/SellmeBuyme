@@ -8,8 +8,13 @@
  * - 페이지네이션 로직 포함
  */
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://qpwnsvsiduvvqdijyxio.supabase.co';
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  console.error('[generate-crawler] ❌ Supabase 환경변수가 설정되지 않았습니다.');
+  throw new Error('VITE_SUPABASE_URL 및 VITE_SUPABASE_ANON_KEY 필요');
+}
 
 export default async function handler(
   req: any,
