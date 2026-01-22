@@ -40,16 +40,17 @@ export async function crawlDaejeon(page, config) {
           const title = titleLink.textContent.trim();
           if (!title) return;
 
-          // onclick에서 boardSeq 추출: goView(49849, 0, 0, 'N', 'Y', ...) 형식
+          // onclick에서 boardSeq 추출: goView('54','3341404', '0', 'null', ...) 형식
+          // 첫번째 파라미터 = boardID, 두번째 파라미터 = boardSeq
           const onclick = titleLink.getAttribute('onclick') || '';
 
-          // 패턴: goView(49849, ...) - 첫번째 파라미터가 게시글 번호
-          const match = onclick.match(/goView\s*\(\s*(\d+)/);
+          // 패턴: goView('boardID','boardSeq', ...) - 두번째 파라미터가 실제 게시글 시퀀스
+          const match = onclick.match(/goView\s*\(\s*'(\d+)'\s*,\s*'(\d+)'/);
           if (!match) {
             return;
           }
 
-          const boardSeq = match[1];
+          const boardSeq = match[2];  // 두번째 그룹이 boardSeq
 
           // 날짜 및 접수기간 추출
           const cells = row.querySelectorAll('td');

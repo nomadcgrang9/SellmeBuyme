@@ -22,13 +22,13 @@
   },
   "ulsan": {
     "name": "울산광역시교육청 인력풀",
-    "baseUrl": "https://www.use.go.kr/subPage.do?page=sub06_06_01&m=0606&s=use",
-    "detailUrlTemplate": "https://www.use.go.kr/subPage.do?page=sub06_06_01&m=0606&s=use&boardSeq=",
+    "baseUrl": "https://www.use.go.kr/job/user/bbs/BD_selectBbsList.do?q_bbsSn=2249",
+    "detailUrlTemplate": "https://www.use.go.kr/job/user/bbs/BD_selectBbs.do?q_bbsSn=2249&q_bbsDocNo=",
     "parserType": "custom",
     "region": "울산광역시",
     "isLocalGovernment": false,
-    "active": false,
-    "note": "SSL 인증서 오류 - 크롤링 불가"
+    "active": true,
+    "note": "2026년 사이트 리뉴얼됨 - opView 패턴 사용"
   },
   "sejong": {
     "name": "세종특별자치시교육청 구인",
