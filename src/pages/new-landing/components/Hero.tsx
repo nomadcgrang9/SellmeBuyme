@@ -763,12 +763,17 @@ export const Hero: React.FC = () => {
 
     // 인포윈도우에서 공고 선택 시 호출될 전역 함수
     (window as any).selectJobFromMarker = (jobId: string) => {
+      console.log('[Hero] selectJobFromMarker 호출됨, jobId:', jobId);
       const job = filteredJobPostings.find(j => j.id === jobId);
+      console.log('[Hero] job 찾기 결과:', job ? `찾음 (${job.title})` : '못 찾음');
       if (job) {
+        console.log('[Hero] setSelectedJob 호출 시작');
         setSelectedJob(job);
+        console.log('[Hero] setSelectedJob 호출 완료');
         if (currentInfowindow) currentInfowindow.close();
       }
     };
+    console.log('[Hero] window.selectJobFromMarker 함수 재정의 완료');
 
     // 캐시 저장 함수
     const saveCache = () => {
