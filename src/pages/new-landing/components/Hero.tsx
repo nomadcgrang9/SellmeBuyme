@@ -694,35 +694,35 @@ export const Hero: React.FC = () => {
       };
 
       const markerColor = getMarkerColor(job.daysLeft);
-      const markerSize = new window.kakao.maps.Size(24, 35);
-      const markerImage = new window.kakao.maps.MarkerImage(
-        `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="24" height="35" viewBox="0 0 24 35"><path d="M12 0C5.4 0 0 5.4 0 12c0 7.5 12 23 12 23s12-15.5 12-23c0-6.6-5.4-12-12-12z" fill="${markerColor}"/><circle cx="12" cy="12" r="5" fill="white"/></svg>`)}`,
-        markerSize,
-        { offset: new window.kakao.maps.Point(12, 35) }
-      );
 
-      const marker = new window.kakao.maps.Marker({
+      // CustomOverlay로 클릭 가능한 컬러 마커 생성
+      const markerContent = document.createElement('div');
+      markerContent.innerHTML = `
+        <div style="cursor:pointer;transform:translate(-50%,-100%);">
+          <svg width="28" height="40" viewBox="0 0 24 35">
+            <path d="M12 0C5.4 0 0 5.4 0 12c0 7.5 12 23 12 23s12-15.5 12-23c0-6.6-5.4-12-12-12z" fill="${markerColor}" stroke="white" stroke-width="1"/>
+            <circle cx="12" cy="12" r="4" fill="white"/>
+          </svg>
+        </div>
+      `;
+
+      const marker = new window.kakao.maps.CustomOverlay({
         position: position,
+        content: markerContent,
         map: map,
-        image: markerImage,
+        yAnchor: 0,
+        xAnchor: 0.5,
       });
 
-      mapMarkersRef.current.push(marker);
-      markerJobMapRef.current.set(marker, job);
-      coordsMarkerMap.set(coordKey, marker);
-      setMarkerCount(prev => prev + 1);
-
-      // 마커 클릭 시 상세 패널 열기
-      window.kakao.maps.event.addListener(marker, 'click', () => {
+      // CustomOverlay 클릭 이벤트
+      markerContent.onclick = () => {
         if (currentInfowindow) currentInfowindow.close();
 
         const jobsAtLocation = coordsJobsMap.get(coordKey) || [job];
 
         if (jobsAtLocation.length === 1) {
-          // 단일 공고: 바로 상세 패널 열기
           setSelectedJob(jobsAtLocation[0]);
         } else {
-          // 여러 공고: 인포윈도우로 목록 표시
           const jobItems = jobsAtLocation.map((j, idx) => `
             <div style="padding:6px 0;${idx > 0 ? 'border-top:1px solid #eee;' : ''}cursor:pointer;"
                  onclick="window.selectJobFromMarker && window.selectJobFromMarker('${j.id}')">
@@ -745,18 +745,22 @@ export const Hero: React.FC = () => {
             `,
             removable: true,
           });
-          infowindow.open(map, marker);
+          infowindow.open(map, new window.kakao.maps.Marker({ position }));
           currentInfowindow = infowindow;
         }
 
-        // 지도 살짝 이동 (마커가 가려지지 않게)
         const offsetLng = 0.002;
         const adjustedCoords = new window.kakao.maps.LatLng(
           finalCoords.lat,
           finalCoords.lng + offsetLng
         );
         map.panTo(adjustedCoords);
-      });
+      };
+
+      mapMarkersRef.current.push(marker);
+      markerJobMapRef.current.set(marker, job);
+      coordsMarkerMap.set(coordKey, marker);
+      setMarkerCount(prev => prev + 1);
     };
 
     // 인포윈도우에서 공고 선택 시 호출될 전역 함수
