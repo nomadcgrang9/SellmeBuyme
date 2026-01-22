@@ -653,6 +653,9 @@ export const Hero: React.FC = () => {
     markerJobMapRef.current.clear();
     setMarkerCount(0);
 
+    // 레이어 비활성화 시 마커 표시 안함
+    if (!activeLayers.includes('job')) return;
+
     if (filteredJobPostings.length === 0) return;
 
     const map = mapInstanceRef.current;
@@ -814,7 +817,7 @@ export const Hero: React.FC = () => {
       markerJobMapRef.current.clear();
       delete (window as any).selectJobFromMarker;
     };
-  }, [isLoaded, filteredJobPostings]);
+  }, [isLoaded, filteredJobPostings, activeLayers]);
 
   // 드롭다운 외부 클릭 시 닫기
   useEffect(() => {
@@ -1257,7 +1260,9 @@ export const Hero: React.FC = () => {
           {/* 히어로 카드 - 브랜딩 영역 (캐러셀) */}
           <HeroCard />
 
-          {/* 공고 목록 헤더 - 클릭 시 접기/펼치기 */}
+          {/* 공고 목록 헤더 + 카드 목록 (job 레이어 활성화 시만 표시) */}
+          {activeLayers.includes('job') && (
+          <>
           <div
             className="px-3 py-2.5 border-b border-gray-100 flex-shrink-0 cursor-pointer hover:bg-gray-50 transition-colors"
             onClick={() => setIsJobListCollapsed(!isJobListCollapsed)}
@@ -1401,6 +1406,9 @@ export const Hero: React.FC = () => {
               </div>
             )}
           </div>
+          </>
+          )}
+
         </div>
 
         {/* 상세 패널 - 카드 목록 옆에 배치 (flex 아이템) */}
