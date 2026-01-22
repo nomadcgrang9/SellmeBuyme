@@ -707,13 +707,17 @@ export const Hero: React.FC = () => {
 
       // 마커 클릭 이벤트
       window.kakao.maps.event.addListener(marker, 'click', () => {
+        console.log('[Hero] 마커 클릭됨:', coordKey, '공고 수:', coordsJobsMap.get(coordKey)?.length || 1);
+
         if (currentInfowindow) currentInfowindow.close();
 
         const jobsAtLocation = coordsJobsMap.get(coordKey) || [job];
 
         if (jobsAtLocation.length === 1) {
+          console.log('[Hero] 공고 1개 - JobDetailPanel 열기:', jobsAtLocation[0].title);
           setSelectedJob(jobsAtLocation[0]);
         } else {
+          console.log('[Hero] 공고 여러 개 - InfoWindow 표시:', jobsAtLocation.length, '개');
           const jobItems = jobsAtLocation.map((j, idx) => `
             <div style="padding:6px 0;${idx > 0 ? 'border-top:1px solid #eee;' : ''}cursor:pointer;"
                  onclick="window.selectJobFromMarker && window.selectJobFromMarker('${j.id}')">
