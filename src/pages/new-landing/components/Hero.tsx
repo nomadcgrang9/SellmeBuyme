@@ -643,7 +643,7 @@ export const Hero: React.FC = () => {
     }
   }, []);
 
-  // 공고 마커 표시
+  // 공고 마커 표시 (최적화: 병렬 배치 처리 + 캐시 즉시 처리 + sessionStorage 영구 캐시)
   useEffect(() => {
     if (!isLoaded || !mapInstanceRef.current) return;
 
@@ -663,6 +663,19 @@ export const Hero: React.FC = () => {
     const cache = coordsCacheRef.current;
     let cancelled = false;
     let currentInfowindow: any = null;
+
+    // sessionStorage에서 캐시 복원
+    try {
+      const savedCache = sessionStorage.getItem('jobCoordsCache');
+      if (savedCache) {
+        const parsed = JSON.parse(savedCache);
+        Object.entries(parsed).forEach(([k, v]) => {
+          if (!cache.has(k)) cache.set(k, v as { lat: number; lng: number });
+        });
+      }
+    } catch (e) {
+      console.warn('[Hero] 캐시 복원 실패:', e);
+    }
 
     const coordsJobsMap = new Map<string, JobPostingCard[]>();
     const coordsMarkerMap = new Map<string, any>();
@@ -686,36 +699,14 @@ export const Hero: React.FC = () => {
 
       const position = new window.kakao.maps.LatLng(finalCoords.lat, finalCoords.lng);
 
-      // D-Day에 따른 마커 색상 결정
-      const getMarkerColor = (daysLeft: number | undefined) => {
-        if (daysLeft === undefined || daysLeft > 5) return '#5B6EF7'; // 파란색 (6일 이상)
-        if (daysLeft <= 3) return '#EF4444'; // 빨간색 (0-3일)
-        return '#F97316'; // 주황색 (4-5일)
-      };
-
-      const markerColor = getMarkerColor(job.daysLeft);
-
-      // CustomOverlay로 클릭 가능한 컬러 마커 생성
-      const markerContent = document.createElement('div');
-      markerContent.innerHTML = `
-        <div style="cursor:pointer;transform:translate(-50%,-100%);">
-          <svg width="28" height="40" viewBox="0 0 24 35">
-            <path d="M12 0C5.4 0 0 5.4 0 12c0 7.5 12 23 12 23s12-15.5 12-23c0-6.6-5.4-12-12-12z" fill="${markerColor}" stroke="white" stroke-width="1"/>
-            <circle cx="12" cy="12" r="4" fill="white"/>
-          </svg>
-        </div>
-      `;
-
-      const marker = new window.kakao.maps.CustomOverlay({
+      // 기본 마커 사용
+      const marker = new window.kakao.maps.Marker({
         position: position,
-        content: markerContent,
         map: map,
-        yAnchor: 0,
-        xAnchor: 0.5,
       });
 
-      // CustomOverlay 클릭 이벤트
-      markerContent.onclick = () => {
+      // 마커 클릭 이벤트
+      window.kakao.maps.event.addListener(marker, 'click', () => {
         if (currentInfowindow) currentInfowindow.close();
 
         const jobsAtLocation = coordsJobsMap.get(coordKey) || [job];
@@ -745,7 +736,7 @@ export const Hero: React.FC = () => {
             `,
             removable: true,
           });
-          infowindow.open(map, new window.kakao.maps.Marker({ position }));
+          infowindow.open(map, marker);
           currentInfowindow = infowindow;
         }
 
@@ -755,7 +746,7 @@ export const Hero: React.FC = () => {
           finalCoords.lng + offsetLng
         );
         map.panTo(adjustedCoords);
-      };
+      });
 
       mapMarkersRef.current.push(marker);
       markerJobMapRef.current.set(marker, job);
@@ -772,62 +763,117 @@ export const Hero: React.FC = () => {
       }
     };
 
-    let index = 0;
-    let failedCount = 0;
-    const processNext = () => {
-      if (cancelled || index >= filteredJobPostings.length) {
-        if (index >= filteredJobPostings.length) {
-          console.log(`[Hero] 마커 생성 완료: 성공 ${filteredJobPostings.length - failedCount}개, 실패 ${failedCount}개`);
-        }
-        return;
+    // 캐시 저장 함수
+    const saveCache = () => {
+      try {
+        const cacheObj: Record<string, { lat: number; lng: number }> = {};
+        cache.forEach((v, k) => { cacheObj[k] = v; });
+        sessionStorage.setItem('jobCoordsCache', JSON.stringify(cacheObj));
+      } catch (e) {
+        console.warn('[Hero] 캐시 저장 실패:', e);
       }
+    };
 
-      const job = filteredJobPostings[index];
-      index++;
-
-      const keyword = job.organization || job.location;
-      if (!keyword) {
-        failedCount++;
-        setTimeout(processNext, 30);
-        return;
-      }
-
-      if (cache.has(keyword)) {
-        createMarker(cache.get(keyword)!, job);
-        setTimeout(processNext, 30);
-        return;
-      }
-
-      places.keywordSearch(keyword, (result: any[], status: string) => {
-        if (cancelled) return;
-
-        if (status === window.kakao.maps.services.Status.OK && result.length > 0) {
-          const coords = { lat: parseFloat(result[0].y), lng: parseFloat(result[0].x) };
-          cache.set(keyword, coords);
-          createMarker(coords, job);
-        } else {
-          if (job.location && job.location !== keyword) {
-            places.keywordSearch(job.location, (result2: any[], status2: string) => {
-              if (cancelled) return;
-              if (status2 === window.kakao.maps.services.Status.OK && result2.length > 0) {
-                const coords = { lat: parseFloat(result2[0].y), lng: parseFloat(result2[0].x) };
-                cache.set(keyword, coords);
-                createMarker(coords, job);
-              } else {
-                failedCount++;
-              }
-              setTimeout(processNext, 30);
-            });
-            return;
+    // 키워드 검색 Promise 래퍼
+    const searchKeyword = (keyword: string): Promise<{ lat: number; lng: number } | null> => {
+      return new Promise((resolve) => {
+        places.keywordSearch(keyword, (result: any[], status: string) => {
+          if (status === window.kakao.maps.services.Status.OK && result.length > 0) {
+            resolve({ lat: parseFloat(result[0].y), lng: parseFloat(result[0].x) });
           } else {
-            failedCount++;
+            resolve(null);
           }
-        }
-        setTimeout(processNext, 30);
+        });
       });
     };
 
-    processNext();
+    // 단일 공고 처리
+    const processJob = async (job: JobPostingCard): Promise<boolean> => {
+      if (cancelled) return false;
+
+      const keyword = job.organization || job.location;
+      if (!keyword) return false;
+
+      // 캐시 히트: 즉시 처리
+      if (cache.has(keyword)) {
+        createMarker(cache.get(keyword)!, job);
+        return true;
+      }
+
+      // API 검색
+      let coords = await searchKeyword(keyword);
+
+      // 첫 검색 실패 시 location으로 재검색
+      if (!coords && job.location && job.location !== keyword) {
+        coords = await searchKeyword(job.location);
+      }
+
+      if (coords) {
+        cache.set(keyword, coords);
+        createMarker(coords, job);
+        return true;
+      }
+
+      return false;
+    };
+
+    // 병렬 배치 처리
+    const BATCH_SIZE = 10;
+    const processBatches = async () => {
+      console.log(`[Hero] 마커 생성 시작: ${filteredJobPostings.length}개 공고`);
+      const startTime = Date.now();
+
+      // 1단계: 캐시 히트 즉시 처리 (딜레이 없음)
+      const cachedJobs: JobPostingCard[] = [];
+      const uncachedJobs: JobPostingCard[] = [];
+
+      filteredJobPostings.forEach(job => {
+        const keyword = job.organization || job.location;
+        if (keyword && cache.has(keyword)) {
+          cachedJobs.push(job);
+        } else {
+          uncachedJobs.push(job);
+        }
+      });
+
+      // 캐시된 공고 즉시 마커 생성
+      cachedJobs.forEach(job => {
+        if (cancelled) return;
+        const keyword = job.organization || job.location;
+        if (keyword) createMarker(cache.get(keyword)!, job);
+      });
+
+      console.log(`[Hero] 캐시 히트: ${cachedJobs.length}개 즉시 처리`);
+
+      // 2단계: 캐시 미스 병렬 배치 처리
+      let successCount = cachedJobs.length;
+      let failedCount = 0;
+
+      for (let i = 0; i < uncachedJobs.length; i += BATCH_SIZE) {
+        if (cancelled) break;
+
+        const batch = uncachedJobs.slice(i, i + BATCH_SIZE);
+        const results = await Promise.all(batch.map(job => processJob(job)));
+
+        results.forEach(success => {
+          if (success) successCount++;
+          else failedCount++;
+        });
+
+        // 배치 간 짧은 딜레이 (API rate limit 방지)
+        if (i + BATCH_SIZE < uncachedJobs.length) {
+          await new Promise(resolve => setTimeout(resolve, 50));
+        }
+      }
+
+      // 캐시 저장
+      saveCache();
+
+      const elapsed = Date.now() - startTime;
+      console.log(`[Hero] 마커 생성 완료: 성공 ${successCount}개, 실패 ${failedCount}개 (${elapsed}ms)`);
+    };
+
+    processBatches();
 
     return () => {
       cancelled = true;
