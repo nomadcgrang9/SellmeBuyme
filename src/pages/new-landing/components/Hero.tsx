@@ -694,10 +694,11 @@ export const Hero: React.FC = () => {
       };
 
       const markerColor = getMarkerColor(job.daysLeft);
-      const markerSize = new window.kakao.maps.Size(20, 20);
+      const markerSize = new window.kakao.maps.Size(24, 35);
       const markerImage = new window.kakao.maps.MarkerImage(
-        `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"><circle cx="10" cy="10" r="8" fill="${markerColor}" stroke="white" stroke-width="2"/></svg>`)}`,
-        markerSize
+        `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="24" height="35" viewBox="0 0 24 35"><path d="M12 0C5.4 0 0 5.4 0 12c0 7.5 12 23 12 23s12-15.5 12-23c0-6.6-5.4-12-12-12z" fill="${markerColor}"/><circle cx="12" cy="12" r="5" fill="white"/></svg>`)}`,
+        markerSize,
+        { offset: new window.kakao.maps.Point(12, 35) }
       );
 
       const marker = new window.kakao.maps.Marker({
