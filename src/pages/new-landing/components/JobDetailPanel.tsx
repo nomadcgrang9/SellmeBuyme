@@ -146,25 +146,24 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
           </div>
         )}
 
-        <hr className="border-gray-100" />
-
-        {/* 태그 */}
-        {job.tags && job.tags.length > 0 && (
-          <div>
-            <p className="text-xs text-gray-500 mb-2">태그</p>
-            <div className="flex flex-wrap gap-1.5">
-              {job.tags.map((tag, idx) => (
-                <span
-                  key={idx}
-                  className="text-xs px-2 py-0.5 bg-gray-100 text-gray-700 rounded-full"
-                >
-                  {tag}
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
+
+      {/* 태그 - 하단 고정 영역 (스크롤 없이 항상 보임) */}
+      {job.tags && job.tags.length > 0 && (
+        <div className="px-4 py-3 border-t border-gray-100 flex-shrink-0 bg-gray-50/50">
+          <p className="text-xs text-gray-500 mb-2">태그</p>
+          <div className="flex flex-wrap gap-1.5 max-h-[60px] overflow-y-auto">
+            {job.tags.map((tag, idx) => (
+              <span
+                key={idx}
+                className="text-xs px-2 py-0.5 bg-white text-gray-700 rounded-full border border-gray-200"
+              >
+                {tag}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* 하단 버튼 - 2등분 (길찾기: 검정, 원문링크: 파랑) */}
       <div className="p-4 border-t border-gray-100 flex-shrink-0">
