@@ -715,7 +715,10 @@ export const Hero: React.FC = () => {
 
         if (jobsAtLocation.length === 1) {
           console.log('[Hero] 공고 1개 - JobDetailPanel 열기:', jobsAtLocation[0].title);
-          setSelectedJob(jobsAtLocation[0]);
+          // stale closure 방지: 전역 함수 사용
+          if (window.selectJobFromMarker) {
+            window.selectJobFromMarker(jobsAtLocation[0].id);
+          }
         } else {
           console.log('[Hero] 공고 여러 개 - InfoWindow 표시:', jobsAtLocation.length, '개');
           const jobItems = jobsAtLocation.map((j, idx) => `
