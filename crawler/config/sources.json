@@ -341,7 +341,8 @@
     "region": "대전광역시",
     "isLocalGovernment": false,
     "active": true,
-    "note": "별도 크롤러 사용 (daejeon.js) - goView(boardSeq, ...) 패턴"
+    "skipRobotsCheck": true,
+    "note": "별도 크롤러 사용 (daejeon.js) - goView(boardSeq, ...) 패턴, robots.txt 차단 무시"
   },
   "gangwon": {
     "name": "강원특별자치도교육청 학교인력채용",
