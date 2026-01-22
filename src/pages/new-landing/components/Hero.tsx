@@ -1260,9 +1260,7 @@ export const Hero: React.FC = () => {
           {/* 히어로 카드 - 브랜딩 영역 (캐러셀) */}
           <HeroCard />
 
-          {/* 공고 목록 헤더 + 카드 목록 (job 레이어 활성화 시만 표시) */}
-          {activeLayers.includes('job') && (
-          <>
+          {/* 공고 목록 헤더 - 항상 표시 */}
           <div
             className="px-3 py-2.5 border-b border-gray-100 flex-shrink-0 cursor-pointer hover:bg-gray-50 transition-colors"
             onClick={() => setIsJobListCollapsed(!isJobListCollapsed)}
@@ -1271,7 +1269,7 @@ export const Hero: React.FC = () => {
               <span className="text-sm font-semibold text-gray-700">공고 목록</span>
               <div className="flex items-center gap-2">
                 <span className="text-xs font-medium text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
-                  {filteredJobPostings.length}개
+                  {activeLayers.includes('job') ? filteredJobPostings.length : 0}개
                 </span>
                 <div
                   className="p-1.5 rounded-lg border border-blue-200 bg-blue-50 text-blue-600"
@@ -1287,7 +1285,8 @@ export const Hero: React.FC = () => {
             </div>
           </div>
 
-          {/* 공고 카드 목록 */}
+          {/* 공고 카드 목록 (job 레이어 활성화 시만 표시) */}
+          {activeLayers.includes('job') && (
           <div
             className={`overflow-y-auto transition-all duration-300 ease-in-out ${
               isJobListCollapsed ? 'max-h-0 opacity-0' : 'flex-1 opacity-100'
@@ -1406,7 +1405,6 @@ export const Hero: React.FC = () => {
               </div>
             )}
           </div>
-          </>
           )}
 
         </div>
