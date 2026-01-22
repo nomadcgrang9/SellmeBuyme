@@ -18,6 +18,14 @@ import AuthModal from '@/components/auth/AuthModal';
 import ProfileButton from '@/components/auth/ProfileButton';
 import EmptyState from '@/components/common/EmptyState';
 import { ListSkeleton } from '@/components/common/CardSkeleton';
+
+// Window 전역 타입 정의
+declare global {
+  interface Window {
+    selectJobFromMarker?: (jobId: string) => void;
+    __currentFilteredJobPostings?: JobPostingCard[];
+  }
+}
 import { useAuthStore } from '@/stores/authStore';
 import { fetchTeacherMarkers, fetchProgramMarkers } from '@/lib/supabase/markers';
 import { type MarkerLayer, type TeacherMarker, type ProgramMarker, MARKER_COLORS } from '@/types/markers';
@@ -1541,7 +1549,6 @@ export const Hero: React.FC = () => {
         {/* 상세 패널 - 카드 목록 옆에 배치 (flex 아이템) */}
         {selectedJob && (
           <div data-panel="detail">
-            {console.log('[Hero] 🎨 JobDetailPanel 렌더링 중, job:', selectedJob.title)}
             <JobDetailPanel
               job={selectedJob}
               isOpen={!!selectedJob}
