@@ -8,7 +8,7 @@ import { supabase } from './lib/supabase.js';
 import { logInfo, logStep, logWarn, logError } from './lib/logger.js';
 
 const REGION_BOARDS = {
-  seoul: { name: '서울', boardUrl: 'https://work.sen.go.kr/recruit/job/pageListJob.do', domains: ['work.sen.go.kr'] },
+  seoul: { name: '서울', boardUrl: 'https://work.sen.go.kr/work/search/recInfo/BD_selectSrchRecInfo.do', domains: ['work.sen.go.kr'] },
   busan: { name: '부산', boardUrl: 'https://www.pen.go.kr/selectBbsNttList.do?bbsNo=397&key=1553', domains: ['www.pen.go.kr'] },
   daegu: { name: '대구', boardUrl: 'https://www.dge.go.kr/main/na/ntt/selectNttList.do?mi=8026&bbsId=4261', domains: ['www.dge.go.kr'] },
   incheon: { name: '인천', boardUrl: 'https://www.ice.go.kr/ice/na/ntt/selectNttList.do?mi=10997&bbsId=1981', domains: ['www.ice.go.kr'] },

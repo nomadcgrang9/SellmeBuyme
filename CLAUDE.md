@@ -63,24 +63,36 @@ Frontend (Vite + React) ← Edge Functions (AI recommendations)
 
 ### Frontend Development
 ```bash
-npm run dev          # Start Vite dev server (default: http://localhost:5173)
-npm run build        # Build for production (outputs to dist/)
+npm run dev          # Start Vite dev server (http://localhost:5173)
+npm run build        # Build for production (tsc + vite build → dist/)
 npm run preview      # Preview production build
 npm run lint         # Run ESLint
+```
+
+### Scripts (via npm)
+```bash
+npm run verify:banners           # Verify stripe banners
+npm run db:check-keywords        # Check keywords in DB
+npm run db:grant-admin           # Grant admin role to user
+npm run db:apply-migration       # Apply DB migration
+npm run db:run-migration         # Run specific migration
+npm run crawler:health-worker    # Run crawler health check worker
+npm run crawler:health-run       # Run crawler health check
 ```
 
 ### Crawler Operations
 ```bash
 cd crawler
-node index.js        # Run crawler for all configured boards
-node test-uijeongbu.js  # Test specific crawler
+node index.js                    # Run all configured crawlers
+node index.js --source=seongnam  # Run specific crawler
+node index.js --test             # Test mode (dry run)
 ```
 
-### Supabase
+### Supabase Edge Functions
 ```bash
-# Deploy Edge Functions
 supabase functions deploy profile-recommendations
 supabase functions deploy download-attachment
+supabase secrets set KEY=value   # Set secrets for Edge Functions
 ```
 
 ## Key Technical Decisions
@@ -265,8 +277,24 @@ The app uses a custom color palette defined in `tailwind.config.ts`:
 - **Language Policy**: TypeScript-only project (except `crawler/` which uses Python/Node.js)
 - **.mjs files**: Any existing .mjs files should be migrated to TypeScript (.ts) or removed
 
+## Crawler Configuration
+
+### Adding a New Crawler Source
+1. Add configuration to `crawler/config/sources.json` with required fields:
+   - `baseUrl`, `detailUrlTemplate`, `parserType`, `region`, `selectors`
+2. For custom parsers: Create `crawler/sources/{source-name}.js` exporting `crawl{SourceName}()` function
+3. Import and add routing logic in `crawler/index.js`
+4. Update `crawler/health-check-worker.js` REGION_BOARDS if needed for health checks
+5. Add to GitHub Actions workflow matrix in `.github/workflows/run-crawler.yml`
+
+### Crawler Health Check System
+- `health-check-worker.js`: Background worker monitoring `crawler_health_jobs` table
+- `health-check-runner.js`: Creates health check jobs for all regions
+- Health status: `healthy` (>80% collection), `warning` (50-80%), `critical` (<50% or >7 days stale)
+
 ## References
 
+- **Project rules**: `docs/PROJECT_RULES.md` (development conventions, PowerShell commands)
 - **Architecture docs**: `docs/BACKEND_STRUCTURE.md`, `docs/FRONTEND_STRUCTURE.md`
 - **Color system**: `docs/COLOR_STRUCTURE.md`
 - **Crawling plan**: `docs/CRAWLING_PLAN.md`

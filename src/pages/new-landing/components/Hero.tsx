@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { ChevronUp, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { SCHOOL_LEVELS } from '../constants';
 import { useKakaoMaps } from '@/hooks/useKakaoMaps';
 import { fetchJobsByBoardRegion } from '@/lib/supabase/queries';
@@ -14,6 +16,8 @@ import BottomControlBar from '@/components/map/BottomControlBar';
 import MarkerPopup from '@/components/map/MarkerPopup';
 import AuthModal from '@/components/auth/AuthModal';
 import ProfileButton from '@/components/auth/ProfileButton';
+import EmptyState from '@/components/common/EmptyState';
+import { ListSkeleton } from '@/components/common/CardSkeleton';
 import { useAuthStore } from '@/stores/authStore';
 import { fetchTeacherMarkers, fetchProgramMarkers } from '@/lib/supabase/markers';
 import { type MarkerLayer, type TeacherMarker, type ProgramMarker, MARKER_COLORS } from '@/types/markers';
@@ -56,6 +60,7 @@ export const Hero: React.FC = () => {
   const [pendingMarkerType, setPendingMarkerType] = useState<'teacher' | 'program' | null>(null);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authModalInitialTab, setAuthModalInitialTab] = useState<'login' | 'signup'>('login');
 
   // 마커 레이어 토글 상태
   const [activeLayers, setActiveLayers] = useState<MarkerLayer[]>(['job', 'teacher', 'program']);
@@ -98,9 +103,13 @@ export const Hero: React.FC = () => {
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [locationSearchQuery, setLocationSearchQuery] = useState('');
   const [activeLocationFilter, setActiveLocationFilter] = useState<string | null>(null);
+  const [isLocationSearching, setIsLocationSearching] = useState(false);
 
   // 공고 데이터 상태
   const [jobPostings, setJobPostings] = useState<JobPostingCard[]>([]);
+  const [isJobsLoading, setIsJobsLoading] = useState(false);
+  const [isJobListCollapsed, setIsJobListCollapsed] = useState(false);
+  const [isPanelHidden, setIsPanelHidden] = useState(false);
   const [markerCount, setMarkerCount] = useState(0);
   const mapMarkersRef = useRef<any[]>([]);
   const coordsCacheRef = useRef<Map<string, { lat: number; lng: number }>>(new Map());
@@ -239,10 +248,12 @@ export const Hero: React.FC = () => {
 
   // 주소 검색 핸들러
   const handleLocationSearch = useCallback(() => {
-    if (!locationSearchQuery.trim() || !isLoaded) return;
+    if (!locationSearchQuery.trim() || !isLoaded || isLocationSearching) return;
 
     const searchQuery = locationSearchQuery.trim();
     const geocoder = new window.kakao.maps.services.Geocoder();
+
+    setIsLocationSearching(true);
 
     geocoder.addressSearch(searchQuery, (result: any[], status: string) => {
       if (status === window.kakao.maps.services.Status.OK && result.length > 0) {
@@ -250,6 +261,7 @@ export const Hero: React.FC = () => {
         setUserLocation({ lat: parseFloat(lat), lng: parseFloat(lng) });
         setActiveLocationFilter(searchQuery);
         setLocationSearchQuery('');
+        setIsLocationSearching(false);
       } else {
         const places = new window.kakao.maps.services.Places();
         places.keywordSearch(searchQuery, (result: any[], status: string) => {
@@ -259,10 +271,11 @@ export const Hero: React.FC = () => {
             setActiveLocationFilter(searchQuery);
             setLocationSearchQuery('');
           }
+          setIsLocationSearching(false);
         });
       }
     });
-  }, [locationSearchQuery, isLoaded]);
+  }, [locationSearchQuery, isLoaded, isLocationSearching]);
 
   // 지역 필터 취소 핸들러
   const clearLocationFilter = useCallback(() => {
@@ -360,12 +373,15 @@ export const Hero: React.FC = () => {
   // 공고 로드 함수
   const loadJobPostings = async (regionName: string) => {
     try {
+      setIsJobsLoading(true);
       console.log('[Hero] 공고 데이터 로드 시작, 지역:', regionName);
       const jobs = await fetchJobsByBoardRegion(regionName, 250);
       console.log('[Hero] 공고 데이터 로드 완료:', jobs.length, '개');
       setJobPostings(jobs);
     } catch (error) {
       console.error('[Hero] 공고 데이터 로드 실패:', error);
+    } finally {
+      setIsJobsLoading(false);
     }
   };
 
@@ -627,7 +643,7 @@ export const Hero: React.FC = () => {
     }
   }, []);
 
-  // 공고 마커 표시
+  // 공고 마커 표시 (최적화: 병렬 배치 처리 + 캐시 즉시 처리 + sessionStorage 영구 캐시)
   useEffect(() => {
     if (!isLoaded || !mapInstanceRef.current) return;
 
@@ -637,6 +653,9 @@ export const Hero: React.FC = () => {
     markerJobMapRef.current.clear();
     setMarkerCount(0);
 
+    // 레이어 비활성화 시 마커 표시 안함
+    if (!activeLayers.includes('job')) return;
+
     if (filteredJobPostings.length === 0) return;
 
     const map = mapInstanceRef.current;
@@ -644,6 +663,19 @@ export const Hero: React.FC = () => {
     const cache = coordsCacheRef.current;
     let cancelled = false;
     let currentInfowindow: any = null;
+
+    // sessionStorage에서 캐시 복원
+    try {
+      const savedCache = sessionStorage.getItem('jobCoordsCache');
+      if (savedCache) {
+        const parsed = JSON.parse(savedCache);
+        Object.entries(parsed).forEach(([k, v]) => {
+          if (!cache.has(k)) cache.set(k, v as { lat: number; lng: number });
+        });
+      }
+    } catch (e) {
+      console.warn('[Hero] 캐시 복원 실패:', e);
+    }
 
     const coordsJobsMap = new Map<string, JobPostingCard[]>();
     const coordsMarkerMap = new Map<string, any>();
@@ -667,33 +699,27 @@ export const Hero: React.FC = () => {
 
       const position = new window.kakao.maps.LatLng(finalCoords.lat, finalCoords.lng);
 
+      // 기본 마커 사용
       const marker = new window.kakao.maps.Marker({
         position: position,
         map: map,
       });
 
-      mapMarkersRef.current.push(marker);
-      markerJobMapRef.current.set(marker, job);
-      coordsMarkerMap.set(coordKey, marker);
-      setMarkerCount(prev => prev + 1);
-
-      // 마커 클릭 시 상세 패널 열기
+      // 마커 클릭 이벤트
       window.kakao.maps.event.addListener(marker, 'click', () => {
         if (currentInfowindow) currentInfowindow.close();
 
         const jobsAtLocation = coordsJobsMap.get(coordKey) || [job];
 
         if (jobsAtLocation.length === 1) {
-          // 단일 공고: 바로 상세 패널 열기
           setSelectedJob(jobsAtLocation[0]);
         } else {
-          // 여러 공고: 인포윈도우로 목록 표시
           const jobItems = jobsAtLocation.map((j, idx) => `
             <div style="padding:6px 0;${idx > 0 ? 'border-top:1px solid #eee;' : ''}cursor:pointer;"
                  onclick="window.selectJobFromMarker && window.selectJobFromMarker('${j.id}')">
               <div style="font-size:10px;color:#666;margin-bottom:2px;">${j.organization || ''}</div>
               <div style="font-size:11px;font-weight:600;color:#333;line-height:1.3;">${(j.title || '').slice(0, 25)}${(j.title || '').length > 25 ? '...' : ''}</div>
-              ${j.daysLeft !== undefined ? `<span style="font-size:9px;padding:2px 5px;border-radius:3px;background:${j.daysLeft <= 3 ? '#FEE2E2' : '#E0E7FF'};color:${j.daysLeft <= 3 ? '#DC2626' : '#4F46E5'};">D-${j.daysLeft}</span>` : ''}
+              ${j.daysLeft !== undefined && j.daysLeft <= 5 ? `<span style="font-size:9px;padding:2px 5px;border-radius:3px;background:${j.daysLeft === 0 ? '#EF4444' : j.daysLeft <= 3 ? '#FEE2E2' : '#FFEDD5'};color:${j.daysLeft === 0 ? '#FFFFFF' : j.daysLeft <= 3 ? '#B91C1C' : '#C2410C'};">${j.daysLeft === 0 ? 'D-Day' : `D-${j.daysLeft}`}</span>` : ''}
             </div>
           `).join('');
 
@@ -714,7 +740,6 @@ export const Hero: React.FC = () => {
           currentInfowindow = infowindow;
         }
 
-        // 지도 살짝 이동 (마커가 가려지지 않게)
         const offsetLng = 0.002;
         const adjustedCoords = new window.kakao.maps.LatLng(
           finalCoords.lat,
@@ -722,6 +747,11 @@ export const Hero: React.FC = () => {
         );
         map.panTo(adjustedCoords);
       });
+
+      mapMarkersRef.current.push(marker);
+      markerJobMapRef.current.set(marker, job);
+      coordsMarkerMap.set(coordKey, marker);
+      setMarkerCount(prev => prev + 1);
     };
 
     // 인포윈도우에서 공고 선택 시 호출될 전역 함수
@@ -733,62 +763,117 @@ export const Hero: React.FC = () => {
       }
     };
 
-    let index = 0;
-    let failedCount = 0;
-    const processNext = () => {
-      if (cancelled || index >= filteredJobPostings.length) {
-        if (index >= filteredJobPostings.length) {
-          console.log(`[Hero] 마커 생성 완료: 성공 ${filteredJobPostings.length - failedCount}개, 실패 ${failedCount}개`);
-        }
-        return;
+    // 캐시 저장 함수
+    const saveCache = () => {
+      try {
+        const cacheObj: Record<string, { lat: number; lng: number }> = {};
+        cache.forEach((v, k) => { cacheObj[k] = v; });
+        sessionStorage.setItem('jobCoordsCache', JSON.stringify(cacheObj));
+      } catch (e) {
+        console.warn('[Hero] 캐시 저장 실패:', e);
       }
+    };
 
-      const job = filteredJobPostings[index];
-      index++;
-
-      const keyword = job.organization || job.location;
-      if (!keyword) {
-        failedCount++;
-        setTimeout(processNext, 30);
-        return;
-      }
-
-      if (cache.has(keyword)) {
-        createMarker(cache.get(keyword)!, job);
-        setTimeout(processNext, 30);
-        return;
-      }
-
-      places.keywordSearch(keyword, (result: any[], status: string) => {
-        if (cancelled) return;
-
-        if (status === window.kakao.maps.services.Status.OK && result.length > 0) {
-          const coords = { lat: parseFloat(result[0].y), lng: parseFloat(result[0].x) };
-          cache.set(keyword, coords);
-          createMarker(coords, job);
-        } else {
-          if (job.location && job.location !== keyword) {
-            places.keywordSearch(job.location, (result2: any[], status2: string) => {
-              if (cancelled) return;
-              if (status2 === window.kakao.maps.services.Status.OK && result2.length > 0) {
-                const coords = { lat: parseFloat(result2[0].y), lng: parseFloat(result2[0].x) };
-                cache.set(keyword, coords);
-                createMarker(coords, job);
-              } else {
-                failedCount++;
-              }
-              setTimeout(processNext, 30);
-            });
-            return;
+    // 키워드 검색 Promise 래퍼
+    const searchKeyword = (keyword: string): Promise<{ lat: number; lng: number } | null> => {
+      return new Promise((resolve) => {
+        places.keywordSearch(keyword, (result: any[], status: string) => {
+          if (status === window.kakao.maps.services.Status.OK && result.length > 0) {
+            resolve({ lat: parseFloat(result[0].y), lng: parseFloat(result[0].x) });
           } else {
-            failedCount++;
+            resolve(null);
           }
-        }
-        setTimeout(processNext, 30);
+        });
       });
     };
 
-    processNext();
+    // 단일 공고 처리
+    const processJob = async (job: JobPostingCard): Promise<boolean> => {
+      if (cancelled) return false;
+
+      const keyword = job.organization || job.location;
+      if (!keyword) return false;
+
+      // 캐시 히트: 즉시 처리
+      if (cache.has(keyword)) {
+        createMarker(cache.get(keyword)!, job);
+        return true;
+      }
+
+      // API 검색
+      let coords = await searchKeyword(keyword);
+
+      // 첫 검색 실패 시 location으로 재검색
+      if (!coords && job.location && job.location !== keyword) {
+        coords = await searchKeyword(job.location);
+      }
+
+      if (coords) {
+        cache.set(keyword, coords);
+        createMarker(coords, job);
+        return true;
+      }
+
+      return false;
+    };
+
+    // 병렬 배치 처리
+    const BATCH_SIZE = 10;
+    const processBatches = async () => {
+      console.log(`[Hero] 마커 생성 시작: ${filteredJobPostings.length}개 공고`);
+      const startTime = Date.now();
+
+      // 1단계: 캐시 히트 즉시 처리 (딜레이 없음)
+      const cachedJobs: JobPostingCard[] = [];
+      const uncachedJobs: JobPostingCard[] = [];
+
+      filteredJobPostings.forEach(job => {
+        const keyword = job.organization || job.location;
+        if (keyword && cache.has(keyword)) {
+          cachedJobs.push(job);
+        } else {
+          uncachedJobs.push(job);
+        }
+      });
+
+      // 캐시된 공고 즉시 마커 생성
+      cachedJobs.forEach(job => {
+        if (cancelled) return;
+        const keyword = job.organization || job.location;
+        if (keyword) createMarker(cache.get(keyword)!, job);
+      });
+
+      console.log(`[Hero] 캐시 히트: ${cachedJobs.length}개 즉시 처리`);
+
+      // 2단계: 캐시 미스 병렬 배치 처리
+      let successCount = cachedJobs.length;
+      let failedCount = 0;
+
+      for (let i = 0; i < uncachedJobs.length; i += BATCH_SIZE) {
+        if (cancelled) break;
+
+        const batch = uncachedJobs.slice(i, i + BATCH_SIZE);
+        const results = await Promise.all(batch.map(job => processJob(job)));
+
+        results.forEach(success => {
+          if (success) successCount++;
+          else failedCount++;
+        });
+
+        // 배치 간 짧은 딜레이 (API rate limit 방지)
+        if (i + BATCH_SIZE < uncachedJobs.length) {
+          await new Promise(resolve => setTimeout(resolve, 50));
+        }
+      }
+
+      // 캐시 저장
+      saveCache();
+
+      const elapsed = Date.now() - startTime;
+      console.log(`[Hero] 마커 생성 완료: 성공 ${successCount}개, 실패 ${failedCount}개 (${elapsed}ms)`);
+    };
+
+    processBatches();
 
     return () => {
       cancelled = true;
@@ -798,7 +883,7 @@ export const Hero: React.FC = () => {
       markerJobMapRef.current.clear();
       delete (window as any).selectJobFromMarker;
     };
-  }, [isLoaded, filteredJobPostings]);
+  }, [isLoaded, filteredJobPostings, activeLayers]);
 
   // 드롭다운 외부 클릭 시 닫기
   useEffect(() => {
@@ -818,6 +903,17 @@ export const Hero: React.FC = () => {
       <div
         ref={mapContainerRef}
         className="absolute inset-0 w-full h-full"
+        onClick={(e) => {
+          // 지도 클릭 시 상세 패널 닫기 (맵 클릭 모드가 아닐 때만)
+          if (!mapClickMode && selectedJob) {
+            // 클릭 이벤트가 패널 내부에서 발생했는지 확인
+            const target = e.target as HTMLElement;
+            const isInsidePanel = target.closest('[data-panel]');
+            if (!isInsidePanel) {
+              setSelectedJob(null);
+            }
+          }
+        }}
       />
 
       {/* 맵 클릭 모드 오버레이 - 카카오맵 위에 투명하게 표시되어 커서와 클릭 이벤트를 처리 */}
@@ -908,6 +1004,7 @@ export const Hero: React.FC = () => {
       <AuthModal
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
+        initialTab={authModalInitialTab}
       />
 
       {/* 구직 교사 마커 등록 모달 */}
@@ -1011,15 +1108,21 @@ export const Hero: React.FC = () => {
         ) : (
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setIsAuthModalOpen(true)}
-              className="px-4 py-2.5 text-sm text-gray-600 bg-white/95 backdrop-blur-sm border border-gray-200 rounded-full hover:bg-white hover:text-gray-900 hover:shadow-md transition-all font-medium"
+              onClick={() => {
+                setAuthModalInitialTab('login');
+                setIsAuthModalOpen(true);
+              }}
+              className="px-4 py-2.5 text-sm text-gray-600 bg-white/95 backdrop-blur-sm border border-gray-200 rounded-full hover:bg-white hover:text-gray-900 hover:shadow-md transition-all font-medium active:scale-95"
               style={{ boxShadow: '0 4px 12px rgba(0, 0, 0, 0.08)' }}
             >
               로그인
             </button>
             <button
-              onClick={() => setIsAuthModalOpen(true)}
-              className="px-4 py-2.5 text-sm font-semibold text-white bg-gray-900 rounded-full hover:bg-gray-800 hover:shadow-lg hover:-translate-y-0.5 transition-all"
+              onClick={() => {
+                setAuthModalInitialTab('signup');
+                setIsAuthModalOpen(true);
+              }}
+              className="px-4 py-2.5 text-sm font-semibold text-white bg-gray-900 rounded-full hover:bg-gray-800 hover:shadow-lg hover:-translate-y-0.5 transition-all active:scale-95"
               style={{ boxShadow: '0 4px 14px rgba(0,0,0,0.2)' }}
             >
               회원가입
@@ -1038,20 +1141,40 @@ export const Hero: React.FC = () => {
         />
       )}
 
-      {/* 왼쪽 패널 컨테이너: 로고 + 카드 목록 + 상세 패널 */}
-      <div className="absolute top-4 left-4 z-10 flex gap-3">
+      {/* 왼쪽 패널 컨테이너: 로고 + 카드 목록 + 상세 패널 + 토글 버튼 */}
+      <div
+        className={`absolute top-4 z-10 flex items-start transition-all duration-300 ease-in-out ${
+          isPanelHidden ? '-left-[240px]' : 'left-4'
+        }`}
+      >
         {/* 왼쪽 패널: 로고 + 필터 + 공고 목록 (한 몸처럼) */}
-        <div className="w-[240px] bg-white/95 backdrop-blur-sm rounded-xl border border-gray-200 shadow-lg overflow-hidden flex flex-col max-h-[calc(100vh-32px)]">
+        <div className="w-[240px] bg-white/95 backdrop-blur-sm rounded-xl border border-gray-200 shadow-lg overflow-hidden flex flex-col max-h-[calc(100vh-32px)]" data-panel="list">
 
           {/* 로고 영역 - 패널 최상단 */}
           <div className="px-3 py-3 border-b border-gray-200 flex-shrink-0">
-            <a href="/" className="flex items-center justify-center">
+            <button
+              onClick={() => {
+                // 필터 초기화
+                setMapFilters({ schoolLevels: [], subjects: [] });
+                setLocationSearchQuery('');
+                setActiveLocationFilter(null);
+                // 목록 펼치기
+                setIsJobListCollapsed(false);
+                // 선택된 공고 해제
+                setSelectedJob(null);
+                // 패널 열기
+                setIsPanelHidden(false);
+              }}
+              className="flex items-center justify-center w-full hover:opacity-80 transition-opacity active:scale-[0.98]"
+              aria-label="필터 초기화 및 홈으로"
+              title="필터 초기화"
+            >
               <img
                 src="/logo.png"
                 alt="쌤찾기"
                 className="h-[68px] w-auto"
               />
-            </a>
+            </button>
           </div>
 
           {/* 필터 영역 */}
@@ -1065,10 +1188,15 @@ export const Hero: React.FC = () => {
                     e.stopPropagation();
                     setOpenDropdown(openDropdown === 'schoolLevel' ? null : 'schoolLevel');
                   }}
-                  className={`w-full px-3 py-2 text-xs rounded-lg border flex items-center justify-between gap-1 ${mapFilters.schoolLevels.length > 0
-                    ? 'bg-[#5B6EF7]/10 border-[#5B6EF7] text-[#5B6EF7]'
-                    : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
-                    }`}
+                  className={`w-full px-3 py-2 text-xs rounded-lg border flex items-center justify-between gap-1 transition-all active:scale-[0.98] ${
+                    openDropdown === 'schoolLevel'
+                      ? 'bg-[#5B6EF7]/15 border-[#5B6EF7] text-[#5B6EF7] shadow-sm'
+                      : mapFilters.schoolLevels.length > 0
+                        ? 'bg-[#5B6EF7]/10 border-[#5B6EF7] text-[#5B6EF7]'
+                        : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50'
+                  }`}
+                  aria-expanded={openDropdown === 'schoolLevel'}
+                  aria-haspopup="listbox"
                 >
                   <span className="truncate">
                     {mapFilters.schoolLevels.length > 0
@@ -1106,10 +1234,15 @@ export const Hero: React.FC = () => {
                     e.stopPropagation();
                     setOpenDropdown(openDropdown === 'subject' ? null : 'subject');
                   }}
-                  className={`w-full px-3 py-2 text-xs rounded-lg border flex items-center justify-between gap-1 ${mapFilters.subjects.length > 0
-                    ? 'bg-[#5B6EF7]/10 border-[#5B6EF7] text-[#5B6EF7]'
-                    : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
-                    }`}
+                  className={`w-full px-3 py-2 text-xs rounded-lg border flex items-center justify-between gap-1 transition-all active:scale-[0.98] ${
+                    openDropdown === 'subject'
+                      ? 'bg-[#5B6EF7]/15 border-[#5B6EF7] text-[#5B6EF7] shadow-sm'
+                      : mapFilters.subjects.length > 0
+                        ? 'bg-[#5B6EF7]/10 border-[#5B6EF7] text-[#5B6EF7]'
+                        : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50'
+                  }`}
+                  aria-expanded={openDropdown === 'subject'}
+                  aria-haspopup="listbox"
                 >
                   <span className="truncate">
                     {mapFilters.subjects.length > 0
@@ -1148,7 +1281,9 @@ export const Hero: React.FC = () => {
                   <span className="text-[#5B6EF7] font-medium truncate">{activeLocationFilter}</span>
                   <button
                     onClick={clearLocationFilter}
-                    className="ml-1 p-0.5 text-[#5B6EF7] hover:text-red-500 transition-colors flex-shrink-0"
+                    className="ml-1 p-1.5 text-[#5B6EF7] hover:text-red-500 hover:bg-red-50 rounded-md transition-colors flex-shrink-0 active:scale-95"
+                    aria-label="필터 해제"
+                    title="필터 해제"
                   >
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1167,11 +1302,21 @@ export const Hero: React.FC = () => {
                   />
                   <button
                     onClick={handleLocationSearch}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 text-gray-400 hover:text-[#5B6EF7]"
+                    disabled={isLocationSearching}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-[#5B6EF7] hover:bg-gray-100 rounded-md transition-colors active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                    aria-label={isLocationSearching ? "검색 중..." : "검색"}
+                    title={isLocationSearching ? "검색 중..." : "검색"}
                   >
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                    </svg>
+                    {isLocationSearching ? (
+                      <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                    ) : (
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                      </svg>
+                    )}
                   </button>
                 </>
               )}
@@ -1181,41 +1326,73 @@ export const Hero: React.FC = () => {
           {/* 히어로 카드 - 브랜딩 영역 (캐러셀) */}
           <HeroCard />
 
-          {/* 공고 목록 헤더 */}
-          <div className="px-3 py-2.5 border-b border-gray-100 flex-shrink-0">
+          {/* 공고 목록 헤더 - 항상 표시 */}
+          <div
+            className="px-3 py-2.5 border-b border-gray-100 flex-shrink-0 cursor-pointer hover:bg-gray-50 transition-colors"
+            onClick={() => setIsJobListCollapsed(!isJobListCollapsed)}
+          >
             <div className="flex items-center justify-between">
               <span className="text-sm font-semibold text-gray-700">공고 목록</span>
-              <span className="text-xs font-medium text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
-                {filteredJobPostings.length}개
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
+                  {activeLayers.includes('job') ? filteredJobPostings.length : 0}개
+                </span>
+                <div
+                  className="p-1.5 rounded-lg border border-blue-200 bg-blue-50 text-blue-600"
+                  aria-label={isJobListCollapsed ? '목록 펼치기' : '목록 접기'}
+                >
+                  {isJobListCollapsed ? (
+                    <ChevronDown size={18} strokeWidth={2.5} />
+                  ) : (
+                    <ChevronUp size={18} strokeWidth={2.5} />
+                  )}
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* 공고 카드 목록 */}
-          <div className="flex-1 overflow-y-auto">
-            {filteredJobPostings.length === 0 ? (
-              <div className="p-4 text-center text-gray-400 text-xs">
-                표시할 공고가 없습니다
-              </div>
+          {/* 공고 카드 목록 (job 레이어 활성화 시만 표시) */}
+          {activeLayers.includes('job') && (
+          <div
+            className={`overflow-y-auto transition-all duration-300 ease-in-out ${
+              isJobListCollapsed ? 'max-h-0 opacity-0' : 'flex-1 opacity-100'
+            }`}
+            style={{ minHeight: isJobListCollapsed ? 0 : undefined }}
+          >
+            {isJobsLoading ? (
+              <ListSkeleton count={5} />
+            ) : filteredJobPostings.length === 0 ? (
+              <EmptyState
+                type="filter"
+                title="조건에 맞는 공고가 없어요"
+                description="필터를 조정하거나 다른 지역을 선택해 보세요"
+                size="sm"
+              />
             ) : (
               <div className="divide-y divide-gray-100">
                 {filteredJobPostings.map((job) => (
                   <div
                     key={job.id}
-                    className={`group relative p-4 cursor-pointer transition-colors ${selectedJob?.id === job.id
-                      ? 'bg-blue-50 border-l-2 border-l-[#5B6EF7]'
+                    className={`group relative p-4 cursor-pointer transition-colors border-l-4 border-l-transparent ${selectedJob?.id === job.id
+                      ? 'bg-blue-50 !border-l-[#5B6EF7]'
                       : 'hover:bg-gray-50'
                       }`}
                     onClick={() => handleCardClick(job)}
                   >
-                    {/* 기관명 + D-day (긴급한 것만 표시) */}
+                    {/* 기관명 + D-day (카드와 동일한 색상 시스템) */}
                     <div className="flex items-center justify-between mb-1.5">
                       <span className="text-xs text-gray-500 truncate flex-1">
                         {job.organization || '기관 정보 없음'}
                       </span>
-                      {job.daysLeft !== undefined && job.daysLeft <= 3 && (
-                        <span className="text-xs font-bold px-1.5 py-0.5 rounded ml-1.5 bg-red-100 text-red-600">
-                          D-{job.daysLeft}
+                      {job.daysLeft !== undefined && job.daysLeft <= 5 && (
+                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ml-1.5 ${
+                          job.daysLeft === 0
+                            ? 'bg-red-500 text-white'
+                            : job.daysLeft <= 3
+                              ? 'bg-red-100 text-red-700'
+                              : 'bg-orange-100 text-orange-700'
+                        }`}>
+                          {job.daysLeft === 0 ? 'D-Day' : `D-${job.daysLeft}`}
                         </span>
                       )}
                     </div>
@@ -1294,40 +1471,69 @@ export const Hero: React.FC = () => {
               </div>
             )}
           </div>
+          )}
+
         </div>
 
         {/* 상세 패널 - 카드 목록 옆에 배치 (flex 아이템) */}
         {selectedJob && (
-          <JobDetailPanel
-            job={selectedJob}
-            isOpen={!!selectedJob}
-            onClose={() => setSelectedJob(null)}
-            onDirectionsClick={handleDirectionsClick}
-          />
+          <div data-panel="detail">
+            <JobDetailPanel
+              job={selectedJob}
+              isOpen={!!selectedJob}
+              onClose={() => setSelectedJob(null)}
+              onDirectionsClick={handleDirectionsClick}
+            />
+          </div>
         )}
+
+        {/* 패널 접기/펼치기 토글 버튼 (네이버 지도 스타일 탭) */}
+        <button
+          onClick={() => setIsPanelHidden(!isPanelHidden)}
+          className="self-center -ml-[1px] flex items-center justify-center w-5 h-14 bg-white border border-gray-200 border-l-0 rounded-r-md shadow-sm hover:bg-gray-50 active:bg-gray-100 transition-colors"
+          aria-label={isPanelHidden ? '패널 펼치기' : '패널 접기'}
+          title={isPanelHidden ? '패널 펼치기' : '패널 접기'}
+        >
+          {isPanelHidden ? (
+            <ChevronRight size={14} strokeWidth={2} className="text-gray-400" />
+          ) : (
+            <ChevronLeft size={14} strokeWidth={2} className="text-gray-400" />
+          )}
+        </button>
       </div>
 
       {/* 길찾기 패널 - 사이드 패널 방식 (상세 패널 옆에 위치) */}
-      {directionsJob && (
-        <div
-          className="absolute top-4 z-20"
-          style={{
-            // 카드목록(240px) + gap(12px) + 상세패널(260px, 있을 때) + gap(12px) = 위치
-            left: selectedJob ? 'calc(16px + 240px + 12px + 260px + 12px)' : 'calc(16px + 240px + 12px)'
-          }}
-        >
-          <DirectionsPanel
-            job={directionsJob}
-            destinationCoords={directionsCoords}
-            onClose={handleDirectionsClose}
-            onRouteFound={handleRouteFound}
-            onRequestMapClick={(callback) => {
-              setMapClickMode(true);
-              mapClickCallbackRef.current = callback;
+      <AnimatePresence>
+        {directionsJob && (
+          <motion.div
+            initial={{ opacity: 0, x: -20, scale: 0.95 }}
+            animate={{ opacity: 1, x: 0, scale: 1 }}
+            exit={{ opacity: 0, x: -20, scale: 0.95 }}
+            transition={{ duration: 0.25, ease: 'easeOut' }}
+            className="absolute top-4 z-20"
+            data-panel="directions"
+            style={{
+              // 패널 숨김 시: 16px, 패널 보임 시: 카드목록(240px) + 토글버튼(20px) + gap(12px) + 상세패널(260px, 있을 때) + gap(12px) = 위치
+              left: isPanelHidden
+                ? '16px'
+                : selectedJob
+                  ? 'calc(16px + 240px + 20px + 12px + 260px + 12px)'
+                  : 'calc(16px + 240px + 20px + 12px)'
             }}
-          />
-        </div>
-      )}
+          >
+            <DirectionsPanel
+              job={directionsJob}
+              destinationCoords={directionsCoords}
+              onClose={handleDirectionsClose}
+              onRouteFound={handleRouteFound}
+              onRequestMapClick={(callback) => {
+                setMapClickMode(true);
+                mapClickCallbackRef.current = callback;
+              }}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </section>
   );
 };

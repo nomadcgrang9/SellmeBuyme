@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { TalentCard as TalentCardType } from '@/types';
 import { IconMapPin, IconBriefcase, IconStar } from '@tabler/icons-react';
 import { MessageCircle } from 'lucide-react';
@@ -9,8 +10,9 @@ interface CompactTalentCardProps {
   onClick?: () => void;
 }
 
-export default function CompactTalentCard({ talent, onClick }: CompactTalentCardProps) {
-  const { user } = useAuthStore((s) => ({ user: s.user }));
+function CompactTalentCard({ talent, onClick }: CompactTalentCardProps) {
+  // Zustand selector 최적화: 개별 구독
+  const user = useAuthStore((s) => s.user);
   const isOwner = Boolean(user && talent.user_id && user.id === talent.user_id);
 
   const handleChatClick = async (e: React.MouseEvent) => {
@@ -127,3 +129,5 @@ export default function CompactTalentCard({ talent, onClick }: CompactTalentCard
     </article>
   );
 }
+
+export default memo(CompactTalentCard);

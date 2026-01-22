@@ -1,19 +1,37 @@
-import React from 'react'
+import React, { lazy, Suspense } from 'react'
 import ReactDOM from 'react-dom/client'
-import App from './App'
-import AdminPage from './pages/AdminPage'
-import TeamConsolePage from './pages/TeamConsolePage'
-import DeveloperPage from './pages/DeveloperPage'
-import AuthCallback from './pages/AuthCallback'
-import MobileSearch from './pages/MobileSearch'
-import MobileRegister from './pages/MobileRegister'
-import MobileChat from './pages/MobileChat'
-import MobileChatRoom from './pages/MobileChatRoom'
 import './index.css'
 // import Landing from './pages/Landing'  // 숨김 처리됨
-import NewLanding from './pages/new-landing/App'
 import MobileMapPage from './pages/mobile-map'
 import { errorReporter } from './lib/utils/errorReporter'
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 동적 임포트 (코드 분할)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+const App = lazy(() => import('./App'))
+const AdminPage = lazy(() => import('./pages/AdminPage'))
+const TeamConsolePage = lazy(() => import('./pages/TeamConsolePage'))
+const DeveloperPage = lazy(() => import('./pages/DeveloperPage'))
+const AuthCallback = lazy(() => import('./pages/AuthCallback'))
+const MobileSearch = lazy(() => import('./pages/MobileSearch'))
+const MobileRegister = lazy(() => import('./pages/MobileRegister'))
+const MobileChat = lazy(() => import('./pages/MobileChat'))
+const MobileChatRoom = lazy(() => import('./pages/MobileChatRoom'))
+const NewLanding = lazy(() => import('./pages/new-landing/App'))
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 로딩 폴백 컴포넌트
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function PageLoading() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="text-center">
+        <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+        <p className="text-gray-500 text-sm">로딩 중...</p>
+      </div>
+    </div>
+  )
+}
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 에러 리포터 초기화 (모바일 디버깅)
@@ -94,6 +112,8 @@ else if (pathname.startsWith('/legacy') || pathname.startsWith('/old')) {
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    {rootComponent}
+    <Suspense fallback={<PageLoading />}>
+      {rootComponent}
+    </Suspense>
   </React.StrictMode>,
 )

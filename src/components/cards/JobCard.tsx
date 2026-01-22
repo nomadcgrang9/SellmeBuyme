@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, memo } from 'react';
 import { JobPostingCard } from '@/types';
 import {
   IconMapPin,
@@ -24,13 +24,17 @@ interface JobCardProps {
   onEditClick?: (job: JobPostingCard) => void;
 }
 
-export default function JobCard({ job, cardIndex = 0, onClick, onEditClick }: JobCardProps) {
+function JobCard({ job, cardIndex = 0, onClick, onEditClick }: JobCardProps) {
   const [showMapModal, setShowMapModal] = useState(false);
   const cardRef = useRef<HTMLElement>(null);
   const expansionRef = useRef<HTMLDivElement>(null);
-  const { user } = useAuthStore((state) => ({ user: state.user }));
-  const { isBookmarked, addBookmark: addToStore, removeBookmark: removeFromStore } = useBookmarkStore();
-  const showToast = useToastStore((state) => state.showToast);
+
+  // Zustand selector 최적화: 개별 구독
+  const user = useAuthStore((s) => s.user);
+  const isBookmarked = useBookmarkStore((s) => s.isBookmarked);
+  const addToStore = useBookmarkStore((s) => s.addBookmark);
+  const removeFromStore = useBookmarkStore((s) => s.removeBookmark);
+  const showToast = useToastStore((s) => s.showToast);
 
   // 소유권 확인: 로그인 사용자 && 사용자 등록 공고 && 본인 공고
   const isOwner = user && job.user_id === user.id && job.source === 'user_posted';
@@ -325,3 +329,5 @@ export default function JobCard({ job, cardIndex = 0, onClick, onEditClick }: Jo
     </>
   );
 }
+
+export default memo(JobCard);

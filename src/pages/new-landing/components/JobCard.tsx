@@ -19,6 +19,7 @@ const themeColors = {
 
 export const JobCard: React.FC<JobCardProps> = ({ job, onClick, onDirectionsClick, themeColor = 'default' }) => {
   const isUrgent = job.daysLeft !== undefined && job.daysLeft <= 3;
+  const isNearDeadline = job.daysLeft !== undefined && job.daysLeft <= 7;
   const colors = themeColors[themeColor];
   const { filters } = useSearchStore();
 
@@ -42,162 +43,120 @@ export const JobCard: React.FC<JobCardProps> = ({ job, onClick, onDirectionsClic
       className="group relative cursor-pointer"
       onClick={onClick}
     >
-      <div className="bg-white border border-gray-200 rounded-lg shadow-md overflow-hidden flex flex-col min-h-[240px] transition-all duration-300 ease-out group-hover:shadow-none group-hover:rounded-b-none group-hover:border-b-0 group-hover:z-40">
+      <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden flex flex-col transition-all duration-300 ease-out group-hover:shadow-md group-hover:border-gray-300 group-hover:rounded-b-none group-hover:border-b-0 group-hover:z-40">
         {/* 상단 컬러 바 */}
-        <div className={`h-1 bg-gradient-to-r ${colors.bar}`} />
+        <div className={`h-0.5 bg-gradient-to-r ${colors.bar}`} />
 
-        <div className="flex h-full flex-col p-4">
-          {/* 헤더 */}
-          <div className="flex items-center justify-between mb-3">
-            <span className={`text-sm font-semibold ${colors.text}`}>공고</span>
-            <div className="flex items-center gap-2">
+        <div className="flex flex-col p-3">
+          {/* 헤더: 기관명 + D-day/긴급 뱃지 */}
+          <div className="flex items-start justify-between gap-2 mb-1.5">
+            <h3 className="text-[13px] font-bold text-gray-900 line-clamp-1 flex-1" style={{ letterSpacing: '-0.3px' }}>
+              {job.organization}
+            </h3>
+            <div className="flex items-center gap-1 flex-shrink-0">
               {job.isUrgent && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-500 text-white text-xs font-bold">
+                <span className="px-1.5 py-0.5 rounded bg-red-500 text-white text-[10px] font-bold">
                   긴급
                 </span>
               )}
-            </div>
-          </div>
-
-          {/* 기관명 */}
-          <h3 className="text-lg font-extrabold text-gray-900 mb-1 line-clamp-1" style={{ letterSpacing: '-0.4px' }}>
-            {job.organization}
-          </h3>
-
-          {/* 제목 */}
-          <p className="text-base font-semibold text-gray-700 leading-snug mb-2 line-clamp-1">
-            {job.title}
-          </p>
-
-          {/* 태그 */}
-          <div className="flex flex-wrap gap-1.5 max-h-[44px] overflow-hidden">
-            {sortedTags.slice(0, 2).map((tag, index) => (
-              <span
-                key={index}
-                className="rounded-full border border-gray-200 bg-white px-2.5 py-1 text-sm font-medium text-gray-700"
-              >
-                {tag}
-              </span>
-            ))}
-          </div>
-
-          {/* 기본 정보 */}
-          <div className="mt-3 space-y-1.5 text-sm text-gray-700">
-            {/* 위치 */}
-            <div className="flex items-center gap-2 truncate">
-              <svg className="w-4 h-4 text-[#7aa3cc] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-              <span className="font-medium truncate">{job.location}</span>
-            </div>
-
-            {/* 보수 */}
-            <div className="flex items-center gap-2 truncate">
-              <svg className="w-4 h-4 text-[#7aa3cc] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <span className="font-medium text-gray-900 truncate">{job.compensation}</span>
-            </div>
-
-            {/* 마감일 */}
-            <div className="flex items-center gap-2 truncate">
-              <svg className="w-4 h-4 text-orange-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <span className="font-medium truncate">{job.deadline}</span>
-              {job.daysLeft !== undefined && (
+              {job.daysLeft !== undefined && job.daysLeft <= 5 && (
                 <span
-                  className={`ml-auto rounded-full px-2 py-0.5 text-xs font-semibold ${
-                    isUrgent ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'
+                  className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                    job.daysLeft === 0
+                      ? 'bg-red-500 text-white'
+                      : job.daysLeft <= 3
+                        ? 'bg-red-100 text-red-700'
+                        : 'bg-orange-100 text-orange-700'
                   }`}
                 >
-                  D-{job.daysLeft}
+                  {job.daysLeft === 0 ? 'D-Day' : `D-${job.daysLeft}`}
                 </span>
               )}
             </div>
           </div>
+
+          {/* 제목 */}
+          <p className="text-xs text-gray-600 leading-snug mb-2 line-clamp-2">
+            {job.title}
+          </p>
+
+          {/* 위치 + 보수 (한 줄로 압축) */}
+          <div className="flex items-center gap-1.5 text-[11px] text-gray-500 mb-2">
+            <svg className="w-3 h-3 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+            </svg>
+            <span className="truncate">{job.location}</span>
+            <span className="text-gray-300">|</span>
+            <span className="font-medium text-gray-700 truncate">{job.compensation}</span>
+          </div>
+
+          {/* 태그 - 높이 제한 제거, 최대 3개 표시 */}
+          {sortedTags.length > 0 && (
+            <div className="flex flex-wrap gap-1">
+              {sortedTags.slice(0, 3).map((tag, index) => (
+                <span
+                  key={index}
+                  className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-600"
+                >
+                  {tag}
+                </span>
+              ))}
+              {sortedTags.length > 3 && (
+                <span className="text-[10px] text-gray-400">
+                  +{sortedTags.length - 3}
+                </span>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
-      {/* 데스크톱 호버 확장 영역 */}
+      {/* 데스크톱 호버 확장 영역 - 컴팩트 버전 */}
       <div
-        className="hidden md:block absolute inset-x-0 top-full z-50 pointer-events-none opacity-0 translate-y-1 transition-all duration-300 ease-out group-hover:translate-y-0 group-hover:opacity-100 group-hover:pointer-events-auto"
+        className="hidden md:block absolute inset-x-0 top-full z-50 pointer-events-none opacity-0 translate-y-1 transition-all duration-200 ease-out group-hover:translate-y-0 group-hover:opacity-100 group-hover:pointer-events-auto"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="rounded-b-lg rounded-t-none border border-t-0 border-gray-200 bg-white shadow-2xl p-4 space-y-3">
-          {/* 공고 제목 (전체) */}
-          <div className="flex items-start gap-2 text-sm text-gray-700">
-            <svg className="w-[18px] h-[18px] text-[#2563EB] flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        <div className="rounded-b-lg rounded-t-none border border-t-0 border-gray-300 bg-white shadow-lg p-2.5 space-y-2">
+          {/* 마감일 */}
+          <div className="flex items-center gap-1.5 text-[11px] text-gray-600">
+            <svg className="w-3.5 h-3.5 text-orange-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            <div>
-              <p className="text-xs uppercase tracking-wide text-gray-500 mb-0.5">공고 제목</p>
-              <p className="font-semibold">{job.title}</p>
-            </div>
+            <span className="font-medium">{job.deadline}</span>
           </div>
 
-          {/* 근무기간 */}
+          {/* 근무기간 (있을 때만) */}
           {job.work_period && (
-            <div className="flex items-start gap-2 text-sm text-gray-700">
-              <svg className="w-[18px] h-[18px] text-[#1D4ED8] flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <div className="flex items-center gap-1.5 text-[11px] text-gray-600">
+              <svg className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
-              <div>
-                <p className="text-xs uppercase tracking-wide text-gray-500 mb-0.5">근무기간</p>
-                <p className="font-semibold">{job.work_period}</p>
-              </div>
-            </div>
-          )}
-
-          {/* 접수기간 */}
-          {job.application_period && (
-            <div className="flex items-start gap-2 text-sm text-gray-700">
-              <svg className="w-[18px] h-[18px] text-[#2563EB] flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-              <div>
-                <p className="text-xs uppercase tracking-wide text-gray-500 mb-0.5">접수기간</p>
-                <p className="font-semibold">{job.application_period}</p>
-              </div>
-            </div>
-          )}
-
-          {/* 연락처 */}
-          {job.contact && (
-            <div className="flex items-start gap-2 text-sm text-gray-700">
-              <svg className="w-[18px] h-[18px] text-[#2563EB] flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-              </svg>
-              <div>
-                <p className="text-xs uppercase tracking-wide text-gray-500 mb-0.5">문의</p>
-                <p className="font-semibold">{job.contact}</p>
-              </div>
+              <span className="truncate">{job.work_period}</span>
             </div>
           )}
 
           {/* 버튼 영역 */}
-          <div className="flex gap-2 pt-1 text-sm font-semibold flex-wrap">
+          <div className="flex gap-1.5 pt-1">
             {job.source_url && (
               <a
                 href={job.source_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex-1 min-w-[70px] inline-flex items-center justify-center gap-1 rounded-lg bg-gray-100 text-gray-900 px-3 py-2 hover:bg-gray-200 transition-colors"
+                className="flex-1 inline-flex items-center justify-center rounded bg-gray-100 text-gray-700 px-2 py-1.5 text-[11px] font-medium hover:bg-gray-200 transition-colors"
                 onClick={(e) => e.stopPropagation()}
               >
-                원문링크
+                원문
               </a>
             )}
             <button
               type="button"
-              className="flex-1 min-w-[70px] inline-flex items-center justify-center gap-1 rounded-lg bg-green-50 text-green-600 px-3 py-2 hover:bg-green-100 transition-colors"
+              className="flex-1 inline-flex items-center justify-center gap-1 rounded bg-[#5B6EF7] text-white px-2 py-1.5 text-[11px] font-medium hover:bg-[#4A5DE6] transition-colors"
               onClick={(e) => {
                 e.stopPropagation();
                 onDirectionsClick?.(job);
               }}
             >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
               </svg>
               길찾기

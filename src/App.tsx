@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Header from '@/components/layout/Header';
 import AIRecommendations from '@/components/ai/AIRecommendations';
 import AIInsightBox from '@/components/ai/AIInsightBox';
@@ -155,33 +155,21 @@ function sortCardsByLocation(
 }
 
 export default function App() {
-  const {
-    searchQuery,
-    filters,
-    viewType,
-    limit,
-    offset,
-    lastUpdatedAt,
-    loadMore,
-    hasActiveSearch,
-    setFilters
-  } = useSearchStore((state) => ({
-    searchQuery: state.searchQuery,
-    filters: state.filters,
-    viewType: state.viewType,
-    limit: state.limit,
-    offset: state.offset,
-    lastUpdatedAt: state.lastUpdatedAt,
-    loadMore: state.loadMore,
-    hasActiveSearch: state.hasActiveSearch(),
-    setFilters: state.setFilters
-  }));
+  // Zustand selector 최적화: 개별 구독으로 불필요한 re-render 방지
+  const searchQuery = useSearchStore((s) => s.searchQuery);
+  const filters = useSearchStore((s) => s.filters);
+  const viewType = useSearchStore((s) => s.viewType);
+  const limit = useSearchStore((s) => s.limit);
+  const offset = useSearchStore((s) => s.offset);
+  const lastUpdatedAt = useSearchStore((s) => s.lastUpdatedAt);
+  const loadMore = useSearchStore((s) => s.loadMore);
+  const setFilters = useSearchStore((s) => s.setFilters);
+  const hasActiveSearch = useSearchStore((s) => s.hasActiveSearch());
 
-  const { initialize, status, user } = useAuthStore((state) => ({
-    initialize: state.initialize,
-    status: state.status,
-    user: state.user
-  }));
+  // Auth store 개별 selector
+  const initialize = useAuthStore((s) => s.initialize);
+  const status = useAuthStore((s) => s.status);
+  const user = useAuthStore((s) => s.user);
 
   const updateUnreadCount = useChatStore(state => state.updateUnreadCount);
   const loadChatRooms = useChatStore(state => state.loadChatRooms);
@@ -250,7 +238,7 @@ export default function App() {
   const [shouldResumeBookmark, setShouldResumeBookmark] = useState<'modal' | 'page' | false>(false);
 
   // AI 추천 카드 클릭 시 전체 데이터 조회
-  const handleCardClick = async (card: Card) => {
+  const handleCardClick = useCallback(async (card: Card) => {
     console.log('카드 클릭:', card);
 
     // 북마크 모달/페이지가 열려있으면 임시로 닫기
@@ -304,7 +292,7 @@ export default function App() {
         setSelectedJob(card as JobPostingCard);
       }
     }
-  };
+  }, [isBookmarkModalOpen, showBookmarkPage]);
 
   useEffect(() => {
     void initialize();
@@ -506,7 +494,7 @@ export default function App() {
     }
   }, []);
 
-  const handleProfileClose = () => {
+  const handleProfileClose = useCallback(() => {
     console.log('[DEBUG] handleProfileClose 호출됨');
     sessionStorage.removeItem('profileSetupPending');
     sessionStorage.removeItem('awarenessModalShown');
@@ -514,15 +502,15 @@ export default function App() {
     setEditMode(false);
     setProfileInitialData(null);
     console.log('[DEBUG] handleProfileClose 종료');
-  };
+  }, []);
 
-  const handleProfileViewClose = () => {
+  const handleProfileViewClose = useCallback(() => {
     console.log('[DEBUG] handleProfileViewClose 호출됨');
     setProfileViewOpen(false);
     console.log('[DEBUG] handleProfileViewClose 종료');
-  };
+  }, []);
 
-  const handleProfileComplete = () => {
+  const handleProfileComplete = useCallback(() => {
     console.log('[DEBUG] handleProfileComplete 호출됨', { isEditMode });
     sessionStorage.removeItem('profileSetupPending');
     console.log('[DEBUG] profileSetupPending 제거됨');
@@ -532,27 +520,27 @@ export default function App() {
     console.log('[DEBUG] setRecommendationReloadKey 실행');
     setEditMode(false);
     console.log('[DEBUG] handleProfileComplete 종료');
-  };
+  }, [isEditMode]);
 
-  const handleOpenProfileView = () => {
+  const handleOpenProfileView = useCallback(() => {
     if (status !== 'authenticated' || !user?.id) {
       return;
     }
     setProfileViewOpen(true);
-  };
+  }, [status, user?.id]);
 
   // 모바일 하단 네비: 프로필 버튼 클릭 (로그인 분기)
-  const handleProfileButtonClick = () => {
+  const handleProfileButtonClick = useCallback(() => {
     if (status === 'authenticated' && user?.id) {
       setProfileViewOpen(true);
     } else {
       setAuthModalMode('login');
       setIsAuthModalOpen(true);
     }
-  };
+  }, [status, user?.id]);
 
   // 모바일 하단 네비: 채팅 버튼 클릭
-  const handleChatClick = () => {
+  const handleChatClick = useCallback(() => {
     // 화면 크기 확인 (768px = md breakpoint)
     const isMobile = window.innerWidth < 768;
 
@@ -563,16 +551,16 @@ export default function App() {
       // 데스크톱: 모달 열기
       setIsChatModalOpen(true);
     }
-  };
+  }, []);
 
   // 카드에서 채팅 모달 열기 (특정 room)
-  const handleOpenChatModal = (roomId: string) => {
+  const handleOpenChatModal = useCallback((roomId: string) => {
     setSelectedRoomId(roomId);
     setIsChatModalOpen(true);
-  };
+  }, []);
 
   // 북마크 버튼 클릭 (모바일 헤더 / 데스크톱 헤더)
-  const handleBookmarkClick = () => {
+  const handleBookmarkClick = useCallback(() => {
     // 화면 크기 확인 (768px = md breakpoint)
     const isMobile = window.innerWidth < 768;
 
@@ -584,9 +572,9 @@ export default function App() {
       // 데스크톱: 북마크 모달 열기
       setIsBookmarkModalOpen(true);
     }
-  };
+  }, []);
 
-  const handleHomeClick = () => {
+  const handleHomeClick = useCallback(() => {
     // 프로필 페이지가 열려있으면 닫기
     if (isProfileViewOpen) {
       setProfileViewOpen(false);
@@ -597,19 +585,19 @@ export default function App() {
       setIsAuthModalOpen(false);
       setCurrentBottomTab('home');
     }
-  };
+  }, [isProfileViewOpen, isAuthModalOpen]);
 
-  const handleLoginClick = () => {
+  const handleLoginClick = useCallback(() => {
     setAuthModalMode('login');
     setIsAuthModalOpen(true);
-  };
+  }, []);
 
-  const handleSignupClick = () => {
+  const handleSignupClick = useCallback(() => {
     setAuthModalMode('signup');
     setIsAuthModalOpen(true);
-  };
+  }, []);
 
-  const handleSelectProvider = async (provider: AuthProvider) => {
+  const handleSelectProvider = useCallback(async (provider: AuthProvider) => {
     try {
       setLoadingProvider(provider);
       const redirectTo = `${window.location.origin}/auth/callback`;
@@ -630,22 +618,22 @@ export default function App() {
       setLoadingProvider(null);
       setIsAuthModalOpen(false);
     }
-  };
+  }, []);
 
-  const handleJobEditClick = (card: Card) => {
+  const handleJobEditClick = useCallback((card: Card) => {
     if (card.type !== 'job') return;
     setEditingJob(card as JobPostingCard);
     setIsEditFormOpen(true);
     // 상세보기 모달 닫기
     setSelectedJob(null);
-  };
+  }, []);
 
-  const handleEditFormClose = () => {
+  const handleEditFormClose = useCallback(() => {
     setIsEditFormOpen(false);
     setEditingJob(null);
-  };
+  }, []);
 
-  const handleEditFormSuccess = (updatedJob: JobPostingCard) => {
+  const handleEditFormSuccess = useCallback((updatedJob: JobPostingCard) => {
     // 카드 목록 업데이트
     setCards(prevCards =>
       prevCards.map(card =>
@@ -659,9 +647,9 @@ export default function App() {
       setSelectedJob(updatedJob);
     }
     handleEditFormClose();
-  };
+  }, [selectedJob?.id, handleEditFormClose]);
 
-  const handleEditFormDelete = (jobId: string) => {
+  const handleEditFormDelete = useCallback((jobId: string) => {
     // 목록에서 제거
     setCards((prev) => prev.filter((c) => !(c.type === 'job' && c.id === jobId)));
     // 상세보기 상태 초기화
@@ -669,20 +657,20 @@ export default function App() {
       setSelectedJob(null);
     }
     handleEditFormClose();
-  };
+  }, [selectedJob?.id, handleEditFormClose]);
 
-  const handleExperienceEditClick = (card: Card) => {
+  const handleExperienceEditClick = useCallback((card: Card) => {
     if (card.type !== 'experience') return;
     setEditingExperience(card as ExperienceCard);
     setIsExperienceEditOpen(true);
-  };
+  }, []);
 
-  const handleExperienceEditClose = () => {
+  const handleExperienceEditClose = useCallback(() => {
     setIsExperienceEditOpen(false);
     setEditingExperience(null);
-  };
+  }, []);
 
-  const handleExperienceEditSuccess = (updatedExperience: ExperienceCard) => {
+  const handleExperienceEditSuccess = useCallback((updatedExperience: ExperienceCard) => {
     // 카드 목록 업데이트
     setCards(prevCards =>
       prevCards.map(card =>
@@ -692,15 +680,15 @@ export default function App() {
       )
     );
     handleExperienceEditClose();
-  };
+  }, [handleExperienceEditClose]);
 
-  const handleExperienceEditDelete = (experienceId: string) => {
+  const handleExperienceEditDelete = useCallback((experienceId: string) => {
     // 목록에서 제거
     setCards((prev) => prev.filter((c) => !(c.type === 'experience' && c.id === experienceId)));
     handleExperienceEditClose();
-  };
+  }, [handleExperienceEditClose]);
 
-  const handleExperienceDeleteClick = (card: Card) => {
+  const handleExperienceDeleteClick = useCallback((card: Card) => {
     if (card.type !== 'experience') return;
     if (!confirm('정말로 삭제하시겠어요? 삭제 후 복구할 수 없습니다.')) {
       return;
@@ -709,9 +697,9 @@ export default function App() {
     setEditingExperience(card as ExperienceCard);
     setIsExperienceEditOpen(true);
     // 모달에서 삭제 버튼 클릭 시 처리됨
-  };
+  }, []);
 
-  const normalizeProfileForEdit = (data: UserProfileRow | null | undefined) => {
+  const normalizeProfileForEdit = useCallback((data: UserProfileRow | null | undefined) => {
     if (!data) {
       setProfileInitialData(null);
       return;
@@ -733,7 +721,7 @@ export default function App() {
       agreePrivacy: data.agree_privacy,
       agreeMarketing: data.agree_marketing
     });
-  };
+  }, []);
 
   const userId = user?.id ?? null;
   const userEmail = user?.email ?? null;

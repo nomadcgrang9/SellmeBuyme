@@ -316,8 +316,18 @@
       "date": "td:nth-child(1)"
     },
     "region": "인천",
+    "metropolitanRegion": "인천",
     "isLocalGovernment": false,
-    "active": true
+    "active": true,
+    "selectors": {
+      "listContainer": "table tbody",
+      "rows": "table tbody tr",
+      "title": "a.nttInfoBtn, a[data-id], td.ta_l a, td:nth-child(5) a",
+      "date": "td:nth-child(1)",
+      "link": "a.nttInfoBtn, a[data-id]",
+      "attachment": ".file-list a, .atch-file-list a"
+    },
+    "note": "별도 크롤러 사용 (incheon.js) - data-id 패턴 + goFileDown 첨부파일"
   },
   "gwangju": {
     "name": "광주광역시교육청 채용공고",

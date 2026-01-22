@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { ExperienceCard as ExperienceCardType } from '@/types';
 import { IconMapPin, IconCategory, IconSchool, IconUsers, IconPhone, IconAt, IconEdit, IconTrash, IconHeart } from '@tabler/icons-react';
 import { MessageCircle } from 'lucide-react';
@@ -16,20 +17,13 @@ interface ExperienceCardProps {
   onOpenChatModal?: (roomId: string) => void;
 }
 
-export default function ExperienceCard({ card, onEditClick, onDeleteClick, onCardClick, onOpenChatModal }: ExperienceCardProps) {
-  console.log('[ExperienceCard] 렌더링:', {
-    id: card.id,
-    programTitle: card.programTitle,
-    introduction: card.introduction,
-    categories: card.categories,
-    locationSummary: card.locationSummary,
-    targetSchoolLevels: card.targetSchoolLevels,
-    operationTypes: card.operationTypes
-  });
-
-  const { user } = useAuthStore((state) => ({ user: state.user }));
-  const { isBookmarked, addBookmark: addToStore, removeBookmark: removeFromStore } = useBookmarkStore();
-  const showToast = useToastStore((state) => state.showToast);
+function ExperienceCard({ card, onEditClick, onDeleteClick, onCardClick, onOpenChatModal }: ExperienceCardProps) {
+  // Zustand selector 최적화: 개별 구독
+  const user = useAuthStore((s) => s.user);
+  const isBookmarked = useBookmarkStore((s) => s.isBookmarked);
+  const addToStore = useBookmarkStore((s) => s.addBookmark);
+  const removeFromStore = useBookmarkStore((s) => s.removeBookmark);
+  const showToast = useToastStore((s) => s.showToast);
   const isOwner = Boolean(user && card.user_id && user.id === card.user_id);
   const bookmarked = isBookmarked(card.id);
 
@@ -261,3 +255,5 @@ export default function ExperienceCard({ card, onEditClick, onDeleteClick, onCar
     </article>
   );
 }
+
+export default memo(ExperienceCard);

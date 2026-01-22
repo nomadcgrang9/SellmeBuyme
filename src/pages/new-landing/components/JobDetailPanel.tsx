@@ -20,28 +20,30 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
   const isNearDeadline = job.daysLeft !== undefined && job.daysLeft <= 7;
 
   return (
-    <div className="w-[260px] bg-white/95 backdrop-blur-sm rounded-xl border border-gray-200 shadow-lg overflow-hidden flex flex-col max-h-[calc(100vh-140px)]">
+    <div className="w-[260px] bg-white/95 backdrop-blur-sm rounded-xl border border-gray-200 shadow-lg overflow-hidden flex flex-col max-h-[calc(100vh-80px)]">
       {/* 헤더 - 라이트 모노톤 */}
       <div className="px-4 py-3 border-b border-gray-100 flex-shrink-0">
         <div className="flex items-center justify-between">
           <h4 className="font-bold text-gray-800 text-sm">상세 정보</h4>
           <div className="flex items-center gap-2">
-            {job.daysLeft !== undefined && (
-              <span className={`text-xs font-bold px-2 py-0.5 rounded ${isUrgent
-                ? 'bg-red-100 text-red-600'
-                : isNearDeadline
-                  ? 'bg-orange-100 text-orange-600'
-                  : 'bg-blue-100 text-blue-600'
+            {job.daysLeft !== undefined && job.daysLeft <= 5 && (
+              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                job.daysLeft === 0
+                  ? 'bg-red-500 text-white'
+                  : job.daysLeft <= 3
+                    ? 'bg-red-100 text-red-700'
+                    : 'bg-orange-100 text-orange-700'
                 }`}>
-                D-{job.daysLeft}
+                {job.daysLeft === 0 ? 'D-Day' : `D-${job.daysLeft}`}
               </span>
             )}
             <button
               onClick={onClose}
-              className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
+              className="p-2.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors active:scale-95"
               aria-label="닫기"
+              title="닫기"
             >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
@@ -144,23 +146,24 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
           </div>
         )}
 
-        <hr className="border-gray-100" />
-
-        {/* 태그 */}
+        {/* 태그 - 스크롤 영역 내 (높이 확장으로 스크롤 없이 보임) */}
         {job.tags && job.tags.length > 0 && (
-          <div>
-            <p className="text-xs text-gray-500 mb-2">태그</p>
-            <div className="flex flex-wrap gap-1.5">
-              {job.tags.map((tag, idx) => (
-                <span
-                  key={idx}
-                  className="text-xs px-2 py-0.5 bg-gray-100 text-gray-700 rounded-full"
-                >
-                  {tag}
-                </span>
-              ))}
+          <>
+            <hr className="border-gray-100" />
+            <div>
+              <p className="text-xs text-gray-500 mb-2">태그</p>
+              <div className="flex flex-wrap gap-1.5">
+                {job.tags.map((tag, idx) => (
+                  <span
+                    key={idx}
+                    className="text-xs px-2 py-0.5 bg-gray-100 text-gray-700 rounded-full"
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
             </div>
-          </div>
+          </>
         )}
       </div>
 

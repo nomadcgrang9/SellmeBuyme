@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { JobPostingCard } from '@/types';
 import { IconMapPin, IconCoin, IconClock } from '@tabler/icons-react';
 
@@ -6,7 +7,7 @@ interface CompactJobCardProps {
   onClick?: () => void;
 }
 
-export default function CompactJobCard({ job, onClick }: CompactJobCardProps) {
+function CompactJobCard({ job, onClick }: CompactJobCardProps) {
   return (
     <article
       className="card-interactive bg-white border border-gray-200 rounded-lg animate-slide-up overflow-hidden h-full min-h-[235px] cursor-pointer shadow-sm hover:shadow-lg transition-shadow"
@@ -82,3 +83,5 @@ export default function CompactJobCard({ job, onClick }: CompactJobCardProps) {
     </article>
   );
 }
+
+export default memo(CompactJobCard);

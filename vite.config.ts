@@ -231,4 +231,25 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // BlockNote 에디터 (가장 큰 라이브러리)
+          'vendor-blocknote': ['@blocknote/core', '@blocknote/mantine', '@blocknote/react'],
+          // 차트 라이브러리
+          'vendor-recharts': ['recharts'],
+          // UI 아이콘 라이브러리
+          'vendor-icons': ['@tabler/icons-react', 'lucide-react'],
+          // Supabase 클라이언트
+          'vendor-supabase': ['@supabase/supabase-js'],
+          // 애니메이션 라이브러리
+          'vendor-animation': ['framer-motion'],
+          // React 관련
+          'vendor-react': ['react', 'react-dom'],
+        },
+      },
+    },
+    chunkSizeWarningLimit: 500,
+  },
 })
