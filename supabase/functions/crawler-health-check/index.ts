@@ -61,6 +61,16 @@ const REGION_DOMAINS: Record<string, string[]> = {
 };
 
 /**
+ * HTML 정제 (Script, Style 제거)
+ */
+function cleanHtml(html: string): string {
+  return html
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gim, "")
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gim, "")
+    .replace(/<!--[\s\S]*?-->/g, ""); // 주석 제거
+}
+
+/**
  * Gemini API로 HTML에서 게시글 제목 목록 추출
  */
 async function extractTitlesWithGemini(
@@ -71,8 +81,11 @@ async function extractTitlesWithGemini(
   const genAI = new GoogleGenerativeAI(geminiApiKey);
   const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
-  // HTML이 너무 길면 잘라냄
-  const truncatedHtml = html.length > 50000 ? html.substring(0, 50000) : html;
+  // 1. HTML 정제 (스크립트/스타일 제거)
+  const cleanedHtml = cleanHtml(html);
+
+  // 2. HTML이 너무 길면 잘라냄 (정제 후 50k자면 충분히 많은 내용을 담음)
+  const truncatedHtml = cleanedHtml.length > 50000 ? cleanedHtml.substring(0, 50000) : cleanedHtml;
 
   const prompt = `
 당신은 웹 스크래핑 전문가입니다.
@@ -84,7 +97,7 @@ async function extractTitlesWithGemini(
 - 제목만 추출 (날짜, 조회수, 작성자 제외)
 - 공지사항이 아닌 일반 게시글의 제목만
 - 중복 제거
-- 최대 30개까지만
+- 최대 50개까지만 (가능한 많이)
 
 **응답 형식** (반드시 이 JSON 형식으로만 응답):
 {
