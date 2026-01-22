@@ -686,9 +686,24 @@ export const Hero: React.FC = () => {
 
       const position = new window.kakao.maps.LatLng(finalCoords.lat, finalCoords.lng);
 
+      // D-Day에 따른 마커 색상 결정
+      const getMarkerColor = (daysLeft: number | undefined) => {
+        if (daysLeft === undefined || daysLeft > 5) return '#5B6EF7'; // 파란색 (6일 이상)
+        if (daysLeft <= 3) return '#EF4444'; // 빨간색 (0-3일)
+        return '#F97316'; // 주황색 (4-5일)
+      };
+
+      const markerColor = getMarkerColor(job.daysLeft);
+      const markerSize = new window.kakao.maps.Size(20, 20);
+      const markerImage = new window.kakao.maps.MarkerImage(
+        `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"><circle cx="10" cy="10" r="8" fill="${markerColor}" stroke="white" stroke-width="2"/></svg>`)}`,
+        markerSize
+      );
+
       const marker = new window.kakao.maps.Marker({
         position: position,
         map: map,
+        image: markerImage,
       });
 
       mapMarkersRef.current.push(marker);
