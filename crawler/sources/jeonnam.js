@@ -50,14 +50,38 @@ export async function crawlJeonnam(page, config) {
 
         console.log(`✅ Phase 1: ${collectedItems.length}개 발견 (1페이지)`);
 
+        // SAFETY 설정 (150/15/0.8/10 통일)
+        const SAFETY = {
+            maxItems: 150,                // 절대 최대 수집 개수
+            consecutiveDuplicateLimit: 10, // 연속 중복 시 즉시 중단
+        };
+
+        let processedCount = 0;
+        let consecutiveDuplicates = 0;
+
         // Phase 2: 상세 페이지 수집 (중복만 제외)
         for (const item of collectedItems) {
+            // 안전장치: 최대 개수
+            if (processedCount >= SAFETY.maxItems) {
+                console.log(`  ⚠️ 최대 수집 개수(${SAFETY.maxItems}) 도달`);
+                break;
+            }
             // 중복 체크 (source_url 기준)
             const existing = await getExistingJobBySource(item.link);
             if (existing) {
                 skippedCount++;
+                consecutiveDuplicates++;
+                // 연속 중복 한계 도달 시 중단
+                if (consecutiveDuplicates >= SAFETY.consecutiveDuplicateLimit) {
+                    console.log(`  ⚠️ 연속 중복 ${SAFETY.consecutiveDuplicateLimit}개 도달 - 크롤링 종료`);
+                    break;
+                }
                 continue;
             }
+
+            // 신규 항목 발견 시 연속 중복 카운터 리셋
+            consecutiveDuplicates = 0;
+            processedCount++;
 
             console.log(`  🔍 ${item.title.substring(0, 40)}...`);
             const detailData = await crawlDetailPage(page, item.link);

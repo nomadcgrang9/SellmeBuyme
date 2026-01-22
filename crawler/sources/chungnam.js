@@ -190,11 +190,16 @@ async function crawlCategoryPage(page, categoryUrl, category, config) {
     }
 
     // 3. 각 공고 상세 페이지 크롤링 (중복만 제외)
+    // SAFETY 설정 (150/15/0.8/10 통일 - 카테고리당 적용)
     const SAFETY = {
-      maxItems: 50, // 카테고리당 최대 50개
+      maxItems: 25,                 // 카테고리당 최대 25개 (7개 카테고리 × 25 = 175개)
+      maxBatches: 15,               // 최대 배치 반복 횟수
+      batchDuplicateThreshold: 0.8, // 배치 내 중복률 80% 이상이면 종료
+      consecutiveDuplicateLimit: 10, // 연속 중복 시 즉시 중단
     };
 
     let processedCount = 0;
+    let consecutiveDuplicates = 0;
 
     for (const listInfo of jobListData) {
       // 안전장치: 최대 개수
@@ -210,9 +215,17 @@ async function crawlCategoryPage(page, categoryUrl, category, config) {
 
       if (existing) {
         skippedCount++;
+        consecutiveDuplicates++;
+        // 연속 중복 한계 도달 시 해당 카테고리 중단
+        if (consecutiveDuplicates >= SAFETY.consecutiveDuplicateLimit) {
+          console.log(`   ⚠️ 연속 중복 ${SAFETY.consecutiveDuplicateLimit}개 도달 - 카테고리 종료`);
+          break;
+        }
         continue;
       }
 
+      // 신규 항목 발견 시 연속 중복 카운터 리셋
+      consecutiveDuplicates = 0;
       processedCount++;
 
       console.log(`   🔍 [${category.name}] ${listInfo.title.substring(0, 40)}...`);

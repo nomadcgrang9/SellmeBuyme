@@ -71,14 +71,14 @@
   },
   "jeju": {
     "name": "제주특별자치도교육청 채용공고",
-    "baseUrl": "https://www.jje.go.kr/board/list.jje?boardId=BBS_0000017&menuCd=DOM_000000103001001000",
-    "detailUrlTemplate": "https://www.jje.go.kr/board/view.jje?boardId=BBS_0000017&menuCd=DOM_000000103001001000&dataSid=",
+    "baseUrl": "https://www.jje.go.kr/board/list.jje?boardId=BBS_0000507&menuCd=DOM_000000103003009000&contentsSid=2294",
+    "detailUrlTemplate": "https://www.jje.go.kr/board/view.jje?boardId=BBS_0000507&menuCd=DOM_000000103003009000&dataSid=",
     "parserType": "custom",
     "region": "제주특별자치도",
     "isLocalGovernment": false,
     "active": true,
     "skipRobotsCheck": true,
-    "note": "별도 크롤러 사용 (jeju.js)"
+    "note": "별도 크롤러 사용 (jeju.js) - BBS_0000507 채용공고 게시판"
   },
   "seongnam": {
     "name": "성남교육지원청 구인",
@@ -370,12 +370,12 @@
   },
   "gyeongnam": {
     "name": "경상남도교육청 구인구직포털",
-    "baseUrl": "https://www.gne.go.kr/works/user/recruitment/BD_recruitmentList.do?q_searchStatus=1004",
+    "baseUrl": "https://www.gne.go.kr/works/user/recruitment/BD_recruitmentList.do",
     "detailUrlTemplate": "https://www.gne.go.kr/works/user/recruitment/BD_recruitmentDetail.do?regSn=",
     "parserType": "custom",
     "region": "경상남도",
     "isLocalGovernment": false,
     "active": true,
-    "note": "별도 크롤러 사용 (gyeongnam.js)"
+    "note": "별도 크롤러 사용 (gyeongnam.js) - 전체 공고 (종료예정 필터 제거)"
   }
 }

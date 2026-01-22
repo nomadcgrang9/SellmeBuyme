@@ -14,14 +14,15 @@ const CHUNGBUK_REGIONS = [
 ];
 
 /**
- * 텍스트에서 충북 시/군 추출
+ * 텍스트에서 충북 시/군 추출 후 "충청북도 {시군}" 형식으로 정규화
+ * (카카오 지도 API 검색 정확도 향상)
  */
 function extractRegionFromText(text) {
   if (!text) return null;
 
   for (const region of CHUNGBUK_REGIONS) {
     if (text.includes(region)) {
-      return region;
+      return `충청북도 ${region}`;
     }
   }
   return null;
@@ -155,11 +156,16 @@ export async function crawlChungbuk(page, config) {
     }
 
     // 3. 각 공고 상세 페이지 크롤링 (중복만 제외)
+    // SAFETY 설정 (150/15/0.8/10 통일)
     const SAFETY = {
-      maxItems: 100,
+      maxItems: 150,                // 절대 최대 수집 개수 (100→150 통일)
+      maxBatches: 15,               // 최대 배치 반복 횟수
+      batchDuplicateThreshold: 0.8, // 배치 내 중복률 80% 이상이면 종료
+      consecutiveDuplicateLimit: 10, // 연속 중복 시 즉시 중단
     };
 
     let processedCount = 0;
+    let consecutiveDuplicates = 0;
 
     for (const listInfo of jobListData) {
       // 안전장치: 최대 개수
