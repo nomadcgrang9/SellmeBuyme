@@ -1,6 +1,8 @@
 import React, { lazy, Suspense } from 'react'
 import ReactDOM from 'react-dom/client'
 import './index.css'
+// import Landing from './pages/Landing'  // 숨김 처리됨
+import MobileMapPage from './pages/mobile-map'
 import { errorReporter } from './lib/utils/errorReporter'
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -39,8 +41,13 @@ errorReporter.setupGlobalHandlers();
 
 const pathname = window.location.pathname
 
-// 기본값: 새 랜딩 페이지 (지도 중심 UI)
-let rootComponent = <NewLanding />
+// 모바일 디바이스 감지 (화면 크기 + 터치 지원)
+const isMobileDevice = window.innerWidth < 768 ||
+  ('ontouchstart' in window) ||
+  (navigator.maxTouchPoints > 0);
+
+// 기본값: 모바일이면 MobileMapPage, PC면 NewLanding
+let rootComponent = isMobileDevice ? <MobileMapPage /> : <NewLanding />
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 개발자 노트 페이지 (PWA)

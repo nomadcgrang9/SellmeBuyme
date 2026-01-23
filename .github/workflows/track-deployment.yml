@@ -20,7 +20,10 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
           # 직접 Supabase REST API로 삽입 (Edge Function 우회)
-          curl -X POST "$SUPABASE_URL/rest/v1/github_deployments" \
+          echo "🚀 배포 기록 중..."
+
+          # HTTP 응답 코드와 함께 curl 실행
+          RESPONSE=$(curl -w "\n%{http_code}" -X POST "$SUPABASE_URL/rest/v1/github_deployments" \
             -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
             -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
             -H "Content-Type: application/json" \
@@ -33,4 +36,20 @@ jobs:
               \"status\": \"success\",
               \"workflow_run_id\": \"${{ github.run_id }}\",
               \"deployed_at\": \"${{ github.event.head_commit.timestamp }}\"
-            }"
+            }")
+
+          # HTTP 상태 코드 추출 (마지막 줄)
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | head -n-1)
+
+          echo "HTTP 상태 코드: $HTTP_CODE"
+
+          # 200-299 범위는 성공
+          if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
+            echo "✅ 배포 기록 성공!"
+            exit 0
+          else
+            echo "⚠️ 배포 기록 실패 (HTTP $HTTP_CODE)"
+            echo "응답: $BODY"
+            exit 1
+          fi

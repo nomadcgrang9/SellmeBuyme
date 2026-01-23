@@ -114,35 +114,75 @@ async function crawlCategoryPage(page, categoryUrl, category, config) {
       rows.forEach((row, index) => {
         try {
           const cells = row.querySelectorAll('td');
-          if (cells.length < 5) return;
+          // if (cells.length < 5) return; // 충남은 테이블마다 컬럼 수가 다를 수 있음
 
           // 번호 (공지사항 체크)
           const numText = cells[0]?.textContent?.trim() || '';
           const isNotice = numText === '공지' || numText === '';
 
-          // 분류 (유아교육, 초등교육 등)
-          const categoryText = cells[1]?.textContent?.trim() || '';
+          // 분류/지역은 컬럼 위치가 가변적일 수 있음. 일단 대략적인 위치나 텍스트로 추정
+          // 보통 제목은 class="ta_l" 또는 "subject" 또는 <a> 태그가 있는 곳
+          let titleCell = null;
+          let categoryText = '';
+          let location = '';
 
-          // 지역 (시/군)
-          const location = cells[2]?.textContent?.trim() || '';
+          // 제목 컬럼 찾기
+          for (let i = 0; i < cells.length; i++) {
+            const cell = cells[i];
+            if (cell.classList.contains('ta_l') || cell.classList.contains('subject') || cell.classList.contains('title')) {
+              titleCell = cell;
 
-          // 제목 링크 찾기
-          const titleCell = cells[3];
-          const titleLink = titleCell?.querySelector('a');
+              // 제목 앞의 컬럼들을 지역/분류로 추정
+              if (i > 1) location = cells[i - 1]?.textContent?.trim();
+              if (i > 2) categoryText = cells[i - 2]?.textContent?.trim();
+              break;
+            }
+            // 클래스가 없으면 <a> 태그가 있고 텍스트가 긴 것을 제목으로 간주
+            if (!titleCell && cell.querySelector('a') && cell.textContent.trim().length > 5) {
+              titleCell = cell;
+            }
+          }
+
+          // 못 찾았으면 고정 인덱스 시도 (기존 로직)
+          if (!titleCell && cells.length >= 4) {
+            titleCell = cells[3];
+            categoryText = cells[1]?.textContent?.trim();
+            location = cells[2]?.textContent?.trim();
+          }
+
+          if (!titleCell) return;
+
+          const titleLink = titleCell.querySelector('a');
           if (!titleLink) return;
 
-          // onclick에서 boardSeq 및 기타 파라미터 추출
-          // goView('11005','2350716', '0', 'null', 'W', '1', 'N', '')
-          // goView(boardID, boardSeq, lev, secYN, statusYN, currPage, writerYN, dept)
-          const onclick = titleLink.getAttribute('onclick') || '';
-          const match = onclick.match(/goView\s*\(\s*['"](\d+)['"],\s*['"](\d+)['"],\s*['"]([^'"]+)['"],\s*['"]([^'"]+)['"],\s*['"]([^'"]+)['"],\s*['"]([^'"]+)['"]/);
-          if (!match) return;
+          // 파라미터 추출
+          let boardId, boardSeq, lev, statusYN, currPage;
 
-          const boardId = match[1];
-          const boardSeq = match[2];
-          const lev = match[3];
-          const statusYN = match[5];
-          const currPage = match[6];
+          // 1. onclick (goView) 시도
+          const onclick = titleLink.getAttribute('onclick') || '';
+          const match = onclick.match(/goView\s*\(\s*['"]?(\d+)['"]?,\s*['"]?(\d+)['"]?,\s*['"]?([^'"]*)['"]?,\s*['"]?([^'"]*)['"]?,\s*['"]?([^'"]*)['"]?,\s*['"]?([^'"]*)['"]?/);
+
+          if (match) {
+            boardId = match[1];
+            boardSeq = match[2];
+            lev = match[3];
+            statusYN = match[5];
+            currPage = match[6];
+          } else {
+            // 2. href에서 추출 시도
+            const href = titleLink.getAttribute('href') || '';
+            const hrefMatch = href.match(/[?&]boardID=(\d+)&boardSeq=(\d+)/);
+            if (hrefMatch) {
+              boardId = hrefMatch[1];
+              boardSeq = hrefMatch[2];
+              // 나머지는 기본값
+              lev = '0';
+              statusYN = 'W';
+              currPage = '1';
+            } else {
+              return; // ID를 못 찾으면 상세 페이지를 못 만드므로 스킵
+            }
+          }
 
           // 학교명 (cells[3])
           let schoolName = titleLink.textContent?.trim() || '';
@@ -190,11 +230,16 @@ async function crawlCategoryPage(page, categoryUrl, category, config) {
     }
 
     // 3. 각 공고 상세 페이지 크롤링 (중복만 제외)
+    // SAFETY 설정 (150/15/0.8/10 통일 - 카테고리당 적용)
     const SAFETY = {
-      maxItems: 50, // 카테고리당 최대 50개
+      maxItems: 25,                 // 카테고리당 최대 25개 (7개 카테고리 × 25 = 175개)
+      maxBatches: 15,               // 최대 배치 반복 횟수
+      batchDuplicateThreshold: 0.8, // 배치 내 중복률 80% 이상이면 종료
+      consecutiveDuplicateLimit: 10, // 연속 중복 시 즉시 중단
     };
 
     let processedCount = 0;
+    let consecutiveDuplicates = 0;
 
     for (const listInfo of jobListData) {
       // 안전장치: 최대 개수
@@ -210,9 +255,17 @@ async function crawlCategoryPage(page, categoryUrl, category, config) {
 
       if (existing) {
         skippedCount++;
+        consecutiveDuplicates++;
+        // 연속 중복 한계 도달 시 해당 카테고리 중단
+        if (consecutiveDuplicates >= SAFETY.consecutiveDuplicateLimit) {
+          console.log(`   ⚠️ 연속 중복 ${SAFETY.consecutiveDuplicateLimit}개 도달 - 카테고리 종료`);
+          break;
+        }
         continue;
       }
 
+      // 신규 항목 발견 시 연속 중복 카운터 리셋
+      consecutiveDuplicates = 0;
       processedCount++;
 
       console.log(`   🔍 [${category.name}] ${listInfo.title.substring(0, 40)}...`);
@@ -223,10 +276,10 @@ async function crawlCategoryPage(page, categoryUrl, category, config) {
 
         // 지역 결정
         const location = listInfo.location ||
-                        detailData.location ||
-                        extractRegionFromText(detailData.organization) ||
-                        extractRegionFromText(detailData.content) ||
-                        config.region || '충청남도';
+          detailData.location ||
+          extractRegionFromText(detailData.organization) ||
+          extractRegionFromText(detailData.content) ||
+          config.region || '충청남도';
 
         const jobData = {
           title: listInfo.title,

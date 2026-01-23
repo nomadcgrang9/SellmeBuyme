@@ -56,14 +56,38 @@ export async function crawlGwangju(page, config) {
 
         console.log(`✅ Phase 1 완료: ${collectedItems.length}개 링크 식별 (1페이지)`);
 
+        // SAFETY 설정 (150/15/0.8/10 통일)
+        const SAFETY = {
+            maxItems: 150,                // 절대 최대 수집 개수
+            consecutiveDuplicateLimit: 10, // 연속 중복 시 즉시 중단
+        };
+
+        let processedCount = 0;
+        let consecutiveDuplicates = 0;
+
         // Phase 2: 상세 수집 (중복만 제외)
         for (const item of collectedItems) {
+            // 안전장치: 최대 개수
+            if (processedCount >= SAFETY.maxItems) {
+                console.log(`  ⚠️ 최대 수집 개수(${SAFETY.maxItems}) 도달`);
+                break;
+            }
             // 중복 체크 (source_url 기준)
             const existing = await getExistingJobBySource(item.link);
             if (existing) {
                 skippedCount++;
+                consecutiveDuplicates++;
+                // 연속 중복 한계 도달 시 중단
+                if (consecutiveDuplicates >= SAFETY.consecutiveDuplicateLimit) {
+                    console.log(`  ⚠️ 연속 중복 ${SAFETY.consecutiveDuplicateLimit}개 도달 - 크롤링 종료`);
+                    break;
+                }
                 continue;
             }
+
+            // 신규 항목 발견 시 연속 중복 카운터 리셋
+            consecutiveDuplicates = 0;
+            processedCount++;
 
             console.log(`  🔍 상세 크롤링: ${item.title}`);
             try {
@@ -94,6 +118,46 @@ export async function crawlGwangju(page, config) {
 async function crawlDetailPage(page, url) {
     await page.goto(url, { waitUntil: 'networkidle', timeout: 45000 });
 
+    // 상세 정보 추출 (마감일 포함)
+    const detailInfo = await page.evaluate(() => {
+        const result = {
+            deadline: null,
+            organization: null,
+        };
+
+        // dt/dd 또는 th/td 패턴에서 마감일 추출
+        const terms = document.querySelectorAll('dt, th, .info_tit');
+        terms.forEach(term => {
+            const label = term.textContent?.trim() || '';
+            const next = term.nextElementSibling;
+            const value = next?.textContent?.trim() || '';
+
+            if (label.includes('마감') || label.includes('접수기간') || label.includes('모집기간')) {
+                result.deadline = value;
+            }
+            if (label.includes('기관') || label.includes('학교') || label.includes('작성자')) {
+                result.organization = value;
+            }
+        });
+
+        // 테이블 형태에서도 시도
+        const rows = document.querySelectorAll('table tr');
+        rows.forEach(row => {
+            const th = row.querySelector('th');
+            const td = row.querySelector('td');
+            if (!th || !td) return;
+
+            const label = th.textContent?.trim() || '';
+            const value = td.textContent?.trim() || '';
+
+            if (label.includes('마감') || label.includes('접수기간') || label.includes('모집기간')) {
+                result.deadline = value;
+            }
+        });
+
+        return result;
+    });
+
     const content = await page.evaluate(() => {
         const el = document.querySelector('.view_con') || document.querySelector('#xb_view') || document.querySelector('#board_view') || document.querySelector('.board_view');
         return el ? el.innerText.trim() : '';
@@ -112,6 +176,8 @@ async function crawlDetailPage(page, url) {
         attachments: attachments,
         attachmentUrl: attachments.length > 0 ? attachments[0].url : null,
         attachmentFilename: attachments.length > 0 ? attachments[0].name : null,
+        deadline: detailInfo.deadline,
+        organization: detailInfo.organization,
     };
 }
 

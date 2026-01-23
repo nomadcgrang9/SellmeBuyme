@@ -18,6 +18,14 @@ import AuthModal from '@/components/auth/AuthModal';
 import ProfileButton from '@/components/auth/ProfileButton';
 import EmptyState from '@/components/common/EmptyState';
 import { ListSkeleton } from '@/components/common/CardSkeleton';
+
+// Window 전역 타입 정의
+declare global {
+  interface Window {
+    selectJobFromMarker?: (jobId: string) => void;
+    __currentFilteredJobPostings?: JobPostingCard[];
+  }
+}
 import { useAuthStore } from '@/stores/authStore';
 import { fetchTeacherMarkers, fetchProgramMarkers } from '@/lib/supabase/markers';
 import { type MarkerLayer, type TeacherMarker, type ProgramMarker, MARKER_COLORS } from '@/types/markers';
@@ -40,6 +48,17 @@ export const Hero: React.FC = () => {
 
   // 선택된 공고 (상세 패널용)
   const [selectedJob, setSelectedJob] = useState<JobPostingCard | null>(null);
+  const setSelectedJobRef = useRef(setSelectedJob);
+
+  // setSelectedJob ref 업데이트
+  useEffect(() => {
+    setSelectedJobRef.current = setSelectedJob;
+  }, [setSelectedJob]);
+
+  // selectedJob 변경 감지 디버깅
+  useEffect(() => {
+    console.log('[Hero] ⭐ selectedJob 변경됨:', selectedJob ? `공고: ${selectedJob.title}` : 'null');
+  }, [selectedJob]);
 
   // 길찾기 관련 상태
   const [directionsJob, setDirectionsJob] = useState<JobPostingCard | null>(null);
@@ -126,6 +145,9 @@ export const Hero: React.FC = () => {
 
   // 마커-공고 매핑 (마커 클릭 시 상세 패널 열기용)
   const markerJobMapRef = useRef<Map<any, JobPostingCard>>(new Map());
+
+  // 마커 클릭 직후 지도 클릭 무시 플래그
+  const ignoreMapClickRef = useRef(false);
 
   // 중복 제거 함수 (organization + title 기준)
   const deduplicateJobs = useCallback((jobs: JobPostingCard[]): JobPostingCard[] => {
@@ -881,13 +903,27 @@ export const Hero: React.FC = () => {
 
       // 마커 클릭 이벤트
       window.kakao.maps.event.addListener(marker, 'click', () => {
+        console.log('[Hero] 마커 클릭됨:', coordKey, '공고 수:', coordsJobsMap.get(coordKey)?.length || 1);
+
+        // 🔒 마커 클릭 직후 지도 클릭 무시 (이벤트 버블링 방지)
+        ignoreMapClickRef.current = true;
+        setTimeout(() => {
+          ignoreMapClickRef.current = false;
+          console.log('[Hero] 🔓 지도 클릭 무시 해제');
+        }, 150);
+
         if (currentInfowindow) currentInfowindow.close();
 
         const jobsAtLocation = coordsJobsMap.get(coordKey) || [job];
 
         if (jobsAtLocation.length === 1) {
-          setSelectedJob(jobsAtLocation[0]);
+          console.log('[Hero] 공고 1개 - JobDetailPanel 열기:', jobsAtLocation[0].title);
+          // stale closure 방지: 전역 함수 사용
+          if (window.selectJobFromMarker) {
+            window.selectJobFromMarker(jobsAtLocation[0].id);
+          }
         } else {
+          console.log('[Hero] 공고 여러 개 - InfoWindow 표시:', jobsAtLocation.length, '개');
           const jobItems = jobsAtLocation.map((j, idx) => `
             <div style="padding:6px 0;${idx > 0 ? 'border-top:1px solid #eee;' : ''}cursor:pointer;"
                  onclick="window.selectJobFromMarker && window.selectJobFromMarker('${j.id}')">
@@ -928,14 +964,41 @@ export const Hero: React.FC = () => {
       setMarkerCount(prev => prev + 1);
     };
 
-    // 인포윈도우에서 공고 선택 시 호출될 전역 함수
-    (window as any).selectJobFromMarker = (jobId: string) => {
-      const job = filteredJobPostings.find(j => j.id === jobId);
-      if (job) {
-        setSelectedJob(job);
-        if (currentInfowindow) currentInfowindow.close();
-      }
-    };
+    // 인포윈도우에서 공고 선택 시 호출될 전역 함수 (cleanup에서 삭제되지 않음)
+    if (!(window as any).selectJobFromMarker) {
+      (window as any).selectJobFromMarker = (jobId: string) => {
+        console.log('[Hero] selectJobFromMarker 호출됨, jobId:', jobId);
+
+        // 🔒 InfoWindow 내부 클릭도 지도 클릭 무시 (이벤트 버블링 방지)
+        ignoreMapClickRef.current = true;
+        setTimeout(() => {
+          ignoreMapClickRef.current = false;
+          console.log('[Hero] 🔓 지도 클릭 무시 해제 (InfoWindow)');
+        }, 150);
+
+        // ref를 통해 항상 최신 filteredJobPostings와 setSelectedJob 접근
+        const currentJobs = (window as any).__currentFilteredJobPostings || [];
+        const job = currentJobs.find((j: any) => j.id === jobId);
+        console.log('[Hero] job 찾기 결과:', job ? `찾음 (${job.title})` : '못 찾음');
+        console.log('[Hero] setSelectedJobRef.current 타입:', typeof setSelectedJobRef.current);
+        console.log('[Hero] setSelectedJobRef.current 존재:', !!setSelectedJobRef.current);
+        if (job && setSelectedJobRef.current) {
+          console.log('[Hero] setSelectedJob 호출 시작, job:', job);
+          try {
+            setSelectedJobRef.current(job);
+            console.log('[Hero] ✅ setSelectedJob 호출 완료');
+          } catch (error) {
+            console.error('[Hero] ❌ setSelectedJob 호출 오류:', error);
+          }
+        } else {
+          console.log('[Hero] ❌ 호출 실패 - job:', !!job, 'ref:', !!setSelectedJobRef.current);
+        }
+      };
+    }
+
+    // 현재 filteredJobPostings를 전역에 저장 (selectJobFromMarker에서 접근용)
+    (window as any).__currentFilteredJobPostings = filteredJobPostings;
+    console.log('[Hero] __currentFilteredJobPostings 업데이트:', filteredJobPostings.length, '개');
 
     // 캐시 저장 함수
     const saveCache = () => {
@@ -1060,7 +1123,7 @@ export const Hero: React.FC = () => {
       mapMarkersRef.current.forEach(marker => marker.setMap(null));
       mapMarkersRef.current = [];
       markerJobMapRef.current.clear();
-      delete (window as any).selectJobFromMarker;
+      // selectJobFromMarker는 삭제하지 않음 (한 번 정의하면 계속 사용)
     };
   }, [isLoaded, filteredJobPostings, activeLayers]);
 
@@ -1083,12 +1146,20 @@ export const Hero: React.FC = () => {
         ref={mapContainerRef}
         className="absolute inset-0 w-full h-full"
         onClick={(e) => {
+          // 마커 클릭 직후에는 지도 클릭 무시 (이벤트 버블링 방지)
+          if (ignoreMapClickRef.current) {
+            console.log('[Hero] 🗺️ 지도 클릭 무시됨 (마커 클릭 직후)');
+            return;
+          }
+
           // 지도 클릭 시 상세 패널 닫기 (맵 클릭 모드가 아닐 때만)
           if (!mapClickMode && selectedJob) {
             // 클릭 이벤트가 패널 내부에서 발생했는지 확인
             const target = e.target as HTMLElement;
             const isInsidePanel = target.closest('[data-panel]');
+            console.log('[Hero] 🗺️ 지도 클릭 감지 - isInsidePanel:', !!isInsidePanel, 'selectedJob:', !!selectedJob);
             if (!isInsidePanel) {
+              console.log('[Hero] 🗺️ 패널 밖 클릭 → setSelectedJob(null) 호출');
               setSelectedJob(null);
             }
           }

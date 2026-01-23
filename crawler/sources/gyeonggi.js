@@ -144,12 +144,12 @@ export async function crawlGyeonggi(page, config) {
   const jobs = [];
   let skippedCount = 0;
 
-  // 배치 반복 방식 설정
+  // 배치 반복 방식 설정 (서울/인천과 동일하게 개선)
   const SAFETY = {
-    maxItems: 100,                // 절대 최대 수집 개수
-    maxBatches: 10,               // 최대 배치 반복 횟수
-    batchDuplicateThreshold: 0.5, // 배치 내 중복률 50% 이상이면 종료
-    consecutiveDuplicateLimit: 3, // 연속 중복 시 즉시 중단
+    maxItems: 150,                // 절대 최대 수집 개수 (100→150 개선)
+    maxBatches: 15,               // 최대 배치 반복 횟수 (10→15 개선)
+    batchDuplicateThreshold: 0.8, // 배치 내 중복률 80% 이상이면 종료 (0.5→0.8 개선)
+    consecutiveDuplicateLimit: 10, // 연속 10개 중복 시 즉시 중단 (3→10 개선)
   };
 
   const batchSize = config.crawlBatchSize || 10;

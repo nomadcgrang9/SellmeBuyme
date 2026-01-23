@@ -13,13 +13,13 @@ import { getExistingJobBySource } from '../lib/supabase.js';
  * - 중복 체크 기반 조기 종료 (연속 3개 중복 시 중단)
  */
 
-// 안전장치 설정
+// 안전장치 설정 (150/15/0.8/10 통일)
 const SAFETY = {
-  maxItems: 100,                // 절대 최대 수집 개수
-  maxBatches: 10,               // 최대 배치 반복 횟수
-  batchDuplicateThreshold: 0.5, // 배치 내 중복률 50% 이상이면 종료
-  consecutiveDuplicateLimit: 3, // 연속 중복 시 즉시 중단
-  maxPages: 10,                 // 최대 페이지 수
+  maxItems: 150,                // 절대 최대 수집 개수 (100→150 통일)
+  maxBatches: 15,               // 최대 배치 반복 횟수 (10→15 통일)
+  batchDuplicateThreshold: 0.8, // 배치 내 중복률 80% 이상이면 종료 (0.5→0.8 통일)
+  consecutiveDuplicateLimit: 10, // 연속 중복 시 즉시 중단 (3→10 통일)
+  maxPages: 15,                 // 최대 페이지 수 (10→15 통일)
 };
 
 export async function crawlSejong(page, config) {

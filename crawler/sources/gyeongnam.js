@@ -85,8 +85,17 @@ export async function crawlGyeongnam(page, config) {
     }
 
     // 3. 각 공고 상세 페이지 크롤링 (목록으로 돌아가지 않음!)
-    const batchSize = config.crawlBatchSize || 10;
+    // SAFETY 설정 (150/15/0.8/10 통일)
+    const SAFETY = {
+      maxItems: 150,                // 절대 최대 수집 개수
+      consecutiveDuplicateLimit: 10, // 연속 중복 시 즉시 중단
+    };
+
+    const batchSize = config.crawlBatchSize || SAFETY.maxItems;
     const maxJobs = Math.min(jobListData.length, batchSize);
+
+    let processedCount = 0;
+    let consecutiveDuplicates = 0;
 
     for (let i = 0; i < maxJobs; i++) {
       const listInfo = jobListData[i];
@@ -96,10 +105,20 @@ export async function crawlGyeongnam(page, config) {
       const existing = await getExistingJobBySource(detailUrl);
       if (existing) {
         skippedCount++;
+        consecutiveDuplicates++;
+        // 연속 중복 한계 도달 시 중단
+        if (consecutiveDuplicates >= SAFETY.consecutiveDuplicateLimit) {
+          console.log(`\n  ⚠️ 연속 중복 ${SAFETY.consecutiveDuplicateLimit}개 도달 - 크롤링 종료`);
+          break;
+        }
         continue;
       }
 
-      console.log(`\n  🔍 신규 공고 ${i + 1}/${maxJobs} (ID: ${listInfo.regSn})`);
+      // 신규 항목 발견 시 연속 중복 카운터 리셋
+      consecutiveDuplicates = 0;
+      processedCount++;
+
+      console.log(`\n  🔍 신규 공고 ${processedCount} (ID: ${listInfo.regSn})`);
       console.log(`     제목: ${listInfo.title}`);
 
       try {
