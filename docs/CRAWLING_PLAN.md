@@ -2181,7 +2181,7 @@ AI가 크롤러 소스 파일 자동 생성
 
 ```env
 # .env (루트)
-GEMINI_API_KEY=AIzaSyCF8kwWLkECabDKb28UwZnUjnlW0WgHP3U  # ✅ 이미 설정됨
+GEMINI_API_KEY=your_gemini_api_key_here  # ✅ 이미 설정됨
 
 # 크롤러 생성용 모델 (추가)
 GEMINI_CRAWLER_MODEL=gemini-2.5-pro
