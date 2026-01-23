@@ -309,29 +309,55 @@ export const Hero: React.FC = () => {
     const zoomControl = new window.kakao.maps.ZoomControl();
     map.addControl(zoomControl, window.kakao.maps.ControlPosition.RIGHT);
 
-    window.kakao.maps.event.addListener(map, 'dragend', () => {
-      const center = map.getCenter();
-      const lat = center.getLat();
-      const lng = center.getLng();
-
+    // 뷰포트 내 모든 지역의 공고 로드
+    const loadRegionsInViewport = () => {
+      const bounds = map.getBounds();
+      const sw = bounds.getSouthWest();
+      const ne = bounds.getNorthEast();
       const geocoder = new window.kakao.maps.services.Geocoder();
-      geocoder.coord2RegionCode(lng, lat, (result: any[], status: string) => {
-        if (status === window.kakao.maps.services.Status.OK && result.length > 0) {
-          const region = result[0];
-          const regionName = (region.region_1depth_name || '')
-            .replace(/특별시$/, '')
-            .replace(/광역시$/, '')
-            .replace(/특별자치시$/, '')
-            .replace(/특별자치도$/, '')
-            .replace(/도$/, '');
 
-          console.log('[Hero] 지도 이동 감지, 새 지역:', regionName);
-          loadJobPostings(regionName);
-        }
+      // 뷰포트의 5개 지점 (네 모서리 + 중앙)에서 지역명 추출
+      const points = [
+        { lat: sw.getLat(), lng: sw.getLng() }, // 좌하
+        { lat: ne.getLat(), lng: ne.getLng() }, // 우상
+        { lat: sw.getLat(), lng: ne.getLng() }, // 우하
+        { lat: ne.getLat(), lng: sw.getLng() }, // 좌상
+        { lat: (sw.getLat() + ne.getLat()) / 2, lng: (sw.getLng() + ne.getLng()) / 2 }, // 중앙
+      ];
+
+      const foundRegions = new Set<string>();
+
+      points.forEach(point => {
+        geocoder.coord2RegionCode(point.lng, point.lat, (result: any[], status: string) => {
+          if (status === window.kakao.maps.services.Status.OK && result.length > 0) {
+            const region = result[0];
+            const regionName = (region.region_1depth_name || '')
+              .replace(/특별시$/, '')
+              .replace(/광역시$/, '')
+              .replace(/특별자치시$/, '')
+              .replace(/특별자치도$/, '')
+              .replace(/도$/, '');
+
+            if (regionName && !foundRegions.has(regionName)) {
+              foundRegions.add(regionName);
+              console.log('[Hero] 뷰포트 내 지역 감지:', regionName);
+              loadJobPostings(regionName);
+            }
+          }
+        });
       });
+    };
+
+    // 드래그 종료 시 뷰포트 내 지역 로드
+    window.kakao.maps.event.addListener(map, 'dragend', loadRegionsInViewport);
+
+    // 줌 레벨 변경 시 뷰포트 내 지역 로드
+    window.kakao.maps.event.addListener(map, 'zoom_changed', () => {
+      console.log('[Hero] 줌 레벨 변경, 현재 레벨:', map.getLevel());
+      loadRegionsInViewport();
     });
 
-    // 초기 로드: 서울과 경기 동시 로드 (대부분의 공고 커버)
+    // 초기 로드: 주요 수도권 지역 동시 로드
     loadJobPostings('서울', true);
     loadJobPostings('경기');
     loadJobPostings('인천');
