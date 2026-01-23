@@ -18,12 +18,13 @@ interface UseKakaoMapsReturn {
  *
  * @returns {UseKakaoMapsReturn} SDK 로드 상태와 로드 함수
  */
-// 환경변수에서 API 키 가져오기 (임시 fallback: Public 전환 전 제거 필요)
-const KAKAO_APP_KEY = import.meta.env.VITE_KAKAO_MAP_KEY || '69b6d6d11aa571c7001a92ba25a99c49';
+// 환경변수에서 API 키 가져오기
+const KAKAO_APP_KEY = import.meta.env.VITE_KAKAO_MAP_KEY;
 
-// ⚠️ WARNING: Public 전환 시 이 fallback 키 반드시 제거 필요
-if (!import.meta.env.VITE_KAKAO_MAP_KEY) {
-  console.warn('[useKakaoMaps] ⚠️ 환경변수 없음 - fallback 키 사용 중 (Public 전환 전 제거 필요)');
+if (!KAKAO_APP_KEY) {
+  console.error('[useKakaoMaps] ❌ VITE_KAKAO_MAP_KEY 환경변수가 설정되지 않았습니다. .env 파일을 확인하세요.');
+} else {
+  console.log('[useKakaoMaps] 🔑 사용 중인 키:', KAKAO_APP_KEY.substring(0, 10) + '...');
 }
 
 const KAKAO_SDK_URL = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${KAKAO_APP_KEY}&libraries=services&autoload=false`;
