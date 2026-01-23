@@ -243,14 +243,19 @@ export const Hero: React.FC = () => {
 
     // 뷰포트 기반 필터링 (줌 인/아웃 시 현재 화면에 보이는 공고만 표시)
     if (viewportBounds) {
+      const beforeCount = filtered.length;
+      let withCoords = 0;
+      let withoutCoords = 0;
+
       filtered = filtered.filter(job => {
         // DB에 저장된 좌표 사용
         let lat = job.latitude;
         let lng = job.longitude;
 
-        // DB 좌표가 없으면 캐시된 좌표 사용
+        // DB 좌표가 없으면 캐시된 좌표 사용 (마커 생성 로직과 동일한 키 형식)
         if (lat == null || lng == null) {
-          const cacheKey = `${job.organization} ${job.location || ''}`;
+          // 마커 생성 시 사용하는 키: job.organization || job.location
+          const cacheKey = job.organization || job.location || '';
           const cached = coordsCacheRef.current.get(cacheKey);
           if (cached) {
             lat = cached.lat;
@@ -260,13 +265,19 @@ export const Hero: React.FC = () => {
 
         // 좌표가 없으면 일단 표시 (마커 생성 전 상태)
         if (lat == null || lng == null) {
+          withoutCoords++;
           return true;
         }
 
+        withCoords++;
         // bounds 내에 있는지 확인
         return lat >= viewportBounds.sw.lat && lat <= viewportBounds.ne.lat &&
                lng >= viewportBounds.sw.lng && lng <= viewportBounds.ne.lng;
       });
+
+      console.log('[Hero] 뷰포트 필터링:', beforeCount, '→', filtered.length,
+        '(좌표있음:', withCoords, ', 좌표없음:', withoutCoords, ')',
+        'bounds:', viewportBounds.sw.lat.toFixed(4), '~', viewportBounds.ne.lat.toFixed(4));
     }
 
     return filtered;
