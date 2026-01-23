@@ -36,19 +36,31 @@ async function extractTitlesFromPage(page, regionCode) {
 
     const titles = await page.evaluate(() => {
       const results = new Set();
+      // Expanded selectors based on crawler fixes
       const selectors = [
-        'td.subject a', 'td.ta_l a', '.nttInfoBtn',
-        'a[href*="selectNttInfo"]', 'a[href*="view"]', 'a[href*="detail"]',
-        '.list_title a', 'td:nth-child(2) a', 'td:nth-child(3) a', 'td:nth-child(5) a'
+        // Generic Board patterns
+        'td.subject a', 'td.ta_l a', 'td.title a', 'td.tit a',
+        'td:nth-child(2) a', 'td:nth-child(3) a', 'td:nth-child(4) a', 'td:nth-child(5) a',
+        '.list_title a', '.list_subject a', '.board_list .subject a',
+        // Specific patterns (Chungbuk, Chungnam, etc.)
+        '.nttInfoBtn', 'a[data-id]',
+        'a[href*="selectNttInfo"]', 'a[href*="view"]', 'a[href*="detail"]', 'a[href*="article"]',
+        'a[onclick*="goView"]', 'a[onclick*="detail"]'
       ];
 
       for (const selector of selectors) {
         const elements = document.querySelectorAll(selector);
         elements.forEach(el => {
           const text = el.textContent?.trim();
-          if (text && text.length > 5 && text.length < 200) {
-            if (!text.match(/^(번호|제목|작성자|등록일|조회|첨부|처음|이전|다음|마지막)/)) {
-              results.add(text);
+          // Relaxed length check (some titles are short)
+          if (text && text.length > 3 && text.length < 200) {
+            // Filter out obvious non-titles
+            if (!text.match(/^(번호|제목|작성자|등록일|조회|첨부|처음|이전|다음|마지막|공지|새글|N)$/)) {
+              // Remove "New" badges if included in text
+              const cleanText = text.replace(/새글\s*N?\s*/g, '').trim();
+              if (cleanText.length > 2) {
+                results.add(cleanText);
+              }
             }
           }
         });

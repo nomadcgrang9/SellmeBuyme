@@ -61,43 +61,55 @@ export async function crawlChungbuk(page, config) {
           }
 
           const cells = row.querySelectorAll('td');
-          if (cells.length < 4) return;
+          // if (cells.length < 3) return; // 셀 개수 체크 완화
 
           // 번호 (공지사항 체크)
           const numText = cells[0]?.textContent?.trim() || '';
           const isNotice = numText === '공지' || numText === '';
 
-          // 제목 링크 찾기 (nttInfoBtn 클래스 또는 data-id 속성)
-          const titleLink = row.querySelector('a.nttInfoBtn, a[data-id], td.ta_l a, td a');
+          // 제목 링크 찾기 - 선택자 다양화
+          const titleLink = row.querySelector('a.nttInfoBtn, a[data-id], td.ta_l a, td.subject a, td a[href*="selectNttInfo"], td a[href*="detail"]');
           if (!titleLink) return;
 
-          // data-id 추출
+          // data-id 추출 - 다양한 방식 시도
           let dataId = titleLink.getAttribute('data-id');
 
-          // data-id가 없으면 onclick에서 추출 시도
+          // 1. data-id가 없으면 onclick에서 추출
           if (!dataId) {
             const onclick = titleLink.getAttribute('onclick') || '';
             const match = onclick.match(/['"](\d+)['"]/);
             if (match) dataId = match[1];
           }
 
-          // href에서 nttSn 파라미터 추출 시도
+          // 2. href에서 nttSn 또는 nttId 추출
           if (!dataId) {
             const href = titleLink.getAttribute('href') || '';
-            const match = href.match(/nttSn=(\d+)/);
-            if (match) dataId = match[1];
+            const match = href.match(/[?&](nttSn|nttId|bbsId|seq)=(\d+)/);
+            if (match) dataId = match[2];
+          }
+
+          // 3. ID를 못 찾았더라도 Link가 있으면 진행 (상세 페이지 URL에서 ID 추출 시도 가능)
+          // 임시 ID 생성 (나중에 상세 URL에서 덮어씌움)
+          if (!dataId) {
+            const href = titleLink.getAttribute('href');
+            if (href && !href.startsWith('#') && !href.startsWith('javascript')) {
+              // URL 자체를 해시하거나 임시로 사용
+              // 여기서는 일단 스킵하지 않고 진행하도록 함
+              dataId = 'temp_' + Math.random().toString(36).substr(2, 9);
+            }
           }
 
           if (!dataId) return;
 
           let title = titleLink.textContent?.trim() || '';
-          // "새글 N" 태그 제거
+          // "새글 N" 태그 제거 및 공백 정리
           title = title.replace(/새글\s*N?\s*/g, '').replace(/\s+/g, ' ').trim();
           if (!title) return;
 
           // 날짜 추출 (여러 위치 시도)
           let dateText = '';
-          for (let i = 3; i < cells.length; i++) {
+          // 보통 마지막이나 뒤에서 두번째에 날짜가 있음
+          for (let i = cells.length - 1; i >= 0; i--) {
             const text = cells[i]?.textContent?.trim() || '';
             // 날짜 형식 확인 (YYYY-MM-DD, YYYY.MM.DD, YYYY/MM/DD)
             if (/\d{4}[-./]\d{2}[-./]\d{2}/.test(text)) {
@@ -196,9 +208,9 @@ export async function crawlChungbuk(page, config) {
 
         // 지역 추출
         const location = detailData.location ||
-                        extractRegionFromText(detailData.organization) ||
-                        extractRegionFromText(detailData.content) ||
-                        config.region || '충청북도';
+          extractRegionFromText(detailData.organization) ||
+          extractRegionFromText(detailData.content) ||
+          config.region || '충청북도';
 
         const jobData = {
           title: listInfo.title,
