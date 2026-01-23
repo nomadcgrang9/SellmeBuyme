@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useKakaoMaps } from '@/hooks/useKakaoMaps';
 import { useGeolocation } from '@/lib/hooks/useGeolocation';
-import { fetchJobsInViewport } from '@/lib/supabase/queries';
+import { fetchJobsByBoardRegion } from '@/lib/supabase/queries';
 import type { JobPostingCard } from '@/types';
 import MobileBottomSheet from './components/MobileBottomSheet';
 import MobileSearchBar from './components/MobileSearchBar';
@@ -25,9 +25,9 @@ const MobileMapPage: React.FC = () => {
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [isLocating, setIsLocating] = useState(false);
 
-  // 뷰포트 로딩 디바운스용
-  const viewportLoadTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  // 초기 로딩 플래그
   const isInitialLoadRef = useRef(true);
+  const initialRegionLoadedRef = useRef(false);
 
   // 공고 데이터
   const [jobPostings, setJobPostings] = useState<JobPostingCard[]>([]);
@@ -129,28 +129,12 @@ const MobileMapPage: React.FC = () => {
     loadKakaoMaps();
   }, [loadKakaoMaps]);
 
-  // 뷰포트 기반 공고 로드 함수
-  const loadJobsInViewport = useCallback(async () => {
-    if (!mapInstanceRef.current) return;
-
-    const map = mapInstanceRef.current;
-    const bounds = map.getBounds();
-
-    if (!bounds) return;
-
-    const sw = bounds.getSouthWest();
-    const ne = bounds.getNorthEast();
-
-    const viewportBounds = {
-      sw: { lat: sw.getLat(), lng: sw.getLng() },
-      ne: { lat: ne.getLat(), lng: ne.getLng() },
-    };
-
-    console.log('[MobileMap] 뷰포트 기반 공고 로드:', viewportBounds);
-
+  // 지역 기반 공고 로드 함수
+  const loadJobPostings = useCallback(async (regionName: string) => {
+    console.log('[MobileMap] 지역 기반 공고 로드:', regionName);
     try {
       setIsLoading(true);
-      const jobs = await fetchJobsInViewport(viewportBounds, 500);
+      const jobs = await fetchJobsByBoardRegion(regionName, 300);
       console.log('[MobileMap] 로드된 공고 수:', jobs.length);
       setJobPostings(jobs);
     } catch (error) {
@@ -159,16 +143,6 @@ const MobileMapPage: React.FC = () => {
       setIsLoading(false);
     }
   }, []);
-
-  // 디바운스된 뷰포트 로딩
-  const debouncedLoadJobsInViewport = useCallback(() => {
-    if (viewportLoadTimeoutRef.current) {
-      clearTimeout(viewportLoadTimeoutRef.current);
-    }
-    viewportLoadTimeoutRef.current = setTimeout(() => {
-      loadJobsInViewport();
-    }, 300);
-  }, [loadJobsInViewport]);
 
   // 지도 초기화
   useEffect(() => {
@@ -194,17 +168,58 @@ const MobileMapPage: React.FC = () => {
     mapInstanceRef.current = map;
     isInitialLoadRef.current = false;
 
-    // 지도 이동/확대/축소 완료 시 뷰포트 기반 공고 로드 (idle 이벤트)
-    window.kakao.maps.event.addListener(map, 'idle', () => {
-      debouncedLoadJobsInViewport();
+    // 지도 드래그 완료 시 해당 지역 공고 로드
+    window.kakao.maps.event.addListener(map, 'dragend', () => {
+      const mapCenter = map.getCenter();
+      const geocoder = new window.kakao.maps.services.Geocoder();
+
+      geocoder.coord2RegionCode(
+        mapCenter.getLng(),
+        mapCenter.getLat(),
+        (result: any[], status: string) => {
+          if (status === window.kakao.maps.services.Status.OK && result.length > 0) {
+            const region = result[0];
+            const regionName = (region.region_1depth_name || '')
+              .replace(/특별시$|광역시$|특별자치시$|특별자치도$|도$/, '');
+            if (regionName) {
+              loadJobPostings(regionName);
+            }
+          }
+        }
+      );
     });
 
-    // 초기 공고 로드 (지도 초기화 직후)
-    // idle 이벤트가 발생하기까지 약간의 지연이 있을 수 있으므로 명시적 호출
-    setTimeout(() => {
-      loadJobsInViewport();
-    }, 100);
-  }, [isLoaded, userLocation, geoCoords, geoLoading, debouncedLoadJobsInViewport, loadJobsInViewport]);
+    // 초기 공고 로드 - useGeolocation 주소 또는 현재 중심 좌표 기반
+    if (geoAddress?.city) {
+      // useGeolocation에서 얻은 지역명 사용
+      const regionName = geoAddress.city
+        .replace(/특별시$|광역시$|특별자치시$|특별자치도$|도$/, '');
+      console.log('[MobileMap] 초기 로드 - 사용자 위치 지역:', regionName);
+      loadJobPostings(regionName);
+      initialRegionLoadedRef.current = true;
+    } else {
+      // 지역명을 알 수 없으면 좌표로 역지오코딩
+      const geocoder = new window.kakao.maps.services.Geocoder();
+      geocoder.coord2RegionCode(
+        initialLng,
+        initialLat,
+        (result: any[], status: string) => {
+          if (status === window.kakao.maps.services.Status.OK && result.length > 0) {
+            const region = result[0];
+            const regionName = (region.region_1depth_name || '')
+              .replace(/특별시$|광역시$|특별자치시$|특별자치도$|도$/, '') || '서울';
+            console.log('[MobileMap] 초기 로드 - 역지오코딩 지역:', regionName);
+            loadJobPostings(regionName);
+          } else {
+            // 역지오코딩 실패 시 서울로 기본 로드
+            console.log('[MobileMap] 초기 로드 - 기본 서울');
+            loadJobPostings('서울');
+          }
+          initialRegionLoadedRef.current = true;
+        }
+      );
+    }
+  }, [isLoaded, userLocation, geoCoords, geoAddress, geoLoading, loadJobPostings]);
 
   // 마커 표시
   useEffect(() => {
@@ -310,10 +325,6 @@ const MobileMapPage: React.FC = () => {
       cancelled = true;
       mapMarkersRef.current.forEach(marker => marker.setMap(null));
       mapMarkersRef.current = [];
-      // 뷰포트 로딩 타임아웃 정리
-      if (viewportLoadTimeoutRef.current) {
-        clearTimeout(viewportLoadTimeoutRef.current);
-      }
     };
   }, [isLoaded, filteredJobPostings]);
 
@@ -342,7 +353,7 @@ const MobileMapPage: React.FC = () => {
     );
   }, []);
 
-  // 검색 처리 - 키워드로 위치 검색 후 지도 이동 (idle 이벤트가 뷰포트 공고 로드 트리거)
+  // 검색 처리 - 키워드로 위치 검색 후 지도 이동 및 해당 지역 공고 로드
   const handleSearch = useCallback(async (query: string) => {
     setFilters(prev => ({ ...prev, searchQuery: query }));
 
@@ -358,14 +369,26 @@ const MobileMapPage: React.FC = () => {
         const latNum = parseFloat(lat);
         const lngNum = parseFloat(lng);
 
-        // 지도 이동 → idle 이벤트에서 자동으로 뷰포트 공고 로드
+        // 지도 이동
         if (mapInstanceRef.current) {
           mapInstanceRef.current.setCenter(
             new window.kakao.maps.LatLng(latNum, lngNum)
           );
           mapInstanceRef.current.setLevel(5);
-          console.log('[MobileMap] 검색 위치로 지도 이동:', { lat: latNum, lng: lngNum });
         }
+
+        // 해당 좌표의 지역명 가져와서 공고 로드
+        geocoder.coord2RegionCode(lngNum, latNum, (regionResult: any[], regionStatus: string) => {
+          if (regionStatus === window.kakao.maps.services.Status.OK && regionResult.length > 0) {
+            const region = regionResult[0];
+            const regionName = (region.region_1depth_name || '')
+              .replace(/특별시$|광역시$|특별자치시$|특별자치도$|도$/, '');
+            console.log('[MobileMap] 검색 위치 지역:', regionName);
+            if (regionName) {
+              loadJobPostings(regionName);
+            }
+          }
+        });
       } else {
         // 키워드 검색 실패 시 주소 검색 시도
         geocoder.addressSearch(query, (addrResult: any[], addrStatus: string) => {
@@ -379,13 +402,24 @@ const MobileMapPage: React.FC = () => {
                 new window.kakao.maps.LatLng(latNum, lngNum)
               );
               mapInstanceRef.current.setLevel(5);
-              console.log('[MobileMap] 주소 검색 위치로 지도 이동:', { lat: latNum, lng: lngNum });
             }
+
+            // 해당 좌표의 지역명 가져와서 공고 로드
+            geocoder.coord2RegionCode(lngNum, latNum, (regionResult: any[], regionStatus: string) => {
+              if (regionStatus === window.kakao.maps.services.Status.OK && regionResult.length > 0) {
+                const region = regionResult[0];
+                const regionName = (region.region_1depth_name || '')
+                  .replace(/특별시$|광역시$|특별자치시$|특별자치도$|도$/, '');
+                if (regionName) {
+                  loadJobPostings(regionName);
+                }
+              }
+            });
           }
         });
       }
     });
-  }, [isLoaded]);
+  }, [isLoaded, loadJobPostings]);
 
   // 필터 적용
   const handleApplyFilter = useCallback((newFilters: { schoolLevels: string[]; subjects: string[] }) => {
