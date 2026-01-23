@@ -88,6 +88,15 @@ export const Hero: React.FC = () => {
   const teacherMapMarkersRef = useRef<any[]>([]);
   const programMapMarkersRef = useRef<any[]>([]);
 
+  // 로드된 지역 추적 (복수 지역 동시 표시용)
+  const loadedRegionsRef = useRef<Set<string>>(new Set());
+
+  // 현재 뷰포트 bounds (줌 인/아웃 시 목록 필터링용)
+  const [viewportBounds, setViewportBounds] = useState<{
+    sw: { lat: number; lng: number };
+    ne: { lat: number; lng: number };
+  } | null>(null);
+
   // 마커 팝업 상태
   const [selectedMarker, setSelectedMarker] = useState<{
     type: 'teacher' | 'program';
@@ -130,6 +139,7 @@ export const Hero: React.FC = () => {
   const [isJobListCollapsed, setIsJobListCollapsed] = useState(false);
   const [isPanelHidden, setIsPanelHidden] = useState(false);
   const [markerCount, setMarkerCount] = useState(0);
+  const [coordsCacheVersion, setCoordsCacheVersion] = useState(0); // 캐시 업데이트 감지용
   const mapMarkersRef = useRef<any[]>([]);
   const coordsCacheRef = useRef<Map<string, { lat: number; lng: number }>>(new Map());
 
@@ -254,8 +264,48 @@ export const Hero: React.FC = () => {
       }
     }
 
+    // 뷰포트 기반 필터링 (줌 인/아웃 시 현재 화면에 보이는 공고만 표시)
+    if (viewportBounds) {
+      const beforeCount = filtered.length;
+      let withCoords = 0;
+      let withoutCoords = 0;
+
+      filtered = filtered.filter(job => {
+        // DB에 저장된 좌표 사용
+        let lat = job.latitude;
+        let lng = job.longitude;
+
+        // DB 좌표가 없으면 캐시된 좌표 사용 (마커 생성 로직과 동일한 키 형식)
+        if (lat == null || lng == null) {
+          // 마커 생성 시 사용하는 키: job.organization || job.location
+          const cacheKey = job.organization || job.location || '';
+          const cached = coordsCacheRef.current.get(cacheKey);
+          if (cached) {
+            lat = cached.lat;
+            lng = cached.lng;
+          }
+        }
+
+        // 좌표가 없으면 일단 표시 (마커 생성 전 상태)
+        if (lat == null || lng == null) {
+          withoutCoords++;
+          return true;
+        }
+
+        withCoords++;
+        // bounds 내에 있는지 확인
+        return lat >= viewportBounds.sw.lat && lat <= viewportBounds.ne.lat &&
+               lng >= viewportBounds.sw.lng && lng <= viewportBounds.ne.lng;
+      });
+
+      console.log('[Hero] 뷰포트 필터링:', beforeCount, '→', filtered.length,
+        '(좌표있음:', withCoords, ', 좌표없음:', withoutCoords, ')',
+        'bounds:', viewportBounds.sw.lat.toFixed(4), '~', viewportBounds.ne.lat.toFixed(4));
+    }
+
     return filtered;
-  }, [jobPostings, mapFilters, activeLocationFilter, deduplicateJobs]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jobPostings, mapFilters, activeLocationFilter, deduplicateJobs, viewportBounds, coordsCacheVersion]);
 
   // 인증 상태 초기화
   const { initialize: initializeAuth } = useAuthStore();
@@ -267,6 +317,46 @@ export const Hero: React.FC = () => {
   useEffect(() => {
     loadKakaoMaps();
   }, [loadKakaoMaps]);
+
+  // 사용자 현재 위치 획득 (초기 로드 시)
+  useEffect(() => {
+    // 이미 위치가 설정되어 있으면 스킵
+    if (userLocation) return;
+
+    // 캐시된 위치 확인 (24시간 유효)
+    const cachedLocation = localStorage.getItem('userLocation');
+    if (cachedLocation) {
+      try {
+        const { lat, lng, timestamp } = JSON.parse(cachedLocation);
+        const isValid = Date.now() - timestamp < 24 * 60 * 60 * 1000;
+        if (isValid && lat && lng) {
+          console.log('[Hero] 캐시된 사용자 위치 사용:', lat, lng);
+          setUserLocation({ lat, lng });
+          return;
+        }
+      } catch (e) {
+        // 캐시 파싱 실패 시 무시
+      }
+    }
+
+    // Geolocation API로 현재 위치 획득
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude: lat, longitude: lng } = position.coords;
+          console.log('[Hero] 사용자 현재 위치 획득:', lat, lng);
+          setUserLocation({ lat, lng });
+          // 위치 캐시
+          localStorage.setItem('userLocation', JSON.stringify({ lat, lng, timestamp: Date.now() }));
+        },
+        (error) => {
+          console.log('[Hero] 위치 획득 실패, 기본 위치(서울) 사용:', error.message);
+          // 위치 획득 실패 시 기본 위치 사용 (아무것도 안함 - defaultLocation 사용)
+        },
+        { enableHighAccuracy: false, timeout: 5000, maximumAge: 600000 }
+      );
+    }
+  }, [userLocation]);
 
   // 주소 검색 핸들러
   const handleLocationSearch = useCallback(() => {
@@ -328,29 +418,82 @@ export const Hero: React.FC = () => {
     const zoomControl = new window.kakao.maps.ZoomControl();
     map.addControl(zoomControl, window.kakao.maps.ControlPosition.RIGHT);
 
-    window.kakao.maps.event.addListener(map, 'dragend', () => {
-      const center = map.getCenter();
-      const lat = center.getLat();
-      const lng = center.getLng();
-
-      const geocoder = new window.kakao.maps.services.Geocoder();
-      geocoder.coord2RegionCode(lng, lat, (result: any[], status: string) => {
-        if (status === window.kakao.maps.services.Status.OK && result.length > 0) {
-          const region = result[0];
-          const regionName = (region.region_1depth_name || '')
-            .replace(/특별시$/, '')
-            .replace(/광역시$/, '')
-            .replace(/특별자치시$/, '')
-            .replace(/특별자치도$/, '')
-            .replace(/도$/, '');
-
-          console.log('[Hero] 지도 이동 감지, 새 지역:', regionName);
-          loadJobPostings(regionName);
-        }
+    // 뷰포트 bounds 업데이트 함수
+    const updateViewportBounds = () => {
+      const bounds = map.getBounds();
+      const sw = bounds.getSouthWest();
+      const ne = bounds.getNorthEast();
+      setViewportBounds({
+        sw: { lat: sw.getLat(), lng: sw.getLng() },
+        ne: { lat: ne.getLat(), lng: ne.getLng() }
       });
+      console.log('[Hero] 뷰포트 bounds 업데이트:', {
+        sw: { lat: sw.getLat(), lng: sw.getLng() },
+        ne: { lat: ne.getLat(), lng: ne.getLng() }
+      });
+    };
+
+    // 뷰포트 내 모든 지역의 공고 로드
+    const loadRegionsInViewport = (isInitial: boolean = false) => {
+      const bounds = map.getBounds();
+      const sw = bounds.getSouthWest();
+      const ne = bounds.getNorthEast();
+      const geocoder = new window.kakao.maps.services.Geocoder();
+
+      // 뷰포트 bounds 업데이트
+      updateViewportBounds();
+
+      // 뷰포트의 5개 지점 (네 모서리 + 중앙)에서 지역명 추출
+      const points = [
+        { lat: sw.getLat(), lng: sw.getLng() }, // 좌하
+        { lat: ne.getLat(), lng: ne.getLng() }, // 우상
+        { lat: sw.getLat(), lng: ne.getLng() }, // 우하
+        { lat: ne.getLat(), lng: sw.getLng() }, // 좌상
+        { lat: (sw.getLat() + ne.getLat()) / 2, lng: (sw.getLng() + ne.getLng()) / 2 }, // 중앙
+      ];
+
+      const foundRegions = new Set<string>();
+      let isFirstRegion = true;
+
+      points.forEach(point => {
+        geocoder.coord2RegionCode(point.lng, point.lat, (result: any[], status: string) => {
+          if (status === window.kakao.maps.services.Status.OK && result.length > 0) {
+            const region = result[0];
+            const regionName = (region.region_1depth_name || '')
+              .replace(/특별시$/, '')
+              .replace(/광역시$/, '')
+              .replace(/특별자치시$/, '')
+              .replace(/특별자치도$/, '')
+              .replace(/도$/, '');
+
+            if (regionName && !foundRegions.has(regionName)) {
+              foundRegions.add(regionName);
+              console.log('[Hero] 뷰포트 내 지역 감지:', regionName);
+              // 초기 로드 시 첫 번째 지역만 replace 모드로 로드
+              loadJobPostings(regionName, isInitial && isFirstRegion);
+              isFirstRegion = false;
+            }
+          }
+        });
+      });
+    };
+
+    // 드래그 종료 시 뷰포트 내 지역 로드 + bounds 업데이트
+    window.kakao.maps.event.addListener(map, 'dragend', () => {
+      loadRegionsInViewport();
     });
 
-    loadJobPostings('서울');
+    // 줌 레벨 변경 시 뷰포트 내 지역 로드 + bounds 업데이트
+    window.kakao.maps.event.addListener(map, 'zoom_changed', () => {
+      console.log('[Hero] 줌 레벨 변경, 현재 레벨:', map.getLevel());
+      loadRegionsInViewport();
+    });
+
+    // 초기 로드: 현재 뷰포트(사용자 위치 기반) 지역 로드
+    // 지도가 완전히 초기화된 후 로드
+    setTimeout(() => {
+      loadRegionsInViewport(true);
+    }, 100);
   }, [isLoaded, mapCenter.lat, mapCenter.lng]);
 
   // 지도 클릭 이벤트 - 출발지 선택 모드 (별도 useEffect로 분리하여 mapClickMode 변경 시에만 업데이트)
@@ -392,14 +535,34 @@ export const Hero: React.FC = () => {
     mapInstanceRef.current.setCenter(newCenter);
   }, [userLocation]);
 
-  // 공고 로드 함수
-  const loadJobPostings = async (regionName: string) => {
+  // 공고 로드 함수 (복수 지역 누적 로드)
+  const loadJobPostings = async (regionName: string, replace: boolean = false) => {
+    // 이미 로드된 지역이면 스킵 (replace 모드가 아닐 때)
+    if (!replace && loadedRegionsRef.current.has(regionName)) {
+      console.log('[Hero] 이미 로드된 지역 스킵:', regionName);
+      return;
+    }
+
     try {
       setIsJobsLoading(true);
       console.log('[Hero] 공고 데이터 로드 시작, 지역:', regionName);
       const jobs = await fetchJobsByBoardRegion(regionName, 250);
       console.log('[Hero] 공고 데이터 로드 완료:', jobs.length, '개');
-      setJobPostings(jobs);
+
+      if (replace) {
+        // 초기 로드 시 교체
+        loadedRegionsRef.current = new Set([regionName]);
+        setJobPostings(jobs);
+      } else {
+        // 지역 이동 시 누적 (중복 제거)
+        loadedRegionsRef.current.add(regionName);
+        setJobPostings(prev => {
+          const existingIds = new Set(prev.map(j => j.id));
+          const newJobs = jobs.filter(j => !existingIds.has(j.id));
+          console.log('[Hero] 새 공고 추가:', newJobs.length, '개 (기존:', prev.length, '개)');
+          return [...prev, ...newJobs];
+        });
+      }
     } catch (error) {
       console.error('[Hero] 공고 데이터 로드 실패:', error);
     } finally {
@@ -687,16 +850,27 @@ export const Hero: React.FC = () => {
     let currentInfowindow: any = null;
 
     // sessionStorage에서 캐시 복원
+    let cacheRestored = false;
     try {
       const savedCache = sessionStorage.getItem('jobCoordsCache');
       if (savedCache) {
         const parsed = JSON.parse(savedCache);
+        const beforeSize = cache.size;
         Object.entries(parsed).forEach(([k, v]) => {
           if (!cache.has(k)) cache.set(k, v as { lat: number; lng: number });
         });
+        cacheRestored = cache.size > beforeSize;
+        if (cacheRestored) {
+          console.log(`[Hero] 캐시 복원: ${cache.size - beforeSize}개 좌표`);
+        }
       }
     } catch (e) {
       console.warn('[Hero] 캐시 복원 실패:', e);
+    }
+
+    // 캐시가 복원되었으면 뷰포트 필터링 트리거
+    if (cacheRestored) {
+      setCoordsCacheVersion(v => v + 1);
     }
 
     const coordsJobsMap = new Map<string, JobPostingCard[]>();
@@ -934,6 +1108,11 @@ export const Hero: React.FC = () => {
 
       const elapsed = Date.now() - startTime;
       console.log(`[Hero] 마커 생성 완료: 성공 ${successCount}개, 실패 ${failedCount}개 (${elapsed}ms)`);
+
+      // 좌표 캐시가 업데이트되었으므로 뷰포트 필터링 다시 트리거
+      if (uncachedJobs.length > 0) {
+        setCoordsCacheVersion(v => v + 1);
+      }
     };
 
     processBatches();
