@@ -2657,6 +2657,48 @@ export async function fetchJobsByBoardRegion(
 }
 
 /**
+ * 뷰포트(지도 경계) 기반 공고 조회
+ * 좌표가 있는 공고만 반환 (마커 표시용)
+ */
+export async function fetchJobsInViewport(
+  bounds: { sw: { lat: number; lng: number }; ne: { lat: number; lng: number } },
+  limit = 500
+): Promise<JobPostingCard[]> {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const todayIso = today.toISOString();
+
+  console.log(`[fetchJobsInViewport] 뷰포트 경계:`, bounds);
+
+  // 좌표가 있는 공고만 뷰포트 내에서 조회
+  const { data: jobs, error } = await supabase
+    .from('job_postings')
+    .select('*')
+    .not('latitude', 'is', null)
+    .not('longitude', 'is', null)
+    .gte('latitude', bounds.sw.lat)
+    .lte('latitude', bounds.ne.lat)
+    .gte('longitude', bounds.sw.lng)
+    .lte('longitude', bounds.ne.lng)
+    .or(`deadline.is.null,deadline.gte.${todayIso}`)
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    console.error('[fetchJobsInViewport] 쿼리 오류:', error);
+    return [];
+  }
+
+  console.log(`[fetchJobsInViewport] 조회된 공고 수:`, jobs?.length ?? 0);
+
+  if (!jobs || jobs.length === 0) {
+    return [];
+  }
+
+  return jobs.map(mapJobPostingToCard);
+}
+
+/**
  * 마감일을 "~ MM.DD" 형식으로 변환
  */
 function formatDeadline(deadline: string): string {
@@ -4188,7 +4230,9 @@ export function mapJobPostingToCard(job: any): JobPostingCard {
     user_id: job.user_id ?? null,
     source: job.source ?? null,
     form_payload: formPayload,
-    school_level: job.school_level ?? null
+    school_level: job.school_level ?? null,
+    latitude: job.latitude ?? null,
+    longitude: job.longitude ?? null,
   };
 }
 
