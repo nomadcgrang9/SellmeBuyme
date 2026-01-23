@@ -72,6 +72,12 @@ export const Hero: React.FC = () => {
   // 로드된 지역 추적 (복수 지역 동시 표시용)
   const loadedRegionsRef = useRef<Set<string>>(new Set());
 
+  // 현재 뷰포트 bounds (줌 인/아웃 시 목록 필터링용)
+  const [viewportBounds, setViewportBounds] = useState<{
+    sw: { lat: number; lng: number };
+    ne: { lat: number; lng: number };
+  } | null>(null);
+
   // 마커 팝업 상태
   const [selectedMarker, setSelectedMarker] = useState<{
     type: 'teacher' | 'program';
@@ -235,8 +241,36 @@ export const Hero: React.FC = () => {
       }
     }
 
+    // 뷰포트 기반 필터링 (줌 인/아웃 시 현재 화면에 보이는 공고만 표시)
+    if (viewportBounds) {
+      filtered = filtered.filter(job => {
+        // DB에 저장된 좌표 사용
+        let lat = job.latitude;
+        let lng = job.longitude;
+
+        // DB 좌표가 없으면 캐시된 좌표 사용
+        if (lat == null || lng == null) {
+          const cacheKey = `${job.organization} ${job.location || ''}`;
+          const cached = coordsCacheRef.current.get(cacheKey);
+          if (cached) {
+            lat = cached.lat;
+            lng = cached.lng;
+          }
+        }
+
+        // 좌표가 없으면 일단 표시 (마커 생성 전 상태)
+        if (lat == null || lng == null) {
+          return true;
+        }
+
+        // bounds 내에 있는지 확인
+        return lat >= viewportBounds.sw.lat && lat <= viewportBounds.ne.lat &&
+               lng >= viewportBounds.sw.lng && lng <= viewportBounds.ne.lng;
+      });
+    }
+
     return filtered;
-  }, [jobPostings, mapFilters, activeLocationFilter, deduplicateJobs]);
+  }, [jobPostings, mapFilters, activeLocationFilter, deduplicateJobs, viewportBounds]);
 
   // 인증 상태 초기화
   const { initialize: initializeAuth } = useAuthStore();
@@ -248,6 +282,46 @@ export const Hero: React.FC = () => {
   useEffect(() => {
     loadKakaoMaps();
   }, [loadKakaoMaps]);
+
+  // 사용자 현재 위치 획득 (초기 로드 시)
+  useEffect(() => {
+    // 이미 위치가 설정되어 있으면 스킵
+    if (userLocation) return;
+
+    // 캐시된 위치 확인 (24시간 유효)
+    const cachedLocation = localStorage.getItem('userLocation');
+    if (cachedLocation) {
+      try {
+        const { lat, lng, timestamp } = JSON.parse(cachedLocation);
+        const isValid = Date.now() - timestamp < 24 * 60 * 60 * 1000;
+        if (isValid && lat && lng) {
+          console.log('[Hero] 캐시된 사용자 위치 사용:', lat, lng);
+          setUserLocation({ lat, lng });
+          return;
+        }
+      } catch (e) {
+        // 캐시 파싱 실패 시 무시
+      }
+    }
+
+    // Geolocation API로 현재 위치 획득
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude: lat, longitude: lng } = position.coords;
+          console.log('[Hero] 사용자 현재 위치 획득:', lat, lng);
+          setUserLocation({ lat, lng });
+          // 위치 캐시
+          localStorage.setItem('userLocation', JSON.stringify({ lat, lng, timestamp: Date.now() }));
+        },
+        (error) => {
+          console.log('[Hero] 위치 획득 실패, 기본 위치(서울) 사용:', error.message);
+          // 위치 획득 실패 시 기본 위치 사용 (아무것도 안함 - defaultLocation 사용)
+        },
+        { enableHighAccuracy: false, timeout: 5000, maximumAge: 600000 }
+      );
+    }
+  }, [userLocation]);
 
   // 주소 검색 핸들러
   const handleLocationSearch = useCallback(() => {
@@ -309,12 +383,30 @@ export const Hero: React.FC = () => {
     const zoomControl = new window.kakao.maps.ZoomControl();
     map.addControl(zoomControl, window.kakao.maps.ControlPosition.RIGHT);
 
+    // 뷰포트 bounds 업데이트 함수
+    const updateViewportBounds = () => {
+      const bounds = map.getBounds();
+      const sw = bounds.getSouthWest();
+      const ne = bounds.getNorthEast();
+      setViewportBounds({
+        sw: { lat: sw.getLat(), lng: sw.getLng() },
+        ne: { lat: ne.getLat(), lng: ne.getLng() }
+      });
+      console.log('[Hero] 뷰포트 bounds 업데이트:', {
+        sw: { lat: sw.getLat(), lng: sw.getLng() },
+        ne: { lat: ne.getLat(), lng: ne.getLng() }
+      });
+    };
+
     // 뷰포트 내 모든 지역의 공고 로드
-    const loadRegionsInViewport = () => {
+    const loadRegionsInViewport = (isInitial: boolean = false) => {
       const bounds = map.getBounds();
       const sw = bounds.getSouthWest();
       const ne = bounds.getNorthEast();
       const geocoder = new window.kakao.maps.services.Geocoder();
+
+      // 뷰포트 bounds 업데이트
+      updateViewportBounds();
 
       // 뷰포트의 5개 지점 (네 모서리 + 중앙)에서 지역명 추출
       const points = [
@@ -326,6 +418,7 @@ export const Hero: React.FC = () => {
       ];
 
       const foundRegions = new Set<string>();
+      let isFirstRegion = true;
 
       points.forEach(point => {
         geocoder.coord2RegionCode(point.lng, point.lat, (result: any[], status: string) => {
@@ -341,26 +434,31 @@ export const Hero: React.FC = () => {
             if (regionName && !foundRegions.has(regionName)) {
               foundRegions.add(regionName);
               console.log('[Hero] 뷰포트 내 지역 감지:', regionName);
-              loadJobPostings(regionName);
+              // 초기 로드 시 첫 번째 지역만 replace 모드로 로드
+              loadJobPostings(regionName, isInitial && isFirstRegion);
+              isFirstRegion = false;
             }
           }
         });
       });
     };
 
-    // 드래그 종료 시 뷰포트 내 지역 로드
-    window.kakao.maps.event.addListener(map, 'dragend', loadRegionsInViewport);
+    // 드래그 종료 시 뷰포트 내 지역 로드 + bounds 업데이트
+    window.kakao.maps.event.addListener(map, 'dragend', () => {
+      loadRegionsInViewport();
+    });
 
-    // 줌 레벨 변경 시 뷰포트 내 지역 로드
+    // 줌 레벨 변경 시 뷰포트 내 지역 로드 + bounds 업데이트
     window.kakao.maps.event.addListener(map, 'zoom_changed', () => {
       console.log('[Hero] 줌 레벨 변경, 현재 레벨:', map.getLevel());
       loadRegionsInViewport();
     });
 
-    // 초기 로드: 주요 수도권 지역 동시 로드
-    loadJobPostings('서울', true);
-    loadJobPostings('경기');
-    loadJobPostings('인천');
+    // 초기 로드: 현재 뷰포트(사용자 위치 기반) 지역 로드
+    // 지도가 완전히 초기화된 후 로드
+    setTimeout(() => {
+      loadRegionsInViewport(true);
+    }, 100);
   }, [isLoaded, mapCenter.lat, mapCenter.lng]);
 
   // 지도 클릭 이벤트 - 출발지 선택 모드 (별도 useEffect로 분리하여 mapClickMode 변경 시에만 업데이트)
