@@ -69,6 +69,9 @@ export const Hero: React.FC = () => {
   const teacherMapMarkersRef = useRef<any[]>([]);
   const programMapMarkersRef = useRef<any[]>([]);
 
+  // 로드된 지역 추적 (복수 지역 동시 표시용)
+  const loadedRegionsRef = useRef<Set<string>>(new Set());
+
   // 마커 팝업 상태
   const [selectedMarker, setSelectedMarker] = useState<{
     type: 'teacher' | 'program';
@@ -328,7 +331,10 @@ export const Hero: React.FC = () => {
       });
     });
 
-    loadJobPostings('서울');
+    // 초기 로드: 서울과 경기 동시 로드 (대부분의 공고 커버)
+    loadJobPostings('서울', true);
+    loadJobPostings('경기');
+    loadJobPostings('인천');
   }, [isLoaded, mapCenter.lat, mapCenter.lng]);
 
   // 지도 클릭 이벤트 - 출발지 선택 모드 (별도 useEffect로 분리하여 mapClickMode 변경 시에만 업데이트)
@@ -370,14 +376,34 @@ export const Hero: React.FC = () => {
     mapInstanceRef.current.setCenter(newCenter);
   }, [userLocation]);
 
-  // 공고 로드 함수
-  const loadJobPostings = async (regionName: string) => {
+  // 공고 로드 함수 (복수 지역 누적 로드)
+  const loadJobPostings = async (regionName: string, replace: boolean = false) => {
+    // 이미 로드된 지역이면 스킵 (replace 모드가 아닐 때)
+    if (!replace && loadedRegionsRef.current.has(regionName)) {
+      console.log('[Hero] 이미 로드된 지역 스킵:', regionName);
+      return;
+    }
+
     try {
       setIsJobsLoading(true);
       console.log('[Hero] 공고 데이터 로드 시작, 지역:', regionName);
       const jobs = await fetchJobsByBoardRegion(regionName, 250);
       console.log('[Hero] 공고 데이터 로드 완료:', jobs.length, '개');
-      setJobPostings(jobs);
+
+      if (replace) {
+        // 초기 로드 시 교체
+        loadedRegionsRef.current = new Set([regionName]);
+        setJobPostings(jobs);
+      } else {
+        // 지역 이동 시 누적 (중복 제거)
+        loadedRegionsRef.current.add(regionName);
+        setJobPostings(prev => {
+          const existingIds = new Set(prev.map(j => j.id));
+          const newJobs = jobs.filter(j => !existingIds.has(j.id));
+          console.log('[Hero] 새 공고 추가:', newJobs.length, '개 (기존:', prev.length, '개)');
+          return [...prev, ...newJobs];
+        });
+      }
     } catch (error) {
       console.error('[Hero] 공고 데이터 로드 실패:', error);
     } finally {
