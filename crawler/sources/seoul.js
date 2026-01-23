@@ -17,10 +17,10 @@ const SEOUL_DISTRICTS = [
   '용산구', '은평구', '종로구', '중구', '중랑구'
 ];
 
-// 기본 selectors - #srchDataDiv가 공고 목록을 감싸는 컨테이너
+// 기본 selectors - article 내부 ul/li가 공고 목록 (2026.01 구조 변경 대응)
 const DEFAULT_SELECTORS = {
-  listContainer: '#srchDataDiv',
-  rows: '#srchDataDiv > ul > li'
+  listContainer: 'article ul',
+  rows: 'article ul > li'
 };
 
 export async function crawlSeoul(page, config) {
@@ -133,19 +133,26 @@ export async function crawlSeoul(page, config) {
 
         console.log(`\n  🔍 행 ${i + 1} 처리 중...`);
 
-        // 목록에서 구조화된 정보 추출 (서울 포털 특화 - 카드 기반 레이아웃)
+        // 목록에서 구조화된 정보 추출 (서울 포털 특화 - 2026.01 구조 변경 대응)
         const listData = await row.evaluate((el) => {
           // 1. 상단 정보: 학교명 | 연락처 | 등록일 | 조회수
-          const sTitle = el.querySelector('.s_title')?.textContent?.trim() || '';
+          // 새 구조: 여러 셀렉터 시도
+          const sTitle = el.querySelector('.s_title')?.textContent?.trim()
+            || el.querySelector('p')?.textContent?.trim()
+            || '';
           const sTitleParts = sTitle.split('|').map(s => s.trim());
           const organization = sTitleParts[0] || '';
           const contact = sTitleParts[1] || '';
-          // 등록일 추출: "등록일 : 2025-12-24" 형태
-          const dateMatch = sTitle.match(/등록일\s*:\s*(\d{4}-\d{2}-\d{2})/);
+          // 등록일 추출: "등록일 : 2025-12-24" 형태 또는 "2025-12-24" 형태
+          const dateMatch = sTitle.match(/등록일\s*:\s*(\d{4}-\d{2}-\d{2})/)
+            || sTitle.match(/(\d{4}-\d{2}-\d{2})/);
           const registrationDate = dateMatch ? dateMatch[1] : '';
 
-          // 2. 제목 및 링크 추출
-          const titleLink = el.querySelector('.list_title a');
+          // 2. 제목 및 링크 추출 (여러 셀렉터 시도 - 구조 변경 대응)
+          const titleLink = el.querySelector('.list_title a')
+            || el.querySelector('h4 a')
+            || el.querySelector('a[href*="rcrtSn"]')
+            || el.querySelector('a');
           const title = titleLink?.textContent?.trim() || '';
           const href = titleLink?.getAttribute('href') || '';
 
