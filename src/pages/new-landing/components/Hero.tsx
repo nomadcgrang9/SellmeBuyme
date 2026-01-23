@@ -295,7 +295,7 @@ export const Hero: React.FC = () => {
         withCoords++;
         // bounds 내에 있는지 확인
         return lat >= viewportBounds.sw.lat && lat <= viewportBounds.ne.lat &&
-               lng >= viewportBounds.sw.lng && lng <= viewportBounds.ne.lng;
+          lng >= viewportBounds.sw.lng && lng <= viewportBounds.ne.lng;
       });
 
       console.log('[Hero] 뷰포트 필터링:', beforeCount, '→', filtered.length,
@@ -304,7 +304,7 @@ export const Hero: React.FC = () => {
     }
 
     return filtered;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [jobPostings, mapFilters, activeLocationFilter, deduplicateJobs, viewportBounds, coordsCacheVersion]);
 
   // 인증 상태 초기화
@@ -1393,9 +1393,8 @@ export const Hero: React.FC = () => {
 
       {/* 왼쪽 패널 컨테이너: 로고 + 카드 목록 + 상세 패널 + 토글 버튼 */}
       <div
-        className={`absolute top-4 z-10 flex items-start transition-all duration-300 ease-in-out ${
-          isPanelHidden ? '-left-[240px]' : 'left-4'
-        }`}
+        className={`absolute top-4 z-10 flex items-start transition-all duration-300 ease-in-out ${isPanelHidden ? '-left-[240px]' : 'left-4'
+          }`}
       >
         {/* 왼쪽 패널: 로고 + 필터 + 공고 목록 (한 몸처럼) */}
         <div className="w-[240px] bg-white/95 backdrop-blur-sm rounded-xl border border-gray-200 shadow-lg overflow-hidden flex flex-col max-h-[calc(100vh-32px)]" data-panel="list">
@@ -1420,7 +1419,7 @@ export const Hero: React.FC = () => {
               title="필터 초기화"
             >
               <img
-                src="/logo.png"
+                src="/picture/logo.png"
                 alt="쌤찾기"
                 className="h-[68px] w-auto"
               />
@@ -1438,13 +1437,12 @@ export const Hero: React.FC = () => {
                     e.stopPropagation();
                     setOpenDropdown(openDropdown === 'schoolLevel' ? null : 'schoolLevel');
                   }}
-                  className={`w-full px-3 py-2 text-xs rounded-lg border flex items-center justify-between gap-1 transition-all active:scale-[0.98] ${
-                    openDropdown === 'schoolLevel'
-                      ? 'bg-[#5B6EF7]/15 border-[#5B6EF7] text-[#5B6EF7] shadow-sm'
-                      : mapFilters.schoolLevels.length > 0
-                        ? 'bg-[#5B6EF7]/10 border-[#5B6EF7] text-[#5B6EF7]'
-                        : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50'
-                  }`}
+                  className={`w-full px-3 py-2 text-xs rounded-lg border flex items-center justify-between gap-1 transition-all active:scale-[0.98] ${openDropdown === 'schoolLevel'
+                    ? 'bg-[#5B6EF7]/15 border-[#5B6EF7] text-[#5B6EF7] shadow-sm'
+                    : mapFilters.schoolLevels.length > 0
+                      ? 'bg-[#5B6EF7]/10 border-[#5B6EF7] text-[#5B6EF7]'
+                      : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50'
+                    }`}
                   aria-expanded={openDropdown === 'schoolLevel'}
                   aria-haspopup="listbox"
                 >
@@ -1484,13 +1482,12 @@ export const Hero: React.FC = () => {
                     e.stopPropagation();
                     setOpenDropdown(openDropdown === 'subject' ? null : 'subject');
                   }}
-                  className={`w-full px-3 py-2 text-xs rounded-lg border flex items-center justify-between gap-1 transition-all active:scale-[0.98] ${
-                    openDropdown === 'subject'
-                      ? 'bg-[#5B6EF7]/15 border-[#5B6EF7] text-[#5B6EF7] shadow-sm'
-                      : mapFilters.subjects.length > 0
-                        ? 'bg-[#5B6EF7]/10 border-[#5B6EF7] text-[#5B6EF7]'
-                        : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50'
-                  }`}
+                  className={`w-full px-3 py-2 text-xs rounded-lg border flex items-center justify-between gap-1 transition-all active:scale-[0.98] ${openDropdown === 'subject'
+                    ? 'bg-[#5B6EF7]/15 border-[#5B6EF7] text-[#5B6EF7] shadow-sm'
+                    : mapFilters.subjects.length > 0
+                      ? 'bg-[#5B6EF7]/10 border-[#5B6EF7] text-[#5B6EF7]'
+                      : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50'
+                    }`}
                   aria-expanded={openDropdown === 'subject'}
                   aria-haspopup="listbox"
                 >
@@ -1603,124 +1600,122 @@ export const Hero: React.FC = () => {
 
           {/* 공고 카드 목록 (job 레이어 활성화 시만 표시) */}
           {activeLayers.includes('job') && (
-          <div
-            className={`overflow-y-auto transition-all duration-300 ease-in-out ${
-              isJobListCollapsed ? 'max-h-0 opacity-0' : 'flex-1 opacity-100'
-            }`}
-            style={{ minHeight: isJobListCollapsed ? 0 : undefined }}
-          >
-            {isJobsLoading ? (
-              <ListSkeleton count={5} />
-            ) : filteredJobPostings.length === 0 ? (
-              <EmptyState
-                type="filter"
-                title="조건에 맞는 공고가 없어요"
-                description="필터를 조정하거나 다른 지역을 선택해 보세요"
-                size="sm"
-              />
-            ) : (
-              <div className="divide-y divide-gray-100">
-                {filteredJobPostings.map((job) => (
-                  <div
-                    key={job.id}
-                    className={`group relative p-4 cursor-pointer transition-colors border-l-4 border-l-transparent ${selectedJob?.id === job.id
-                      ? 'bg-blue-50 !border-l-[#5B6EF7]'
-                      : 'hover:bg-gray-50'
-                      }`}
-                    onClick={() => handleCardClick(job)}
-                  >
-                    {/* 기관명 + D-day (카드와 동일한 색상 시스템) */}
-                    <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-xs text-gray-500 truncate flex-1">
-                        {job.organization || '기관 정보 없음'}
-                      </span>
-                      {job.daysLeft !== undefined && job.daysLeft <= 5 && (
-                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ml-1.5 ${
-                          job.daysLeft === 0
+            <div
+              className={`overflow-y-auto transition-all duration-300 ease-in-out ${isJobListCollapsed ? 'max-h-0 opacity-0' : 'flex-1 opacity-100'
+                }`}
+              style={{ minHeight: isJobListCollapsed ? 0 : undefined }}
+            >
+              {isJobsLoading ? (
+                <ListSkeleton count={5} />
+              ) : filteredJobPostings.length === 0 ? (
+                <EmptyState
+                  type="filter"
+                  title="조건에 맞는 공고가 없어요"
+                  description="필터를 조정하거나 다른 지역을 선택해 보세요"
+                  size="sm"
+                />
+              ) : (
+                <div className="divide-y divide-gray-100">
+                  {filteredJobPostings.map((job) => (
+                    <div
+                      key={job.id}
+                      className={`group relative p-4 cursor-pointer transition-colors border-l-4 border-l-transparent ${selectedJob?.id === job.id
+                        ? 'bg-blue-50 !border-l-[#5B6EF7]'
+                        : 'hover:bg-gray-50'
+                        }`}
+                      onClick={() => handleCardClick(job)}
+                    >
+                      {/* 기관명 + D-day (카드와 동일한 색상 시스템) */}
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-xs text-gray-500 truncate flex-1">
+                          {job.organization || '기관 정보 없음'}
+                        </span>
+                        {job.daysLeft !== undefined && job.daysLeft <= 5 && (
+                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ml-1.5 ${job.daysLeft === 0
                             ? 'bg-red-500 text-white'
                             : job.daysLeft <= 3
                               ? 'bg-red-100 text-red-700'
                               : 'bg-orange-100 text-orange-700'
-                        }`}>
-                          {job.daysLeft === 0 ? 'D-Day' : `D-${job.daysLeft}`}
-                        </span>
-                      )}
-                    </div>
+                            }`}>
+                            {job.daysLeft === 0 ? 'D-Day' : `D-${job.daysLeft}`}
+                          </span>
+                        )}
+                      </div>
 
-                    {/* 제목 + 태그 병기 */}
-                    <h5 className="text-sm font-semibold text-gray-800 leading-snug line-clamp-2 mb-2">
-                      {job.title}
-                      {job.tags && job.tags.length > 0 && (
-                        <span className="font-normal text-gray-500">
-                          {' '}({job.tags.slice(0, 2).join(', ')}{job.tags.length > 2 ? ' 외' : ''})
-                        </span>
-                      )}
-                    </h5>
+                      {/* 제목 + 태그 병기 */}
+                      <h5 className="text-sm font-semibold text-gray-800 leading-snug line-clamp-2 mb-2">
+                        {job.title}
+                        {job.tags && job.tags.length > 0 && (
+                          <span className="font-normal text-gray-500">
+                            {' '}({job.tags.slice(0, 2).join(', ')}{job.tags.length > 2 ? ' 외' : ''})
+                          </span>
+                        )}
+                      </h5>
 
-                    {/* 상세 정보: 위치, 보수, 마감일 */}
-                    <div className="space-y-1 text-xs text-gray-600">
-                      {job.location && (
-                        <div className="flex items-center gap-1.5">
-                          <svg className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                          </svg>
-                          <span className="truncate">{job.location}</span>
-                        </div>
-                      )}
-                      {job.compensation && (
-                        <div className="flex items-center gap-1.5">
-                          <svg className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                          <span className="truncate">{job.compensation}</span>
-                        </div>
-                      )}
-                      {job.deadline && (
-                        <div className="flex items-center gap-1.5">
-                          <svg className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                          </svg>
-                          <span>{(() => {
-                            // 마감일에서 요일 계산 (예: "01.12" -> "01.12(일)")
-                            const deadlineStr = job.deadline.replace(/^~\s*/, '').trim();
-                            const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
-                            // MM.DD 또는 YYYY.MM.DD 형식 파싱
-                            const parts = deadlineStr.split('.');
-                            if (parts.length >= 2) {
-                              const year = parts.length === 3 ? parseInt(parts[0]) : new Date().getFullYear();
-                              const month = parseInt(parts.length === 3 ? parts[1] : parts[0]) - 1;
-                              const day = parseInt(parts.length === 3 ? parts[2] : parts[1]);
-                              const date = new Date(year, month, day);
-                              if (!isNaN(date.getTime())) {
-                                const dayOfWeek = dayNames[date.getDay()];
-                                return `${deadlineStr}(${dayOfWeek})`;
+                      {/* 상세 정보: 위치, 보수, 마감일 */}
+                      <div className="space-y-1 text-xs text-gray-600">
+                        {job.location && (
+                          <div className="flex items-center gap-1.5">
+                            <svg className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                            <span className="truncate">{job.location}</span>
+                          </div>
+                        )}
+                        {job.compensation && (
+                          <div className="flex items-center gap-1.5">
+                            <svg className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span className="truncate">{job.compensation}</span>
+                          </div>
+                        )}
+                        {job.deadline && (
+                          <div className="flex items-center gap-1.5">
+                            <svg className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                            <span>{(() => {
+                              // 마감일에서 요일 계산 (예: "01.12" -> "01.12(일)")
+                              const deadlineStr = job.deadline.replace(/^~\s*/, '').trim();
+                              const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
+                              // MM.DD 또는 YYYY.MM.DD 형식 파싱
+                              const parts = deadlineStr.split('.');
+                              if (parts.length >= 2) {
+                                const year = parts.length === 3 ? parseInt(parts[0]) : new Date().getFullYear();
+                                const month = parseInt(parts.length === 3 ? parts[1] : parts[0]) - 1;
+                                const day = parseInt(parts.length === 3 ? parts[2] : parts[1]);
+                                const date = new Date(year, month, day);
+                                if (!isNaN(date.getTime())) {
+                                  const dayOfWeek = dayNames[date.getDay()];
+                                  return `${deadlineStr}(${dayOfWeek})`;
+                                }
                               }
-                            }
-                            return deadlineStr;
-                          })()}</span>
-                        </div>
-                      )}
-                    </div>
+                              return deadlineStr;
+                            })()}</span>
+                          </div>
+                        )}
+                      </div>
 
-                    {/* 호버 시 길찾기 버튼 - 테마 컬러 사용 */}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDirectionsClick(job);
-                      }}
-                      className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 px-2.5 py-1.5 bg-gray-700 hover:bg-gray-800 text-white text-xs font-semibold rounded-lg shadow-md flex items-center gap-1"
-                    >
-                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
-                      </svg>
-                      길찾기
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+                      {/* 호버 시 길찾기 버튼 - 테마 컬러 사용 */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDirectionsClick(job);
+                        }}
+                        className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 px-2.5 py-1.5 bg-gray-700 hover:bg-gray-800 text-white text-xs font-semibold rounded-lg shadow-md flex items-center gap-1"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                        </svg>
+                        길찾기
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
 
         </div>
