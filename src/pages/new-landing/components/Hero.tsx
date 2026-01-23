@@ -120,6 +120,7 @@ export const Hero: React.FC = () => {
   const [isJobListCollapsed, setIsJobListCollapsed] = useState(false);
   const [isPanelHidden, setIsPanelHidden] = useState(false);
   const [markerCount, setMarkerCount] = useState(0);
+  const [coordsCacheVersion, setCoordsCacheVersion] = useState(0); // 캐시 업데이트 감지용
   const mapMarkersRef = useRef<any[]>([]);
   const coordsCacheRef = useRef<Map<string, { lat: number; lng: number }>>(new Map());
 
@@ -281,7 +282,8 @@ export const Hero: React.FC = () => {
     }
 
     return filtered;
-  }, [jobPostings, mapFilters, activeLocationFilter, deduplicateJobs, viewportBounds]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jobPostings, mapFilters, activeLocationFilter, deduplicateJobs, viewportBounds, coordsCacheVersion]);
 
   // 인증 상태 초기화
   const { initialize: initializeAuth } = useAuthStore();
@@ -826,16 +828,27 @@ export const Hero: React.FC = () => {
     let currentInfowindow: any = null;
 
     // sessionStorage에서 캐시 복원
+    let cacheRestored = false;
     try {
       const savedCache = sessionStorage.getItem('jobCoordsCache');
       if (savedCache) {
         const parsed = JSON.parse(savedCache);
+        const beforeSize = cache.size;
         Object.entries(parsed).forEach(([k, v]) => {
           if (!cache.has(k)) cache.set(k, v as { lat: number; lng: number });
         });
+        cacheRestored = cache.size > beforeSize;
+        if (cacheRestored) {
+          console.log(`[Hero] 캐시 복원: ${cache.size - beforeSize}개 좌표`);
+        }
       }
     } catch (e) {
       console.warn('[Hero] 캐시 복원 실패:', e);
+    }
+
+    // 캐시가 복원되었으면 뷰포트 필터링 트리거
+    if (cacheRestored) {
+      setCoordsCacheVersion(v => v + 1);
     }
 
     const coordsJobsMap = new Map<string, JobPostingCard[]>();
@@ -1032,6 +1045,11 @@ export const Hero: React.FC = () => {
 
       const elapsed = Date.now() - startTime;
       console.log(`[Hero] 마커 생성 완료: 성공 ${successCount}개, 실패 ${failedCount}개 (${elapsed}ms)`);
+
+      // 좌표 캐시가 업데이트되었으므로 뷰포트 필터링 다시 트리거
+      if (uncachedJobs.length > 0) {
+        setCoordsCacheVersion(v => v + 1);
+      }
     };
 
     processBatches();
