@@ -336,7 +336,7 @@
   "daejeon": {
     "name": "대전광역시교육청 학교인력채용",
     "baseUrl": "https://www.dje.go.kr/boardCnts/list.do?boardID=54&m=030202&s=dje",
-    "detailUrlTemplate": "https://www.dje.go.kr/boardCnts/view.do?boardID=54&m=030202&s=dje&boardSeq={SEQ}",
+    "detailUrlTemplate": "https://www.dje.go.kr/boardCnts/view.do?boardID=54&boardSeq={SEQ}&lev=0&searchType=null&statusYN=W&page=1&s=dje&m=030202&opType=N",
     "parserType": "custom",
     "region": "대전광역시",
     "isLocalGovernment": false,

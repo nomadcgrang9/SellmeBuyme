@@ -17,10 +17,11 @@ const SEOUL_DISTRICTS = [
   '용산구', '은평구', '종로구', '중구', '중랑구'
 ];
 
-// 기본 selectors - #srchDataDiv가 공고 목록을 감싸는 컨테이너
+// 기본 selectors - li.flex_cont가 실제 공고 목록 (2026.01 구조 변경 대응)
+// 주의: 'article ul > li'는 필터 메뉴(직종별, 지역별 등)까지 포함하므로 사용 금지
 const DEFAULT_SELECTORS = {
-  listContainer: '#srchDataDiv',
-  rows: '#srchDataDiv > ul > li'
+  listContainer: 'article ul',
+  rows: 'li.flex_cont'
 };
 
 export async function crawlSeoul(page, config) {

@@ -106,26 +106,26 @@ export async function crawlDaejeon(page, config) {
         const detailData = await page.evaluate(() => {
           let content = '';
 
-          // 본문 선택자 시도
+          // 본문 선택자 시도 (대전교육청 2026년 구조: article이 본문 영역)
           const contentSelectors = [
+            'article',  // 대전교육청 메인 본문 영역
             '.board_view',
             '.view_content',
             '.bbs_content',
             'td.content',
-            '.content',
-            'article'
+            '.content'
           ];
 
           for (const selector of contentSelectors) {
             const elem = document.querySelector(selector);
             if (elem) {
               content = elem.innerText.trim();
-              if (content.length > 50) break;
+              if (content.length > 100) break;  // 최소 100자 이상이어야 유효
             }
           }
 
           // 전체 body 사용 (최후 수단)
-          if (content.length < 50) {
+          if (content.length < 100) {
             content = document.body.innerText.substring(0, 5000).trim();
           }
 
