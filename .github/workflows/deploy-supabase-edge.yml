@@ -11,6 +11,7 @@ on:
         options:
           - generate-crawler
           - admin-crawl-run
+          - dashboard-analytics
 
 jobs:
   deploy:
