@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import type { JobPostingCard } from '@/types';
 import { useSearchStore } from '@/stores/searchStore';
+import { formatLocationDisplay } from '@/lib/constants/regionHierarchy';
 
 interface JobCardProps {
   job: JobPostingCard;
@@ -85,7 +86,7 @@ export const JobCard: React.FC<JobCardProps> = ({ job, onClick, onDirectionsClic
             <svg className="w-3 h-3 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
             </svg>
-            <span className="truncate">{job.location}</span>
+            <span className="truncate">{formatLocationDisplay(job.location)}</span>
             <span className="text-gray-300">|</span>
             <span className="font-medium text-gray-700 truncate">{job.compensation}</span>
           </div>

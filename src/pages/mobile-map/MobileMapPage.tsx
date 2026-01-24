@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useKakaoMaps } from '@/hooks/useKakaoMaps';
 import { useGeolocation } from '@/lib/hooks/useGeolocation';
 import { fetchJobsByBoardRegion } from '@/lib/supabase/queries';
+import { formatLocationDisplay } from '@/lib/constants/regionHierarchy';
 import type { JobPostingCard } from '@/types';
 import MobileBottomSheet from './components/MobileBottomSheet';
 import MobileSearchBar from './components/MobileSearchBar';
@@ -719,7 +720,7 @@ const MobileMapPage: React.FC = () => {
           <div className="mb-4">
             <p className="text-sm text-gray-500 mb-1">목적지</p>
             <h3 className="font-bold text-gray-900">{directionsJob.organization}</h3>
-            <p className="text-sm text-gray-600">{directionsJob.location}</p>
+            <p className="text-sm text-gray-600">{formatLocationDisplay(directionsJob.location)}</p>
           </div>
 
           {/* 경로 정보 */}

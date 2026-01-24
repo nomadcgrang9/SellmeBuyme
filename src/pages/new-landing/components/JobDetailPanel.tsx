@@ -1,5 +1,6 @@
 import React from 'react';
 import type { JobPostingCard } from '@/types';
+import { formatLocationDisplay } from '@/lib/constants/regionHierarchy';
 
 interface JobDetailPanelProps {
   job: JobPostingCard | null;
@@ -76,7 +77,7 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
             </svg>
             <div>
               <p className="text-xs text-gray-500">위치</p>
-              <p className="text-sm text-gray-800">{job.location}</p>
+              <p className="text-sm text-gray-800">{formatLocationDisplay(job.location)}</p>
             </div>
           </div>
         )}
