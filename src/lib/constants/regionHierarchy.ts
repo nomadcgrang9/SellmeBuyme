@@ -588,6 +588,7 @@ for (const [composite, data] of Object.entries(COMPOSITE_REGIONS)) {
  * 크롤러 소스에서 "대구광역시", "충청북도" 등으로 저장된 경우 변환
  */
 export const PROVINCE_FULL_NAMES: Record<string, string> = {
+  // 풀네임 형태
   '서울특별시': '서울',
   '부산광역시': '부산',
   '대구광역시': '대구',
@@ -607,6 +608,13 @@ export const PROVINCE_FULL_NAMES: Record<string, string> = {
   '경상북도': '경북',
   '경상남도': '경남',
   '제주특별자치도': '제주',
+  // "도" 누락 형태 (DB에 잘못 저장된 경우)
+  '충청북': '충북',
+  '충청남': '충남',
+  '전라북': '전북',
+  '전라남': '전남',
+  '경상북': '경북',
+  '경상남': '경남',
 };
 
 /**
