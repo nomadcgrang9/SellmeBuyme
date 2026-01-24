@@ -12,6 +12,7 @@ import {
   IconHeart
 } from '@tabler/icons-react';
 import MapPopup from '@/components/map/MapPopup';
+import { formatLocationDisplay } from '@/lib/constants/regionHierarchy';
 import { useAuthStore } from '@/stores/authStore';
 import { useBookmarkStore } from '@/stores/bookmarkStore';
 import { addBookmark, removeBookmark } from '@/lib/supabase/queries';
@@ -178,7 +179,7 @@ function JobCard({ job, cardIndex = 0, onClick, onEditClick }: JobCardProps) {
             <div className="mt-3 space-y-1.5 text-sm text-gray-700">
               <div className="flex items-center gap-2 truncate">
                 <IconMapPin size={16} stroke={1.5} className="text-[#7aa3cc] flex-shrink-0" />
-                <span className="font-medium truncate">{job.location}</span>
+                <span className="font-medium truncate">{formatLocationDisplay(job.location)}</span>
               </div>
               <div className="flex items-center gap-2 truncate">
                 <IconCoin size={16} stroke={1.5} className="text-[#7aa3cc] flex-shrink-0" />

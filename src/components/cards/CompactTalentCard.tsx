@@ -4,6 +4,7 @@ import { IconMapPin, IconBriefcase, IconStar } from '@tabler/icons-react';
 import { MessageCircle } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { createOrGetChatRoom } from '@/lib/supabase/chat';
+import { formatLocationDisplay } from '@/lib/constants/regionHierarchy';
 
 interface CompactTalentCardProps {
   talent: TalentCardType;
@@ -111,7 +112,7 @@ function CompactTalentCard({ talent, onClick }: CompactTalentCardProps) {
         <div className="mt-3 space-y-1 text-xs text-gray-700">
           <div className="flex items-center gap-1.5">
             <IconMapPin size={14} stroke={1.5} className="text-[#7aa3cc] flex-shrink-0" />
-            <span className="font-medium truncate">{talent.location}</span>
+            <span className="font-medium truncate">{formatLocationDisplay(talent.location)}</span>
           </div>
           <div className="flex items-center gap-1.5">
             <IconBriefcase size={14} stroke={1.5} className="text-purple-500 flex-shrink-0" />

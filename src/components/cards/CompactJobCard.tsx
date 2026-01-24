@@ -1,6 +1,7 @@
 import { memo } from 'react';
 import { JobPostingCard } from '@/types';
 import { IconMapPin, IconCoin, IconClock } from '@tabler/icons-react';
+import { formatLocationDisplay } from '@/lib/constants/regionHierarchy';
 
 interface CompactJobCardProps {
   job: JobPostingCard;
@@ -57,7 +58,7 @@ function CompactJobCard({ job, onClick }: CompactJobCardProps) {
         <div className="mt-3 space-y-1 text-xs text-gray-700">
           <div className="flex items-center gap-1.5">
             <IconMapPin size={14} stroke={1.5} className="text-[#7aa3cc] flex-shrink-0" />
-            <span className="font-medium truncate">{job.location}</span>
+            <span className="font-medium truncate">{formatLocationDisplay(job.location)}</span>
           </div>
           <div className="flex items-center gap-1.5">
             <IconCoin size={14} stroke={1.5} className="text-[#7aa3cc] flex-shrink-0" />

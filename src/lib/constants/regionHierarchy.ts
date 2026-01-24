@@ -109,6 +109,8 @@ export const PROVINCE_TO_CITIES: Record<string, string[]> = {
     '연천군',
     // 복합 지역 (교육지원청 관할)
     '구리남양주',
+    '광주하남',
+    '동두천양주',
   ],
 
   인천: [
@@ -545,6 +547,117 @@ for (const [province, cities] of Object.entries(PROVINCE_TO_CITIES)) {
 }
 
 /**
+ * 복합 교육지원청 매핑
+ * - 2개 이상의 시/군을 하나의 교육지원청이 관할하는 경우
+ * - 공고의 location에 "광주하남"처럼 합쳐진 형태로 저장됨
+ */
+export const COMPOSITE_REGIONS: Record<string, {
+  province: string;
+  cities: string[];
+}> = {
+  '광주하남': {
+    province: '경기',
+    cities: ['광주', '하남', '광주시', '하남시'],
+  },
+  '동두천양주': {
+    province: '경기',
+    cities: ['동두천', '양주', '동두천시', '양주시'],
+  },
+  '구리남양주': {
+    province: '경기',
+    cities: ['구리', '남양주', '구리시', '남양주시'],
+  },
+};
+
+/**
+ * 역매핑: 개별 도시 → 해당 도시를 포함하는 복합 교육지원청 목록
+ * 향후 시/군/구 필터 확장 시 사용
+ */
+export const CITY_TO_COMPOSITE: Record<string, string[]> = {};
+for (const [composite, data] of Object.entries(COMPOSITE_REGIONS)) {
+  for (const city of data.cities) {
+    if (!CITY_TO_COMPOSITE[city]) {
+      CITY_TO_COMPOSITE[city] = [];
+    }
+    CITY_TO_COMPOSITE[city].push(composite);
+  }
+}
+
+/**
+ * 광역시도 풀네임 → 약칭 매핑
+ * 크롤러 소스에서 "대구광역시", "충청북도" 등으로 저장된 경우 변환
+ */
+export const PROVINCE_FULL_NAMES: Record<string, string> = {
+  '서울특별시': '서울',
+  '부산광역시': '부산',
+  '대구광역시': '대구',
+  '인천광역시': '인천',
+  '광주광역시': '광주',
+  '대전광역시': '대전',
+  '울산광역시': '울산',
+  '세종특별자치시': '세종',
+  '경기도': '경기',
+  '강원특별자치도': '강원',
+  '강원도': '강원',
+  '충청북도': '충북',
+  '충청남도': '충남',
+  '전북특별자치도': '전북',
+  '전라북도': '전북',
+  '전라남도': '전남',
+  '경상북도': '경북',
+  '경상남도': '경남',
+  '제주특별자치도': '제주',
+};
+
+/**
+ * 위치 문자열에서 광역자치단체 추출
+ * @param location - 공고의 location 필드 값
+ * @returns 광역자치단체 약칭 (예: "서울", "경기") 또는 null
+ */
+export function getProvinceFromLocation(location: string): string | null {
+  if (!location) return null;
+
+  // 1단계: 풀네임 → 약칭 변환 (예: "대구광역시" → "대구")
+  for (const [fullName, shortName] of Object.entries(PROVINCE_FULL_NAMES)) {
+    if (location.includes(fullName)) {
+      return shortName;
+    }
+  }
+
+  // 2단계: 광역자치단체명 직접 포함 확인 (예: "서울 종로구", "경기 파주시")
+  const provinces = Object.keys(PROVINCE_TO_CITIES);
+  for (const province of provinces) {
+    if (location.includes(province)) {
+      return province;
+    }
+  }
+
+  // 3단계: 복합 교육지원청 처리 (예: "광주하남" → "경기")
+  for (const [composite, data] of Object.entries(COMPOSITE_REGIONS)) {
+    if (location.includes(composite)) {
+      return data.province;
+    }
+  }
+
+  // 4단계: 기초자치단체명으로 광역자치단체 매핑 (예: "의정부" → "경기")
+  const locationParts = location.split(/[\s,·]/);
+  for (const part of locationParts) {
+    // 정확한 매칭 시도
+    if (CITY_TO_PROVINCE[part]) {
+      return CITY_TO_PROVINCE[part];
+    }
+
+    // 접미사 제거 후 매칭 ("의정부시" → "의정부")
+    const cleanPart = part.replace(/(시|군|구)$/, '');
+    if (CITY_TO_PROVINCE[cleanPart]) {
+      return CITY_TO_PROVINCE[cleanPart];
+    }
+  }
+
+  return null;
+}
+
+/**
  * 광역시도명에서 검색 키워드 추출
  * 예: "경기도 전체" → "경기", "서울특별시 전체" → "서울"
  */
@@ -616,4 +729,76 @@ export function expandProvinceToAllCities(regionFilter: string): string[] {
 
   // 광역시도명 자체도 포함 (DB에 "경기", "서울" 등으로 저장된 경우 대응)
   return [provinceKey, ...cities];
+}
+
+/**
+ * 위치에서 기초자치단체 추출 및 정규화
+ * @param location - 원본 위치 문자열
+ * @returns 정규화된 기초자치단체명
+ */
+function extractCityFromLocation(location: string): string {
+  if (!location) return '';
+
+  let city = location.trim();
+
+  // 1. 광역시도 풀네임 제거 (예: "대구광역시 수성구" → "수성구")
+  for (const fullName of Object.keys(PROVINCE_FULL_NAMES)) {
+    city = city.replace(fullName, '').trim();
+  }
+
+  // 2. 광역시도 약칭 제거 (예: "경기 의정부시" → "의정부시")
+  for (const shortName of Object.keys(PROVINCE_TO_CITIES)) {
+    if (city.startsWith(shortName + ' ')) {
+      city = city.replace(shortName + ' ', '').trim();
+      break;
+    }
+    // 정확히 광역시도명만 있는 경우
+    if (city === shortName) {
+      return '';
+    }
+  }
+
+  // 3. "시" 접미사 제거 (구, 군은 유지)
+  // 예: "의정부시" → "의정부", "중랑구" → "중랑구", "가평군" → "가평군"
+  if (city.endsWith('시') && city.length > 1) {
+    city = city.slice(0, -1);
+  }
+
+  return city.trim();
+}
+
+/**
+ * 위치 문자열을 "광역 기초" 형식으로 변환
+ *
+ * @param location - 원본 위치 (예: "의정부", "중랑구", "경기 의정부시")
+ * @returns 포맷된 위치 (예: "경기 의정부", "서울 중랑구")
+ *
+ * @example
+ * formatLocationDisplay("의정부") // "경기 의정부"
+ * formatLocationDisplay("중랑구") // "서울 중랑구"
+ * formatLocationDisplay("경기 의정부시") // "경기 의정부"
+ * formatLocationDisplay("여수시") // "전남 여수"
+ * formatLocationDisplay("청주") // "충북 청주"
+ */
+export function formatLocationDisplay(location: string): string {
+  if (!location) return '';
+
+  // 1. 광역자치단체 추출
+  const province = getProvinceFromLocation(location);
+
+  // 2. 기초자치단체 추출 및 정리
+  const city = extractCityFromLocation(location);
+
+  // 3. 결합
+  if (province && city) {
+    return `${province} ${city}`;
+  }
+
+  // 광역만 있는 경우 (예: "서울", "경기")
+  if (province && !city) {
+    return province;
+  }
+
+  // 파싱 실패 시 원본 반환
+  return location;
 }

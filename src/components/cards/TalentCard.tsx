@@ -4,6 +4,7 @@ import { IconMapPin, IconBriefcase, IconStar, IconPhone, IconAt, IconHeart } fro
 import { MessageCircle } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { useBookmarkStore } from '@/stores/bookmarkStore';
+import { formatLocationDisplay } from '@/lib/constants/regionHierarchy';
 import { getTalentImage, handleImageError } from '@/lib/utils/cardImages';
 import { createOrGetChatRoom } from '@/lib/supabase/chat';
 import { addBookmark, removeBookmark } from '@/lib/supabase/queries';
@@ -158,7 +159,7 @@ function TalentCard({ talent, onEditClick, isHighlight, onOpenChatModal }: Talen
           <div className="mt-auto space-y-1.5 text-sm text-gray-700">
           <div className="flex items-center gap-2">
             <IconMapPin size={16} stroke={1.5} className="text-[#2f855a] flex-shrink-0" />
-            <span className="font-medium truncate">{talent.location}</span>
+            <span className="font-medium truncate">{formatLocationDisplay(talent.location)}</span>
           </div>
           <div className="flex items-center gap-2">
             <IconBriefcase size={16} stroke={1.5} className="text-[#3b8c6e] flex-shrink-0" />

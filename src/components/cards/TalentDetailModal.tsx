@@ -1,5 +1,6 @@
 import { TalentCard } from '@/types';
 import { IconX, IconMapPin, IconBriefcase, IconShieldCheck, IconPhone, IconAt, IconId } from '@tabler/icons-react';
+import { formatLocationDisplay } from '@/lib/constants/regionHierarchy';
 
 interface TalentDetailModalProps {
   talent: TalentCard;
@@ -41,7 +42,7 @@ export default function TalentDetailModal({ talent, isOpen, onClose, onEditClick
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="flex items-center gap-2 text-gray-700">
               <IconMapPin size={18} stroke={1.5} className="text-emerald-600" />
-              <span className="font-medium">{talent.location}</span>
+              <span className="font-medium">{formatLocationDisplay(talent.location)}</span>
             </div>
             <div className="flex items-center gap-2 text-gray-700">
               <IconBriefcase size={18} stroke={1.5} className="text-emerald-600" />
