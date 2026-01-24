@@ -945,7 +945,7 @@ export const Hero: React.FC = () => {
 
       // 학교급별 색상 마커 생성
       const schoolLevel = getSchoolLevelFromJob(job);
-      const isUrgent = job.daysLeft !== undefined && job.daysLeft <= 3;
+      const isUrgent = job.daysLeft !== undefined && job.daysLeft <= 1;
       const markerSVG = generateSchoolLevelMarker(schoolLevel, job.daysLeft, isUrgent);
 
       // 긴급 마커는 크기가 다름 (펄스 링 여유 공간)

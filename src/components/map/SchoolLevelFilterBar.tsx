@@ -19,9 +19,9 @@ interface SchoolLevelFilterBarProps {
 }
 
 // 개선된 색상 팔레트 - 마커와 동일, 색상환에서 균등 분산
-// 유치원: Coral Pink, 초등: Green, 중학: Blue, 고등: Deep Purple, 특수: Amber, 기타: Blue Grey
+// 유치원: Warm Brown, 초등: Green, 중학: Blue, 고등: Deep Purple, 특수: Amber, 기타: Blue Grey
 const SCHOOL_LEVEL_COLORS: Record<string, { base: string; light: string; text: string }> = {
-  '유치원':   { base: '#FF6B7A', light: '#FFF0F1', text: '#B8293A' },
+  '유치원':   { base: '#8D6E63', light: '#EFEBE9', text: '#3E2723' },
   '초등학교': { base: '#4CAF50', light: '#E8F5E9', text: '#1B5E20' },
   '중학교':   { base: '#2196F3', light: '#E3F2FD', text: '#0D47A1' },
   '고등학교': { base: '#7C4DFF', light: '#EDE7F6', text: '#4A148C' },

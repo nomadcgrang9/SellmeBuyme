@@ -3,7 +3,7 @@
  * SchoolLevelFilterBar와 동일한 색상 팔레트 사용
  *
  * 색상환 분산 원칙: 각 학교급이 명확히 구분되도록 균등 배치
- * - 유치원: Coral Pink (350°) - 따뜻함, 유아
+ * - 유치원: Warm Brown (30°) - 따뜻함, 유아
  * - 초등학교: Green (120°) - 성장, 자연
  * - 중학교: Blue (210°) - 신뢰, 안정
  * - 고등학교: Deep Purple (270°) - 성숙, 학문
@@ -12,7 +12,7 @@
  */
 
 export const SCHOOL_LEVEL_MARKER_COLORS = {
-  '유치원':   { fill: '#FF6B7A', stroke: '#D84A5A', text: '#B8293A' },
+  '유치원':   { fill: '#8D6E63', stroke: '#6D4C41', text: '#3E2723' },
   '초등학교': { fill: '#4CAF50', stroke: '#388E3C', text: '#1B5E20' },
   '중학교':   { fill: '#2196F3', stroke: '#1976D2', text: '#0D47A1' },
   '고등학교': { fill: '#7C4DFF', stroke: '#651FFF', text: '#4A148C' },
@@ -124,12 +124,12 @@ export function generateSchoolLevelMarker(
   <!-- 긴급: 펄스 링 (확장된 공간에서 잘리지 않음) -->
   <circle cx="${centerX}" cy="${centerY}" r="${baseSize.innerCircleRadius + 4}"
           fill="none" stroke="#EF4444" stroke-width="2.5" opacity="0.8">
-    <animate attributeName="r" values="${baseSize.innerCircleRadius + 3};${baseSize.innerCircleRadius + 7};${baseSize.innerCircleRadius + 3}" dur="1s" repeatCount="indefinite"/>
-    <animate attributeName="opacity" values="0.9;0.3;0.9" dur="1s" repeatCount="indefinite"/>
+    <animate attributeName="r" values="${baseSize.innerCircleRadius + 3};${baseSize.innerCircleRadius + 7};${baseSize.innerCircleRadius + 3}" dur="2s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" values="0.9;0.3;0.9" dur="2s" repeatCount="indefinite"/>
   </circle>
   <!-- 긴급: 느낌표 배지 (오른쪽으로 약간 이동) -->
   <circle cx="${offsetX + baseSize.width}" cy="${offsetY + 5}" r="6" fill="#EF4444" stroke="white" stroke-width="1.5">
-    <animate attributeName="r" values="5;7;5" dur="0.8s" repeatCount="indefinite"/>
+    <animate attributeName="r" values="5;7;5" dur="2s" repeatCount="indefinite"/>
   </circle>
   <text x="${offsetX + baseSize.width}" y="${offsetY + 9}" text-anchor="middle" font-size="9" font-weight="bold" fill="white" font-family="system-ui">!</text>
   <!-- 핀 바디 (물방울 형태) -->
