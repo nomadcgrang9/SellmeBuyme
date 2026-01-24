@@ -32,29 +32,49 @@ export async function loadPage(page, url, waitForSelector = null, options = {}) 
   try {
     response = await page.goto(url, {
       waitUntil: 'networkidle',
-      timeout: 30000
+      timeout: 45000  // 30초 → 45초로 증가
     });
     logStep('playwright.loadPage', 'networkidle 대기 완료', { url });
   } catch (error) {
     if (!isTimeoutError(error)) {
       logWarn('playwright.loadPage', '페이지 이동 실패 (networkidle)', { url, error: error.message });
-      throw error;
+      // timeout이 아닌 에러는 retryable로 반환
+      return {
+        success: false,
+        response: null,
+        error: error.message,
+        retryable: true,
+        blockInfo: null
+      };
     }
     logWarn('playwright.loadPage', '네트워크 유휴 대기 타임아웃, domcontentloaded 재시도', { url });
-    if (page.url() === url) {
-      try {
-        await page.waitForLoadState('domcontentloaded', { timeout: 10000 });
-        logDebug('playwright.loadPage', 'domcontentloaded 대기 성공', { url });
-      } catch (_waitError) {
-        await page.waitForLoadState('load', { timeout: 10000 }).catch(() => {});
-        logDebug('playwright.loadPage', 'load 대기 결과 (fallback)', { url });
+
+    try {
+      if (page.url() === url) {
+        try {
+          await page.waitForLoadState('domcontentloaded', { timeout: 15000 });
+          logDebug('playwright.loadPage', 'domcontentloaded 대기 성공', { url });
+        } catch (_waitError) {
+          await page.waitForLoadState('load', { timeout: 15000 }).catch(() => {});
+          logDebug('playwright.loadPage', 'load 대기 결과 (fallback)', { url });
+        }
+      } else {
+        response = await page.goto(url, {
+          waitUntil: 'domcontentloaded',
+          timeout: 90000  // 60초 → 90초로 증가
+        });
+        logStep('playwright.loadPage', 'domcontentloaded 재호출 성공', { url });
       }
-    } else {
-      response = await page.goto(url, {
-        waitUntil: 'domcontentloaded',
-        timeout: 60000
-      });
-      logStep('playwright.loadPage', 'domcontentloaded 재호출 성공', { url });
+    } catch (retryError) {
+      // domcontentloaded도 실패하면 retryable로 반환
+      logWarn('playwright.loadPage', 'domcontentloaded 재시도도 실패', { url, error: retryError.message });
+      return {
+        success: false,
+        response: null,
+        error: retryError.message,
+        retryable: true,
+        blockInfo: null
+      };
     }
   }
 

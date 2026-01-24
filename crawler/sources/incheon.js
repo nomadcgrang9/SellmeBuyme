@@ -113,6 +113,12 @@ export async function crawlIncheon(page, config) {
 
         const row = currentRows[i];
 
+        // td 개수 검증: 검색 필터 행(td 1개) 스킵, 실제 공고는 td 8개
+        const tdCount = await row.$$eval('td', tds => tds.length);
+        if (tdCount < 5) {
+          continue; // 검색 필터 행 스킵
+        }
+
         console.log(`\n  🔍 행 ${i + 1} 디버깅:`);
 
         let title = await getTextBySelectors(row, config.selectors.title);

@@ -194,9 +194,18 @@ export async function crawlChungbuk(page, config) {
 
       if (existing) {
         skippedCount++;
+        consecutiveDuplicates++;
+
+        // 연속 중복 한계 도달 시 종료
+        if (consecutiveDuplicates >= SAFETY.consecutiveDuplicateLimit) {
+          console.log(`  ⚠️ 연속 중복 ${SAFETY.consecutiveDuplicateLimit}개 도달 - 크롤링 종료`);
+          break;
+        }
         continue;
       }
 
+      // 신규 항목 발견 시 연속 중복 카운터 리셋
+      consecutiveDuplicates = 0;
       processedCount++;
 
       console.log(`\n  🔍 신규 공고 ${processedCount} (ID: ${nttId})`);

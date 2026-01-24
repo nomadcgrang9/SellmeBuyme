@@ -24,7 +24,21 @@ export async function crawlGwangju(page, config) {
 
         console.log(`📄 목록 페이지 1 크롤링...`);
         const listUrl = `${config.baseUrl}&page=1`;
-        await page.goto(listUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
+
+        // 광주 사이트 응답 지연 대응: 재시도 로직 및 타임아웃 증가
+        let retries = 3;
+        while (retries > 0) {
+            try {
+                await page.goto(listUrl, { waitUntil: 'domcontentloaded', timeout: 90000 });
+                await page.waitForTimeout(3000); // 페이지 완전 로딩 대기
+                break;
+            } catch (e) {
+                retries--;
+                if (retries === 0) throw e;
+                console.log(`  ⚠️ 페이지 로딩 재시도 (남은 횟수: ${retries})`);
+                await page.waitForTimeout(5000);
+            }
+        }
 
         const rows = await page.$$('table tbody tr');
 
@@ -116,7 +130,9 @@ export async function crawlGwangju(page, config) {
 }
 
 async function crawlDetailPage(page, url) {
-    await page.goto(url, { waitUntil: 'networkidle', timeout: 45000 });
+    // networkidle 대신 domcontentloaded 사용 (사이트 응답 지연 대응)
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
+    await page.waitForTimeout(2000); // 콘텐츠 로딩 대기
 
     // 상세 정보 추출 (마감일 포함)
     const detailInfo = await page.evaluate(() => {

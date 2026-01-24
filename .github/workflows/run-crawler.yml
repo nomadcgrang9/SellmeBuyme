@@ -8,26 +8,43 @@ on:
         required: true
         type: choice
         options:
-          - gyeonggi
-          - seongnam
-          - uijeongbu
-          - namyangju
+          # 광역시/도 (14개)
+          - seoul
           - busan
           - daegu
+          - incheon
+          - gwangju
           - daejeon
           - ulsan
-          - gwangju
-          - jeonbuk
-          - jeonnam
-          - jeju
-          - gyeongbuk
-          - gyeongnam
-          - incheon
-          - seoul
-          - gangwon
           - sejong
+          - gyeonggi
+          - gangwon
           - chungbuk
           - chungnam
+          - jeonbuk
+          - jeonnam
+          - gyeongbuk
+          - gyeongnam
+          - jeju
+          # 경기도 시/군 (18개)
+          - seongnam
+          - goyang
+          - uijeongbu
+          - namyangju
+          - bucheon
+          - gimpo
+          - gwangmyeong
+          - gwangjuhanam
+          - gurinamyangju
+          - anseong
+          - pyeongtaek
+          - paju
+          - yangpyeong
+          - pocheon
+          - yeoncheon
+          - dongducheonyangjyu
+          - gapyeong1
+          - gapyeong2
       mode:
         description: 'Crawl mode (run or test)'
         required: false
@@ -95,26 +112,43 @@ jobs:
       fail-fast: false
       matrix:
         source:
-          - gyeonggi
-          - seongnam
-          - uijeongbu
-          - namyangju
+          # 광역시/도 (14개)
+          - seoul
           - busan
           - daegu
+          - incheon
+          - gwangju
           - daejeon
           - ulsan
-          - gwangju
-          - jeonbuk
-          - jeonnam
-          - jeju
-          - gyeongbuk
-          - gyeongnam
-          - incheon
-          - seoul
-          - gangwon
           - sejong
+          - gyeonggi
+          - gangwon
           - chungbuk
           - chungnam
+          - jeonbuk
+          - jeonnam
+          - gyeongbuk
+          - gyeongnam
+          - jeju
+          # 경기도 시/군 (18개)
+          - seongnam
+          - goyang
+          - uijeongbu
+          - namyangju
+          - bucheon
+          - gimpo
+          - gwangmyeong
+          - gwangjuhanam
+          - gurinamyangju
+          - anseong
+          - pyeongtaek
+          - paju
+          - yangpyeong
+          - pocheon
+          - yeoncheon
+          - dongducheonyangjyu
+          - gapyeong1
+          - gapyeong2
 
     steps:
       - name: Checkout code
