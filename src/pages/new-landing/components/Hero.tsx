@@ -12,18 +12,33 @@ import { DirectionsPanel } from '@/components/directions/DirectionsPanel';
 import TeacherMarkerModal from '@/components/map/TeacherMarkerModal';
 import ProgramMarkerModal from '@/components/map/ProgramMarkerModal';
 import FullScreenLocationPicker from '@/components/map/FullScreenLocationPicker';
-import BottomControlBar from '@/components/map/BottomControlBar';
+import SchoolLevelFilterBar from '@/components/map/SchoolLevelFilterBar';
 import MarkerPopup from '@/components/map/MarkerPopup';
 import AuthModal from '@/components/auth/AuthModal';
 import ProfileButton from '@/components/auth/ProfileButton';
 import EmptyState from '@/components/common/EmptyState';
 import { ListSkeleton } from '@/components/common/CardSkeleton';
+import { getSchoolLevelFromJob, generateSchoolLevelMarker, MARKER_SIZE, URGENT_MARKER_SIZE } from '@/lib/constants/markerColors';
+
+// 간단한 debounce 유틸리티
+function debounce<T extends (...args: any[]) => void>(fn: T, delay: number): T & { cancel: () => void } {
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  const debounced = (...args: Parameters<T>) => {
+    if (timeoutId) clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => fn(...args), delay);
+  };
+  debounced.cancel = () => {
+    if (timeoutId) clearTimeout(timeoutId);
+  };
+  return debounced as T & { cancel: () => void };
+}
 
 // Window 전역 타입 정의
 declare global {
   interface Window {
     selectJobFromMarker?: (jobId: string) => void;
     __currentFilteredJobPostings?: JobPostingCard[];
+    __currentSelectedJobId?: string | null;
   }
 }
 import { useAuthStore } from '@/stores/authStore';
@@ -38,9 +53,11 @@ export const Hero: React.FC = () => {
   const [mapFilters, setMapFilters] = useState<{
     schoolLevels: string[];
     subjects: string[];
+    urgentOnly: boolean;  // 긴급 공고만 필터링
   }>({
     schoolLevels: [],
     subjects: [],
+    urgentOnly: false,
   });
 
   // 드롭다운 열림 상태
@@ -55,9 +72,11 @@ export const Hero: React.FC = () => {
     setSelectedJobRef.current = setSelectedJob;
   }, [setSelectedJob]);
 
-  // selectedJob 변경 감지 디버깅
+  // selectedJob 변경 감지 디버깅 + 전역 변수 동기화 (마커 토글용)
   useEffect(() => {
     console.log('[Hero] ⭐ selectedJob 변경됨:', selectedJob ? `공고: ${selectedJob.title}` : 'null');
+    // 전역 변수에 현재 선택된 공고 ID 저장 (selectJobFromMarker 토글 체크용)
+    (window as any).__currentSelectedJobId = selectedJob?.id ?? null;
   }, [selectedJob]);
 
   // 길찾기 관련 상태
@@ -104,13 +123,22 @@ export const Hero: React.FC = () => {
     position: { x: number; y: number };
   } | null>(null);
 
-  // 레이어 토글 핸들러
-  const toggleLayer = useCallback((layer: MarkerLayer) => {
-    setActiveLayers(prev =>
-      prev.includes(layer)
-        ? prev.filter(l => l !== layer)
-        : [...prev, layer]
-    );
+  // 카드 목록 컨테이너 ref (마커 클릭 시 해당 카드로 스크롤용)
+  const jobListContainerRef = useRef<HTMLDivElement>(null);
+
+  // 마커 클릭 시 해당 카드로 스크롤하는 함수
+  const scrollToJobCard = useCallback((jobId: string) => {
+    const cardElement = document.querySelector(`[data-job-id="${jobId}"]`);
+    if (cardElement && jobListContainerRef.current) {
+      // 카드가 목록 컨테이너 내에서 보이도록 스크롤
+      cardElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+      // 시각적 하이라이트 효과 (일시적)
+      cardElement.classList.add('ring-2', 'ring-blue-500', 'ring-offset-2');
+      setTimeout(() => {
+        cardElement.classList.remove('ring-2', 'ring-blue-500', 'ring-offset-2');
+      }, 2000);
+    }
   }, []);
 
   // 필터 토글 핸들러
@@ -181,50 +209,11 @@ export const Hero: React.FC = () => {
     // 먼저 중복 제거
     let filtered = deduplicateJobs(jobPostings);
 
-    // 학교급 필터
+    // 학교급 필터 - getSchoolLevelFromJob과 동일한 로직 사용
     if (mapFilters.schoolLevels.length > 0) {
       filtered = filtered.filter(job => {
-        const schoolLevel = (job.school_level || '').toLowerCase();
-        const hasSchoolLevel = schoolLevel.length > 0;
-        const org = (job.organization || '').toLowerCase();
-
-        return mapFilters.schoolLevels.some(level => {
-          if (level === '유치원') {
-            return schoolLevel.includes('유치원') ||
-              (!hasSchoolLevel && org.includes('유치원'));
-          }
-          if (level === '초등학교') {
-            return schoolLevel.includes('초등') ||
-              (!hasSchoolLevel && org.includes('초등'));
-          }
-          if (level === '중학교') {
-            return schoolLevel.includes('중학') || schoolLevel.includes('중등') ||
-              (!hasSchoolLevel && (org.includes('중학') || org.includes('중등')));
-          }
-          if (level === '고등학교') {
-            return schoolLevel.includes('고등') || schoolLevel.includes('고교') ||
-              (!hasSchoolLevel && (org.includes('고등') || org.includes('고교')));
-          }
-          if (level === '특수학교') {
-            return schoolLevel.includes('특수') ||
-              (!hasSchoolLevel && org.includes('특수'));
-          }
-          if (level === '기타') {
-            const schoolLevelHasKeyword = schoolLevel.includes('유치원') || schoolLevel.includes('초등') ||
-              schoolLevel.includes('중학') || schoolLevel.includes('중등') ||
-              schoolLevel.includes('고등') || schoolLevel.includes('고교') || schoolLevel.includes('특수');
-
-            if (hasSchoolLevel) {
-              return !schoolLevelHasKeyword;
-            } else {
-              return !org.includes('유치원') && !org.includes('초등') &&
-                !org.includes('중학') && !org.includes('중등') &&
-                !org.includes('고등') && !org.includes('고교') &&
-                !org.includes('특수');
-            }
-          }
-          return false;
-        });
+        const jobSchoolLevel = getSchoolLevelFromJob(job);
+        return mapFilters.schoolLevels.includes(jobSchoolLevel);
       });
     }
 
@@ -265,6 +254,13 @@ export const Hero: React.FC = () => {
             title.includes(specificKeyword);
         });
       }
+    }
+
+    // 긴급 공고 필터 (D-3 이하만)
+    if (mapFilters.urgentOnly) {
+      filtered = filtered.filter(job => {
+        return job.daysLeft !== undefined && job.daysLeft >= 0 && job.daysLeft <= 3;
+      });
     }
 
     // 뷰포트 기반 필터링 (줌 인/아웃 시 현재 화면에 보이는 공고만 표시)
@@ -486,15 +482,20 @@ export const Hero: React.FC = () => {
       });
     };
 
+    // Debounced 뷰포트 로딩 (150ms) - 빠른 줌/드래그 시 중복 호출 방지
+    const debouncedLoadRegions = debounce(() => {
+      loadRegionsInViewport();
+    }, 150);
+
     // 드래그 종료 시 뷰포트 내 지역 로드 + bounds 업데이트
     window.kakao.maps.event.addListener(map, 'dragend', () => {
-      loadRegionsInViewport();
+      debouncedLoadRegions();
     });
 
     // 줌 레벨 변경 시 뷰포트 내 지역 로드 + bounds 업데이트
     window.kakao.maps.event.addListener(map, 'zoom_changed', () => {
       console.log('[Hero] 줌 레벨 변경, 현재 레벨:', map.getLevel());
-      loadRegionsInViewport();
+      debouncedLoadRegions();
     });
 
     // 초기 로드: 현재 뷰포트(사용자 위치 기반) 지역 로드
@@ -820,8 +821,13 @@ export const Hero: React.FC = () => {
     console.log('[Hero] 지도 이동 완료, 새 중심:', map.getCenter().getLat(), map.getCenter().getLng());
   }, []);
 
-  // 카드 클릭 핸들러 (상세 패널 열기 + 지도 이동)
+  // 카드 클릭 핸들러 (상세 패널 열기 + 지도 이동, 토글 지원)
   const handleCardClick = useCallback((job: JobPostingCard) => {
+    // 토글: 이미 선택된 공고면 선택 해제
+    if (selectedJob?.id === job.id) {
+      setSelectedJob(null);
+      return;
+    }
     setSelectedJob(job);
 
     if (!mapInstanceRef.current) return;
@@ -866,7 +872,7 @@ export const Hero: React.FC = () => {
         }
       });
     }
-  }, [moveMapToCoords]);
+  }, [moveMapToCoords, selectedJob]);
 
   // 공고 마커 표시 (최적화: 병렬 배치 처리 + 캐시 즉시 처리 + sessionStorage 영구 캐시)
   useEffect(() => {
@@ -936,10 +942,30 @@ export const Hero: React.FC = () => {
 
       const position = new window.kakao.maps.LatLng(finalCoords.lat, finalCoords.lng);
 
-      // 기본 마커 사용
+      // 학교급별 색상 마커 생성
+      const schoolLevel = getSchoolLevelFromJob(job);
+      const isUrgent = job.daysLeft !== undefined && job.daysLeft <= 3;
+      const markerSVG = generateSchoolLevelMarker(schoolLevel, job.daysLeft, isUrgent);
+
+      // 긴급 마커는 크기가 다름 (펄스 링 여유 공간)
+      const markerSize = isUrgent ? URGENT_MARKER_SIZE : MARKER_SIZE;
+      const markerWidth = isUrgent ? URGENT_MARKER_SIZE.width : MARKER_SIZE.width;
+      const markerHeight = isUrgent ? URGENT_MARKER_SIZE.height : MARKER_SIZE.height;
+      // 긴급 마커는 패딩이 있으므로 offset 조정
+      const offsetX = isUrgent ? URGENT_MARKER_SIZE.padding + MARKER_SIZE.centerX : MARKER_SIZE.centerX;
+      const offsetY = isUrgent ? URGENT_MARKER_SIZE.height - 2 : MARKER_SIZE.height - 2;
+
+      const markerImage = new window.kakao.maps.MarkerImage(
+        `data:image/svg+xml,${encodeURIComponent(markerSVG)}`,
+        new window.kakao.maps.Size(markerWidth, markerHeight),
+        { offset: new window.kakao.maps.Point(offsetX, offsetY) }
+      );
+
       const marker = new window.kakao.maps.Marker({
         position: position,
         map: map,
+        image: markerImage,
+        clickable: true,
       });
 
       // 마커 클릭 이벤트
@@ -1007,37 +1033,52 @@ export const Hero: React.FC = () => {
       setMarkerCount(prev => prev + 1);
     };
 
-    // 인포윈도우에서 공고 선택 시 호출될 전역 함수 (cleanup에서 삭제되지 않음)
-    if (!(window as any).selectJobFromMarker) {
-      (window as any).selectJobFromMarker = (jobId: string) => {
-        console.log('[Hero] selectJobFromMarker 호출됨, jobId:', jobId);
+    // 인포윈도우에서 공고 선택 시 호출될 전역 함수 (매번 업데이트하여 최신 scrollToJobCard 접근, 토글 지원)
+    (window as any).selectJobFromMarker = (jobId: string) => {
+      console.log('[Hero] selectJobFromMarker 호출됨, jobId:', jobId);
 
-        // 🔒 InfoWindow 내부 클릭도 지도 클릭 무시 (이벤트 버블링 방지)
-        ignoreMapClickRef.current = true;
-        setTimeout(() => {
-          ignoreMapClickRef.current = false;
-          console.log('[Hero] 🔓 지도 클릭 무시 해제 (InfoWindow)');
-        }, 150);
+      // 🔒 InfoWindow 내부 클릭도 지도 클릭 무시 (이벤트 버블링 방지)
+      ignoreMapClickRef.current = true;
+      setTimeout(() => {
+        ignoreMapClickRef.current = false;
+        console.log('[Hero] 🔓 지도 클릭 무시 해제 (InfoWindow)');
+      }, 150);
 
-        // ref를 통해 항상 최신 filteredJobPostings와 setSelectedJob 접근
-        const currentJobs = (window as any).__currentFilteredJobPostings || [];
-        const job = currentJobs.find((j: any) => j.id === jobId);
-        console.log('[Hero] job 찾기 결과:', job ? `찾음 (${job.title})` : '못 찾음');
-        console.log('[Hero] setSelectedJobRef.current 타입:', typeof setSelectedJobRef.current);
-        console.log('[Hero] setSelectedJobRef.current 존재:', !!setSelectedJobRef.current);
-        if (job && setSelectedJobRef.current) {
-          console.log('[Hero] setSelectedJob 호출 시작, job:', job);
-          try {
-            setSelectedJobRef.current(job);
-            console.log('[Hero] ✅ setSelectedJob 호출 완료');
-          } catch (error) {
-            console.error('[Hero] ❌ setSelectedJob 호출 오류:', error);
-          }
-        } else {
-          console.log('[Hero] ❌ 호출 실패 - job:', !!job, 'ref:', !!setSelectedJobRef.current);
+      // 현재 선택된 공고 ID 가져오기 (토글 체크용)
+      const currentSelectedId = (window as any).__currentSelectedJobId;
+
+      // 토글: 이미 선택된 공고면 선택 해제
+      if (currentSelectedId === jobId) {
+        console.log('[Hero] 토글: 이미 선택된 공고 → 선택 해제');
+        if (setSelectedJobRef.current) {
+          setSelectedJobRef.current(null);
         }
-      };
-    }
+        return;
+      }
+
+      // ref를 통해 항상 최신 filteredJobPostings와 setSelectedJob 접근
+      const currentJobs = (window as any).__currentFilteredJobPostings || [];
+      const job = currentJobs.find((j: any) => j.id === jobId);
+      console.log('[Hero] job 찾기 결과:', job ? `찾음 (${job.title})` : '못 찾음');
+
+      if (job && setSelectedJobRef.current) {
+        console.log('[Hero] setSelectedJob 호출 시작, job:', job);
+        try {
+          setSelectedJobRef.current(job);
+          console.log('[Hero] ✅ setSelectedJob 호출 완료');
+
+          // ★ 핵심: 마커 클릭 시 카드 목록에서 해당 카드로 스크롤
+          setTimeout(() => {
+            scrollToJobCard(jobId);
+            console.log('[Hero] ✅ 카드 스크롤 완료:', jobId);
+          }, 100);
+        } catch (error) {
+          console.error('[Hero] ❌ setSelectedJob 호출 오류:', error);
+        }
+      } else {
+        console.log('[Hero] ❌ 호출 실패 - job:', !!job, 'ref:', !!setSelectedJobRef.current);
+      }
+    };
 
     // 현재 filteredJobPostings를 전역에 저장 (selectJobFromMarker에서 접근용)
     (window as any).__currentFilteredJobPostings = filteredJobPostings;
@@ -1368,29 +1409,21 @@ export const Hero: React.FC = () => {
         }}
       />
 
-      {/* 하단 중앙: 컨트롤 바 */}
+      {/* 하단 중앙: 학교급 필터 바 */}
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20">
-        <BottomControlBar
-          activeLayers={activeLayers}
-          onToggleLayer={toggleLayer}
-          onTeacherMarkerClick={() => {
-            if (authStatus !== 'authenticated') {
-              setShowLoginPrompt(true);
-              return;
-            }
-            // 전체화면 위치 선택 먼저 열기
-            setLocationPickerType('teacher');
-            setIsLocationPickerOpen(true);
+        <SchoolLevelFilterBar
+          selectedLevels={mapFilters.schoolLevels}
+          onToggleLevel={(level) => {
+            setMapFilters((prev) => ({
+              ...prev,
+              schoolLevels: prev.schoolLevels.includes(level)
+                ? prev.schoolLevels.filter((l) => l !== level)
+                : [...prev.schoolLevels, level],
+            }));
           }}
-          onProgramMarkerClick={() => {
-            if (authStatus !== 'authenticated') {
-              setShowLoginPrompt(true);
-              return;
-            }
-            // 전체화면 위치 선택 먼저 열기
-            setLocationPickerType('program');
-            setIsLocationPickerOpen(true);
-          }}
+          onClearAll={() => setMapFilters((prev) => ({ ...prev, schoolLevels: [], urgentOnly: false }))}
+          urgentOnly={mapFilters.urgentOnly}
+          onToggleUrgent={() => setMapFilters((prev) => ({ ...prev, urgentOnly: !prev.urgentOnly }))}
         />
       </div>
 
@@ -1447,7 +1480,7 @@ export const Hero: React.FC = () => {
             <button
               onClick={() => {
                 // 필터 초기화
-                setMapFilters({ schoolLevels: [], subjects: [] });
+                setMapFilters({ schoolLevels: [], subjects: [], urgentOnly: false });
                 setLocationSearchQuery('');
                 setActiveLocationFilter(null);
                 // 목록 펼치기
@@ -1658,11 +1691,12 @@ export const Hero: React.FC = () => {
                   size="sm"
                 />
               ) : (
-                <div className="divide-y divide-gray-100">
+                <div className="divide-y divide-gray-100" ref={jobListContainerRef}>
                   {filteredJobPostings.map((job) => (
                     <div
                       key={job.id}
-                      className={`group relative p-4 cursor-pointer transition-colors border-l-4 border-l-transparent ${selectedJob?.id === job.id
+                      data-job-id={job.id}
+                      className={`group relative p-4 cursor-pointer transition-all border-l-4 border-l-transparent ${selectedJob?.id === job.id
                         ? 'bg-blue-50 !border-l-[#5B6EF7]'
                         : 'hover:bg-gray-50'
                         }`}
