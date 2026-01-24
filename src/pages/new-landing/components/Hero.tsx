@@ -146,6 +146,9 @@ export const Hero: React.FC = () => {
   // 마커-공고 매핑 (마커 클릭 시 상세 패널 열기용)
   const markerJobMapRef = useRef<Map<any, JobPostingCard>>(new Map());
 
+  // 공고ID → 실제 마커 좌표 매핑 (카드 클릭 시 정확한 위치로 이동)
+  const jobMarkerCoordsRef = useRef<Map<string, { lat: number; lng: number }>>(new Map());
+
   // 마커 클릭 직후 지도 클릭 무시 플래그
   const ignoreMapClickRef = useRef(false);
 
@@ -271,13 +274,18 @@ export const Hero: React.FC = () => {
       let withoutCoords = 0;
 
       filtered = filtered.filter(job => {
-        // DB에 저장된 좌표 사용
-        let lat = job.latitude;
-        let lng = job.longitude;
+        // 선택된 공고는 항상 목록에 포함 (지도 이동 후에도 상세 패널 유지)
+        if (selectedJob && job.id === selectedJob.id) {
+          return true;
+        }
 
-        // DB 좌표가 없으면 캐시된 좌표 사용 (마커 생성 로직과 동일한 키 형식)
+        // 실제 마커 좌표 우선 사용 (중복 마커 오프셋이 적용된 정확한 위치)
+        const markerCoords = jobMarkerCoordsRef.current.get(job.id);
+        let lat = markerCoords?.lat ?? job.latitude;
+        let lng = markerCoords?.lng ?? job.longitude;
+
+        // 마커 좌표도 DB 좌표도 없으면 캐시된 좌표 사용
         if (lat == null || lng == null) {
-          // 마커 생성 시 사용하는 키: job.organization || job.location
           const cacheKey = job.organization || job.location || '';
           const cached = coordsCacheRef.current.get(cacheKey);
           if (cached) {
@@ -305,7 +313,7 @@ export const Hero: React.FC = () => {
 
     return filtered;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [jobPostings, mapFilters, activeLocationFilter, deduplicateJobs, viewportBounds, coordsCacheVersion]);
+  }, [jobPostings, mapFilters, activeLocationFilter, deduplicateJobs, viewportBounds, coordsCacheVersion, selectedJob]);
 
   // 인증 상태 초기화
   const { initialize: initializeAuth } = useAuthStore();
@@ -797,36 +805,68 @@ export const Hero: React.FC = () => {
     mapInstanceRef.current.setBounds(bounds, 50, 50, 50, 550); // 왼쪽 패널(카드+상세+길찾기) 고려한 여백
   }, []);
 
+  // 지도 이동 헬퍼 함수 (패널 오프셋 적용)
+  const moveMapToCoords = useCallback((lat: number, lng: number) => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+
+    console.log('[Hero] moveMapToCoords 호출:', { lat, lng });
+
+    // 마커 좌표로 직접 이동 (오프셋 없이)
+    const targetCoords = new window.kakao.maps.LatLng(lat, lng);
+    map.setCenter(targetCoords);
+    map.setLevel(3);
+
+    console.log('[Hero] 지도 이동 완료, 새 중심:', map.getCenter().getLat(), map.getCenter().getLng());
+  }, []);
+
   // 카드 클릭 핸들러 (상세 패널 열기 + 지도 이동)
   const handleCardClick = useCallback((job: JobPostingCard) => {
     setSelectedJob(job);
 
-    // 지도 이동 - 패널(카드리스트 240px + 상세패널 260px)을 피해 마커가 보이도록 오프셋
-    if (mapInstanceRef.current && job.organization) {
+    if (!mapInstanceRef.current) return;
+
+    // 1순위: 실제 마커 좌표 사용 (마커 생성 시 저장된 정확한 위치)
+    const markerCoords = jobMarkerCoordsRef.current.get(job.id);
+    if (markerCoords) {
+      console.log('[Hero] 카드 클릭 → 마커 좌표 사용:', markerCoords.lat, markerCoords.lng);
+      moveMapToCoords(markerCoords.lat, markerCoords.lng);
+      return;
+    }
+
+    // 2순위: job에 저장된 DB 좌표 사용
+    if (job.latitude && job.longitude) {
+      console.log('[Hero] 카드 클릭 → DB 좌표 사용:', job.latitude, job.longitude);
+      moveMapToCoords(job.latitude, job.longitude);
+      return;
+    }
+
+    // 3순위: 캐시된 좌표 사용
+    const cacheKey = job.organization || job.location;
+    if (cacheKey) {
+      const cached = coordsCacheRef.current.get(cacheKey);
+      if (cached) {
+        console.log('[Hero] 카드 클릭 → 캐시 좌표 사용:', cached.lat, cached.lng);
+        moveMapToCoords(cached.lat, cached.lng);
+        return;
+      }
+    }
+
+    // 4순위: Places API 검색 (fallback)
+    if (job.organization) {
+      console.log('[Hero] 카드 클릭 → Places API 검색:', job.organization);
       const places = new window.kakao.maps.services.Places();
       places.keywordSearch(job.organization, (result: any[], status: string) => {
         if (status === window.kakao.maps.services.Status.OK && result.length > 0) {
-          const map = mapInstanceRef.current;
-          const targetLat = parseFloat(result[0].y);
-          const targetLng = parseFloat(result[0].x);
-
-          // 현재 지도 레벨에 따라 픽셀→경도 변환 비율 계산
-          // 패널 총 너비: 카드리스트(240px) + 간격(12px) + 상세패널(260px) + 여백(30px) = 542px
-          // 마커가 패널 오른쪽에 충분한 여백을 두고 보이도록 지도 중심을 왼쪽으로 이동
-          const panelWidthPx = 300; // 패널 오른쪽 끝에서 약간 안쪽에 마커가 오도록
-          const bounds = map.getBounds();
-          const mapWidth = mapContainerRef.current?.offsetWidth || 800;
-          const lngPerPx = (bounds.getNorthEast().getLng() - bounds.getSouthWest().getLng()) / mapWidth;
-          const offsetLng = lngPerPx * panelWidthPx;
-
-          // 지도 중심을 서쪽(왼쪽)으로 이동 → 마커는 동쪽(오른쪽, 패널 없는 곳)에 표시됨
-          const adjustedCoords = new window.kakao.maps.LatLng(targetLat, targetLng - offsetLng);
-          map.panTo(adjustedCoords);
-          map.setLevel(3);
+          const lat = parseFloat(result[0].y);
+          const lng = parseFloat(result[0].x);
+          // 검색 결과를 캐시에 저장
+          coordsCacheRef.current.set(job.organization, { lat, lng });
+          moveMapToCoords(lat, lng);
         }
       });
     }
-  }, []);
+  }, [moveMapToCoords]);
 
   // 공고 마커 표시 (최적화: 병렬 배치 처리 + 캐시 즉시 처리 + sessionStorage 영구 캐시)
   useEffect(() => {
@@ -836,6 +876,7 @@ export const Hero: React.FC = () => {
     mapMarkersRef.current.forEach(marker => marker.setMap(null));
     mapMarkersRef.current = [];
     markerJobMapRef.current.clear();
+    jobMarkerCoordsRef.current.clear();
     setMarkerCount(0);
 
     // 레이어 비활성화 시 마커 표시 안함
@@ -961,6 +1002,8 @@ export const Hero: React.FC = () => {
       mapMarkersRef.current.push(marker);
       markerJobMapRef.current.set(marker, job);
       coordsMarkerMap.set(coordKey, marker);
+      // 공고 ID → 실제 마커 좌표 저장 (카드 클릭 시 정확한 위치로 이동하기 위함)
+      jobMarkerCoordsRef.current.set(job.id, finalCoords);
       setMarkerCount(prev => prev + 1);
     };
 
