@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronUp, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronUp, ChevronDown, ChevronLeft, ChevronRight, User } from 'lucide-react';
 import { SCHOOL_LEVELS } from '../constants';
 import { useKakaoMaps } from '@/hooks/useKakaoMaps';
 import { fetchJobsByBoardRegion } from '@/lib/supabase/queries';
@@ -1428,8 +1428,31 @@ export const Hero: React.FC = () => {
         />
       </div>
 
-      {/* 우측 하단: 로그인/회원가입 또는 프로필 버튼 */}
-      <div className="absolute bottom-4 right-4 z-20">
+      {/* 모바일: 프로필/로그인 버튼 (필터바 윗줄 우측) */}
+      <button
+        onClick={() => {
+          if (user) {
+            window.location.href = '/';
+          } else {
+            setAuthModalInitialTab('login');
+            setIsAuthModalOpen(true);
+          }
+        }}
+        className="md:hidden absolute bottom-[72px] right-4 z-20 w-11 h-11 bg-blue-500 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-blue-600 active:scale-95 transition-all"
+        style={{ boxShadow: '0 4px 14px rgba(59, 130, 246, 0.4)' }}
+        title={user ? '프로필' : '로그인'}
+      >
+        {user ? (
+          <div className="w-7 h-7 bg-white/20 rounded-full flex items-center justify-center text-white font-semibold text-xs">
+            {user.email?.charAt(0).toUpperCase() || 'U'}
+          </div>
+        ) : (
+          <User className="w-5 h-5" strokeWidth={2.5} />
+        )}
+      </button>
+
+      {/* 우측 하단: 로그인/회원가입 또는 프로필 버튼 - PC만 */}
+      <div className="hidden md:block absolute bottom-4 right-4 z-20">
         {user ? (
           <ProfileButton />
         ) : (
@@ -1476,8 +1499,8 @@ export const Hero: React.FC = () => {
         {/* 왼쪽 패널: 로고 + 필터 + 공고 목록 (한 몸처럼) */}
         <div className="w-[240px] bg-white/95 backdrop-blur-sm rounded-xl border border-gray-200 shadow-lg overflow-hidden flex flex-col max-h-[calc(100vh-32px)]" data-panel="list">
 
-          {/* 로고 영역 - 패널 최상단 */}
-          <div className="px-3 py-3 border-b border-gray-200 flex-shrink-0">
+          {/* 로고 영역 - 패널 최상단 (모바일에서 20% 축소) */}
+          <div className="px-3 py-2 md:py-3 border-b border-gray-200 flex-shrink-0">
             <button
               onClick={() => {
                 // 필터 초기화
@@ -1497,8 +1520,8 @@ export const Hero: React.FC = () => {
             >
               <img
                 src="/picture/logo.png"
-                alt="쌤찾기"
-                className="h-[68px] w-auto"
+                alt="학교일자리"
+                className="h-[46px] md:h-[68px] w-auto"
               />
             </button>
           </div>
@@ -1675,10 +1698,10 @@ export const Hero: React.FC = () => {
             </div>
           </div>
 
-          {/* 공고 카드 목록 (job 레이어 활성화 시만 표시) */}
+          {/* 공고 카드 목록 (job 레이어 활성화 시만 표시) - 모바일에서는 3개만 표시 */}
           {activeLayers.includes('job') && (
             <div
-              className={`overflow-y-auto transition-all duration-300 ease-in-out ${isJobListCollapsed ? 'max-h-0 opacity-0' : 'flex-1 opacity-100'
+              className={`overflow-y-auto transition-all duration-300 ease-in-out ${isJobListCollapsed ? 'max-h-0 opacity-0' : 'max-h-[420px] md:max-h-none md:flex-1 opacity-100'
                 }`}
               style={{ minHeight: isJobListCollapsed ? 0 : undefined }}
             >

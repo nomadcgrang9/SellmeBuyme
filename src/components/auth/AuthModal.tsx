@@ -100,7 +100,7 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }: Aut
 
                         {/* 로고 */}
                         <div className="flex justify-center mb-4">
-                            <img src="/logo.png" alt="쌤찾기" className="h-10" />
+                            <img src="/picture/logo.png" alt="학교일자리" className="h-10" />
                         </div>
 
                         {/* 모달 제목 */}

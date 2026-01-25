@@ -30,12 +30,12 @@ const SCHOOL_LEVEL_COLORS: Record<string, { base: string; light: string; text: s
 };
 
 const SCHOOL_LEVELS = [
-  { key: '유치원', label: '유치원' },
-  { key: '초등학교', label: '초등학교' },
-  { key: '중학교', label: '중학교' },
-  { key: '고등학교', label: '고등학교' },
-  { key: '특수학교', label: '특수학교' },
-  { key: '기타', label: '기타' },
+  { key: '유치원', label: '유치원', mobileLabel: '유' },
+  { key: '초등학교', label: '초등학교', mobileLabel: '초' },
+  { key: '중학교', label: '중학교', mobileLabel: '중' },
+  { key: '고등학교', label: '고등학교', mobileLabel: '고' },
+  { key: '특수학교', label: '특수학교', mobileLabel: '특수' },
+  { key: '기타', label: '기타', mobileLabel: '기타' },
 ];
 
 export default function SchoolLevelFilterBar({
@@ -97,7 +97,7 @@ export default function SchoolLevelFilterBar({
         </>
       )}
 
-      {SCHOOL_LEVELS.map(({ key, label }) => {
+      {SCHOOL_LEVELS.map(({ key, label, mobileLabel }) => {
         const isSelected = selectedLevels.includes(key);
         const isHovered = hoveredKey === key;
         const colors = SCHOOL_LEVEL_COLORS[key];
@@ -151,7 +151,8 @@ export default function SchoolLevelFilterBar({
                 boxShadow: getDotShadow(),
               }}
             />
-            <span>{label}</span>
+            <span className="sm:hidden">{mobileLabel}</span>
+            <span className="hidden sm:inline">{label}</span>
           </button>
         );
       })}
