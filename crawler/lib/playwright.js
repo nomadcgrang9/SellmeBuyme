@@ -47,7 +47,7 @@ export async function loadPage(page, url, waitForSelector = null, options = {}) 
   try {
     response = await page.goto(url, {
       waitUntil: 'networkidle',
-      timeout: 45000  // 30초 → 45초로 증가
+      timeout: 120000  // 30초 → 45초 → 120초로 증가 (부산교육청 대응)
     });
     logStep('playwright.loadPage', 'networkidle 대기 완료', { url });
   } catch (error) {
@@ -76,7 +76,7 @@ export async function loadPage(page, url, waitForSelector = null, options = {}) 
       } else {
         response = await page.goto(url, {
           waitUntil: 'domcontentloaded',
-          timeout: 90000  // 60초 → 90초로 증가
+          timeout: 180000  // 60초 → 90초 → 180초로 증가 (부산교육청 대응)
         });
         logStep('playwright.loadPage', 'domcontentloaded 재호출 성공', { url });
       }
