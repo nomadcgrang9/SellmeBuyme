@@ -3,6 +3,7 @@ import { useKakaoMaps } from '@/hooks/useKakaoMaps';
 import { useGeolocation } from '@/lib/hooks/useGeolocation';
 import { fetchJobsByBoardRegion } from '@/lib/supabase/queries';
 import { formatLocationDisplay } from '@/lib/constants/regionHierarchy';
+import { getSchoolLevelFromJob, SCHOOL_LEVEL_MARKER_COLORS } from '@/lib/constants/markerColors';
 import type { JobPostingCard } from '@/types';
 import MobileBottomSheet from './components/MobileBottomSheet';
 import MobileSearchBar from './components/MobileSearchBar';
@@ -242,17 +243,28 @@ const MobileMapPage: React.FC = () => {
 
       const position = new window.kakao.maps.LatLng(coords.lat, coords.lng);
 
-      // 마커 이미지 (D-day에 따른 색상)
+      // 학교급별 색상 적용
+      const schoolLevel = getSchoolLevelFromJob(job);
+      const schoolColors = SCHOOL_LEVEL_MARKER_COLORS[schoolLevel];
       const isUrgent = job.daysLeft !== undefined && job.daysLeft <= 3;
-      const markerColor = isUrgent ? '#EF4444' : '#3B82F6';
 
-      const markerSize = new window.kakao.maps.Size(28, 28);
+      // 마커 크기 (긴급일 경우 살짝 크게)
+      const size = isUrgent ? 32 : 28;
+      const markerSize = new window.kakao.maps.Size(size, size);
+      const center = size / 2;
+      const radius = (size / 2) - 2;
+
+      // 긴급 마커: 빨간 테두리 + 학교급 색상
+      // 일반 마커: 학교급 색상
+      const strokeColor = isUrgent ? '#EF4444' : 'white';
+      const strokeWidth = isUrgent ? 3 : 2;
+
       const markerImage = new window.kakao.maps.MarkerImage(
         `data:image/svg+xml,${encodeURIComponent(`
-          <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 28 28">
-            <circle cx="14" cy="14" r="12" fill="${markerColor}" stroke="white" stroke-width="2"/>
-            <text x="14" y="18" text-anchor="middle" fill="white" font-size="10" font-weight="bold">
-              ${job.daysLeft !== undefined ? `D-${job.daysLeft}` : ''}
+          <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+            <circle cx="${center}" cy="${center}" r="${radius}" fill="${schoolColors.fill}" stroke="${strokeColor}" stroke-width="${strokeWidth}"/>
+            <text x="${center}" y="${center + 4}" text-anchor="middle" fill="white" font-size="${isUrgent ? 11 : 10}" font-weight="bold">
+              ${job.daysLeft !== undefined ? `D-${job.daysLeft}` : schoolLevel.charAt(0)}
             </text>
           </svg>
         `)}`,
