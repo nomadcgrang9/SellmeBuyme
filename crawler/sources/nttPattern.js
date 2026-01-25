@@ -52,6 +52,16 @@ export async function crawlNttPattern(page, config) {
 
     await page.waitForTimeout(2000);
 
+    // 테이블 렌더링 대기 (JavaScript 동적 로딩 사이트 대응)
+    const tableSelector = config.selectors?.rows || 'table tbody tr';
+    try {
+      await page.waitForSelector(tableSelector, { timeout: 15000 });
+      console.log('✅ 테이블 렌더링 확인됨');
+    } catch (e) {
+      console.warn('⚠️ 테이블 셀렉터 대기 타임아웃, 추가 대기 후 진행...');
+      await page.waitForTimeout(3000);
+    }
+
     // 2. 게시글 목록 추출 (공통 셀렉터 사용)
     console.log('📋 게시글 목록 추출 중...');
 

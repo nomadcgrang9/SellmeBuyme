@@ -459,10 +459,12 @@ async function main() {
     const page = await browser.newPage();
     logStep('browser', '새 페이지 생성 완료');
 
-    // User-Agent 설정 (봇 감지 우회)
+    // User-Agent 및 브라우저 환경 설정 (봇 감지 우회)
     await page.setExtraHTTPHeaders({
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7'
     });
+    await page.setViewportSize({ width: 1920, height: 1080 });
 
     // 5. 크롤링 실행 (parserType 기반 라우팅 + 개별 크롤러 지원)
     const parserType = config.parserType || 'html';

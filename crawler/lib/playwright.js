@@ -8,8 +8,23 @@ import { validateHttpResponse, detectBlockedPage, validateAccess } from './acces
 export async function createBrowser() {
   return await chromium.launch({
     headless: true, // 백그라운드 실행
-    args: ['--no-sandbox', '--disable-setuid-sandbox']
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-gpu'
+    ]
   });
+}
+
+/**
+ * 일반 브라우저처럼 보이는 User-Agent 설정
+ */
+export async function setupPage(page) {
+  await page.setExtraHTTPHeaders({
+    'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7'
+  });
+  await page.setViewportSize({ width: 1920, height: 1080 });
 }
 
 /**
