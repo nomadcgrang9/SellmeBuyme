@@ -35,8 +35,8 @@ const MobileSearchBar: React.FC<MobileSearchBarProps> = ({
       <div className="flex items-center justify-center mb-2">
         <a href="/" className="flex items-center">
           <img
-            src="/logo.png"
-            alt="쌤찾기"
+            src="/picture/logo.png"
+            alt="학교일자리"
             className="h-10 w-auto"
           />
         </a>

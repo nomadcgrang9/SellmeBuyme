@@ -1,6 +1,7 @@
 import React from 'react';
 import type { JobPostingCard } from '@/types';
 import { formatLocationDisplay } from '@/lib/constants/regionHierarchy';
+import { getSchoolLevelFromJob, SCHOOL_LEVEL_MARKER_COLORS } from '@/lib/constants/markerColors';
 
 interface MobileJobCardProps {
   job: JobPostingCard;
@@ -15,7 +16,11 @@ const MobileJobCard: React.FC<MobileJobCardProps> = ({
   onClick,
   onDetailClick,
 }) => {
-  // D-day 색상
+  // 학교급 추출 및 색상
+  const schoolLevel = getSchoolLevelFromJob(job);
+  const schoolColors = SCHOOL_LEVEL_MARKER_COLORS[schoolLevel];
+
+  // D-day 색상 (긴급도 기반)
   const getDdayStyle = () => {
     if (job.daysLeft === undefined) return null;
     if (job.daysLeft <= 1) return 'bg-red-500 text-white';
@@ -49,7 +54,7 @@ const MobileJobCard: React.FC<MobileJobCardProps> = ({
     <div
       onClick={onClick}
       className={`
-        relative bg-white rounded-2xl p-4
+        relative bg-white rounded-2xl p-4 overflow-hidden
         transition-all duration-200 active:scale-[0.98]
         ${isSelected
           ? 'ring-2 ring-blue-500 shadow-lg'
@@ -57,14 +62,37 @@ const MobileJobCard: React.FC<MobileJobCardProps> = ({
         }
       `}
     >
-      {/* 상단: 기관명 + D-day */}
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-xs text-gray-500 truncate flex-1">{job.organization}</span>
-        {job.daysLeft !== undefined && (
-          <span className={`text-xs font-bold px-2 py-0.5 rounded-full ml-2 ${getDdayStyle()}`}>
-            D-{job.daysLeft}
+      {/* 학교급별 좌측 색상 바 */}
+      <div
+        className="absolute left-0 top-0 bottom-0 w-1 rounded-l-2xl"
+        style={{ backgroundColor: schoolColors.fill }}
+      />
+      {/* 상단: 학교급 + 기관명 + 긴급 + D-day */}
+      <div className="flex items-center justify-between mb-2 pl-2">
+        <div className="flex items-center gap-1.5 flex-1 min-w-0">
+          <span
+            className="text-xs font-medium px-1.5 py-0.5 rounded-full flex-shrink-0"
+            style={{
+              backgroundColor: schoolColors.fill + '20',
+              color: schoolColors.text,
+            }}
+          >
+            {schoolLevel}
           </span>
-        )}
+          <span className="text-xs text-gray-500 truncate">{job.organization}</span>
+        </div>
+        <div className="flex items-center gap-1.5 ml-2">
+          {job.isUrgent && (
+            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-red-500 text-white text-xs font-bold">
+              🔥 긴급
+            </span>
+          )}
+          {job.daysLeft !== undefined && (
+            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${getDdayStyle()}`}>
+              D-{job.daysLeft}
+            </span>
+          )}
+        </div>
       </div>
 
       {/* 제목 */}
