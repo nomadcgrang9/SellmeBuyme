@@ -24,6 +24,7 @@ import { parseJobField, deriveJobAttributes } from './lib/jobFieldParser.js';
 import { checkRobotsTxt, validateAccess, exponentialBackoff } from './lib/accessChecker.js';
 import dotenv from 'dotenv';
 import { logInfo, logStep, logWarn, logError, logDebug } from './lib/logger.js';
+import { updateSourceStart, updateSourceComplete, updateSourceFailed, updateSourceProgress } from './lib/progressTracker.js';
 
 dotenv.config();
 
@@ -465,6 +466,9 @@ async function main() {
       'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7'
     });
     await page.setViewportSize({ width: 1920, height: 1080 });
+
+    // 진행 상태 업데이트: 크롤링 시작
+    updateSourceStart(targetSource, 0);
 
     // 5. 크롤링 실행 (parserType 기반 라우팅 + 개별 크롤러 지원)
     const parserType = config.parserType || 'html';
@@ -952,6 +956,8 @@ async function main() {
     if (crawlSourceId) {
       await recordCrawlFailure(crawlSourceId, error.message || '알 수 없는 오류');
     }
+    // 진행 상태 업데이트: 크롤링 실패
+    updateSourceFailed(targetSource, error.message || '알 수 없는 오류');
     process.exit(1);
   } finally {
     if (browser) {
@@ -1007,6 +1013,13 @@ async function main() {
     processedCount,
     rawTotal: rawJobs.length,
     efficiency
+  });
+
+  // 진행 상태 업데이트: 크롤링 완료
+  updateSourceComplete(targetSource, {
+    new: successCount,
+    skipped: skippedCount,
+    processed: rawJobs.length
   });
 }
 

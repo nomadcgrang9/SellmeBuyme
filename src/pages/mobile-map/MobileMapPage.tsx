@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { User } from 'lucide-react';
 import { useKakaoMaps } from '@/hooks/useKakaoMaps';
 import { useGeolocation } from '@/lib/hooks/useGeolocation';
 import { fetchJobsByBoardRegion } from '@/lib/supabase/queries';
 import { formatLocationDisplay } from '@/lib/constants/regionHierarchy';
 import { getSchoolLevelFromJob, SCHOOL_LEVEL_MARKER_COLORS } from '@/lib/constants/markerColors';
+import { useAuthStore } from '@/stores/authStore';
 import type { JobPostingCard } from '@/types';
 import MobileBottomSheet from './components/MobileBottomSheet';
 import MobileSearchBar from './components/MobileSearchBar';
@@ -15,6 +17,9 @@ const SCHOOL_LEVELS = ['유치원', '초등학교', '중학교', '고등학교',
 const MAP_FILTER_SUBJECTS = ['국어', '영어', '수학', '사회', '과학', '체육', '음악', '미술', '정보', '보건', '사서', '상담'] as const;
 
 const MobileMapPage: React.FC = () => {
+  // 인증 상태
+  const { user, status } = useAuthStore();
+
   // 지도 관련 상태
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
@@ -130,6 +135,11 @@ const MobileMapPage: React.FC = () => {
   useEffect(() => {
     loadKakaoMaps();
   }, [loadKakaoMaps]);
+
+  // 인증 초기화
+  useEffect(() => {
+    useAuthStore.getState().initialize();
+  }, []);
 
   // 지역 기반 공고 로드 함수
   const loadJobPostings = useCallback(async (regionName: string) => {
@@ -581,6 +591,11 @@ const MobileMapPage: React.FC = () => {
   // 활성 필터 개수
   const activeFilterCount = filters.schoolLevels.length + filters.subjects.length;
 
+  // 바텀시트에 표시할 공고 (초기 3개만)
+  const displayedJobs = useMemo(() => {
+    return bottomSheetHeight === 'collapsed' ? filteredJobPostings.slice(0, 3) : filteredJobPostings;
+  }, [filteredJobPostings, bottomSheetHeight]);
+
   return (
     <div className="fixed inset-0 flex flex-col bg-gray-100">
       {/* 전체화면 지도 */}
@@ -601,7 +616,7 @@ const MobileMapPage: React.FC = () => {
         onClick={handleGetLocation}
         disabled={isLocating}
         className="absolute right-4 z-20 w-12 h-12 bg-white rounded-full shadow-lg flex items-center justify-center active:bg-gray-100 disabled:opacity-50"
-        style={{ bottom: bottomSheetHeight === 'collapsed' ? '140px' : bottomSheetHeight === 'half' ? '55%' : '85%' }}
+        style={{ bottom: bottomSheetHeight === 'collapsed' ? '440px' : bottomSheetHeight === 'half' ? '55%' : '85%' }}
       >
         {isLocating ? (
           <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
@@ -612,6 +627,52 @@ const MobileMapPage: React.FC = () => {
           </svg>
         )}
       </button>
+
+      {/* 로그인 플로팅 버튼 (범례 위) */}
+      <button
+        onClick={() => {
+          if (user) {
+            // 로그인 상태: 프로필 페이지로 이동
+            window.location.href = '/';
+          } else {
+            // 미로그인 상태: 홈으로 이동 (로그인 모달)
+            window.location.href = '/';
+          }
+        }}
+        className="absolute right-4 z-20 w-12 h-12 bg-blue-500 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-blue-600 active:scale-95 transition-all"
+        style={{ bottom: bottomSheetHeight === 'collapsed' ? '380px' : bottomSheetHeight === 'half' ? 'calc(55% - 60px)' : 'calc(85% - 60px)' }}
+        title={user ? '프로필' : '로그인'}
+      >
+        {user ? (
+          <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center text-white font-semibold text-sm">
+            {user.email?.charAt(0).toUpperCase() || 'U'}
+          </div>
+        ) : (
+          <User className="w-5 h-5 text-white" strokeWidth={2.5} />
+        )}
+      </button>
+
+      {/* 범례 (바텀시트 바로 위) */}
+      <div
+        className="absolute left-4 right-4 z-10 bg-white/90 backdrop-blur-sm rounded-xl shadow-lg px-3 py-1.5 flex items-center gap-2 overflow-x-auto"
+        style={{ bottom: '330px' }}
+      >
+        <div className="flex items-center gap-1.5 whitespace-nowrap">
+          <span className="text-xs text-gray-500">일반</span>
+        </div>
+        {SCHOOL_LEVELS.map((level) => {
+          const colors = SCHOOL_LEVEL_MARKER_COLORS[level];
+          return (
+            <div key={level} className="flex items-center gap-1.5 whitespace-nowrap">
+              <div
+                className="w-3 h-3 rounded-full"
+                style={{ backgroundColor: colors.fill }}
+              />
+              <span className="text-xs text-gray-700">{level}</span>
+            </div>
+          );
+        })}
+      </div>
 
       {/* 선택된 공고 미니 카드 (마커 클릭 시) */}
       {selectedJob && !showDetail && bottomSheetHeight === 'collapsed' && (
@@ -662,8 +723,8 @@ const MobileMapPage: React.FC = () => {
         jobCount={filteredJobPostings.length}
         isLoading={isLoading}
       >
-        <div className="space-y-3 pb-20">
-          {filteredJobPostings.map((job) => (
+        <div className="space-y-2 pb-4">
+          {displayedJobs.map((job) => (
             <MobileJobCard
               key={job.id}
               job={job}

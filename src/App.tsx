@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { User } from 'lucide-react';
 import Header from '@/components/layout/Header';
 import AIRecommendations from '@/components/ai/AIRecommendations';
 import AIInsightBox from '@/components/ai/AIInsightBox';
@@ -236,6 +237,7 @@ export default function App() {
   const [isBookmarkModalOpen, setIsBookmarkModalOpen] = useState(false);
   const [showBookmarkPage, setShowBookmarkPage] = useState(false);
   const [shouldResumeBookmark, setShouldResumeBookmark] = useState<'modal' | 'page' | false>(false);
+  const [showAllCards, setShowAllCards] = useState(false);
 
   // AI 추천 카드 클릭 시 전체 데이터 조회
   const handleCardClick = useCallback(async (card: Card) => {
@@ -1194,15 +1196,36 @@ export default function App() {
             </div>
           ) : (
             <>
-              <CardGrid
-                cards={cards}
-                onCardClick={handleCardClick}
-                onJobEditClick={handleJobEditClick}
-                onExperienceEditClick={handleExperienceEditClick}
-                onExperienceDeleteClick={handleExperienceDeleteClick}
-                highlightTalentId={highlightTalentId}
-                onOpenChatModal={handleOpenChatModal}
-              />
+              {/* CardGrid - 모바일에서는 처음 3개만 표시 (더보기 전까지) */}
+              {(() => {
+                // 모바일 감지 - window.innerWidth 사용
+                const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+                const displayedCards = isMobile && !showAllCards ? cards.slice(0, 3) : cards;
+
+                return (
+                  <CardGrid
+                    cards={displayedCards}
+                    onCardClick={handleCardClick}
+                    onJobEditClick={handleJobEditClick}
+                    onExperienceEditClick={handleExperienceEditClick}
+                    onExperienceDeleteClick={handleExperienceDeleteClick}
+                    highlightTalentId={highlightTalentId}
+                    onOpenChatModal={handleOpenChatModal}
+                  />
+                );
+              })()}
+
+              {/* 모바일: 더보기 버튼 (3개 이상일 때만 표시) */}
+              {!showAllCards && cards.length > 3 && (
+                <div className="md:hidden flex justify-center mt-6">
+                  <button
+                    onClick={() => setShowAllCards(true)}
+                    className="px-6 py-3 bg-blue-50 text-blue-600 font-medium rounded-lg hover:bg-blue-100 active:bg-blue-200 transition-colors"
+                  >
+                    더보기 ({cards.length - 3}개 더 있음)
+                  </button>
+                </div>
+              )}
 
               <div ref={sentinelRef} className="h-1" aria-hidden />
 
@@ -1405,6 +1428,20 @@ export default function App() {
         loadingProvider={loadingProvider}
         mode={authModalMode}
       />
+
+      {/* 모바일: 플로팅 로그인 버튼 (미인증 시만 표시) */}
+      {status !== 'authenticated' && (
+        <button
+          onClick={() => {
+            setAuthModalMode('login');
+            setIsAuthModalOpen(true);
+          }}
+          className="md:hidden fixed bottom-20 right-4 z-40 w-14 h-14 bg-blue-500 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-blue-600 active:scale-95 transition-all"
+          aria-label="로그인"
+        >
+          <User size={24} strokeWidth={2} />
+        </button>
+      )}
 
       {/* 모바일 하단 네비게이션 */}
       <MobileBottomNav

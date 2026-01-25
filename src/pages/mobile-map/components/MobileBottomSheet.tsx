@@ -25,7 +25,7 @@ const MobileBottomSheet: React.FC<MobileBottomSheetProps> = ({
   const getHeightStyle = () => {
     switch (height) {
       case 'collapsed':
-        return 'h-[80px]';
+        return 'h-[320px]';  // 3개 카드가 들어갈 수 있도록 높이 증가
       case 'half':
         return 'h-[50vh]';
       case 'full':
@@ -143,12 +143,10 @@ const MobileBottomSheet: React.FC<MobileBottomSheetProps> = ({
       {/* 콘텐츠 영역 */}
       <div
         ref={contentRef}
-        className={`
-          overflow-y-auto overscroll-contain px-4 pt-3
-          ${height === 'collapsed' ? 'hidden' : 'block'}
-        `}
+        className={`px-4 pt-3 ${height === 'collapsed' ? 'overflow-y-auto' : 'overflow-y-auto overscroll-contain'}`}
         style={{
-          height: height === 'half' ? 'calc(50vh - 80px)' : height === 'full' ? 'calc(85vh - 80px)' : 0,
+          height: height === 'collapsed' ? 'calc(320px - 80px)' : height === 'half' ? 'calc(50vh - 80px)' : 'calc(85vh - 80px)',
+          maxHeight: height === 'collapsed' ? '240px' : undefined,
         }}
       >
         {children}
