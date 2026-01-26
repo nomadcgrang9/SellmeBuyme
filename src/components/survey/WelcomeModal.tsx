@@ -30,11 +30,9 @@ export function WelcomeModal({ isOpen, onClose }: WelcomeModalProps) {
   };
 
   const handleSurveyClick = () => {
-    const surveyUrl = import.meta.env.VITE_SURVEY_URL;
-    if (surveyUrl) {
-      SurveyTracker.markLinkClicked();
-      window.open(surveyUrl, '_blank');
-    }
+    const surveyUrl = import.meta.env.VITE_SURVEY_URL || 'https://forms.gle/bX8eJ16E3yaZaDkB9';
+    SurveyTracker.markLinkClicked();
+    window.open(surveyUrl, '_blank');
     if (neverShowAgain) {
       SurveyTracker.markNeverShow();
     }
