@@ -1,0 +1,41 @@
+{
+    "id": "sellmebuyme-devnote",
+    "name": "셀바 개발자노트",
+    "short_name": "개발자노트",
+    "description": "셀미바이미 개발팀 협업 도구 - 아이디어 수집 및 게시판 등록",
+    "start_url": "/note?source=pwa",
+    "scope": "/note",
+    "display": "standalone",
+    "orientation": "portrait",
+    "theme_color": "#a8c5e0",
+    "background_color": "#f9fafb",
+    "lang": "ko",
+    "icons": [
+        {
+            "src": "/pwa-icons/icon-192x192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "any maskable"
+        },
+        {
+            "src": "/pwa-icons/icon-512x512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any maskable"
+        }
+    ],
+    "shortcuts": [
+        {
+            "name": "아이디어 작성",
+            "short_name": "아이디어",
+            "description": "새 아이디어 작성하기",
+            "url": "/note?source=pwa&action=new",
+            "icons": [
+                {
+                    "src": "/pwa-icons/icon-192x192.png",
+                    "sizes": "96x96"
+                }
+            ]
+        }
+    ]
+}

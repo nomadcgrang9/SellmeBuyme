@@ -1,0 +1,39 @@
+.pwa-install-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    background: linear-gradient(135deg, #4a90d9 0%, #357abd 100%);
+    color: white;
+    border: none;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s;
+    white-space: nowrap;
+}
+
+.pwa-install-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(74, 144, 217, 0.35);
+}
+
+.pwa-install-btn:active {
+    transform: translateY(0);
+}
+
+.pwa-install-text {
+    display: inline;
+}
+
+/* 모바일에서 텍스트 숨김 (아이콘만) */
+@media (max-width: 480px) {
+    .pwa-install-btn {
+        padding: 8px 10px;
+    }
+
+    .pwa-install-text {
+        display: none;
+    }
+}

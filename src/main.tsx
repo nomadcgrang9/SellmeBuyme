@@ -39,6 +39,29 @@ errorReporter.setupGlobalHandlers();
 
 const pathname = window.location.pathname
 
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// PWA 동적 manifest 전환 (경로별 분리)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+if (pathname.startsWith('/note')) {
+  // 개발자노트 PWA 설정으로 전환
+  const manifestLink = document.getElementById('pwa-manifest') as HTMLLinkElement | null;
+  if (manifestLink) {
+    manifestLink.href = '/note/manifest.webmanifest';
+  }
+
+  // 메타 태그 업데이트
+  const themeColor = document.querySelector('meta[name="theme-color"]');
+  if (themeColor) themeColor.setAttribute('content', '#a8c5e0');
+
+  const appTitle = document.querySelector('meta[name="apple-mobile-web-app-title"]');
+  if (appTitle) appTitle.setAttribute('content', '개발자노트');
+
+  const appleTouchIcon = document.querySelector('link[rel="apple-touch-icon"]') as HTMLLinkElement | null;
+  if (appleTouchIcon) appleTouchIcon.href = '/pwa-icons/apple-touch-icon.png';
+
+  document.title = '셀바 개발자노트';
+}
+
 // 기본값: NewLanding (모바일/PC 반응형 통합)
 let rootComponent = <NewLanding />
 

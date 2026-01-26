@@ -22,11 +22,12 @@ const ICON_MAP: Record<string, React.ReactNode> = {
 
 // 기본 배너 (데이터 로딩 전 또는 없을 때 표시)
 const DEFAULT_BANNER: HeroBanner = {
-    id: 'default',
-    title: '학교일과 선생님을 찾는',
-    subtitle: '가장 쉬운 방법 - 학교일자리',
+    id: 'survey',
+    title: '베타버전 후기 받습니다',
+    subtitle: '설문 참여해서 커피쿠폰 받기 →',
     bgColor: '#3B82F6',
     textColor: '#FFFFFF',
+    linkUrl: import.meta.env.VITE_SURVEY_URL,
     displayOrder: 0,
     isActive: true,
     createdAt: '',
@@ -39,19 +40,8 @@ export default function HeroCard() {
     const [currentIndex, setCurrentIndex] = useState(0);
     const [isLoading, setIsLoading] = useState(true);
 
-    // 데이터 로드 (DB 로직 잠시 비활성화하고 기본값 강제 사용)
+    // 데이터 로드 (DB 연동 활성화)
     useEffect(() => {
-        setBanners([DEFAULT_BANNER]);
-        setConfig({
-            id: 'dummy',
-            rotationSpeed: 5,
-            isActive: true,
-            createdAt: '',
-            updatedAt: ''
-        });
-        setIsLoading(false);
-
-        /* 기존 DB 로드 로직
         const loadBanners = async () => {
             try {
                 const [configData, bannersData] = await Promise.all([
@@ -68,6 +58,7 @@ export default function HeroCard() {
                 }
             } catch (error) {
                 console.error('Failed to load hero banners:', error);
+                // 에러 발생 시 기본값으로 fallback
                 setBanners([DEFAULT_BANNER]);
             } finally {
                 setIsLoading(false);
@@ -75,7 +66,6 @@ export default function HeroCard() {
         };
 
         loadBanners();
-        */
     }, []);
 
     // 캐러셀 타이머

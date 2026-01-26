@@ -1,0 +1,129 @@
+.pwa-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 16px;
+  animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.pwa-modal-content {
+  background: white;
+  border-radius: 16px;
+  padding: 24px;
+  max-width: 340px;
+  width: 100%;
+  text-align: center;
+  animation: slideUp 0.3s ease-out;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.first-visit-modal .pwa-modal-icon {
+  width: 80px;
+  height: 80px;
+  background: linear-gradient(135deg, #4a90d9 0%, #357abd 100%);
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 20px;
+  color: white;
+}
+
+.pwa-modal-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #1a202c;
+  margin-bottom: 16px;
+  line-height: 1.4;
+}
+
+.pwa-benefits-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 24px 0;
+  text-align: left;
+}
+
+.pwa-benefits-list li {
+  padding: 8px 0;
+  color: #4a5568;
+  font-size: 0.95rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.pwa-benefits-list li:last-child {
+  border-bottom: none;
+}
+
+.pwa-primary-button {
+  width: 100%;
+  padding: 14px 20px;
+  background: linear-gradient(135deg, #4a90d9 0%, #357abd 100%);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.pwa-primary-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(74, 144, 217, 0.4);
+}
+
+.pwa-primary-button:active {
+  transform: translateY(0);
+}
+
+.pwa-arrow {
+  font-size: 1.2rem;
+}
+
+.pwa-secondary-button {
+  width: 100%;
+  padding: 12px 20px;
+  background: transparent;
+  color: #718096;
+  border: none;
+  font-size: 0.9rem;
+  cursor: pointer;
+  margin-top: 8px;
+  transition: color 0.15s;
+}
+
+.pwa-secondary-button:hover {
+  color: #4a5568;
+}

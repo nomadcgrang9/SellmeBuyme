@@ -18,6 +18,9 @@ import AuthModal from '@/components/auth/AuthModal';
 import ProfileButton from '@/components/auth/ProfileButton';
 import EmptyState from '@/components/common/EmptyState';
 import { ListSkeleton } from '@/components/common/CardSkeleton';
+import { BetaBadge } from '@/components/common/BetaBadge';
+import { WelcomeModal } from '@/components/survey/WelcomeModal';
+import { SurveyTracker } from '@/lib/utils/surveyTracking';
 import { getSchoolLevelFromJob, generateSchoolLevelMarker, MARKER_SIZE, URGENT_MARKER_SIZE } from '@/lib/constants/markerColors';
 import { formatLocationDisplay } from '@/lib/constants/regionHierarchy';
 
@@ -80,6 +83,13 @@ export const Hero: React.FC = () => {
     (window as any).__currentSelectedJobId = selectedJob?.id ?? null;
   }, [selectedJob]);
 
+  // Welcome 모달 최초 표시 체크
+  useEffect(() => {
+    if (SurveyTracker.shouldShowWelcome()) {
+      setIsWelcomeModalOpen(true);
+    }
+  }, []);
+
   // 길찾기 관련 상태
   const [directionsJob, setDirectionsJob] = useState<JobPostingCard | null>(null);
   const [directionsCoords, setDirectionsCoords] = useState<Coordinates | null>(null);
@@ -100,6 +110,9 @@ export const Hero: React.FC = () => {
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authModalInitialTab, setAuthModalInitialTab] = useState<'login' | 'signup'>('login');
+
+  // 설문 Welcome 모달 상태
+  const [isWelcomeModalOpen, setIsWelcomeModalOpen] = useState(false);
 
   // 마커 레이어 토글 상태
   const [activeLayers, setActiveLayers] = useState<MarkerLayer[]>(['job', 'teacher', 'program']);
@@ -1342,6 +1355,12 @@ export const Hero: React.FC = () => {
         initialTab={authModalInitialTab}
       />
 
+      {/* 베타 설문 Welcome 모달 */}
+      <WelcomeModal
+        isOpen={isWelcomeModalOpen}
+        onClose={() => setIsWelcomeModalOpen(false)}
+      />
+
       {/* 구직 교사 마커 등록 모달 */}
       <TeacherMarkerModal
         isOpen={isTeacherModalOpen}
@@ -1514,10 +1533,14 @@ export const Hero: React.FC = () => {
                 // 패널 열기
                 setIsPanelHidden(false);
               }}
-              className="flex items-center justify-center w-full hover:opacity-80 transition-opacity active:scale-[0.98]"
+              className="relative flex items-center justify-center w-full hover:opacity-80 transition-opacity active:scale-[0.98]"
               aria-label="필터 초기화 및 홈으로"
               title="필터 초기화"
             >
+              {/* BETA 마크 - 우측 상단 오버레이 */}
+              <div className="absolute top-0 right-0 translate-x-1 -translate-y-1 z-10">
+                <BetaBadge />
+              </div>
               <img
                 src="/picture/logo.png"
                 alt="학교일자리"

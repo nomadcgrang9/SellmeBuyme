@@ -28,6 +28,10 @@ const config: Config = {
           '0%': { opacity: '0' },
           '100%': { opacity: '1' }
         },
+        'scale-in': {
+          '0%': { opacity: '0', transform: 'scale(0.95)' },
+          '100%': { opacity: '1', transform: 'scale(1)' }
+        },
         'bounce-left': {
           '0%, 100%': { transform: 'translateX(0)' },
           '50%': { transform: 'translateX(-4px)' }
@@ -36,6 +40,7 @@ const config: Config = {
       animation: {
         'slide-up': 'slide-up 0.3s ease-out',
         'fade-in': 'fade-in 0.2s ease-out',
+        'scaleIn': 'scale-in 0.3s ease-out',
         'bounce-left': 'bounce-left 1s ease-in-out infinite'
       },
       padding: {

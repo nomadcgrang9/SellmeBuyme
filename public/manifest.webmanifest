@@ -1,0 +1,46 @@
+{
+    "id": "sellmebuyme-main",
+    "name": "학교일자리 - 학교일을 찾는 가장 빠른 방법",
+    "short_name": "학교일자리",
+    "description": "전국 교육청, 학교 교육공무직 채용공고를 한눈에",
+    "start_url": "/?source=pwa",
+    "scope": "/",
+    "display": "standalone",
+    "orientation": "portrait-primary",
+    "theme_color": "#4a90d9",
+    "background_color": "#f9fafb",
+    "lang": "ko",
+    "icons": [
+        {
+            "src": "/picture/favicon.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "any"
+        },
+        {
+            "src": "/picture/favicon.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any maskable"
+        }
+    ],
+    "categories": [
+        "education",
+        "productivity"
+    ],
+    "screenshots": [],
+    "shortcuts": [
+        {
+            "name": "채용공고 검색",
+            "short_name": "검색",
+            "description": "전국 학교일자리 채용공고 검색",
+            "url": "/?source=pwa&action=search",
+            "icons": [
+                {
+                    "src": "/picture/favicon.png",
+                    "sizes": "96x96"
+                }
+            ]
+        }
+    ]
+}

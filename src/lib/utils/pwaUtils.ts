@@ -1,12 +1,22 @@
 /**
  * PWA 환경 감지 유틸리티
- * 개발자노트(/note) 전용
+ * 메인 서비스(학교일자리)와 개발자노트(/note) 모두 지원
+ * 참조: LID 프로젝트 (frontend/src/utils/pwaUtils.js)
  */
+
+// ============================================
+// 환경 감지 함수
+// ============================================
 
 // 카카오톡 인앱 브라우저 감지
 export function isKakaoTalk(): boolean {
   const ua = navigator.userAgent.toLowerCase();
   return ua.includes('kakaotalk');
+}
+
+// 카카오톡 브라우저인지 확인 (별칭)
+export function isKakaoTalkBrowser(): boolean {
+  return isKakaoTalk();
 }
 
 // iOS 감지
@@ -19,6 +29,11 @@ export function isAndroid(): boolean {
   return /android/.test(navigator.userAgent.toLowerCase());
 }
 
+// 모바일 기기인지 확인
+export function isMobile(): boolean {
+  return isIOS() || isAndroid() || window.innerWidth <= 768;
+}
+
 // PWA로 이미 실행 중인지 확인
 export function isStandalone(): boolean {
   return (
@@ -27,27 +42,77 @@ export function isStandalone(): boolean {
   );
 }
 
-// 최초 방문 여부 (개발자노트 전용)
-const VISITED_KEY = 'devnote_pwa_visited';
+// PWA가 이미 설치되었는지 확인 (별칭)
+export function isPWAInstalled(): boolean {
+  return isStandalone();
+}
 
+// ============================================
+// 경로 감지 함수
+// ============================================
+
+// 현재 경로가 개발자노트인지 확인
+export function isDevNotePath(): boolean {
+  return window.location.pathname.startsWith('/note');
+}
+
+// 현재 URL 가져오기
+export function getCurrentURL(): string {
+  return window.location.href;
+}
+
+// ============================================
+// 방문 기록 관리 (경로별 분리)
+// ============================================
+
+// 개발자노트용 키
+const DEVNOTE_VISITED_KEY = 'devnote_pwa_visited';
+const DEVNOTE_DISMISSED_KEY = 'devnote_pwa_dismissed';
+
+// 메인 서비스용 키
+const MAIN_VISITED_KEY = 'main_pwa_visited';
+const MAIN_DISMISSED_KEY = 'main_pwa_dismissed';
+
+// 현재 경로에 맞는 키 반환
+function getVisitedKey(): string {
+  return isDevNotePath() ? DEVNOTE_VISITED_KEY : MAIN_VISITED_KEY;
+}
+
+function getDismissedKey(): string {
+  return isDevNotePath() ? DEVNOTE_DISMISSED_KEY : MAIN_DISMISSED_KEY;
+}
+
+// 최초 방문 여부 (경로별)
 export function isFirstVisit(): boolean {
-  return !localStorage.getItem(VISITED_KEY);
+  return !localStorage.getItem(getVisitedKey());
+}
+
+// 진짜 최초 방문인지 확인 (localStorage + sessionStorage)
+export function isTrueFirstVisit(): boolean {
+  const key = getVisitedKey();
+  const hasVisited = localStorage.getItem(key);
+  const currentSession = sessionStorage.getItem(`${key}_session`);
+  return hasVisited === null && currentSession === null;
 }
 
 export function markVisited(): void {
-  localStorage.setItem(VISITED_KEY, 'true');
+  const key = getVisitedKey();
+  localStorage.setItem(key, 'true');
+  sessionStorage.setItem(`${key}_session`, 'true');
 }
 
 // "다시 보지 않기" 설정
-const DISMISSED_KEY = 'devnote_pwa_dismissed';
-
 export function isDismissed(): boolean {
-  return localStorage.getItem(DISMISSED_KEY) === 'true';
+  return localStorage.getItem(getDismissedKey()) === 'true';
 }
 
 export function setDismissed(): void {
-  localStorage.setItem(DISMISSED_KEY, 'true');
+  localStorage.setItem(getDismissedKey(), 'true');
 }
+
+// ============================================
+// 브라우저 정보
+// ============================================
 
 // 현재 브라우저 이름 반환
 export function getBrowserName(): string {
@@ -63,11 +128,59 @@ export function getBrowserName(): string {
   return '브라우저';
 }
 
+// ============================================
+// 외부 브라우저 열기 (카카오톡 대응)
+// ============================================
+
 // Android에서 Chrome으로 열기 (Intent 스킴)
 export function openInChrome(url: string): void {
   const intentUrl = `intent://${url.replace(/^https?:\/\//, '')}#Intent;scheme=https;package=com.android.chrome;end`;
   window.location.href = intentUrl;
 }
+
+// 외부 브라우저로 열기 시도 (LID 패턴)
+export function openInExternalBrowser(url: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    if (isIOS()) {
+      // iOS: 클립보드 복사 후 Safari 검색창 열기 시도
+      navigator.clipboard
+        .writeText(url)
+        .then(() => {
+          window.location.href = 'x-web-search://';
+          resolve('clipboard_success');
+        })
+        .catch(() => {
+          reject('clipboard_denied');
+        });
+    } else if (isAndroid()) {
+      // Android: Intent로 외부 브라우저 열기
+      const cleanUrl = url.replace(/^https?:\/\//, '');
+      const intent =
+        `intent://${cleanUrl}#Intent;` +
+        `scheme=https;` +
+        `action=android.intent.action.VIEW;` +
+        `category=android.intent.category.BROWSABLE;` +
+        `end;`;
+
+      window.location.href = intent;
+
+      // 2초 후 확인 (페이지가 숨겨졌으면 성공)
+      setTimeout(() => {
+        if (document.hidden) {
+          resolve('success');
+        } else {
+          reject('fallback_needed');
+        }
+      }, 2000);
+    } else {
+      reject('not_mobile');
+    }
+  });
+}
+
+// ============================================
+// 클립보드
+// ============================================
 
 // URL을 클립보드에 복사
 export async function copyToClipboard(text: string): Promise<boolean> {
@@ -86,4 +199,55 @@ export async function copyToClipboard(text: string): Promise<boolean> {
     document.body.removeChild(textarea);
     return result;
   }
+}
+
+// ============================================
+// PWA 설치 프롬프트 관리
+// ============================================
+
+/**
+ * PWA 설치 프롬프트 이벤트 타입
+ */
+export interface BeforeInstallPromptEvent extends Event {
+  prompt(): Promise<void>;
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
+}
+
+/**
+ * beforeinstallprompt 이벤트 저장용 전역 변수
+ */
+let deferredPrompt: BeforeInstallPromptEvent | null = null;
+
+/**
+ * beforeinstallprompt 이벤트 저장
+ */
+export function setDeferredPrompt(event: BeforeInstallPromptEvent | null): void {
+  deferredPrompt = event;
+}
+
+/**
+ * 저장된 beforeinstallprompt 이벤트 가져오기
+ */
+export function getDeferredPrompt(): BeforeInstallPromptEvent | null {
+  return deferredPrompt;
+}
+
+/**
+ * PWA 설치 프롬프트 표시
+ */
+export async function showInstallPrompt(): Promise<'accepted' | 'dismissed' | 'unavailable'> {
+  if (!deferredPrompt) {
+    return 'unavailable';
+  }
+
+  // 설치 프롬프트 표시
+  deferredPrompt.prompt();
+
+  // 사용자 선택 대기
+  const { outcome } = await deferredPrompt.userChoice;
+
+  // 사용된 프롬프트 초기화 (재사용 불가)
+  deferredPrompt = null;
+
+  return outcome;
 }
