@@ -1,4 +1,4 @@
-import React, { lazy, Suspense } from 'react'
+import React, { lazy, Suspense, useState, useEffect } from 'react'
 import ReactDOM from 'react-dom/client'
 import './index.css'
 import { errorReporter } from './lib/utils/errorReporter'
@@ -64,47 +64,59 @@ if (pathname.startsWith('/note')) {
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// 모바일 디바이스 감지 (화면 크기 + 터치 지원)
+// URL 파라미터 체크 (강제 모바일/데스크톱)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-const isMobileDevice = window.innerWidth < 768 ||
-  ('ontouchstart' in window) ||
-  (navigator.maxTouchPoints > 0);
-
-// 기본값: 모바일이면 MobileMapPage, PC면 NewLanding
-let rootComponent = isMobileDevice ? <MobileMapPage /> : <NewLanding />
+const urlParams = new URLSearchParams(window.location.search);
+const forceMobile = urlParams.get('mobile') === 'true';
+const forceDesktop = urlParams.get('desktop') === 'true';
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 동적 뷰포트 감지 컴포넌트 (반응형으로 MobileMapPage ↔ NewLanding 전환)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function ResponsiveRouter() {
+  const [isMobile, setIsMobile] = useState(() => {
+    if (forceDesktop) return false;
+    if (forceMobile) return true;
+    return window.innerWidth < 768;
+  });
+
+  useEffect(() => {
+    // 강제 모드면 resize 이벤트 무시
+    if (forceMobile || forceDesktop) return;
+
+    const handleResize = () => {
+      const newIsMobile = window.innerWidth < 768;
+      setIsMobile(newIsMobile);
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // 모바일이면 MobileMapPage, 아니면 NewLanding
+  return isMobile ? <MobileMapPage /> : <NewLanding />;
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 라우팅 결정
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+let rootComponent: React.ReactNode = <ResponsiveRouter />;
+
 // 개발자 노트 페이지 (PWA)
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// Service Worker는 vite-plugin-pwa가 자동으로 등록 (registerSW.js)
 if (pathname.startsWith('/note')) {
   rootComponent = <DeveloperPage />
 }
-
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 관리자 페이지 라우팅
-// 로컬: /admin* 경로, 프로덕션: /admin-portal (로그인+admin 역할 필요)
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-// 로컬 개발: /admin* 경로
 else if (import.meta.env.DEV && pathname.startsWith('/admin')) {
   rootComponent = <AdminPage />
 }
-// 프로덕션: /admin-portal 경로
 else if (import.meta.env.PROD && pathname.startsWith('/admin-portal')) {
   rootComponent = <AdminPage />
 }
-
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// 팀 콘솔 페이지 라우팅 (비밀번호 인증 방식)
-// 환경변수 VITE_TEAM_CONSOLE_PATH로 경로 설정
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-// 로컬 개발: /team-console 경로
+// 팀 콘솔 페이지 라우팅
 else if (import.meta.env.DEV && pathname.startsWith('/team-console')) {
   rootComponent = <TeamConsolePage />
 }
-// 프로덕션: 환경변수에 설정된 경로
 else if (import.meta.env.VITE_TEAM_CONSOLE_PATH && pathname === import.meta.env.VITE_TEAM_CONSOLE_PATH) {
   rootComponent = <TeamConsolePage />
 }
@@ -127,9 +139,7 @@ else if (pathname.match(/^\/chat\/.+/)) {
 else if (pathname.startsWith('/chat')) {
   rootComponent = <MobileChat />
 }
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 기존 App 접근 경로 (레거시)
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 else if (pathname.startsWith('/legacy') || pathname.startsWith('/old')) {
   rootComponent = <App />
 }
@@ -141,3 +151,4 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     </Suspense>
   </React.StrictMode>,
 )
+
