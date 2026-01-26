@@ -8,6 +8,7 @@ interface MobileJobCardProps {
   isSelected: boolean;
   onClick: () => void;
   onDetailClick: () => void;
+  onDirectionsClick?: () => void;
 }
 
 const MobileJobCard: React.FC<MobileJobCardProps> = ({
@@ -15,6 +16,7 @@ const MobileJobCard: React.FC<MobileJobCardProps> = ({
   isSelected,
   onClick,
   onDetailClick,
+  onDirectionsClick,
 }) => {
   // 학교급 추출 및 색상
   const schoolLevel = getSchoolLevelFromJob(job);
@@ -62,9 +64,9 @@ const MobileJobCard: React.FC<MobileJobCardProps> = ({
         }
       `}
     >
-      {/* 학교급별 좌측 색상 바 */}
+      {/* 학교급별 좌측 색상 바 (강화) */}
       <div
-        className="absolute left-0 top-0 bottom-0 w-1 rounded-l-2xl"
+        className="absolute left-0 top-0 bottom-0 w-1.5 rounded-l-2xl"
         style={{ backgroundColor: schoolColors.fill }}
       />
       {/* 상단: 학교급 + 기관명 + 긴급 + D-day */}
@@ -84,7 +86,7 @@ const MobileJobCard: React.FC<MobileJobCardProps> = ({
         <div className="flex items-center gap-1.5 ml-2">
           {job.isUrgent && (
             <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-red-500 text-white text-xs font-bold">
-              🔥 긴급
+              긴급
             </span>
           )}
           {job.daysLeft !== undefined && (
@@ -151,21 +153,42 @@ const MobileJobCard: React.FC<MobileJobCardProps> = ({
         )}
       </div>
 
-      {/* 상세보기 버튼 */}
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          onDetailClick();
-        }}
-        className="
-          absolute bottom-3 right-3
-          px-3 py-1.5 text-xs font-medium
-          text-blue-600 bg-blue-50 rounded-lg
-          active:bg-blue-100 transition-colors
-        "
-      >
-        상세보기
-      </button>
+      {/* 하단 버튼 영역 */}
+      <div className="flex items-center justify-end gap-2 mt-2">
+        {/* 길찾기 버튼 */}
+        {onDirectionsClick && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onDirectionsClick();
+            }}
+            className="
+              flex items-center gap-1 px-3 py-1.5 text-xs font-medium
+              text-green-600 bg-green-50 rounded-lg
+              active:bg-green-100 transition-colors
+            "
+          >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+            </svg>
+            길찾기
+          </button>
+        )}
+        {/* 상세보기 버튼 */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onDetailClick();
+          }}
+          className="
+            px-3 py-1.5 text-xs font-medium
+            text-blue-600 bg-blue-50 rounded-lg
+            active:bg-blue-100 transition-colors
+          "
+        >
+          상세보기
+        </button>
+      </div>
     </div>
   );
 };

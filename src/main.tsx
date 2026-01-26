@@ -16,6 +16,7 @@ const MobileRegister = lazy(() => import('./pages/MobileRegister'))
 const MobileChat = lazy(() => import('./pages/MobileChat'))
 const MobileChatRoom = lazy(() => import('./pages/MobileChatRoom'))
 const NewLanding = lazy(() => import('./pages/new-landing/App'))
+const MobileMapPage = lazy(() => import('./pages/mobile-map/MobileMapPage'))
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 로딩 폴백 컴포넌트
@@ -62,8 +63,15 @@ if (pathname.startsWith('/note')) {
   document.title = '셀바 개발자노트';
 }
 
-// 기본값: NewLanding (모바일/PC 반응형 통합)
-let rootComponent = <NewLanding />
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 모바일 디바이스 감지 (화면 크기 + 터치 지원)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+const isMobileDevice = window.innerWidth < 768 ||
+  ('ontouchstart' in window) ||
+  (navigator.maxTouchPoints > 0);
+
+// 기본값: 모바일이면 MobileMapPage, PC면 NewLanding
+let rootComponent = isMobileDevice ? <MobileMapPage /> : <NewLanding />
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 개발자 노트 페이지 (PWA)

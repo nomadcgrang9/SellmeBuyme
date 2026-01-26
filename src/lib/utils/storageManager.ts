@@ -31,6 +31,7 @@ class StorageManager {
   async saveToSupabase(report: Omit<ErrorReport, 'id' | 'uploaded'>): Promise<boolean> {
     try {
       const { error } = await supabase.from('error_logs').insert({
+        timestamp: new Date(report.timestamp).toISOString(),
         error_type: report.errorType,
         error_message: report.errorMessage,
         stack_trace: report.errorStack,

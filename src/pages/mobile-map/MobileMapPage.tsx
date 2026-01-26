@@ -1,25 +1,27 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { User } from 'lucide-react';
 import { useKakaoMaps } from '@/hooks/useKakaoMaps';
 import { useGeolocation } from '@/lib/hooks/useGeolocation';
 import { fetchJobsByBoardRegion } from '@/lib/supabase/queries';
 import { formatLocationDisplay } from '@/lib/constants/regionHierarchy';
 import { getSchoolLevelFromJob, SCHOOL_LEVEL_MARKER_COLORS } from '@/lib/constants/markerColors';
-import { useAuthStore } from '@/stores/authStore';
+import { getDirections, formatDistance, formatDuration } from '@/lib/api/directions';
 import type { JobPostingCard } from '@/types';
+import type { TransportType, DirectionsResult } from '@/types/directions';
+import { useAuthStore } from '@/stores/authStore';
+import AuthModal from '@/components/auth/AuthModal';
 import MobileBottomSheet from './components/MobileBottomSheet';
 import MobileSearchBar from './components/MobileSearchBar';
+import MobileQuickFilters from './components/MobileQuickFilters';
 import MobileJobCard from './components/MobileJobCard';
 import MobileJobDetail from './components/MobileJobDetail';
 import MobileFilterSheet from './components/MobileFilterSheet';
+import LocationPermissionModal from './components/LocationPermissionModal';
+import DirectionsUnifiedSheet from './components/DirectionsUnifiedSheet';
 
 const SCHOOL_LEVELS = ['유치원', '초등학교', '중학교', '고등학교', '특수학교', '기타'] as const;
 const MAP_FILTER_SUBJECTS = ['국어', '영어', '수학', '사회', '과학', '체육', '음악', '미술', '정보', '보건', '사서', '상담'] as const;
 
 const MobileMapPage: React.FC = () => {
-  // 인증 상태
-  const { user, status } = useAuthStore();
-
   // 지도 관련 상태
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
@@ -42,6 +44,10 @@ const MobileMapPage: React.FC = () => {
   const mapMarkersRef = useRef<any[]>([]);
   const coordsCacheRef = useRef<Map<string, { lat: number; lng: number }>>(new Map());
 
+  // 인증 상태
+  const { user } = useAuthStore();
+  const [showAuthModal, setShowAuthModal] = useState(false);
+
   // UI 상태
   const [selectedJob, setSelectedJob] = useState<JobPostingCard | null>(null);
   const [showDetail, setShowDetail] = useState(false);
@@ -51,10 +57,28 @@ const MobileMapPage: React.FC = () => {
   // 길찾기 상태
   const [directionsMode, setDirectionsMode] = useState(false);
   const [directionsJob, setDirectionsJob] = useState<JobPostingCard | null>(null);
-  const [directionsInfo, setDirectionsInfo] = useState<{ distance: string; duration: string } | null>(null);
+  const [directionsResult, setDirectionsResult] = useState<DirectionsResult | null>(null);
+  const [transportType, setTransportType] = useState<TransportType>('car');
+  const [isLoadingRoute, setIsLoadingRoute] = useState(false);
   const polylineRef = useRef<any>(null);
   const startMarkerRef = useRef<any>(null);
   const endMarkerRef = useRef<any>(null);
+
+  // 길찾기 통합 시트 상태
+  const [showDirectionsSheet, setShowDirectionsSheet] = useState(false);
+  const [startLocation, setStartLocation] = useState<{
+    name: string;
+    address: string;
+    lat: number;
+    lng: number;
+  } | null>(null);
+  const [endLocation, setEndLocation] = useState<{
+    name: string;
+    address: string;
+    lat: number;
+    lng: number;
+  } | null>(null);
+  const [hasLocationPermission, setHasLocationPermission] = useState(false);
 
   // 필터 상태
   const [filters, setFilters] = useState<{
@@ -66,6 +90,20 @@ const MobileMapPage: React.FC = () => {
     subjects: [],
     searchQuery: '',
   });
+
+  // 빠른 필터 상태
+  const [quickFilters, setQuickFilters] = useState<string[]>([]);
+  const [quickSubjects, setQuickSubjects] = useState<Record<string, string[]>>({});
+  const [globalSubjects, setGlobalSubjects] = useState<string[]>([]); // 전역 과목 필터
+
+  // 위치 권한 모달 상태
+  const [showLocationModal, setShowLocationModal] = useState(false);
+  const locationPermissionCheckedRef = useRef(false);
+
+  // 뷰포트 기반 필터링 상태
+  const [viewportJobIds, setViewportJobIds] = useState<Set<string>>(new Set());
+  const [isViewportSynced, setIsViewportSynced] = useState(false);
+  const boundsDebounceRef = useRef<NodeJS.Timeout | null>(null);
 
   // 중복 제거 함수
   const deduplicateJobs = useCallback((jobs: JobPostingCard[]): JobPostingCard[] => {
@@ -86,7 +124,54 @@ const MobileMapPage: React.FC = () => {
   const filteredJobPostings = useMemo(() => {
     let filtered = deduplicateJobs(jobPostings);
 
-    // 학교급 필터
+    // 빠른 필터 - 임박 (D-3 이하)
+    if (quickFilters.includes('urgent')) {
+      filtered = filtered.filter(job =>
+        job.daysLeft !== undefined && job.daysLeft <= 3
+      );
+    }
+
+    // 빠른 필터 - 학교급
+    const quickSchoolLevels = quickFilters.filter(f =>
+      ['kindergarten', 'elementary', 'middle', 'high', 'special', 'etc'].includes(f)
+    );
+
+    if (quickSchoolLevels.length > 0) {
+      filtered = filtered.filter(job => {
+        const schoolLevel = (job.school_level || '').toLowerCase();
+        const org = (job.organization || '').toLowerCase();
+        const title = (job.title || '').toLowerCase();
+
+        return quickSchoolLevels.some(level => {
+          const keywords: Record<string, string[]> = {
+            'kindergarten': ['유치원'],
+            'elementary': ['초등'],
+            'middle': ['중학', '중등'],
+            'high': ['고등', '고교'],
+            'special': ['특수'],
+            'etc': ['기타'],
+          };
+          const levelKeywords = keywords[level] || [];
+          const matchesLevel = levelKeywords.some(kw =>
+            schoolLevel.includes(kw) || org.includes(kw) || title.includes(kw)
+          );
+
+          // 해당 학교급의 과목 필터가 있으면 적용
+          const subjectsForLevel = quickSubjects[level] || [];
+          if (matchesLevel && subjectsForLevel.length > 0) {
+            const tags = job.tags || [];
+            return subjectsForLevel.some(subject =>
+              title.includes(subject.toLowerCase()) ||
+              tags.some(t => t.toLowerCase().includes(subject.toLowerCase()))
+            );
+          }
+
+          return matchesLevel;
+        });
+      });
+    }
+
+    // 기존 필터 - 학교급 필터
     if (filters.schoolLevels.length > 0) {
       filtered = filtered.filter(job => {
         const schoolLevel = (job.school_level || '').toLowerCase();
@@ -106,7 +191,7 @@ const MobileMapPage: React.FC = () => {
       });
     }
 
-    // 과목 필터
+    // 과목 필터 (기존 필터 모달)
     if (filters.subjects.length > 0) {
       filtered = filtered.filter(job => {
         const title = (job.title || '').toLowerCase();
@@ -114,6 +199,18 @@ const MobileMapPage: React.FC = () => {
         return filters.subjects.some(subject =>
           title.includes(subject.toLowerCase()) ||
           tags.some(t => t.toLowerCase() === subject.toLowerCase())
+        );
+      });
+    }
+
+    // 전역 과목 필터 (빠른 필터 영역의 과목 칩)
+    if (globalSubjects.length > 0) {
+      filtered = filtered.filter(job => {
+        const title = (job.title || '').toLowerCase();
+        const tags = job.tags || [];
+        return globalSubjects.some(subject =>
+          title.includes(subject.toLowerCase()) ||
+          tags.some(t => t.toLowerCase().includes(subject.toLowerCase()))
         );
       });
     }
@@ -129,16 +226,93 @@ const MobileMapPage: React.FC = () => {
     }
 
     return filtered;
-  }, [jobPostings, filters, deduplicateJobs]);
+  }, [jobPostings, filters, quickFilters, quickSubjects, globalSubjects, deduplicateJobs]);
+
+  // 뷰포트 내 공고 업데이트 함수
+  const updateViewportJobs = useCallback(() => {
+    if (!mapInstanceRef.current) return;
+
+    const map = mapInstanceRef.current;
+    const bounds = map.getBounds();
+    const cache = coordsCacheRef.current;
+
+    const visibleIds = new Set<string>();
+
+    for (const job of filteredJobPostings) {
+      // DB 좌표 우선
+      if (job.latitude && job.longitude) {
+        const position = new window.kakao.maps.LatLng(
+          Number(job.latitude),
+          Number(job.longitude)
+        );
+        if (bounds.contain(position)) {
+          visibleIds.add(job.id);
+        }
+        continue;
+      }
+
+      // 캐시된 좌표 사용
+      const keyword = job.organization || job.location;
+      if (keyword && cache.has(keyword)) {
+        const coords = cache.get(keyword)!;
+        const position = new window.kakao.maps.LatLng(coords.lat, coords.lng);
+        if (bounds.contain(position)) {
+          visibleIds.add(job.id);
+        }
+      }
+    }
+
+    setViewportJobIds(visibleIds);
+    setIsViewportSynced(true);
+  }, [filteredJobPostings]);
+
+  // 뷰포트 기반 필터링된 공고 (지도에 보이는 것만)
+  const viewportFilteredJobs = useMemo(() => {
+    // 동기화 전이거나 뷰포트 내 공고가 없으면 전체 표시
+    if (!isViewportSynced || viewportJobIds.size === 0) {
+      return filteredJobPostings;
+    }
+    return filteredJobPostings.filter(job => viewportJobIds.has(job.id));
+  }, [filteredJobPostings, viewportJobIds, isViewportSynced]);
 
   // SDK 로드
   useEffect(() => {
     loadKakaoMaps();
   }, [loadKakaoMaps]);
 
-  // 인증 초기화
+  // 위치 권한 모달 표시 로직 (첫 방문 시)
   useEffect(() => {
-    useAuthStore.getState().initialize();
+    if (locationPermissionCheckedRef.current) return;
+    locationPermissionCheckedRef.current = true;
+
+    // localStorage에서 위치 권한 선택 여부 확인
+    const locationPermissionChoice = localStorage.getItem('locationPermissionChoice');
+
+    // 이미 선택한 경우 모달 표시 안함
+    if (locationPermissionChoice) return;
+
+    // geolocation API 지원 확인
+    if (!navigator.geolocation) return;
+
+    // 이미 위치 권한이 있는지 확인 (permissions API 지원 시)
+    if (navigator.permissions) {
+      navigator.permissions.query({ name: 'geolocation' }).then((result) => {
+        if (result.state === 'granted') {
+          // 이미 허용됨 - 저장하고 모달 표시 안함
+          localStorage.setItem('locationPermissionChoice', 'allowed');
+        } else if (result.state === 'prompt') {
+          // 아직 선택 안함 - 모달 표시
+          setShowLocationModal(true);
+        }
+        // denied인 경우는 모달 표시해도 브라우저가 막으므로 표시 안함
+      }).catch(() => {
+        // permissions API 실패 시 모달 표시
+        setShowLocationModal(true);
+      });
+    } else {
+      // permissions API 미지원 시 모달 표시
+      setShowLocationModal(true);
+    }
   }, []);
 
   // 지역 기반 공고 로드 함수
@@ -200,6 +374,19 @@ const MobileMapPage: React.FC = () => {
         }
       );
     });
+
+    // 뷰포트 변경 시 리스트 동기화 (debounce 적용)
+    const handleBoundsChanged = () => {
+      if (boundsDebounceRef.current) {
+        clearTimeout(boundsDebounceRef.current);
+      }
+      boundsDebounceRef.current = setTimeout(() => {
+        updateViewportJobs();
+      }, 300);
+    };
+
+    window.kakao.maps.event.addListener(map, 'bounds_changed', handleBoundsChanged);
+    window.kakao.maps.event.addListener(map, 'zoom_changed', handleBoundsChanged);
 
     // 초기 공고 로드 - useGeolocation 주소 또는 현재 중심 좌표 기반
     if (geoAddress?.city) {
@@ -287,10 +474,10 @@ const MobileMapPage: React.FC = () => {
         image: markerImage,
       });
 
-      // 마커 클릭 시 미니 카드 표시
+      // 마커 클릭 시 바로 상세보기 모달 표시
       window.kakao.maps.event.addListener(marker, 'click', () => {
         setSelectedJob(job);
-        setBottomSheetHeight('collapsed');
+        setShowDetail(true); // 바로 상세 모달 열기
 
         // 지도 중심 이동 (하단 시트 고려)
         const adjustedLat = coords.lat - 0.002;
@@ -351,6 +538,18 @@ const MobileMapPage: React.FC = () => {
     };
   }, [isLoaded, filteredJobPostings]);
 
+  // 마커 생성 완료 후 뷰포트 동기화
+  useEffect(() => {
+    if (!mapInstanceRef.current || filteredJobPostings.length === 0) return;
+
+    // 마커가 생성될 시간을 고려하여 지연 후 동기화
+    const timer = setTimeout(() => {
+      updateViewportJobs();
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [filteredJobPostings, updateViewportJobs]);
+
   // 현재 위치 가져오기
   const handleGetLocation = useCallback(() => {
     if (!navigator.geolocation) return;
@@ -374,6 +573,19 @@ const MobileMapPage: React.FC = () => {
       },
       { enableHighAccuracy: true, timeout: 10000 }
     );
+  }, []);
+
+  // 위치 권한 허용 핸들러
+  const handleLocationAllow = useCallback(() => {
+    setShowLocationModal(false);
+    localStorage.setItem('locationPermissionChoice', 'allowed');
+    handleGetLocation();
+  }, [handleGetLocation]);
+
+  // 위치 권한 거부 핸들러
+  const handleLocationDeny = useCallback(() => {
+    setShowLocationModal(false);
+    localStorage.setItem('locationPermissionChoice', 'denied');
   }, []);
 
   // 검색 처리 - 키워드로 위치 검색 후 지도 이동 및 해당 지역 공고 로드
@@ -450,6 +662,35 @@ const MobileMapPage: React.FC = () => {
     setShowFilter(false);
   }, []);
 
+  // 빠른 필터 토글
+  const handleQuickFilterToggle = useCallback((filterId: string) => {
+    setQuickFilters(prev =>
+      prev.includes(filterId)
+        ? prev.filter(f => f !== filterId)
+        : [...prev, filterId]
+    );
+  }, []);
+
+  // 빠른 필터 과목 변경
+  const handleQuickSubjectsChange = useCallback((filterId: string, subjects: string[]) => {
+    setQuickSubjects(prev => ({
+      ...prev,
+      [filterId]: subjects,
+    }));
+  }, []);
+
+  // 전역 과목 필터 변경
+  const handleGlobalSubjectsChange = useCallback((subjects: string[]) => {
+    setGlobalSubjects(subjects);
+  }, []);
+
+  // 빠른 필터 초기화
+  const handleQuickFilterReset = useCallback(() => {
+    setQuickFilters([]);
+    setQuickSubjects({});
+    setGlobalSubjects([]);
+  }, []);
+
   // 상세보기 열기
   const handleOpenDetail = useCallback((job: JobPostingCard) => {
     setSelectedJob(job);
@@ -472,265 +713,347 @@ const MobileMapPage: React.FC = () => {
     }
     setDirectionsMode(false);
     setDirectionsJob(null);
-    setDirectionsInfo(null);
+    setDirectionsResult(null);
   }, []);
 
-  // 길찾기 핸들러 - 현재위치 → 목적지 경로 표시
-  const handleDirections = useCallback((job: JobPostingCard) => {
-    if (!isLoaded || !mapInstanceRef.current) return;
+  // 경로 계산 및 지도에 표시 (실제 API 호출)
+  const calculateAndShowRoute = useCallback(async (
+    start: { lat: number; lng: number },
+    end: { lat: number; lng: number },
+    type: TransportType = transportType
+  ) => {
+    if (!mapInstanceRef.current) return;
 
     // 기존 경로 정리
     clearDirections();
+    setDirectionsMode(true);
+    setIsLoadingRoute(true);
+    setShowDirectionsSheet(true); // 로딩 중에도 시트 표시
 
-    // 현재 위치 가져오기
-    if (!navigator.geolocation) {
-      alert('위치 정보를 사용할 수 없습니다.');
+    const map = mapInstanceRef.current;
+
+    // 출발지 마커
+    const startPosition = new window.kakao.maps.LatLng(start.lat, start.lng);
+    const startMarkerImage = new window.kakao.maps.MarkerImage(
+      `data:image/svg+xml,${encodeURIComponent(`
+        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+          <circle cx="16" cy="16" r="14" fill="#22C55E" stroke="white" stroke-width="2"/>
+          <text x="16" y="21" text-anchor="middle" fill="white" font-size="12" font-weight="bold">출발</text>
+        </svg>
+      `)}`,
+      new window.kakao.maps.Size(32, 32)
+    );
+    startMarkerRef.current = new window.kakao.maps.Marker({
+      position: startPosition,
+      map,
+      image: startMarkerImage,
+    });
+
+    // 도착지 마커
+    const endPosition = new window.kakao.maps.LatLng(end.lat, end.lng);
+    const endMarkerImage = new window.kakao.maps.MarkerImage(
+      `data:image/svg+xml,${encodeURIComponent(`
+        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+          <circle cx="16" cy="16" r="14" fill="#EF4444" stroke="white" stroke-width="2"/>
+          <text x="16" y="21" text-anchor="middle" fill="white" font-size="12" font-weight="bold">도착</text>
+        </svg>
+      `)}`,
+      new window.kakao.maps.Size(32, 32)
+    );
+    endMarkerRef.current = new window.kakao.maps.Marker({
+      position: endPosition,
+      map,
+      image: endMarkerImage,
+    });
+
+    try {
+      // 실제 경로 API 호출
+      const result = await getDirections(type, start, end);
+      setDirectionsResult(result);
+
+      // 경로 좌표가 있으면 실제 경로 그리기, 없으면 직선
+      const colors: Record<TransportType, string> = {
+        car: '#3B82F6',     // 파란색
+        transit: '#22C55E', // 초록색
+        walk: '#F97316'     // 주황색
+      };
+
+      let linePath: any[];
+      if (result.path && result.path.length > 0) {
+        // 실제 경로 좌표로 폴리라인 생성
+        linePath = result.path.map(
+          coord => new window.kakao.maps.LatLng(coord.lat, coord.lng)
+        );
+      } else {
+        // 대중교통 등 경로 좌표가 없는 경우 직선
+        linePath = [startPosition, endPosition];
+      }
+
+      polylineRef.current = new window.kakao.maps.Polyline({
+        path: linePath,
+        strokeWeight: 5,
+        strokeColor: colors[type] || '#3B82F6',
+        strokeOpacity: 0.8,
+        strokeStyle: type === 'walk' ? 'shortdash' : 'solid',
+      });
+      polylineRef.current.setMap(map);
+
+      // 지도 범위 조정 (경로가 모두 보이도록)
+      const bounds = new window.kakao.maps.LatLngBounds();
+      linePath.forEach((coord: any) => bounds.extend(coord));
+      map.setBounds(bounds, 80, 80, 200, 80); // 하단에 시트용 여백
+    } catch (error) {
+      console.error('[MobileMapPage] 경로 검색 실패:', error);
+      // 실패 시 직선 경로로 폴백
+      const linePath = [startPosition, endPosition];
+      polylineRef.current = new window.kakao.maps.Polyline({
+        path: linePath,
+        strokeWeight: 5,
+        strokeColor: '#3B82F6',
+        strokeOpacity: 0.8,
+        strokeStyle: 'solid',
+      });
+      polylineRef.current.setMap(map);
+
+      // 지도 범위 조정
+      const bounds = new window.kakao.maps.LatLngBounds();
+      bounds.extend(startPosition);
+      bounds.extend(endPosition);
+      map.setBounds(bounds, 80, 80, 200, 80);
+    } finally {
+      setIsLoadingRoute(false);
+    }
+  }, [clearDirections, transportType]);
+
+  // 위치 권한 상태 확인
+  useEffect(() => {
+    if (navigator.permissions) {
+      navigator.permissions.query({ name: 'geolocation' }).then((result) => {
+        setHasLocationPermission(result.state === 'granted');
+        result.onchange = () => {
+          setHasLocationPermission(result.state === 'granted');
+        };
+      }).catch(() => {
+        // permissions API 실패 시 false
+        setHasLocationPermission(false);
+      });
+    }
+  }, []);
+
+  // 길찾기 시작 - 출발지 선택 시트 열기
+  const handleDirections = useCallback((job: JobPostingCard) => {
+    if (!isLoaded) return;
+
+    setDirectionsJob(job);
+
+    // 목적지 좌표 찾기
+    const keyword = job.organization || job.location;
+    if (!keyword) {
+      alert('목적지 정보가 없습니다.');
       return;
     }
 
-    setDirectionsMode(true);
-    setDirectionsJob(job);
+    // 목적지 좌표 검색
+    const places = new window.kakao.maps.services.Places();
+    places.keywordSearch(keyword, (result: any[], status: string) => {
+      if (status !== window.kakao.maps.services.Status.OK || result.length === 0) {
+        alert('목적지를 찾을 수 없습니다.');
+        return;
+      }
 
+      const endLat = parseFloat(result[0].y);
+      const endLng = parseFloat(result[0].x);
+
+      setEndLocation({
+        name: job.organization || '목적지',
+        address: job.location || result[0].address_name || '',
+        lat: endLat,
+        lng: endLng,
+      });
+
+      // 통합 시트 표시 (출발지 선택부터 시작)
+      setShowDirectionsSheet(true);
+    });
+  }, [isLoaded, hasLocationPermission]);
+
+  // 현재 위치에서 출발 선택
+  const handleSelectCurrentLocation = useCallback(() => {
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        const startLat = position.coords.latitude;
-        const startLng = position.coords.longitude;
+        const geocoder = new window.kakao.maps.services.Geocoder();
+        geocoder.coord2Address(
+          position.coords.longitude,
+          position.coords.latitude,
+          (result: any[], status: string) => {
+            const address = status === window.kakao.maps.services.Status.OK && result[0]
+              ? result[0].address?.address_name || result[0].road_address?.address_name || ''
+              : '';
 
-        // 목적지 좌표 찾기
-        const keyword = job.organization || job.location;
-        if (!keyword) return;
+            setStartLocation({
+              name: '현재 위치',
+              address,
+              lat: position.coords.latitude,
+              lng: position.coords.longitude,
+            });
 
-        const places = new window.kakao.maps.services.Places();
-        places.keywordSearch(keyword, (result: any[], status: string) => {
-          if (status !== window.kakao.maps.services.Status.OK || result.length === 0) {
-            alert('목적지를 찾을 수 없습니다.');
-            clearDirections();
-            return;
+            // 경로 계산 및 표시
+            calculateAndShowRoute(
+              { lat: position.coords.latitude, lng: position.coords.longitude },
+              endLocation!
+            );
           }
-
-          const endLat = parseFloat(result[0].y);
-          const endLng = parseFloat(result[0].x);
-          const map = mapInstanceRef.current;
-
-          // 출발지 마커
-          const startPosition = new window.kakao.maps.LatLng(startLat, startLng);
-          const startMarkerImage = new window.kakao.maps.MarkerImage(
-            `data:image/svg+xml,${encodeURIComponent(`
-              <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
-                <circle cx="16" cy="16" r="14" fill="#22C55E" stroke="white" stroke-width="2"/>
-                <text x="16" y="21" text-anchor="middle" fill="white" font-size="12" font-weight="bold">출발</text>
-              </svg>
-            `)}`,
-            new window.kakao.maps.Size(32, 32)
-          );
-          startMarkerRef.current = new window.kakao.maps.Marker({
-            position: startPosition,
-            map,
-            image: startMarkerImage,
-          });
-
-          // 도착지 마커
-          const endPosition = new window.kakao.maps.LatLng(endLat, endLng);
-          const endMarkerImage = new window.kakao.maps.MarkerImage(
-            `data:image/svg+xml,${encodeURIComponent(`
-              <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
-                <circle cx="16" cy="16" r="14" fill="#EF4444" stroke="white" stroke-width="2"/>
-                <text x="16" y="21" text-anchor="middle" fill="white" font-size="12" font-weight="bold">도착</text>
-              </svg>
-            `)}`,
-            new window.kakao.maps.Size(32, 32)
-          );
-          endMarkerRef.current = new window.kakao.maps.Marker({
-            position: endPosition,
-            map,
-            image: endMarkerImage,
-          });
-
-          // 직선 경로 그리기 (카카오 API는 도보/차량 경로 API가 유료이므로 직선으로 대체)
-          const linePath = [startPosition, endPosition];
-          polylineRef.current = new window.kakao.maps.Polyline({
-            path: linePath,
-            strokeWeight: 5,
-            strokeColor: '#3B82F6',
-            strokeOpacity: 0.8,
-            strokeStyle: 'solid',
-          });
-          polylineRef.current.setMap(map);
-
-          // 거리 계산 (직선 거리)
-          const polyline = new window.kakao.maps.Polyline({ path: linePath });
-          const distance = polyline.getLength(); // 미터 단위
-          const distanceText = distance >= 1000
-            ? `${(distance / 1000).toFixed(1)}km`
-            : `${Math.round(distance)}m`;
-
-          // 예상 시간 (도보 기준 시속 4km)
-          const walkingMinutes = Math.round(distance / 67); // 67m/분
-          const durationText = walkingMinutes >= 60
-            ? `${Math.floor(walkingMinutes / 60)}시간 ${walkingMinutes % 60}분`
-            : `${walkingMinutes}분`;
-
-          setDirectionsInfo({ distance: distanceText, duration: durationText });
-
-          // 지도 범위 조정
-          const bounds = new window.kakao.maps.LatLngBounds();
-          bounds.extend(startPosition);
-          bounds.extend(endPosition);
-          map.setBounds(bounds, 80, 80, 80, 80);
-        });
+        );
       },
       (error) => {
         console.error('위치 가져오기 실패:', error);
-        alert('현재 위치를 가져올 수 없습니다. 위치 권한을 확인해주세요.');
-        clearDirections();
+        alert('현재 위치를 가져올 수 없습니다.');
       },
       { enableHighAccuracy: true, timeout: 10000 }
     );
-  }, [isLoaded, clearDirections]);
+  }, [endLocation, calculateAndShowRoute]);
 
-  // 활성 필터 개수
-  const activeFilterCount = filters.schoolLevels.length + filters.subjects.length;
+  // 지도에서 출발지 선택 (향후 구현)
+  const handleSelectMapLocation = useCallback(() => {
+    // TODO: 지도 선택 모드 구현
+    alert('지도 선택 기능은 준비 중입니다.');
+  }, []);
 
-  // 바텀시트에 표시할 공고 (초기 3개만)
-  const displayedJobs = useMemo(() => {
-    return bottomSheetHeight === 'collapsed' ? filteredJobPostings.slice(0, 3) : filteredJobPostings;
-  }, [filteredJobPostings, bottomSheetHeight]);
+  // 검색 결과에서 출발지 선택 (인라인 검색용)
+  const handleSearchLocationSelect = useCallback((location: {
+    id: string;
+    name: string;
+    address: string;
+    lat: number;
+    lng: number;
+  }) => {
+    setStartLocation({
+      name: location.name,
+      address: location.address,
+      lat: location.lat,
+      lng: location.lng,
+    });
+
+    // 경로 계산 및 표시
+    calculateAndShowRoute(
+      { lat: location.lat, lng: location.lng },
+      endLocation!
+    );
+  }, [endLocation, calculateAndShowRoute]);
+
+  // 위치 권한 요청
+  const handleRequestLocationPermission = useCallback(() => {
+    navigator.geolocation.getCurrentPosition(
+      () => {
+        setHasLocationPermission(true);
+        handleSelectCurrentLocation();
+      },
+      (error) => {
+        console.error('위치 권한 요청 실패:', error);
+        alert('위치 권한을 허용해주세요.');
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  }, [handleSelectCurrentLocation]);
+
+  // 길찾기 시트 닫기
+  const handleCloseDirectionsSheet = useCallback(() => {
+    setShowDirectionsSheet(false);
+    clearDirections();
+    setStartLocation(null);
+    setEndLocation(null);
+    setDirectionsJob(null);
+    setDirectionsResult(null);
+    setTransportType('car');
+  }, [clearDirections]);
+
+  // 출발지 초기화
+  const handleClearStartLocation = useCallback(() => {
+    setStartLocation(null);
+    setDirectionsResult(null);
+    clearDirections();
+  }, [clearDirections]);
+
+  // 교통수단 변경 핸들러
+  const handleTransportTypeChange = useCallback((type: TransportType) => {
+    if (!startLocation || !endLocation) return;
+    setTransportType(type);
+    // 새 교통수단으로 경로 재계산
+    calculateAndShowRoute(
+      { lat: startLocation.lat, lng: startLocation.lng },
+      { lat: endLocation.lat, lng: endLocation.lng },
+      type
+    );
+  }, [startLocation, endLocation, calculateAndShowRoute]);
 
   return (
     <div className="fixed inset-0 flex flex-col bg-gray-100">
       {/* 전체화면 지도 */}
       <div ref={mapContainerRef} className="absolute inset-0 w-full h-full" />
 
-      {/* 상단 검색바 (플로팅) */}
-      <div className="absolute top-0 left-0 right-0 z-20 safe-area-inset-top">
-        <MobileSearchBar
-          value={filters.searchQuery}
-          onSearch={handleSearch}
-          onFilterClick={() => setShowFilter(true)}
-          filterCount={activeFilterCount}
-        />
-      </div>
-
-      {/* 현위치 버튼 */}
-      <button
-        onClick={handleGetLocation}
-        disabled={isLocating}
-        className="absolute right-4 z-20 w-12 h-12 bg-white rounded-full shadow-lg flex items-center justify-center active:bg-gray-100 disabled:opacity-50"
-        style={{ bottom: bottomSheetHeight === 'collapsed' ? '440px' : bottomSheetHeight === 'half' ? '55%' : '85%' }}
-      >
-        {isLocating ? (
-          <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-        ) : (
-          <svg className="w-6 h-6 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-          </svg>
-        )}
-      </button>
-
-      {/* 로그인 플로팅 버튼 (범례 위) */}
-      <button
-        onClick={() => {
-          if (user) {
-            // 로그인 상태: 프로필 페이지로 이동
-            window.location.href = '/';
-          } else {
-            // 미로그인 상태: 홈으로 이동 (로그인 모달)
-            window.location.href = '/';
-          }
-        }}
-        className="absolute right-4 z-20 w-12 h-12 bg-blue-500 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-blue-600 active:scale-95 transition-all"
-        style={{ bottom: bottomSheetHeight === 'collapsed' ? '380px' : bottomSheetHeight === 'half' ? 'calc(55% - 60px)' : 'calc(85% - 60px)' }}
-        title={user ? '프로필' : '로그인'}
-      >
-        {user ? (
-          <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center text-white font-semibold text-sm">
-            {user.email?.charAt(0).toUpperCase() || 'U'}
-          </div>
-        ) : (
-          <User className="w-5 h-5 text-white" strokeWidth={2.5} />
-        )}
-      </button>
-
-      {/* 범례 (바텀시트 바로 위) */}
-      <div
-        className="absolute left-4 right-4 z-10 bg-white/90 backdrop-blur-sm rounded-xl shadow-lg px-3 py-1.5 flex items-center gap-2 overflow-x-auto"
-        style={{ bottom: '330px' }}
-      >
-        <div className="flex items-center gap-1.5 whitespace-nowrap">
-          <span className="text-xs text-gray-500">일반</span>
+      {/* 상단 검색바 + 빠른 필터 (플로팅) - 풀업 모드에서는 숨김 */}
+      {bottomSheetHeight !== 'full' && (
+        <div className="absolute top-0 left-0 right-0 z-20 safe-area-inset-top">
+          <MobileSearchBar
+            value={filters.searchQuery}
+            onSearch={handleSearch}
+            bottomSheetHeight={bottomSheetHeight}
+            onProfileClick={() => {
+              if (user) {
+                // 로그인 상태: 프로필 페이지로 이동
+                window.location.href = '/profile';
+              } else {
+                // 비로그인 상태: 로그인 모달 열기
+                setShowAuthModal(true);
+              }
+            }}
+          />
+          <MobileQuickFilters
+            selectedFilters={quickFilters}
+            selectedSubjects={quickSubjects}
+            onFilterToggle={handleQuickFilterToggle}
+            onSubjectsChange={handleQuickSubjectsChange}
+            onReset={handleQuickFilterReset}
+            bottomSheetHeight={bottomSheetHeight}
+            globalSubjects={globalSubjects}
+            onGlobalSubjectsChange={handleGlobalSubjectsChange}
+          />
         </div>
-        {SCHOOL_LEVELS.map((level) => {
-          const colors = SCHOOL_LEVEL_MARKER_COLORS[level];
-          return (
-            <div key={level} className="flex items-center gap-1.5 whitespace-nowrap">
-              <div
-                className="w-3 h-3 rounded-full"
-                style={{ backgroundColor: colors.fill }}
-              />
-              <span className="text-xs text-gray-700">{level}</span>
-            </div>
-          );
-        })}
-      </div>
+      )}
 
-      {/* 선택된 공고 미니 카드 (마커 클릭 시) */}
-      {selectedJob && !showDetail && bottomSheetHeight === 'collapsed' && (
-        <div
-          className="absolute left-4 right-4 z-10 bg-white rounded-2xl shadow-xl p-4 animate-slide-up"
-          style={{ bottom: '100px' }}
+      {/* 현위치 버튼 - 상단 우측 (필터 칩 아래) */}
+      {bottomSheetHeight !== 'full' && (
+        <button
+          onClick={handleGetLocation}
+          disabled={isLocating}
+          className="absolute right-4 top-[140px] z-20 w-12 h-12 bg-white rounded-full shadow-lg flex items-center justify-center active:bg-gray-100 disabled:opacity-50"
         >
-          <button
-            onClick={() => setSelectedJob(null)}
-            className="absolute top-2 right-2 p-1 text-gray-400"
-          >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          {isLocating ? (
+            <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+          ) : (
+            <svg className="w-6 h-6 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
-          </button>
-
-          <div onClick={() => handleOpenDetail(selectedJob)} className="cursor-pointer">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-xs text-gray-500">{selectedJob.organization}</span>
-              {selectedJob.daysLeft !== undefined && selectedJob.daysLeft <= 3 && (
-                <span className="text-xs font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-600">
-                  D-{selectedJob.daysLeft}
-                </span>
-              )}
-            </div>
-            <h3 className="font-semibold text-gray-900 line-clamp-2 mb-2">{selectedJob.title}</h3>
-            <div className="flex items-center gap-2 text-sm text-gray-600">
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-              </svg>
-              <span className="truncate">{selectedJob.location || '위치 정보 없음'}</span>
-            </div>
-          </div>
-
-          <button
-            onClick={() => handleOpenDetail(selectedJob)}
-            className="w-full mt-3 py-2.5 bg-blue-500 text-white rounded-xl font-medium active:bg-blue-600"
-          >
-            상세보기
-          </button>
-        </div>
+          )}
+        </button>
       )}
 
       {/* 바텀시트 (공고 목록) - 길찾기 모드에서는 숨김 */}
       {!directionsMode && <MobileBottomSheet
         height={bottomSheetHeight}
         onHeightChange={setBottomSheetHeight}
-        jobCount={filteredJobPostings.length}
+        jobCount={viewportFilteredJobs.length}
         isLoading={isLoading}
       >
-        <div className="space-y-2 pb-4">
-          {displayedJobs.map((job) => (
+        <div className="space-y-3 pb-20">
+          {viewportFilteredJobs.map((job) => (
             <MobileJobCard
               key={job.id}
               job={job}
               isSelected={selectedJob?.id === job.id}
               onClick={() => {
-                setSelectedJob(job);
+                // 카드 클릭 시 바로 상세보기 열기
+                handleOpenDetail(job);
                 // 지도에서 해당 마커 위치로 이동
                 const keyword = job.organization || job.location;
                 if (keyword && coordsCacheRef.current.has(keyword)) {
@@ -743,10 +1066,11 @@ const MobileMapPage: React.FC = () => {
                 }
               }}
               onDetailClick={() => handleOpenDetail(job)}
+              onDirectionsClick={() => handleDirections(job)}
             />
           ))}
 
-          {!isLoading && filteredJobPostings.length === 0 && (
+          {!isLoading && viewportFilteredJobs.length === 0 && (
             <div className="text-center py-12 text-gray-500">
               <svg className="w-12 h-12 mx-auto mb-3 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -776,72 +1100,38 @@ const MobileMapPage: React.FC = () => {
         />
       )}
 
-      {/* 길찾기 모드 UI */}
-      {directionsMode && directionsJob && (
-        <div className="absolute bottom-0 left-0 right-0 z-40 bg-white rounded-t-3xl shadow-2xl p-5 safe-area-inset-bottom animate-slide-up">
-          {/* 닫기 버튼 */}
-          <button
-            onClick={clearDirections}
-            className="absolute top-4 right-4 p-2 text-gray-400"
-          >
-            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+      {/* 길찾기 통합 시트 */}
+      <DirectionsUnifiedSheet
+        isOpen={showDirectionsSheet}
+        onClose={handleCloseDirectionsSheet}
+        startLocation={startLocation}
+        endLocation={endLocation}
+        directionsResult={directionsResult}
+        transportType={transportType}
+        onTransportTypeChange={handleTransportTypeChange}
+        isLoading={isLoadingRoute}
+        destinationName={directionsJob?.organization || ''}
+        onSelectCurrentLocation={handleSelectCurrentLocation}
+        onSelectSearchLocation={handleSearchLocationSelect}
+        onSelectMapLocation={handleSelectMapLocation}
+        onClearStartLocation={handleClearStartLocation}
+        hasLocationPermission={hasLocationPermission}
+        onRequestLocationPermission={handleRequestLocationPermission}
+      />
 
-          {/* 목적지 정보 */}
-          <div className="mb-4">
-            <p className="text-sm text-gray-500 mb-1">목적지</p>
-            <h3 className="font-bold text-gray-900">{directionsJob.organization}</h3>
-            <p className="text-sm text-gray-600">{formatLocationDisplay(directionsJob.location)}</p>
-          </div>
+      {/* 위치 권한 요청 모달 */}
+      <LocationPermissionModal
+        isOpen={showLocationModal}
+        onAllow={handleLocationAllow}
+        onDeny={handleLocationDeny}
+      />
 
-          {/* 경로 정보 */}
-          {directionsInfo ? (
-            <div className="flex items-center gap-6 mb-4 p-4 bg-blue-50 rounded-xl">
-              <div className="flex items-center gap-2">
-                <svg className="w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                </svg>
-                <div>
-                  <p className="text-xs text-gray-500">거리</p>
-                  <p className="font-bold text-blue-600">{directionsInfo.distance}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <svg className="w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <div>
-                  <p className="text-xs text-gray-500">도보</p>
-                  <p className="font-bold text-blue-600">{directionsInfo.duration}</p>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="flex items-center justify-center p-4 mb-4">
-              <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mr-2" />
-              <span className="text-gray-500">경로 계산 중...</span>
-            </div>
-          )}
-
-          {/* 카카오맵으로 상세 경로 보기 버튼 */}
-          <button
-            onClick={() => {
-              const dest = directionsJob.organization || directionsJob.location;
-              if (dest) {
-                window.open(`https://map.kakao.com/link/search/${encodeURIComponent(dest)}`, '_blank');
-              }
-            }}
-            className="w-full py-3 bg-gray-100 text-gray-700 rounded-xl font-medium flex items-center justify-center gap-2 active:bg-gray-200"
-          >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-            </svg>
-            카카오맵에서 상세 경로 보기
-          </button>
-        </div>
-      )}
+      {/* 로그인 모달 */}
+      <AuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        initialTab="login"
+      />
     </div>
   );
 };

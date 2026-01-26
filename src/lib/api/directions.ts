@@ -51,6 +51,16 @@ export async function getDirections(
 }
 
 /**
+ * 도보 시간 계산 (거리 기반)
+ * 평균 도보 속도: 4.5km/h = 75m/분
+ * 실제 도보는 신호대기, 횡단보도 등으로 약 67m/분 (4km/h) 적용
+ */
+function calculateWalkingTime(distanceMeters: number): number {
+  const WALKING_SPEED_METERS_PER_MIN = 67; // 4km/h = 약 67m/분
+  return Math.ceil(distanceMeters / WALKING_SPEED_METERS_PER_MIN);
+}
+
+/**
  * 카카오 모빌리티 자동차/도보 응답 정규화
  */
 function normalizeCarRoute(data: KakaoCarRoute, type: TransportType): DirectionsResult {
@@ -87,14 +97,20 @@ function normalizeCarRoute(data: KakaoCarRoute, type: TransportType): Directions
   // 주유비 계산 (대략적 - 리터당 1600원, 연비 12km/l 가정)
   const fuelCost = Math.round((summary.distance / 1000 / 12) * 1600);
 
+  // 도보일 경우 거리 기반으로 시간 재계산 (API 응답이 부정확할 수 있음)
+  // 자동차는 API 응답 시간 사용
+  const totalTime = type === 'walk'
+    ? calculateWalkingTime(summary.distance)
+    : Math.round(summary.duration / 60); // 초 → 분
+
   return {
     type,
-    totalTime: Math.round(summary.duration / 60), // 초 → 분
+    totalTime,
     totalDistance: summary.distance,
     fare: {
-      taxi: summary.fare.taxi,
-      toll: summary.fare.toll,
-      fuel: fuelCost,
+      taxi: summary.fare?.taxi || 0,
+      toll: summary.fare?.toll || 0,
+      fuel: type === 'car' ? fuelCost : 0,
     },
     path,
     guides,

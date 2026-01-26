@@ -81,13 +81,13 @@ define(['./workbox-ce4f0d5f'], (function (workbox) { 'use strict';
     "url": "registerSW.js",
     "revision": "3ca0b8505b4bec776b69afdba2768812"
   }, {
-    "url": "/note",
-    "revision": "0.r12p0pck4fs"
+    "url": "/index.html",
+    "revision": "0.g57491rapr4"
   }], {});
   workbox.cleanupOutdatedCaches();
-  workbox.registerRoute(new workbox.NavigationRoute(workbox.createHandlerBoundToURL("/note"), {
+  workbox.registerRoute(new workbox.NavigationRoute(workbox.createHandlerBoundToURL("/index.html"), {
     allowlist: [/^\/$/],
-    denylist: [/^\/api/, /^\/admin/, /^\/$/, /^\/landing/]
+    denylist: [/^\/api/]
   }));
   workbox.registerRoute(/\/fonts\/.*\.(ttf|woff|woff2)$/, new workbox.CacheFirst({
     "cacheName": "local-fonts-cache",
