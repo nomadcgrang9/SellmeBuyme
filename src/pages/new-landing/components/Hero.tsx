@@ -526,11 +526,26 @@ export const Hero: React.FC = () => {
     const map = new window.kakao.maps.Map(mapContainerRef.current, mapOption);
     mapInstanceRef.current = map;
 
-    // 데스크톱에서만 줌 컨트롤 추가 (모바일에서는 숨김)
-    if (window.innerWidth >= 768) {
-      const zoomControl = new window.kakao.maps.ZoomControl();
-      map.addControl(zoomControl, window.kakao.maps.ControlPosition.RIGHT);
-    }
+    // 줌 컨트롤 추가 (항상 추가하되 모바일에서는 CSS로 숨김)
+    const zoomControl = new window.kakao.maps.ZoomControl();
+    map.addControl(zoomControl, window.kakao.maps.ControlPosition.RIGHT);
+
+    // 모바일에서 줌 컨트롤 숨김 처리
+    setTimeout(() => {
+      const isMobile = window.innerWidth < 768;
+      if (isMobile && mapContainerRef.current) {
+        // 카카오맵 줌 컨트롤은 마지막 자식 div
+        const mapContainer = mapContainerRef.current;
+        const zoomControlElements = mapContainer.querySelectorAll('div[style*="position: absolute"][style*="right"]');
+        zoomControlElements.forEach((el) => {
+          const htmlEl = el as HTMLElement;
+          // 줌 컨트롤인지 확인 (우측에 위치하고 버튼이 있는지)
+          if (htmlEl.querySelector('span[style*="cursor: pointer"]')) {
+            htmlEl.style.display = 'none';
+          }
+        });
+      }
+    }, 100);
 
     // 뷰포트 bounds 업데이트 함수
     const updateViewportBounds = () => {
