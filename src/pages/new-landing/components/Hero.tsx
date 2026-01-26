@@ -5,7 +5,8 @@ import { SCHOOL_LEVELS } from '../constants';
 import { useKakaoMaps } from '@/hooks/useKakaoMaps';
 import { fetchJobsByBoardRegion } from '@/lib/supabase/queries';
 import type { JobPostingCard } from '@/types';
-import type { Coordinates, DirectionsResult } from '@/types/directions';
+import type { Coordinates, DirectionsResult, TransportType } from '@/types/directions';
+import { getDirections } from '@/lib/api/directions';
 import { JobDetailPanel } from './JobDetailPanel';
 import HeroCard from './HeroCard';
 import { DirectionsPanel } from '@/components/directions/DirectionsPanel';
@@ -23,6 +24,15 @@ import { WelcomeModal } from '@/components/survey/WelcomeModal';
 import { SurveyTracker } from '@/lib/utils/surveyTracking';
 import { getSchoolLevelFromJob, generateSchoolLevelMarker, MARKER_SIZE, URGENT_MARKER_SIZE } from '@/lib/constants/markerColors';
 import { formatLocationDisplay } from '@/lib/constants/regionHierarchy';
+
+// 모바일 전용 컴포넌트
+import MobileBottomSheet from '@/components/mobile/MobileBottomSheet';
+import MobileSearchBar from '@/components/mobile/MobileSearchBar';
+import MobileQuickFilters from '@/components/mobile/MobileQuickFilters';
+import MobileJobCard from '@/components/mobile/MobileJobCard';
+import MobileJobDetail from '@/components/mobile/MobileJobDetail';
+import LocationPermissionModal from '@/components/mobile/LocationPermissionModal';
+import DirectionsUnifiedSheet from '@/components/mobile/DirectionsUnifiedSheet';
 
 // 간단한 debounce 유틸리티
 function debounce<T extends (...args: any[]) => void>(fn: T, delay: number): T & { cancel: () => void } {
@@ -70,11 +80,7 @@ export const Hero: React.FC = () => {
   // 선택된 공고 (상세 패널용)
   const [selectedJob, setSelectedJob] = useState<JobPostingCard | null>(null);
   const setSelectedJobRef = useRef(setSelectedJob);
-
-  // setSelectedJob ref 업데이트
-  useEffect(() => {
-    setSelectedJobRef.current = setSelectedJob;
-  }, [setSelectedJob]);
+  const setShowMobileDetailRef = useRef<(show: boolean) => void>(() => {});
 
   // selectedJob 변경 감지 디버깅 + 전역 변수 동기화 (마커 토글용)
   useEffect(() => {
@@ -113,6 +119,93 @@ export const Hero: React.FC = () => {
 
   // 설문 Welcome 모달 상태
   const [isWelcomeModalOpen, setIsWelcomeModalOpen] = useState(false);
+
+  // ===== 모바일 전용 상태 =====
+  const [showMobileDetail, setShowMobileDetail] = useState(false);
+  const [bottomSheetHeight, setBottomSheetHeight] = useState<'collapsed' | 'half' | 'full'>('collapsed');
+
+  // setSelectedJob, setShowMobileDetail ref 업데이트 (마커 클릭에서 사용)
+  useEffect(() => {
+    setSelectedJobRef.current = setSelectedJob;
+    setShowMobileDetailRef.current = setShowMobileDetail;
+  }, [setSelectedJob, setShowMobileDetail]);
+  const [showLocationModal, setShowLocationModal] = useState(false);
+  const [mobileQuickFilters, setMobileQuickFilters] = useState<string[]>([]);
+  const [mobileQuickSubjects, setMobileQuickSubjects] = useState<Record<string, string[]>>({});
+  const [mobileGlobalSubjects, setMobileGlobalSubjects] = useState<string[]>([]);
+  const [isLocating, setIsLocating] = useState(false);
+  const locationPermissionCheckedRef = useRef(false);
+
+  // 모바일 길찾기 상태
+  const [showDirectionsSheet, setShowDirectionsSheet] = useState(false);
+  const [startLocation, setStartLocation] = useState<{ name: string; address: string; lat: number; lng: number } | null>(null);
+  const [endLocation, setEndLocation] = useState<{ name: string; address: string; lat: number; lng: number } | null>(null);
+  const [transportType, setTransportType] = useState<TransportType>('car');
+  const [directionsResult, setDirectionsResult] = useState<DirectionsResult | null>(null);
+  const [isLoadingRoute, setIsLoadingRoute] = useState(false);
+  const [hasLocationPermission, setHasLocationPermission] = useState(false);
+
+  // ★ endLocation 변경 추적 (디버깅용)
+  useEffect(() => {
+    console.log('[Hero] endLocation 변경됨:', endLocation);
+  }, [endLocation]);
+
+  // ★ 모바일 길찾기: startLocation 설정 시 경로 검색 실행
+  useEffect(() => {
+    console.log('[Hero] 경로검색 useEffect 트리거:', { startLocation, endLocation });
+
+    if (!startLocation || !endLocation) {
+      console.log('[Hero] 경로검색 스킵: 출발지/도착지 미설정');
+      return;
+    }
+
+    // 좌표 유효성 검증 (0,0 또는 NaN 체크)
+    const isValidCoord = (lat: number, lng: number) => {
+      return lat !== 0 && lng !== 0 && !isNaN(lat) && !isNaN(lng) &&
+             lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
+    };
+
+    if (!isValidCoord(startLocation.lat, startLocation.lng)) {
+      console.error('[Hero] 출발지 좌표 유효하지 않음:', startLocation);
+      return;
+    }
+    if (!isValidCoord(endLocation.lat, endLocation.lng)) {
+      console.error('[Hero] 도착지 좌표 유효하지 않음:', endLocation);
+      alert('도착지 좌표를 찾을 수 없습니다. 길찾기를 다시 시도해주세요.');
+      setShowDirectionsSheet(false);
+      setEndLocation(null);
+      setStartLocation(null);
+      return;
+    }
+
+    console.log('[Hero] 경로 검색 시작:', {
+      start: { lat: startLocation.lat, lng: startLocation.lng },
+      end: { lat: endLocation.lat, lng: endLocation.lng },
+      type: transportType
+    });
+
+    const searchRoute = async () => {
+      setIsLoadingRoute(true);
+      setDirectionsResult(null);
+
+      try {
+        const result = await getDirections(
+          transportType,
+          { lat: startLocation.lat, lng: startLocation.lng },
+          { lat: endLocation.lat, lng: endLocation.lng }
+        );
+        setDirectionsResult(result);
+        console.log('[Hero] 경로 검색 성공:', result);
+      } catch (error) {
+        console.error('[Hero] 경로 검색 실패:', error);
+        setDirectionsResult(null);
+      } finally {
+        setIsLoadingRoute(false);
+      }
+    };
+
+    searchRoute();
+  }, [startLocation, endLocation, transportType]);
 
   // 마커 레이어 토글 상태
   const [activeLayers, setActiveLayers] = useState<MarkerLayer[]>(['job', 'teacher', 'program']);
@@ -433,8 +526,11 @@ export const Hero: React.FC = () => {
     const map = new window.kakao.maps.Map(mapContainerRef.current, mapOption);
     mapInstanceRef.current = map;
 
-    const zoomControl = new window.kakao.maps.ZoomControl();
-    map.addControl(zoomControl, window.kakao.maps.ControlPosition.RIGHT);
+    // 데스크톱에서만 줌 컨트롤 추가 (모바일에서는 숨김)
+    if (window.innerWidth >= 768) {
+      const zoomControl = new window.kakao.maps.ZoomControl();
+      map.addControl(zoomControl, window.kakao.maps.ControlPosition.RIGHT);
+    }
 
     // 뷰포트 bounds 업데이트 함수
     const updateViewportBounds = () => {
@@ -755,17 +851,46 @@ export const Hero: React.FC = () => {
       return;
     }
 
+    console.log('[Hero] 길찾기: Kakao Places 검색 시작', keyword);
+
     places.keywordSearch(keyword, (result: any[], status: string) => {
+      console.log('[Hero] 길찾기: Kakao Places 응답', { status, resultCount: result?.length, firstResult: result?.[0] });
+
       if (status === window.kakao.maps.services.Status.OK && result.length > 0) {
-        const coords: Coordinates = {
-          lat: parseFloat(result[0].y),
-          lng: parseFloat(result[0].x)
-        };
+        const lat = parseFloat(result[0].y);
+        const lng = parseFloat(result[0].x);
+
+        console.log('[Hero] 길찾기: 파싱된 좌표', { y: result[0].y, x: result[0].x, lat, lng });
+
+        // 좌표 유효성 검증
+        if (isNaN(lat) || isNaN(lng) || lat === 0 || lng === 0) {
+          console.error('[Hero] 길찾기: 좌표 파싱 실패', { y: result[0].y, x: result[0].x, lat, lng });
+          alert('위치 좌표를 가져올 수 없습니다. 다시 시도해주세요.');
+          return;
+        }
+
+        const coords: Coordinates = { lat, lng };
+        console.log('[Hero] 길찾기: 도착지 좌표 획득 성공', coords);
+
         setDirectionsCoords(coords);
         setDirectionsJob(job);
-        // setSelectedJob(null); // 상세 패널 유지
+
+        // ★ 모바일: 길찾기 시트 열기 + endLocation 설정
+        if (window.innerWidth < 768) {
+          const newEndLocation = {
+            name: job.organization || job.title,
+            address: job.location || result[0].address_name || '',
+            lat: coords.lat,
+            lng: coords.lng
+          };
+          console.log('[Hero] 길찾기: setEndLocation 호출', newEndLocation);
+          setEndLocation(newEndLocation);
+          setShowDirectionsSheet(true);
+          setShowMobileDetail(false); // 상세 모달 닫기
+        }
       } else {
-        console.error('[Hero] 길찾기: 위치 검색 실패', keyword);
+        console.error('[Hero] 길찾기: 위치 검색 실패', keyword, status);
+        alert('위치를 찾을 수 없습니다. 다른 검색어로 시도해주세요.');
       }
     });
   }, []);
@@ -1080,6 +1205,12 @@ export const Hero: React.FC = () => {
         try {
           setSelectedJobRef.current(job);
           console.log('[Hero] ✅ setSelectedJob 호출 완료');
+
+          // ★ 모바일: 마커 클릭 시 상세 모달 표시
+          if (window.innerWidth < 768 && setShowMobileDetailRef.current) {
+            setShowMobileDetailRef.current(true);
+            console.log('[Hero] ✅ 모바일 상세 모달 표시');
+          }
 
           // ★ 핵심: 마커 클릭 시 카드 목록에서 해당 카드로 스크롤
           setTimeout(() => {
@@ -1429,8 +1560,8 @@ export const Hero: React.FC = () => {
         }}
       />
 
-      {/* 하단 중앙: 학교급 필터 바 */}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20">
+      {/* 하단 중앙: 학교급 필터 바 (데스크톱 전용) */}
+      <div className="hidden md:block absolute bottom-4 left-1/2 -translate-x-1/2 z-20">
         <SchoolLevelFilterBar
           selectedLevels={mapFilters.schoolLevels}
           onToggleLevel={(level) => {
@@ -1510,9 +1641,9 @@ export const Hero: React.FC = () => {
         />
       )}
 
-      {/* 왼쪽 패널 컨테이너: 로고 + 카드 목록 + 상세 패널 + 토글 버튼 */}
+      {/* 왼쪽 패널 컨테이너: 로고 + 카드 목록 + 상세 패널 + 토글 버튼 (데스크톱 전용) */}
       <div
-        className={`absolute top-4 z-10 flex items-start transition-all duration-300 ease-in-out ${isPanelHidden ? '-left-[240px]' : 'left-4'
+        className={`hidden md:flex absolute top-4 z-10 items-start transition-all duration-300 ease-in-out ${isPanelHidden ? '-left-[240px]' : 'left-4'
           }`}
       >
         {/* 왼쪽 패널: 로고 + 필터 + 공고 목록 (한 몸처럼) */}
@@ -1871,7 +2002,7 @@ export const Hero: React.FC = () => {
         </button>
       </div>
 
-      {/* 길찾기 패널 - 사이드 패널 방식 (상세 패널 옆에 위치) */}
+      {/* 길찾기 패널 - 사이드 패널 방식 (상세 패널 옆에 위치) - 데스크톱만 */}
       <AnimatePresence>
         {directionsJob && (
           <motion.div
@@ -1879,7 +2010,7 @@ export const Hero: React.FC = () => {
             animate={{ opacity: 1, x: 0, scale: 1 }}
             exit={{ opacity: 0, x: -20, scale: 0.95 }}
             transition={{ duration: 0.25, ease: 'easeOut' }}
-            className="absolute top-4 z-20"
+            className="hidden md:block absolute top-4 z-20"
             data-panel="directions"
             style={{
               // 패널 숨김 시: 16px, 패널 보임 시: 카드목록(240px) + 토글버튼(20px) + gap(12px) + 상세패널(260px, 있을 때) + gap(12px) = 위치
@@ -1903,6 +2034,263 @@ export const Hero: React.FC = () => {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* ===== 모바일 전용 UI (768px 미만) ===== */}
+
+      {/* 모바일 상단: 검색바 + 빠른 필터 */}
+      <div className="md:hidden absolute top-0 left-0 right-0 z-30 bg-gradient-to-b from-white/95 to-transparent pb-4">
+        <MobileSearchBar
+          value={locationSearchQuery}
+          onSearch={(query) => {
+            setLocationSearchQuery(query);
+            handleLocationSearch();
+          }}
+          onProfileClick={() => {
+            if (user) {
+              window.location.href = '/profile';
+            } else {
+              setAuthModalInitialTab('login');
+              setIsAuthModalOpen(true);
+            }
+          }}
+        />
+        <MobileQuickFilters
+          selectedFilters={mobileQuickFilters}
+          selectedSubjects={mobileQuickSubjects}
+          onFilterToggle={(filterId) => {
+            setMobileQuickFilters(prev =>
+              prev.includes(filterId)
+                ? prev.filter(f => f !== filterId)
+                : [...prev, filterId]
+            );
+          }}
+          onSubjectsChange={(filterId, subjects) => {
+            setMobileQuickSubjects(prev => ({
+              ...prev,
+              [filterId]: subjects,
+            }));
+          }}
+          onReset={() => {
+            setMobileQuickFilters([]);
+            setMobileQuickSubjects({});
+            setMobileGlobalSubjects([]);
+          }}
+          bottomSheetHeight={bottomSheetHeight}
+          globalSubjects={mobileGlobalSubjects}
+          onGlobalSubjectsChange={setMobileGlobalSubjects}
+        />
+      </div>
+
+      {/* 모바일 현위치 버튼 */}
+      <button
+        onClick={() => {
+          if (!navigator.geolocation) return;
+          setIsLocating(true);
+          navigator.geolocation.getCurrentPosition(
+            (position) => {
+              const { latitude: lat, longitude: lng } = position.coords;
+              setUserLocation({ lat, lng });
+              if (mapInstanceRef.current) {
+                const newCenter = new window.kakao.maps.LatLng(lat, lng);
+                mapInstanceRef.current.setCenter(newCenter);
+                mapInstanceRef.current.setLevel(5);
+              }
+              setIsLocating(false);
+            },
+            (error) => {
+              console.error('위치 가져오기 실패:', error);
+              setIsLocating(false);
+            },
+            { enableHighAccuracy: true, timeout: 10000 }
+          );
+        }}
+        disabled={isLocating}
+        className="md:hidden absolute right-4 top-[140px] z-20 w-12 h-12 bg-white rounded-full shadow-lg flex items-center justify-center active:bg-gray-100 disabled:opacity-50"
+      >
+        {isLocating ? (
+          <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+        ) : (
+          <svg className="w-6 h-6 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+        )}
+      </button>
+
+      {/* 모바일 바텀시트 (공고 목록) - 길찾기 시트 열려있으면 숨김 */}
+      {!showDirectionsSheet && (
+      <div className="md:hidden">
+        <MobileBottomSheet
+          height={bottomSheetHeight}
+          onHeightChange={setBottomSheetHeight}
+          jobCount={filteredJobPostings.length}
+          isLoading={isJobsLoading}
+        >
+          <div className="space-y-3 pb-20">
+            {filteredJobPostings.map((job) => (
+              <MobileJobCard
+                key={job.id}
+                job={job}
+                isSelected={selectedJob?.id === job.id}
+                onClick={() => {
+                  setSelectedJob(job);
+                  setShowMobileDetail(true);
+                  // 지도에서 해당 마커 위치로 이동
+                  const keyword = job.organization || job.location;
+                  if (keyword && coordsCacheRef.current.has(keyword)) {
+                    const coords = coordsCacheRef.current.get(keyword)!;
+                    if (mapInstanceRef.current) {
+                      mapInstanceRef.current.panTo(
+                        new window.kakao.maps.LatLng(coords.lat, coords.lng)
+                      );
+                    }
+                  }
+                }}
+                onDetailClick={() => {
+                  setSelectedJob(job);
+                  setShowMobileDetail(true);
+                }}
+                onDirectionsClick={() => handleDirectionsClick(job)}
+              />
+            ))}
+
+            {!isJobsLoading && filteredJobPostings.length === 0 && (
+              <div className="text-center py-12 text-gray-500">
+                <svg className="w-12 h-12 mx-auto mb-3 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <p>검색 결과가 없습니다</p>
+              </div>
+            )}
+          </div>
+        </MobileBottomSheet>
+      </div>
+      )}
+
+      {/* 모바일 상세보기 모달 */}
+      {showMobileDetail && selectedJob && (
+        <div className="md:hidden">
+          <MobileJobDetail
+            job={selectedJob}
+            onClose={() => setShowMobileDetail(false)}
+            onDirections={() => {
+              // 모바일 길찾기 시작 - handleDirectionsClick과 동일한 로직 사용
+              if (selectedJob) {
+                handleDirectionsClick(selectedJob);
+              }
+            }}
+          />
+        </div>
+      )}
+
+      {/* 모바일 길찾기 통합 시트 */}
+      <div className="md:hidden">
+        <DirectionsUnifiedSheet
+          isOpen={showDirectionsSheet}
+          onClose={() => {
+            setShowDirectionsSheet(false);
+            setDirectionsJob(null);
+            setDirectionsResult(null);
+            // ★ 길찾기 상태 완전 초기화
+            setStartLocation(null);
+            setEndLocation(null);
+            // 라인 제거 등 초기화 로직 필요
+            if (polylineRef.current) {
+              polylineRef.current.setMap(null);
+              polylineRef.current = null;
+            }
+          }}
+          startLocation={startLocation}
+          endLocation={endLocation}
+          directionsResult={directionsResult}
+          transportType={transportType}
+          onTransportTypeChange={setTransportType}
+          isLoading={isLoadingRoute}
+          destinationName={directionsJob?.organization || ''}
+          onSelectCurrentLocation={() => {
+            // 현위치 선택 로직 (에러 핸들링 포함)
+            if (navigator.geolocation) {
+              setHasLocationPermission(true);
+              navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                  console.log('[Hero] 현위치 획득:', pos.coords);
+                  setStartLocation({
+                    name: '현위치',
+                    address: '내 위치',
+                    lat: pos.coords.latitude,
+                    lng: pos.coords.longitude
+                  });
+                },
+                (error) => {
+                  console.error('[Hero] 위치 획득 실패:', error);
+                  alert('위치를 가져올 수 없습니다. 위치 권한을 확인해주세요.');
+                },
+                { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+              );
+            } else {
+              alert('이 브라우저에서는 위치 기능을 지원하지 않습니다.');
+            }
+          }}
+          onSelectSearchLocation={(location) => {
+            // 검색 결과 선택 시 출발지로 설정
+            console.log('[Hero] 검색 결과 선택:', location);
+            setStartLocation({
+              name: location.name,
+              address: location.address,
+              lat: location.lat,
+              lng: location.lng
+            });
+          }}
+          onSelectMapLocation={() => { }} // 지도 선택 로직 연동 필요
+          onClearStartLocation={() => setStartLocation(null)}
+          hasLocationPermission={hasLocationPermission}
+          onRequestLocationPermission={() => {
+            // 권한 요청 시 바로 위치 획득 시도
+            if (navigator.geolocation) {
+              setHasLocationPermission(true);
+              navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                  setStartLocation({
+                    name: '현위치',
+                    address: '내 위치',
+                    lat: pos.coords.latitude,
+                    lng: pos.coords.longitude
+                  });
+                },
+                (error) => {
+                  console.error('[Hero] 권한 요청 중 위치 획득 실패:', error);
+                  setHasLocationPermission(false);
+                },
+                { enableHighAccuracy: true, timeout: 10000 }
+              );
+            }
+          }}
+        />
+      </div>
+
+      {/* 위치 권한 모달 (모바일만) */}
+      <LocationPermissionModal
+        isOpen={showLocationModal}
+        onAllow={() => {
+          setShowLocationModal(false);
+          localStorage.setItem('locationPermissionChoice', 'allowed');
+          // 위치 가져오기
+          if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+              (position) => {
+                const { latitude: lat, longitude: lng } = position.coords;
+                setUserLocation({ lat, lng });
+              },
+              (error) => console.error('위치 가져오기 실패:', error),
+              { enableHighAccuracy: true, timeout: 10000 }
+            );
+          }
+        }}
+        onDeny={() => {
+          setShowLocationModal(false);
+          localStorage.setItem('locationPermissionChoice', 'denied');
+        }}
+      />
     </section>
   );
 };

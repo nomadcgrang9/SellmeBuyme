@@ -176,6 +176,13 @@ const DirectionsUnifiedSheet: React.FC<DirectionsUnifiedSheetProps> = ({
 
   if (!isOpen) return null;
 
+  // 배경 클릭 시 닫기
+  const handleBackdropClick = (e: React.MouseEvent) => {
+    if (e.target === e.currentTarget) {
+      handleClose();
+    }
+  };
+
   // 교통수단 아이콘
   const transportIcons: Record<TransportType, React.ReactNode> = {
     car: (
@@ -215,14 +222,22 @@ const DirectionsUnifiedSheet: React.FC<DirectionsUnifiedSheetProps> = ({
   };
 
   return (
-    <div
-      className={`
-        fixed bottom-4 left-4 right-4 z-40 bg-white rounded-2xl shadow-lg
-        transition-transform duration-200
-        ${isClosing ? 'translate-y-full' : 'translate-y-0'}
-      `}
-      style={{ boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)' }}
-    >
+    <>
+      {/* 배경 오버레이 - 클릭 시 닫기 */}
+      <div
+        className={`fixed inset-0 z-30 bg-black/20 transition-opacity duration-200 ${isClosing ? 'opacity-0' : 'opacity-100'}`}
+        onClick={handleBackdropClick}
+      />
+
+      {/* 모달 컨텐츠 */}
+      <div
+        className={`
+          fixed bottom-4 left-4 right-4 z-40 bg-white rounded-2xl shadow-lg
+          transition-transform duration-200
+          ${isClosing ? 'translate-y-full' : 'translate-y-0'}
+        `}
+        style={{ boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)' }}
+      >
       {/* 헤더: 뒤로가기 + 교통수단 탭 */}
       <div className="flex items-center justify-between px-4 py-4 border-b border-gray-100">
         <button onClick={handleClose} className="p-1 -ml-1 text-gray-500">
@@ -284,8 +299,8 @@ const DirectionsUnifiedSheet: React.FC<DirectionsUnifiedSheetProps> = ({
               </div>
             ) : (
               <div className="flex items-center gap-2">
-                {/* 출발지 검색창 */}
-                <div className="flex-1 flex items-center gap-2 px-3 py-2.5 bg-gray-100 rounded-xl min-w-0">
+                {/* 출발지 검색창 - 너비 제한 */}
+                <div className="flex items-center gap-2 px-3 py-2.5 bg-gray-100 rounded-xl" style={{ flex: '1 1 0', minWidth: 0, maxWidth: 'calc(100% - 76px)' }}>
                   <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
@@ -295,12 +310,12 @@ const DirectionsUnifiedSheet: React.FC<DirectionsUnifiedSheetProps> = ({
                     value={searchQuery}
                     onChange={handleInputChange}
                     placeholder="출발지 검색"
-                    className="flex-1 bg-transparent outline-none text-sm text-gray-900 placeholder-gray-400 min-w-0"
+                    className="flex-1 bg-transparent outline-none text-sm text-gray-900 placeholder-gray-400 min-w-0 w-full"
                   />
                   {searchQuery && (
                     <button
                       onClick={() => { setSearchQuery(''); setSearchResults([]); }}
-                      className="p-0.5 text-gray-400"
+                      className="p-0.5 text-gray-400 flex-shrink-0"
                     >
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -308,16 +323,22 @@ const DirectionsUnifiedSheet: React.FC<DirectionsUnifiedSheetProps> = ({
                     </button>
                   )}
                 </div>
-                {/* 현재위치 버튼 */}
+                {/* 현재위치 버튼 - 고정 너비, 눈에 띄는 색상 */}
                 <button
                   onClick={handleCurrentClick}
                   disabled={isLocating}
-                  className="w-[30%] py-2.5 bg-gray-100 hover:bg-gray-200 active:bg-gray-300 text-gray-700 text-sm font-medium rounded-xl transition-colors text-center flex items-center justify-center gap-2 disabled:opacity-70"
+                  className="flex-shrink-0 w-[68px] py-2.5 bg-blue-50 hover:bg-blue-100 active:bg-blue-200 text-blue-600 text-xs font-medium rounded-xl transition-colors flex items-center justify-center gap-1 disabled:opacity-70"
                 >
                   {isLocating ? (
-                    <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+                    <div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
                   ) : (
-                    '현재위치'
+                    <>
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <circle cx="12" cy="12" r="3" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 2v4m0 12v4m10-10h-4M6 12H2" />
+                      </svg>
+                      현위치
+                    </>
                   )}
                 </button>
               </div>
@@ -378,18 +399,18 @@ const DirectionsUnifiedSheet: React.FC<DirectionsUnifiedSheetProps> = ({
         ) : directionsResult && startLocation ? (
           <div className="space-y-4">
             {/* 시간/거리/요금 */}
-            <div className="flex items-center gap-4">
-              <span className="text-2xl font-bold text-gray-900">
+            <div className="flex items-center gap-3 flex-wrap">
+              <span className="text-2xl font-bold text-gray-900 whitespace-nowrap">
                 {formatDuration(directionsResult.totalTime)}
               </span>
               <span className="text-gray-300">|</span>
-              <span className="text-base text-gray-600">
+              <span className="text-base text-gray-600 whitespace-nowrap">
                 {formatDistance(directionsResult.totalDistance)}
               </span>
               {getFareText() && (
                 <>
                   <span className="text-gray-300">|</span>
-                  <span className="text-sm text-gray-500 truncate">
+                  <span className="text-sm text-gray-500 whitespace-nowrap">
                     {getFareText()}
                   </span>
                 </>
@@ -413,7 +434,8 @@ const DirectionsUnifiedSheet: React.FC<DirectionsUnifiedSheetProps> = ({
           </div>
         )}
       </div>
-    </div>
+      </div>
+    </>
   );
 };
 

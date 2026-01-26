@@ -16,7 +16,6 @@ const MobileRegister = lazy(() => import('./pages/MobileRegister'))
 const MobileChat = lazy(() => import('./pages/MobileChat'))
 const MobileChatRoom = lazy(() => import('./pages/MobileChatRoom'))
 const NewLanding = lazy(() => import('./pages/new-landing/App'))
-const MobileMapPage = lazy(() => import('./pages/mobile-map/MobileMapPage'))
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 로딩 폴백 컴포넌트
@@ -71,36 +70,10 @@ const forceMobile = urlParams.get('mobile') === 'true';
 const forceDesktop = urlParams.get('desktop') === 'true';
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// 동적 뷰포트 감지 컴포넌트 (반응형으로 MobileMapPage ↔ NewLanding 전환)
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-function ResponsiveRouter() {
-  const [isMobile, setIsMobile] = useState(() => {
-    if (forceDesktop) return false;
-    if (forceMobile) return true;
-    return window.innerWidth < 768;
-  });
-
-  useEffect(() => {
-    // 강제 모드면 resize 이벤트 무시
-    if (forceMobile || forceDesktop) return;
-
-    const handleResize = () => {
-      const newIsMobile = window.innerWidth < 768;
-      setIsMobile(newIsMobile);
-    };
-
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
-  // 모바일이면 MobileMapPage, 아니면 NewLanding
-  return isMobile ? <MobileMapPage /> : <NewLanding />;
-}
-
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 라우팅 결정
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-let rootComponent: React.ReactNode = <ResponsiveRouter />;
+// 기본값: 반응형 NewLanding (모바일/데스크톱 모두 처리)
+let rootComponent: React.ReactNode = <NewLanding />;
 
 // 개발자 노트 페이지 (PWA)
 if (pathname.startsWith('/note')) {

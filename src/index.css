@@ -242,3 +242,16 @@ a {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
+/* 카카오맵 축척/저작권 모바일에서 숨기기 */
+@media (max-width: 767px) {
+  /* 축척 컨트롤 숨기기 */
+  .map_copyright,
+  div[class*="copyright"],
+  div[style*="position: absolute"][style*="bottom"] > span,
+  .kakaomap_scale,
+  div[style*="position: absolute; left: 5px; bottom: 5px"],
+  div[style*="kakao.com"] {
+    display: none !important;
+  }
+}
