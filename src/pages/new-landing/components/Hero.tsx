@@ -260,6 +260,7 @@ export const Hero: React.FC = () => {
 
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
+  const zoomControlRef = useRef<any>(null);
   const { isLoaded, loadKakaoMaps } = useKakaoMaps();
 
   // 사용자 위치 상태
@@ -526,26 +527,13 @@ export const Hero: React.FC = () => {
     const map = new window.kakao.maps.Map(mapContainerRef.current, mapOption);
     mapInstanceRef.current = map;
 
-    // 줌 컨트롤 추가 (항상 추가하되 모바일에서는 CSS로 숨김)
-    const zoomControl = new window.kakao.maps.ZoomControl();
-    map.addControl(zoomControl, window.kakao.maps.ControlPosition.RIGHT);
-
-    // 모바일에서 줌 컨트롤 숨김 처리
-    setTimeout(() => {
-      const isMobile = window.innerWidth < 768;
-      if (isMobile && mapContainerRef.current) {
-        // 카카오맵 줌 컨트롤은 마지막 자식 div
-        const mapContainer = mapContainerRef.current;
-        const zoomControlElements = mapContainer.querySelectorAll('div[style*="position: absolute"][style*="right"]');
-        zoomControlElements.forEach((el) => {
-          const htmlEl = el as HTMLElement;
-          // 줌 컨트롤인지 확인 (우측에 위치하고 버튼이 있는지)
-          if (htmlEl.querySelector('span[style*="cursor: pointer"]')) {
-            htmlEl.style.display = 'none';
-          }
-        });
-      }
-    }, 100);
+    // 줌 컨트롤 추가 (데스크톱에서만)
+    const isMobile = window.innerWidth < 768;
+    if (!isMobile) {
+      const zoomControl = new window.kakao.maps.ZoomControl();
+      map.addControl(zoomControl, window.kakao.maps.ControlPosition.RIGHT);
+      zoomControlRef.current = zoomControl;
+    }
 
     // 뷰포트 bounds 업데이트 함수
     const updateViewportBounds = () => {
