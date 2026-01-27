@@ -124,16 +124,20 @@ const MobileQuickFilters: React.FC<MobileQuickFiltersProps> = ({
     }
   };
 
-  // 칩에 표시할 라벨 (과목 포함)
+  // 칩에 표시할 라벨 (항상 shortLabel만 - 과목은 별도 영역에 표시)
   const getChipLabel = (filter: QuickFilter): string => {
-    const subjects = selectedSubjects[filter.id];
-    if (subjects && subjects.length > 0) {
-      if (subjects.length === 1) {
-        return `${filter.shortLabel}:${subjects[0]}`;
-      }
-      return `${filter.shortLabel}:${subjects.length}개`;
-    }
     return filter.shortLabel;
+  };
+
+  // 선택된 모든 과목 목록 (학교급별로 묶어서)
+  const getSelectedSubjectsList = (): { filterId: string; filterLabel: string; subjects: string[] }[] => {
+    return Object.entries(selectedSubjects)
+      .filter(([_, subjects]) => subjects.length > 0)
+      .map(([filterId, subjects]) => ({
+        filterId,
+        filterLabel: QUICK_FILTERS.find(f => f.id === filterId)?.shortLabel || '',
+        subjects,
+      }));
   };
 
   const hasActiveFilters = selectedFilters.length > 0 || Object.values(selectedSubjects).some(s => s.length > 0) || globalSubjects.length > 0;
@@ -183,13 +187,14 @@ const MobileQuickFilters: React.FC<MobileQuickFiltersProps> = ({
             const isSelected = selectedFilters.includes(filter.id);
             const colors = SCHOOL_LEVEL_COLORS[filter.colorKey];
             const label = getChipLabel(filter);
+            const hasSubjectsSelected = selectedSubjects[filter.id]?.length > 0;
 
             return (
               <button
                 key={filter.id}
                 onClick={() => handleFilterClick(filter)}
                 className={`
-                  flex-shrink-0 px-3 py-1.5 rounded-full text-sm font-medium
+                  relative flex-shrink-0 px-3 py-1.5 rounded-full text-sm font-medium
                   border-2 transition-all duration-200 active:scale-95
                   ${isSelected
                     ? `${colors.activeBg} ${colors.activeText} border-transparent`
@@ -198,11 +203,42 @@ const MobileQuickFilters: React.FC<MobileQuickFiltersProps> = ({
                 `}
               >
                 {label}
+                {/* 과목 선택됨 표시 (점) */}
+                {hasSubjectsSelected && (
+                  <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-blue-500 rounded-full border border-white" />
+                )}
               </button>
             );
           })}
 
         </div>
+
+        {/* 선택된 과목 태그 영역 */}
+        {getSelectedSubjectsList().length > 0 && (
+          <div className="flex items-center justify-center gap-2 mt-2 overflow-x-auto scrollbar-hide">
+            {getSelectedSubjectsList().map(({ filterId, filterLabel, subjects }) => (
+              subjects.map(subject => (
+                <span
+                  key={`${filterId}-${subject}`}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full flex-shrink-0"
+                >
+                  <span>{filterLabel}:{subject}</span>
+                  <button
+                    onClick={() => {
+                      const newSubjects = selectedSubjects[filterId].filter(s => s !== subject);
+                      onSubjectsChange(filterId, newSubjects);
+                    }}
+                    className="w-3.5 h-3.5 flex items-center justify-center hover:bg-blue-200 rounded-full"
+                  >
+                    <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </span>
+              ))
+            ))}
+          </div>
+        )}
       </div>
 
       {/* 과목 선택 센터 모달 */}
