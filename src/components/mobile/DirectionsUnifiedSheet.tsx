@@ -275,16 +275,14 @@ const DirectionsUnifiedSheet: React.FC<DirectionsUnifiedSheetProps> = ({
         {/* 여백 */}
         <div className="flex-1 min-w-2" />
 
-        {/* 카카오맵 버튼 (컴팩트) */}
+        {/* 카카오맵 버튼 (아이콘만) */}
         <button
           onClick={openInKakaoMap}
           disabled={!directionsResult}
-          className="px-3 py-2 bg-[#FEE500] hover:bg-[#FAE100] active:bg-[#F5D800] text-gray-900 font-bold rounded-lg flex items-center gap-1.5 transition-colors text-sm flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed transition-transform active:scale-95 shadow-sm"
+          aria-label="카카오맵에서 열기"
         >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
-          </svg>
-          <span className="whitespace-nowrap">카카오맵</span>
+          <img src="/icons/kakaomap.svg" alt="카카오맵" className="w-full h-full" />
         </button>
       </div>
 

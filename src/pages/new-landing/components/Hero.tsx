@@ -519,7 +519,28 @@ export const Hero: React.FC = () => {
     // 먼저 중복 제거
     let filtered = deduplicateJobs(jobPostings);
 
-    // 학교급 필터 - getSchoolLevelFromJob과 동일한 로직 사용
+    // 모바일 필터 ID → 학교급 한글 매핑
+    const mobileFilterToSchoolLevel: Record<string, string> = {
+      kindergarten: '유치원',
+      elementary: '초등학교',
+      middle: '중학교',
+      high: '고등학교',
+      special: '특수학교',
+      etc: '기타',
+    };
+
+    // 모바일 필터 적용 (mobileQuickFilters)
+    if (mobileQuickFilters.length > 0) {
+      const selectedSchoolLevels = mobileQuickFilters.map(f => mobileFilterToSchoolLevel[f]).filter(Boolean);
+      if (selectedSchoolLevels.length > 0) {
+        filtered = filtered.filter(job => {
+          const jobSchoolLevel = getSchoolLevelFromJob(job);
+          return selectedSchoolLevels.includes(jobSchoolLevel);
+        });
+      }
+    }
+
+    // 데스크톱 학교급 필터 - getSchoolLevelFromJob과 동일한 로직 사용
     if (mapFilters.schoolLevels.length > 0) {
       filtered = filtered.filter(job => {
         const jobSchoolLevel = getSchoolLevelFromJob(job);
@@ -619,7 +640,7 @@ export const Hero: React.FC = () => {
 
     return filtered;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [jobPostings, mapFilters, activeLocationFilter, deduplicateJobs, viewportBounds, coordsCacheVersion, selectedJob]);
+  }, [jobPostings, mapFilters, activeLocationFilter, deduplicateJobs, viewportBounds, coordsCacheVersion, selectedJob, mobileQuickFilters]);
 
   // 인증 상태 초기화
   const { initialize: initializeAuth } = useAuthStore();
@@ -2218,7 +2239,10 @@ export const Hero: React.FC = () => {
       {/* ===== 모바일 전용 UI (768px 미만) ===== */}
 
       {/* 모바일 상단: 검색바 + 빠른 필터 */}
-      <div className="md:hidden absolute top-0 left-0 right-0 z-30 bg-gradient-to-b from-white/95 to-transparent pb-4">
+      <div
+        className="md:hidden absolute top-0 left-0 right-0 z-30 bg-gradient-to-b from-white/95 to-transparent pb-4 overflow-visible"
+        style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
+      >
         <MobileSearchBar
           value={locationSearchQuery}
           onSearch={(query) => {

@@ -22,6 +22,58 @@
 </head>
 
 <body>
+  <!-- PWA Reset Script: ?reset-pwa=true 파라미터로 캐시 초기화 -->
+  <script>
+    (function() {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('reset-pwa') === 'true') {
+        console.log('🔄 PWA Reset 시작...');
+
+        // 1. Service Worker 언레지스터
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.getRegistrations().then(function(registrations) {
+            registrations.forEach(function(registration) {
+              registration.unregister();
+              console.log('✅ Service Worker 해제:', registration.scope);
+            });
+          });
+        }
+
+        // 2. 캐시 삭제
+        if ('caches' in window) {
+          caches.keys().then(function(cacheNames) {
+            cacheNames.forEach(function(cacheName) {
+              caches.delete(cacheName);
+              console.log('✅ 캐시 삭제:', cacheName);
+            });
+          });
+        }
+
+        // 3. localStorage/sessionStorage 클리어 (PWA 관련만)
+        ['main_pwa_visited', 'main_pwa_dismissed', 'devnote_pwa_visited', 'devnote_pwa_dismissed'].forEach(function(key) {
+          localStorage.removeItem(key);
+          sessionStorage.removeItem(key + '_session');
+        });
+        console.log('✅ PWA 방문 기록 초기화');
+
+        // 4. 파라미터 제거 후 새로고침
+        params.delete('reset-pwa');
+        const newUrl = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
+        console.log('🔄 리다이렉트:', newUrl);
+        setTimeout(function() {
+          window.location.replace(newUrl);
+        }, 500);
+
+        // 로딩 표시 (DOM 조작으로 변경)
+        document.addEventListener('DOMContentLoaded', function() {
+          var root = document.getElementById('root');
+          if (root) root.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;"><p>PWA 초기화 중...</p></div>';
+        });
+        return;
+      }
+    })();
+  </script>
+
   <div id="root"></div>
   <script type="module" src="/src/main.tsx"></script>
 </body>

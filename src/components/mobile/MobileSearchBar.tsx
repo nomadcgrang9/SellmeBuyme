@@ -131,7 +131,7 @@ const MobileSearchBar: React.FC<MobileSearchBarProps> = ({
         <form
           onSubmit={handleSubmit}
           className={`
-            flex-1 flex items-center gap-2 px-3 py-2.5
+            flex-1 min-w-0 flex items-center gap-2 px-3 py-2.5
             transition-all duration-200
             ${isFullMode
               ? 'bg-white border border-gray-200 rounded-xl'
