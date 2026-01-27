@@ -540,6 +540,19 @@ export const Hero: React.FC = () => {
       }
     }
 
+    // 모바일 과목 필터 적용 (mobileQuickSubjects)
+    const allMobileSubjects = Object.values(mobileQuickSubjects).flat();
+    if (allMobileSubjects.length > 0) {
+      filtered = filtered.filter(job => {
+        const title = (job.title || '').toLowerCase();
+        const tags = job.tags || [];
+        return allMobileSubjects.some(subject => {
+          const subLower = subject.toLowerCase();
+          return title.includes(subLower) || tags.some(t => t.toLowerCase() === subLower);
+        });
+      });
+    }
+
     // 데스크톱 학교급 필터 - getSchoolLevelFromJob과 동일한 로직 사용
     if (mapFilters.schoolLevels.length > 0) {
       filtered = filtered.filter(job => {
@@ -640,7 +653,7 @@ export const Hero: React.FC = () => {
 
     return filtered;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [jobPostings, mapFilters, activeLocationFilter, deduplicateJobs, viewportBounds, coordsCacheVersion, selectedJob, mobileQuickFilters]);
+  }, [jobPostings, mapFilters, activeLocationFilter, deduplicateJobs, viewportBounds, coordsCacheVersion, selectedJob, mobileQuickFilters, mobileQuickSubjects]);
 
   // 인증 상태 초기화
   const { initialize: initializeAuth } = useAuthStore();
