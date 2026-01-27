@@ -34,8 +34,8 @@ const getRegionInfo = (): { city?: string; district?: string } => {
     if (cached) {
       const parsed = JSON.parse(cached);
       return {
-        city: parsed.city || undefined,
-        district: parsed.district || undefined,
+        city: parsed.address?.city || undefined,
+        district: parsed.address?.district || undefined,
       };
     }
   } catch {

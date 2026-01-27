@@ -29,46 +29,64 @@
       if (params.get('reset-pwa') === 'true') {
         console.log('🔄 PWA Reset 시작...');
 
-        // 1. Service Worker 언레지스터
+        // 로딩 표시
+        document.addEventListener('DOMContentLoaded', function() {
+          var root = document.getElementById('root');
+          if (root) root.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;flex-direction:column;gap:16px;"><p style="font-size:18px;">PWA 초기화 중...</p><p style="color:#666;font-size:14px;">잠시만 기다려주세요</p></div>';
+        });
+
+        var tasks = [];
+
+        // 1. Service Worker 언레지스터 (완료 대기)
         if ('serviceWorker' in navigator) {
-          navigator.serviceWorker.getRegistrations().then(function(registrations) {
-            registrations.forEach(function(registration) {
-              registration.unregister();
-              console.log('✅ Service Worker 해제:', registration.scope);
-            });
-          });
+          tasks.push(
+            navigator.serviceWorker.getRegistrations().then(function(registrations) {
+              return Promise.all(registrations.map(function(registration) {
+                console.log('✅ Service Worker 해제:', registration.scope);
+                return registration.unregister();
+              }));
+            })
+          );
         }
 
-        // 2. 캐시 삭제
+        // 2. 캐시 삭제 (완료 대기)
         if ('caches' in window) {
-          caches.keys().then(function(cacheNames) {
-            cacheNames.forEach(function(cacheName) {
-              caches.delete(cacheName);
-              console.log('✅ 캐시 삭제:', cacheName);
-            });
-          });
+          tasks.push(
+            caches.keys().then(function(cacheNames) {
+              return Promise.all(cacheNames.map(function(cacheName) {
+                console.log('✅ 캐시 삭제:', cacheName);
+                return caches.delete(cacheName);
+              }));
+            })
+          );
         }
 
-        // 3. localStorage/sessionStorage 클리어 (PWA 관련만)
-        ['main_pwa_visited', 'main_pwa_dismissed', 'devnote_pwa_visited', 'devnote_pwa_dismissed'].forEach(function(key) {
+        // 3. localStorage/sessionStorage 클리어 (PWA 관련)
+        ['main_pwa_visited', 'main_pwa_dismissed', 'devnote_pwa_visited', 'devnote_pwa_dismissed', 'pwa_install_prompted'].forEach(function(key) {
           localStorage.removeItem(key);
+          sessionStorage.removeItem(key);
           sessionStorage.removeItem(key + '_session');
         });
         console.log('✅ PWA 방문 기록 초기화');
 
-        // 4. 파라미터 제거 후 새로고침
-        params.delete('reset-pwa');
-        const newUrl = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
-        console.log('🔄 리다이렉트:', newUrl);
-        setTimeout(function() {
+        // 4. 모든 비동기 작업 완료 후 리다이렉트
+        Promise.all(tasks).then(function() {
+          console.log('✅ 모든 PWA 초기화 완료');
+          params.delete('reset-pwa');
+          var newUrl = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
+          console.log('🔄 리다이렉트:', newUrl);
+          // 약간의 딜레이 후 리다이렉트 (브라우저가 변경사항 반영하도록)
+          setTimeout(function() {
+            window.location.replace(newUrl);
+          }, 300);
+        }).catch(function(err) {
+          console.error('❌ PWA 초기화 오류:', err);
+          // 오류가 있어도 리다이렉트
+          params.delete('reset-pwa');
+          var newUrl = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
           window.location.replace(newUrl);
-        }, 500);
-
-        // 로딩 표시 (DOM 조작으로 변경)
-        document.addEventListener('DOMContentLoaded', function() {
-          var root = document.getElementById('root');
-          if (root) root.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;"><p>PWA 초기화 중...</p></div>';
         });
+
         return;
       }
     })();
