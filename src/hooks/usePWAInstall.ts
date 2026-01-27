@@ -16,8 +16,8 @@ import {
     showInstallPrompt,
 } from '@/lib/utils/pwaUtils';
 
-// PWA 모달 표시 딜레이 (15초)
-const PWA_PROMPT_DELAY = 15000;
+// PWA 모달 표시 딜레이 (1분)
+const PWA_PROMPT_DELAY = 60000;
 
 export interface UsePWAInstallReturn {
     // 모달 상태
