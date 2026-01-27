@@ -12,13 +12,13 @@
     "lang": "ko",
     "icons": [
         {
-            "src": "/picture/favicon.png",
+            "src": "/picture/faviconV2.png",
             "sizes": "192x192",
             "type": "image/png",
             "purpose": "any"
         },
         {
-            "src": "/picture/favicon.png",
+            "src": "/picture/faviconV2.png",
             "sizes": "512x512",
             "type": "image/png",
             "purpose": "any maskable"
@@ -37,7 +37,7 @@
             "url": "/?source=pwa&action=search",
             "icons": [
                 {
-                    "src": "/picture/favicon.png",
+                    "src": "/picture/faviconV2.png",
                     "sizes": "96x96"
                 }
             ]
