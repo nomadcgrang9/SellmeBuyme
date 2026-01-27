@@ -1,7 +1,8 @@
 import { ReactNode } from 'react';
 import { usePWAInstall } from '@/hooks/usePWAInstall';
 import {
-    FirstVisitInstallPrompt,
+    BrowserRedirectModal,
+    InstallPromptModal,
     IOSInstallGuide,
     ManualBrowserGuide,
     InstallButton,
@@ -15,33 +16,24 @@ interface PWAProviderProps {
 
 /**
  * PWA 설치 관련 모달과 로직을 제공하는 래퍼 컴포넌트
- * 사용 방법:
- * 
- * <PWAProvider>
- *   <YourApp />
- * </PWAProvider>
- * 
- * 또는 헤더에 설치 버튼을 커스텀 위치에 렌더링:
- * 
- * <PWAProvider
- *   renderInstallButton={(button) => (
- *     <header>
- *       {button}
- *     </header>
- *   )}
- * >
- *   <YourApp />
- * </PWAProvider>
+ *
+ * 플로우:
+ * 1. 카톡 인앱 브라우저: 15초 후 "외부 브라우저로 이동" 모달 → 이동 후 "앱 설치" 모달
+ * 2. 일반 브라우저: 15초 후 "앱 설치" 모달
+ * 3. from=kakao 파라미터: 카톡에서 넘어온 경우 즉시 "앱 설치" 모달
  */
 function PWAProvider({ children, renderInstallButton }: PWAProviderProps) {
     const {
-        showFirstVisitModal,
+        showBrowserRedirectModal,
+        showInstallModal,
         showIOSGuide,
         showManualGuide,
         clipboardSuccess,
         showInstallButton,
-        handleFirstVisitInstall,
-        handleFirstVisitDismiss,
+        handleBrowserRedirect,
+        handleBrowserRedirectDismiss,
+        handleInstall,
+        handleInstallDismiss,
         handleIOSGuideDismiss,
         handleManualGuideDismiss,
         appName,
@@ -58,20 +50,30 @@ function PWAProvider({ children, renderInstallButton }: PWAProviderProps) {
             {/* 메인 콘텐츠 */}
             {children}
 
-            {/* PWA 설치 모달들 */}
-            <FirstVisitInstallPrompt
-                isOpen={showFirstVisitModal}
-                onInstall={handleFirstVisitInstall}
-                onDismiss={handleFirstVisitDismiss}
+            {/* 카톡 → 외부 브라우저 이동 안내 모달 */}
+            <BrowserRedirectModal
+                isOpen={showBrowserRedirectModal}
+                onRedirect={handleBrowserRedirect}
+                onDismiss={handleBrowserRedirectDismiss}
                 appName={appName}
             />
 
+            {/* PWA 앱 설치 모달 */}
+            <InstallPromptModal
+                isOpen={showInstallModal}
+                onInstall={handleInstall}
+                onDismiss={handleInstallDismiss}
+                appName={appName}
+            />
+
+            {/* iOS Safari 홈 화면 추가 안내 */}
             <IOSInstallGuide
                 isOpen={showIOSGuide}
                 clipboardSuccess={clipboardSuccess}
                 onDismiss={handleIOSGuideDismiss}
             />
 
+            {/* 수동 브라우저 이동 안내 */}
             <ManualBrowserGuide
                 isOpen={showManualGuide}
                 onDismiss={handleManualGuideDismiss}

@@ -136,6 +136,8 @@ export default defineConfig({
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5MB
         // ✅ SPA 폴백 설정 (index.html로 변경)
         navigateFallback: '/index.html',
+        // ✅ 모든 navigation 요청에 대해 index.html 반환 (/?source=pwa 포함)
+        navigateFallbackAllowlist: [/.*/],
         navigateFallbackDenylist: [/^\/api/],  // API만 제외
         // 기본 캐싱 전략: 앱 셸만 캐싱 (폰트는 제외 - 런타임 캐싱으로 처리)
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
