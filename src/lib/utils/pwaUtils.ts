@@ -218,36 +218,69 @@ export interface BeforeInstallPromptEvent extends Event {
  */
 let deferredPrompt: BeforeInstallPromptEvent | null = null;
 
+// Window 타입 확장 (index.html에서 조기 캐치한 이벤트용)
+declare global {
+  interface Window {
+    __PWA_DEFERRED_PROMPT__: BeforeInstallPromptEvent | null;
+    __PWA_PROMPT_CAPTURED__: boolean;
+  }
+}
+
 /**
  * beforeinstallprompt 이벤트 저장
  */
 export function setDeferredPrompt(event: BeforeInstallPromptEvent | null): void {
   deferredPrompt = event;
+  // 전역에도 저장 (동기화)
+  if (typeof window !== 'undefined') {
+    window.__PWA_DEFERRED_PROMPT__ = event;
+  }
 }
 
 /**
  * 저장된 beforeinstallprompt 이벤트 가져오기
+ * index.html에서 조기 캐치한 이벤트도 확인
  */
 export function getDeferredPrompt(): BeforeInstallPromptEvent | null {
-  return deferredPrompt;
+  // 먼저 로컬 변수 확인
+  if (deferredPrompt) {
+    return deferredPrompt;
+  }
+  // 전역 변수 확인 (index.html에서 조기 캐치)
+  if (typeof window !== 'undefined' && window.__PWA_DEFERRED_PROMPT__) {
+    deferredPrompt = window.__PWA_DEFERRED_PROMPT__;
+    return deferredPrompt;
+  }
+  return null;
+}
+
+/**
+ * PWA 설치 가능 여부 확인
+ */
+export function canInstallPWA(): boolean {
+  return getDeferredPrompt() !== null;
 }
 
 /**
  * PWA 설치 프롬프트 표시
  */
 export async function showInstallPrompt(): Promise<'accepted' | 'dismissed' | 'unavailable'> {
-  if (!deferredPrompt) {
+  const prompt = getDeferredPrompt();
+  if (!prompt) {
     return 'unavailable';
   }
 
   // 설치 프롬프트 표시
-  deferredPrompt.prompt();
+  prompt.prompt();
 
   // 사용자 선택 대기
-  const { outcome } = await deferredPrompt.userChoice;
+  const { outcome } = await prompt.userChoice;
 
   // 사용된 프롬프트 초기화 (재사용 불가)
   deferredPrompt = null;
+  if (typeof window !== 'undefined') {
+    window.__PWA_DEFERRED_PROMPT__ = null;
+  }
 
   return outcome;
 }

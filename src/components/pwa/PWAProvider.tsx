@@ -5,6 +5,7 @@ import {
     InstallPromptModal,
     IOSInstallGuide,
     ManualBrowserGuide,
+    AndroidInstallGuide,
     InstallButton,
 } from '@/components/pwa';
 
@@ -28,6 +29,7 @@ function PWAProvider({ children, renderInstallButton }: PWAProviderProps) {
         showInstallModal,
         showIOSGuide,
         showManualGuide,
+        showAndroidGuide,
         clipboardSuccess,
         showInstallButton,
         handleBrowserRedirect,
@@ -36,6 +38,7 @@ function PWAProvider({ children, renderInstallButton }: PWAProviderProps) {
         handleInstallDismiss,
         handleIOSGuideDismiss,
         handleManualGuideDismiss,
+        handleAndroidGuideDismiss,
         appName,
     } = usePWAInstall();
 
@@ -73,10 +76,17 @@ function PWAProvider({ children, renderInstallButton }: PWAProviderProps) {
                 onDismiss={handleIOSGuideDismiss}
             />
 
-            {/* 수동 브라우저 이동 안내 */}
+            {/* 수동 브라우저 이동 안내 (카톡) */}
             <ManualBrowserGuide
                 isOpen={showManualGuide}
                 onDismiss={handleManualGuideDismiss}
+            />
+
+            {/* Android 수동 설치 안내 */}
+            <AndroidInstallGuide
+                isOpen={showAndroidGuide}
+                onDismiss={handleAndroidGuideDismiss}
+                appName={appName}
             />
         </>
     );

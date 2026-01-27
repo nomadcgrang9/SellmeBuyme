@@ -12,6 +12,7 @@ import {
     getCurrentURL,
     setDeferredPrompt,
     getDeferredPrompt,
+    canInstallPWA,
     BeforeInstallPromptEvent,
     showInstallPrompt,
 } from '@/lib/utils/pwaUtils';
@@ -23,8 +24,9 @@ export interface UsePWAInstallReturn {
     // 모달 상태
     showBrowserRedirectModal: boolean;  // 카톡 → 외부 브라우저 이동 안내
     showInstallModal: boolean;          // 앱 설치 모달
-    showIOSGuide: boolean;
-    showManualGuide: boolean;
+    showIOSGuide: boolean;              // iOS 수동 설치 안내
+    showManualGuide: boolean;           // 카톡에서 수동 브라우저 이동 안내
+    showAndroidGuide: boolean;          // Android 수동 설치 안내
     clipboardSuccess: boolean;
 
     // 설치 버튼 상태
@@ -37,6 +39,7 @@ export interface UsePWAInstallReturn {
     handleInstallDismiss: () => void;
     handleIOSGuideDismiss: () => void;
     handleManualGuideDismiss: () => void;
+    handleAndroidGuideDismiss: () => void;
 
     // 앱 정보
     appName: string;
@@ -58,6 +61,7 @@ export function usePWAInstall(): UsePWAInstallReturn {
     const [showInstallModal, setShowInstallModal] = useState(false);
     const [showIOSGuide, setShowIOSGuide] = useState(false);
     const [showManualGuide, setShowManualGuide] = useState(false);
+    const [showAndroidGuide, setShowAndroidGuide] = useState(false);
     const [clipboardSuccess, setClipboardSuccess] = useState(false);
 
     // 설치 버튼 상태
@@ -131,6 +135,17 @@ export function usePWAInstall(): UsePWAInstallReturn {
         return () => clearTimeout(timer);
     }, []);
 
+    // 컴포넌트 마운트 시 전역에서 캐치된 이벤트 확인
+    useEffect(() => {
+        // index.html에서 이미 캐치했는지 확인
+        if (typeof window !== 'undefined' && window.__PWA_PROMPT_CAPTURED__) {
+            console.log('✅ [Hook] 전역에서 캐치된 beforeinstallprompt 발견');
+            if (isMobile()) {
+                setShowInstallButton(true);
+            }
+        }
+    }, []);
+
     // beforeinstallprompt 이벤트 리스너
     useEffect(() => {
         const handleBeforeInstallPrompt = (e: Event) => {
@@ -139,6 +154,7 @@ export function usePWAInstall(): UsePWAInstallReturn {
 
             // 이벤트 저장
             setDeferredPrompt(e as BeforeInstallPromptEvent);
+            console.log('✅ [Hook] beforeinstallprompt 캐치됨');
 
             // 모바일 환경에서만 설치 버튼 표시
             if (isMobile()) {
@@ -150,7 +166,7 @@ export function usePWAInstall(): UsePWAInstallReturn {
             setShowInstallButton(false);
             setShowInstallModal(false);
             setDeferredPrompt(null);
-            console.log('PWA가 성공적으로 설치되었습니다');
+            console.log('✅ PWA가 성공적으로 설치되었습니다');
         };
 
         window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
@@ -211,17 +227,20 @@ export function usePWAInstall(): UsePWAInstallReturn {
         markVisited();
 
         // beforeinstallprompt 이벤트가 있으면 네이티브 설치 프롬프트 표시
-        const deferredPrompt = getDeferredPrompt();
-        if (deferredPrompt) {
+        if (canInstallPWA()) {
             const outcome = await showInstallPrompt();
             if (outcome === 'accepted') {
-                console.log('사용자가 PWA 설치를 수락했습니다');
+                console.log('✅ 사용자가 PWA 설치를 수락했습니다');
             } else {
-                console.log('사용자가 PWA 설치를 거부했습니다');
+                console.log('ℹ️ 사용자가 PWA 설치를 거부했습니다');
             }
         } else if (platform === 'ios') {
             // iOS: Safari 홈 화면 추가 안내
             setShowIOSGuide(true);
+        } else if (platform === 'android') {
+            // Android: 브라우저에서 수동 설치 안내
+            console.log('ℹ️ beforeinstallprompt 없음 - Android 수동 설치 안내 표시');
+            setShowAndroidGuide(true);
         }
     }, [platform]);
 
@@ -241,11 +260,17 @@ export function usePWAInstall(): UsePWAInstallReturn {
         setShowManualGuide(false);
     }, []);
 
+    // Android 수동 설치 안내 닫기
+    const handleAndroidGuideDismiss = useCallback(() => {
+        setShowAndroidGuide(false);
+    }, []);
+
     return {
         showBrowserRedirectModal,
         showInstallModal,
         showIOSGuide,
         showManualGuide,
+        showAndroidGuide,
         clipboardSuccess,
         showInstallButton,
         handleBrowserRedirect,
@@ -254,6 +279,7 @@ export function usePWAInstall(): UsePWAInstallReturn {
         handleInstallDismiss,
         handleIOSGuideDismiss,
         handleManualGuideDismiss,
+        handleAndroidGuideDismiss,
         appName,
         platform,
         isKakao,

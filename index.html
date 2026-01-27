@@ -19,6 +19,29 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <meta name="apple-mobile-web-app-title" content="학교일자리" />
   <link rel="apple-touch-icon" href="/picture/faviconV2.png" />
+
+  <!-- PWA beforeinstallprompt 조기 캐치 (React 로드 전) -->
+  <script>
+    (function() {
+      // 전역 변수로 이벤트 저장
+      window.__PWA_DEFERRED_PROMPT__ = null;
+      window.__PWA_PROMPT_CAPTURED__ = false;
+
+      window.addEventListener('beforeinstallprompt', function(e) {
+        // 브라우저 기본 설치 배너 차단
+        e.preventDefault();
+        // 전역에 저장
+        window.__PWA_DEFERRED_PROMPT__ = e;
+        window.__PWA_PROMPT_CAPTURED__ = true;
+        console.log('✅ [Early] beforeinstallprompt 캐치 성공');
+      });
+
+      window.addEventListener('appinstalled', function() {
+        window.__PWA_DEFERRED_PROMPT__ = null;
+        console.log('✅ [Early] PWA 설치 완료');
+      });
+    })();
+  </script>
 </head>
 
 <body>

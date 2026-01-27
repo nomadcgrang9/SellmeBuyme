@@ -127,3 +127,48 @@
 .pwa-secondary-button:hover {
   color: #4a5568;
 }
+
+/* Android/iOS 수동 설치 가이드 스텝 */
+.pwa-guide-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 20px 0;
+  text-align: left;
+}
+
+.pwa-guide-step {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: #f7fafc;
+  border-radius: 10px;
+}
+
+.pwa-step-number {
+  width: 28px;
+  height: 28px;
+  background: linear-gradient(135deg, #4a90d9 0%, #357abd 100%);
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.875rem;
+  flex-shrink: 0;
+}
+
+.pwa-step-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #4a5568;
+  font-size: 0.9rem;
+}
+
+.pwa-step-icon {
+  color: #718096;
+  flex-shrink: 0;
+}
