@@ -101,6 +101,10 @@ export const Hero: React.FC = () => {
   const [directionsCoords, setDirectionsCoords] = useState<Coordinates | null>(null);
   const polylineRef = useRef<any>(null);
 
+  // 길찾기 전용 마커 (출발/도착)
+  const startMarkerRef = useRef<any>(null);
+  const endMarkerRef = useRef<any>(null);
+
   // 지도 클릭 모드 (출발지 선택용)
   const [mapClickMode, setMapClickMode] = useState(false);
   const mapClickCallbackRef = useRef<((coords: Coordinates) => void) | null>(null);
@@ -138,6 +142,7 @@ export const Hero: React.FC = () => {
 
   // 모바일 길찾기 상태
   const [showDirectionsSheet, setShowDirectionsSheet] = useState(false);
+  const showDirectionsSheetRef = useRef(false); // ★ 마커 생성 시 참조용 ref
   const [startLocation, setStartLocation] = useState<{ name: string; address: string; lat: number; lng: number } | null>(null);
   const [endLocation, setEndLocation] = useState<{ name: string; address: string; lat: number; lng: number } | null>(null);
   const [transportType, setTransportType] = useState<TransportType>('car');
@@ -149,6 +154,11 @@ export const Hero: React.FC = () => {
   useEffect(() => {
     console.log('[Hero] endLocation 변경됨:', endLocation);
   }, [endLocation]);
+
+  // ★ showDirectionsSheet ref 동기화 (마커 생성 시 참조)
+  useEffect(() => {
+    showDirectionsSheetRef.current = showDirectionsSheet;
+  }, [showDirectionsSheet]);
 
   // ★ 모바일 길찾기: startLocation 설정 시 경로 검색 실행
   useEffect(() => {
@@ -207,12 +217,205 @@ export const Hero: React.FC = () => {
     searchRoute();
   }, [startLocation, endLocation, transportType]);
 
+  // ★ 경로 검색 성공 시 지도 자동 포커싱 (출발지/도착지 모두 포함)
+  useEffect(() => {
+    if (!startLocation || !endLocation || !mapInstanceRef.current || !window.kakao) {
+      return;
+    }
+
+    console.log('[Hero] 경로 지도 포커싱:', { startLocation, endLocation });
+
+    // 출발지와 도착지를 포함하는 bounds 계산
+    const bounds = new window.kakao.maps.LatLngBounds();
+    bounds.extend(new window.kakao.maps.LatLng(startLocation.lat, startLocation.lng));
+    bounds.extend(new window.kakao.maps.LatLng(endLocation.lat, endLocation.lng));
+
+    // 지도를 bounds에 맞춰 이동 (모달 높이 고려한 padding)
+    // padding: top, right, bottom, left
+    // 하단 350px = 모달 높이(~300px) + 여유(50px)
+    mapInstanceRef.current.setBounds(bounds, 100, 80, 350, 80);
+
+    console.log('[Hero] 지도 포커싱 완료 (모달 고려 padding 적용)');
+  }, [startLocation, endLocation]);
+
+  // ★ 경로 결과 받으면 지도에 폴리라인 그리기
+  useEffect(() => {
+    if (!directionsResult || !mapInstanceRef.current || !window.kakao) {
+      return;
+    }
+
+    console.log('[Hero] 폴리라인 그리기 시작:', directionsResult.path.length, '개 좌표');
+
+    // 기존 폴리라인 제거
+    if (polylineRef.current) {
+      polylineRef.current.setMap(null);
+      polylineRef.current = null;
+    }
+
+    // path가 없으면 스킵
+    if (!directionsResult.path || directionsResult.path.length === 0) {
+      console.log('[Hero] 경로 좌표가 없어 폴리라인 생략');
+      return;
+    }
+
+    // Coordinates[] → kakao.maps.LatLng[]
+    const linePath = directionsResult.path.map(
+      (coord) => new window.kakao.maps.LatLng(coord.lat, coord.lng)
+    );
+
+    // 교통수단별 색상
+    const strokeColor = directionsResult.type === 'car' ? '#3366FF' :
+                       directionsResult.type === 'transit' ? '#00AA00' :
+                       '#FF6600';
+
+    // 폴리라인 생성
+    const polyline = new window.kakao.maps.Polyline({
+      path: linePath,
+      strokeWeight: 5,
+      strokeColor: strokeColor,
+      strokeOpacity: 0.8,
+      strokeStyle: 'solid'
+    });
+
+    polyline.setMap(mapInstanceRef.current);
+    polylineRef.current = polyline;
+
+    console.log('[Hero] 폴리라인 그리기 완료');
+  }, [directionsResult]);
+
+  // ★ 출발/도착 마커 생성 (방안 3: 심플 원형)
+  useEffect(() => {
+    if (!startLocation || !endLocation || !mapInstanceRef.current || !window.kakao) {
+      return;
+    }
+
+    console.log('[Hero] 출발/도착 마커 생성 시작');
+
+    // 기존 마커 제거
+    if (startMarkerRef.current) {
+      startMarkerRef.current.setMap(null);
+      startMarkerRef.current = null;
+    }
+    if (endMarkerRef.current) {
+      endMarkerRef.current.setMap(null);
+      endMarkerRef.current = null;
+    }
+
+    // 출발 마커 (하늘색 원형)
+    const startMarkerContent = `
+      <div style="
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #33A9FF 0%, #1E90FF 100%);
+        border: 3px solid #0066CC;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 2px 8px rgba(30, 144, 255, 0.4);
+        cursor: pointer;
+      ">
+        <span style="color: white; font-weight: bold; font-size: 14px;">출발</span>
+      </div>
+    `;
+
+    const startCustomOverlay = new window.kakao.maps.CustomOverlay({
+      position: new window.kakao.maps.LatLng(startLocation.lat, startLocation.lng),
+      content: startMarkerContent,
+      yAnchor: 0.5,
+      zIndex: 100
+    });
+
+    startCustomOverlay.setMap(mapInstanceRef.current);
+    startMarkerRef.current = startCustomOverlay;
+
+    // 도착 마커 (주황색 원형)
+    const endMarkerContent = `
+      <div style="
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #FF6B35 0%, #FF5722 100%);
+        border: 3px solid #D32F2F;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 2px 8px rgba(255, 87, 34, 0.4);
+        cursor: pointer;
+      ">
+        <span style="color: white; font-weight: bold; font-size: 14px;">도착</span>
+      </div>
+    `;
+
+    const endCustomOverlay = new window.kakao.maps.CustomOverlay({
+      position: new window.kakao.maps.LatLng(endLocation.lat, endLocation.lng),
+      content: endMarkerContent,
+      yAnchor: 0.5,
+      zIndex: 100
+    });
+
+    endCustomOverlay.setMap(mapInstanceRef.current);
+    endMarkerRef.current = endCustomOverlay;
+
+    console.log('[Hero] 출발/도착 마커 생성 완료');
+  }, [startLocation, endLocation]);
+
   // 마커 레이어 토글 상태
   const [activeLayers, setActiveLayers] = useState<MarkerLayer[]>(['job', 'teacher', 'program']);
   const [teacherMarkers, setTeacherMarkers] = useState<TeacherMarker[]>([]);
   const [programMarkers, setProgramMarkers] = useState<ProgramMarker[]>([]);
   const teacherMapMarkersRef = useRef<any[]>([]);
   const programMapMarkersRef = useRef<any[]>([]);
+
+  // ★ 길찾기 모드 토글 (공고 마커 숨김/복원)
+  useEffect(() => {
+    if (!mapInstanceRef.current) return;
+
+    if (showDirectionsSheet) {
+      // 길찾기 모드: 모든 공고 마커 숨김
+      console.log('[Hero] 길찾기 모드: 공고 마커 숨김');
+      mapMarkersRef.current.forEach(marker => {
+        marker.setMap(null);
+      });
+      teacherMapMarkersRef.current.forEach(marker => {
+        marker.setMap(null);
+      });
+      programMapMarkersRef.current.forEach(marker => {
+        marker.setMap(null);
+      });
+    } else {
+      // 일반 모드: 공고 마커 복원
+      console.log('[Hero] 일반 모드: 공고 마커 복원');
+      mapMarkersRef.current.forEach(marker => {
+        marker.setMap(mapInstanceRef.current);
+      });
+      if (activeLayers.includes('teacher')) {
+        teacherMapMarkersRef.current.forEach(marker => {
+          marker.setMap(mapInstanceRef.current);
+        });
+      }
+      if (activeLayers.includes('program')) {
+        programMapMarkersRef.current.forEach(marker => {
+          marker.setMap(mapInstanceRef.current);
+        });
+      }
+
+      // 길찾기 종료 시 출발/도착 마커도 제거
+      if (startMarkerRef.current) {
+        startMarkerRef.current.setMap(null);
+        startMarkerRef.current = null;
+      }
+      if (endMarkerRef.current) {
+        endMarkerRef.current.setMap(null);
+        endMarkerRef.current = null;
+      }
+      // 폴리라인도 제거
+      if (polylineRef.current) {
+        polylineRef.current.setMap(null);
+        polylineRef.current = null;
+      }
+    }
+  }, [showDirectionsSheet, activeLayers]);
 
   // 로드된 지역 추적 (복수 지역 동시 표시용)
   const loadedRegionsRef = useRef<Set<string>>(new Set());
@@ -260,7 +463,6 @@ export const Hero: React.FC = () => {
 
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
-  const zoomControlRef = useRef<any>(null);
   const { isLoaded, loadKakaoMaps } = useKakaoMaps();
 
   // 사용자 위치 상태
@@ -527,13 +729,8 @@ export const Hero: React.FC = () => {
     const map = new window.kakao.maps.Map(mapContainerRef.current, mapOption);
     mapInstanceRef.current = map;
 
-    // 줌 컨트롤 추가 (데스크톱에서만)
-    const isMobile = window.innerWidth < 768;
-    if (!isMobile) {
-      const zoomControl = new window.kakao.maps.ZoomControl();
-      map.addControl(zoomControl, window.kakao.maps.ControlPosition.RIGHT);
-      zoomControlRef.current = zoomControl;
-    }
+    // ★ 줌 컨트롤 완전히 제거 (모든 환경에서 표시 안 함)
+    // 이유: 사용자 요청으로 인해 줌 컨트롤을 어떤 환경에서도 표시하지 않음
 
     // 뷰포트 bounds 업데이트 함수
     const updateViewportBounds = () => {
@@ -740,9 +937,10 @@ export const Hero: React.FC = () => {
         markerSize
       );
 
+      // ★ 길찾기 모드일 때는 마커를 지도에 추가하지 않음
       const kakaoMarker = new window.kakao.maps.Marker({
         position,
-        map,
+        map: showDirectionsSheetRef.current ? null : map,
         image: markerImage,
         clickable: true
       });
@@ -792,9 +990,10 @@ export const Hero: React.FC = () => {
         markerSize
       );
 
+      // ★ 길찾기 모드일 때는 마커를 지도에 추가하지 않음
       const kakaoMarker = new window.kakao.maps.Marker({
         position,
-        map,
+        map: showDirectionsSheetRef.current ? null : map,
         image: markerImage,
         clickable: true
       });
@@ -1103,9 +1302,10 @@ export const Hero: React.FC = () => {
         { offset: new window.kakao.maps.Point(offsetX, offsetY) }
       );
 
+      // ★ 길찾기 모드일 때는 마커를 지도에 추가하지 않음
       const marker = new window.kakao.maps.Marker({
         position: position,
-        map: map,
+        map: showDirectionsSheetRef.current ? null : map,
         image: markerImage,
         clickable: true,
       });
@@ -1580,29 +1780,6 @@ export const Hero: React.FC = () => {
           onToggleUrgent={() => setMapFilters((prev) => ({ ...prev, urgentOnly: !prev.urgentOnly }))}
         />
       </div>
-
-      {/* 모바일: 프로필/로그인 버튼 (필터바 윗줄 우측) */}
-      <button
-        onClick={() => {
-          if (user) {
-            window.location.href = '/';
-          } else {
-            setAuthModalInitialTab('login');
-            setIsAuthModalOpen(true);
-          }
-        }}
-        className="md:hidden absolute bottom-[72px] right-4 z-20 w-11 h-11 bg-blue-500 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-blue-600 active:scale-95 transition-all"
-        style={{ boxShadow: '0 4px 14px rgba(59, 130, 246, 0.4)' }}
-        title={user ? '프로필' : '로그인'}
-      >
-        {user ? (
-          <div className="w-7 h-7 bg-white/20 rounded-full flex items-center justify-center text-white font-semibold text-xs">
-            {user.email?.charAt(0).toUpperCase() || 'U'}
-          </div>
-        ) : (
-          <User className="w-5 h-5" strokeWidth={2.5} />
-        )}
-      </button>
 
       {/* 우측 하단: 로그인/회원가입 또는 프로필 버튼 - PC만 */}
       <div className="hidden md:block absolute bottom-4 right-4 z-20">
@@ -2084,6 +2261,18 @@ export const Hero: React.FC = () => {
         />
       </div>
 
+      {/* 모바일 설문참여 플로팅 버튼 (구글 폼 바로 이동) */}
+      <button
+        onClick={() => {
+          window.open('https://docs.google.com/forms/d/e/1FAIpQLSd1jifhzW0iV_2cH7GzJ_-AKO5c2vrprznj3uFi8UjlDIkIyw/viewform', '_blank');
+        }}
+        className="md:hidden absolute right-4 top-[200px] z-20 w-12 h-12 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 active:from-red-700 active:to-red-800 rounded-full shadow-lg flex flex-col items-center justify-center transition-all active:scale-95 text-white font-bold text-xs leading-tight"
+        aria-label="설문참여"
+      >
+        <span>설문</span>
+        <span>참여</span>
+      </button>
+
       {/* 모바일 현위치 버튼 */}
       <button
         onClick={() => {
@@ -2108,7 +2297,7 @@ export const Hero: React.FC = () => {
           );
         }}
         disabled={isLocating}
-        className="md:hidden absolute right-4 top-[140px] z-20 w-12 h-12 bg-white rounded-full shadow-lg flex items-center justify-center active:bg-gray-100 disabled:opacity-50"
+        className="md:hidden absolute right-4 top-[264px] z-20 w-12 h-12 bg-white rounded-full shadow-lg flex items-center justify-center active:bg-gray-100 disabled:opacity-50"
       >
         {isLocating ? (
           <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />

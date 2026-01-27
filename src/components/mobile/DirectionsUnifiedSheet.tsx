@@ -223,13 +223,7 @@ const DirectionsUnifiedSheet: React.FC<DirectionsUnifiedSheetProps> = ({
 
   return (
     <>
-      {/* 배경 오버레이 - 클릭 시 닫기 */}
-      <div
-        className={`fixed inset-0 z-30 bg-black/20 transition-opacity duration-200 ${isClosing ? 'opacity-0' : 'opacity-100'}`}
-        onClick={handleBackdropClick}
-      />
-
-      {/* 모달 컨텐츠 */}
+      {/* 모달 컨텐츠 - 배경 dimmed 제거 (경로를 보기 위해) */}
       <div
         className={`
           fixed bottom-4 left-4 right-4 z-40 bg-white rounded-2xl shadow-lg
@@ -238,30 +232,33 @@ const DirectionsUnifiedSheet: React.FC<DirectionsUnifiedSheetProps> = ({
         `}
         style={{ boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)' }}
       >
-      {/* 헤더: 뒤로가기 + 교통수단 탭 */}
-      <div className="flex items-center justify-between px-4 py-4 border-b border-gray-100">
-        <button onClick={handleClose} className="p-1 -ml-1 text-gray-500">
-          <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      {/* 헤더: 공고보기 + 교통수단 탭 + 카카오 버튼 (한 줄) */}
+      <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100">
+        {/* 공고로 돌아가기 (뒤로가기) */}
+        <button
+          onClick={handleClose}
+          className="flex items-center gap-0.5 px-2 py-1 -ml-1 text-gray-600 hover:bg-gray-100 active:bg-gray-200 rounded-lg transition-colors flex-shrink-0"
+        >
+          <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
           </svg>
+          <span className="text-xs font-medium leading-tight text-left">
+            <span className="block">공고로</span>
+            <span className="block">돌아가기</span>
+          </span>
         </button>
 
-        {/* 교통수단 탭 (라벨 포함) */}
-        <div className="flex gap-3">
+        {/* 교통수단 탭 (아이콘만, 컴팩트) */}
+        <div className="flex gap-1.5 flex-shrink-0">
           {(['car', 'transit', 'walk'] as TransportType[]).map((type) => {
             const isActive = transportType === type;
-            const labels: Record<TransportType, string> = {
-              car: '자동차',
-              transit: '대중교통',
-              walk: '도보',
-            };
             return (
               <button
                 key={type}
                 onClick={() => onTransportTypeChange(type)}
                 disabled={isLoading || !startLocation}
                 className={`
-                  flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-colors
+                  p-2 rounded-lg transition-colors flex-shrink-0
                   ${isActive
                     ? 'bg-gray-800 text-white'
                     : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
@@ -270,11 +267,25 @@ const DirectionsUnifiedSheet: React.FC<DirectionsUnifiedSheetProps> = ({
                 `}
               >
                 {transportIcons[type]}
-                <span className="text-[10px] font-medium">{labels[type]}</span>
               </button>
             );
           })}
         </div>
+
+        {/* 여백 */}
+        <div className="flex-1 min-w-2" />
+
+        {/* 카카오맵 버튼 (컴팩트) */}
+        <button
+          onClick={openInKakaoMap}
+          disabled={!directionsResult}
+          className="px-3 py-2 bg-[#FEE500] hover:bg-[#FAE100] active:bg-[#F5D800] text-gray-900 font-bold rounded-lg flex items-center gap-1.5 transition-colors text-sm flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+          </svg>
+          <span className="whitespace-nowrap">카카오맵</span>
+        </button>
       </div>
 
       {/* 출발/도착 입력 영역 */}
@@ -389,47 +400,33 @@ const DirectionsUnifiedSheet: React.FC<DirectionsUnifiedSheetProps> = ({
         </div>
       )}
 
-      {/* 경로 결과 */}
-      <div className="px-4 py-4 border-t border-gray-100">
+      {/* 경로 결과 - 1줄 컴팩트 레이아웃 */}
+      <div className="px-4 py-3 border-t border-gray-100">
         {isLoading ? (
-          <div className="flex items-center justify-center py-3">
-            <div className="w-5 h-5 border-2 border-gray-400 border-t-transparent rounded-full animate-spin mr-3" />
+          <div className="flex items-center justify-center py-2">
+            <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin mr-2" />
             <span className="text-sm text-gray-500">경로 검색 중...</span>
           </div>
         ) : directionsResult && startLocation ? (
-          <div className="space-y-4">
-            {/* 시간/거리/요금 */}
-            <div className="flex items-center gap-3 flex-wrap">
-              <span className="text-2xl font-bold text-gray-900 whitespace-nowrap">
-                {formatDuration(directionsResult.totalTime)}
-              </span>
-              <span className="text-gray-300">|</span>
-              <span className="text-base text-gray-600 whitespace-nowrap">
-                {formatDistance(directionsResult.totalDistance)}
-              </span>
-              {getFareText() && (
-                <>
-                  <span className="text-gray-300">|</span>
-                  <span className="text-sm text-gray-500 whitespace-nowrap">
-                    {getFareText()}
-                  </span>
-                </>
-              )}
-            </div>
-
-            {/* 카카오맵 버튼 */}
-            <button
-              onClick={openInKakaoMap}
-              className="w-full py-3 bg-[#FEE500] hover:bg-[#FAE100] text-gray-900 font-bold rounded-xl flex items-center justify-center gap-2 transition-colors"
-            >
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
-              </svg>
-              카카오맵에서 길찾기
-            </button>
+          <div className="flex items-center gap-2 overflow-x-auto">
+            <span className="text-xl font-bold text-gray-900 whitespace-nowrap">
+              {formatDuration(directionsResult.totalTime)}
+            </span>
+            <span className="text-gray-300">·</span>
+            <span className="text-sm text-gray-600 whitespace-nowrap">
+              {formatDistance(directionsResult.totalDistance)}
+            </span>
+            {getFareText() && (
+              <>
+                <span className="text-gray-300">·</span>
+                <span className="text-sm text-gray-500 whitespace-nowrap">
+                  {getFareText()}
+                </span>
+              </>
+            )}
           </div>
         ) : (
-          <div className="text-center py-3 text-sm text-gray-400">
+          <div className="text-center py-2 text-sm text-gray-400">
             {startLocation ? '경로를 불러올 수 없습니다' : '출발지를 입력하세요'}
           </div>
         )}
