@@ -1,99 +1,132 @@
-# 셀미바이미 (SellmeBuyme)
+# 학교일자리
 
-방과후 강사와 학교를 연결하는 AI 기반 매칭 플랫폼
+**학교일을 찾는 가장 빠르고 편한 방법**
 
-## 무엇을 하는 서비스인가요?
+> 🚧 현재 베타 버전으로 운영 중입니다 (2026.02.02까지)
 
-**셀미바이미**는 교육 현장의 인력 미스매치 문제를 AI로 해결하는 교육 인력 매칭 플랫폼입니다.
+전국 교육청에 흩어진 교육공무직, 방과후강사, 기간제교사 채용공고를 **지도에서 한눈에** 확인하고, **AI가 맞춤 공고를 추천**해드립니다.
 
-### 🎯 핵심 목적
-전국 25개 교육청에 흩어진 방과후/기간제 채용 공고를 **자동으로 수집**하고, AI가 **학교와 강사를 정확하게 연결**합니다.
+---
 
-### 👥 사용자별 가치
+## 주요 기능
 
-**🏫 학교/교육기관**
-- 여러 교육청 게시판을 일일이 확인할 필요 없이 한 곳에서 검색
-- "수원 코딩강사 구해요" 같은 **자연어 검색** 지원
-- 지역/과목/자격 기준 **정확한 필터링**
-- 강사 인력풀에서 적합한 후보자 탐색
+### 🗺️ 지도 기반 공고 탐색
+- **카카오맵 기반** 전국 공고 마커 표시
+- **학교급별 색상 구분**: 유치원(주황), 초등(초록), 중등(파랑), 고등(남색), 특수(보라), 기타(회색)
+- **D-day 마커**: 마감일 임박 공고 시각적 표시
+- **좌표 캐싱**: 30일간 학교 위치 정보 저장으로 빠른 로딩
 
-**👨‍🏫 강사/교사**
-- 프로필 등록 한 번으로 **AI가 적합한 공고를 자동 추천**
-- 거주지 인근 학교 우선 매칭 (지역 기반 정렬)
-- 경력/자격/과목 기반 **맞춤형 공고 발견**
-- 긴급 채용 공고 실시간 알림
+### 📱 모바일 우선 디자인
+- **바텀시트 UI**: 지도 위에서 공고 목록 확인
+- **터치 친화적 필터 칩**: 학교급(유/초/중/고/특/기타) 원터치 필터
+- **과목 필터**: 중등/고등 선택 시 세부 과목 선택 (국어, 영어, 수학 등 13개)
+- **PWA 지원**: 홈 화면 추가, 오프라인 캐싱
 
-**🤖 AI의 역할**
-- 25개 교육청의 서로 다른 형식을 **자동으로 표준화**
-- "중등 수학 성남" → "중학교 + 고등학교, 수학 과목, 성남시" 확장 검색
-- 사용자 프로필 기반 **다중 요인 스코어링** (위치/경력/과목/자격)
-- 마감일/긴급도/최신성을 고려한 **우선순위 정렬**
+### 🚗 길찾기 기능
+- **출발지 → 학교** 경로 안내
+- **교통수단 선택**: 자동차, 대중교통, 도보
+- **예상 정보**: 시간, 거리, 요금 표시
+- **카카오맵 연동**: 상세 길찾기 앱으로 이동
 
-## 핵심 기능
+### 🔍 스마트 필터
+- **학교급 필터**: 유치원, 초등, 중등, 고등, 특수, 기타
+- **과목 필터**: 국어, 영어, 수학, 사회, 과학, 체육, 음악, 미술, 정보, 보건, 사서, 상담
+- **지역 검색**: 지역명, 학교명으로 검색
+- **긴급 공고**: D-3 이하 마감 임박 공고 필터
 
-### 🔍 AI 기반 검색 시스템
-- **자연어 검색**: "수원 초등 방과후 코딩" → 관련 공고 즉시 표시
-- **토큰 그룹 확장**: "중등" → ["중등", "중학교", "고등학교"] 동의어 매칭
-- **FTS + ILIKE 듀얼 검색**: PostgreSQL 전문 검색 + 유연한 패턴 매칭
-- **후처리 필터링**: 모든 검색어 그룹이 최소 1회 이상 매칭되도록 보장
+### 🤖 AI 추천 시스템
+- **프로필 기반 매칭**: 거주지, 희망 과목, 경력 등 고려
+- **다중 요인 스코어링**: 위치(1000점), 역할, 과목, 경력, 긴급도
+- **24시간 캐싱**: 프로필 변경 시에만 재계산
+- **Gemini AI**: 추천 결과 정제 및 코멘트 생성
 
-### 🤖 AI 맞춤 추천 (프로필 기반)
-- **위치 점수**: 사용자 거주지 기준 같은 구(1000점) > 같은 시(900점) > 인접 도시(800점)
-- **역할 점수**: 교사/강사 역할 매칭
-- **과목 점수**: 가능 과목 일치도 계산
-- **경력 점수**: 경력 연차 기반 가중치
-- **시급성 점수**: 마감일 임박/긴급 공고 우선순위
-- **24시간 캐싱**: 프로필 변경 시에만 재생성
-
-### 📊 자동 크롤링 시스템
-- **25개 교육청** 게시판 매일 오전 7시 자동 수집
-- **Playwright**: 동적 페이지 렌더링 및 스크린샷 캡처
-- **Gemini Vision API**: 게시글에서 구조화된 데이터 추출
-- **중복 제거**: URL 기반 중복 체크 (AI 호출 전 필터링으로 비용 절감)
+### 📊 자동 크롤링
+- **15개 교육청** 공고 매일 자동 수집
+- **Gemini Vision AI**: 게시글 스크린샷에서 구조화된 데이터 추출
+- **중복 제거**: URL 기반 중복 체크로 효율적 수집
 - **데이터 정규화**: 교육청별 상이한 형식 → 표준 JSON 변환
-- **첨부파일 프록시**: Edge Function 경유로 안정적인 다운로드
 
-### 💬 실시간 기능
-- **Supabase Realtime**: 신규 공고 즉시 반영
-- **긴급 공고 알림**: 마감 임박 공고 자동 알림 (예정)
-- **PWA 지원**: 모바일 홈 화면 추가, 오프라인 캐싱
+---
 
-### 📱 반응형 디자인
-- **모바일**: 통합 헤더-프로모 섹션, 스크롤 시 헤더 배경 변경, 슬라이드 카드
-- **데스크톱**: 깔끔한 카드 그리드, 프로모 카드 스택, 필터 사이드바
+## 지원 교육청 (15개)
+
+| 지역 | 상태 |
+|------|------|
+| 서울 | ✅ |
+| 경기 | ✅ |
+| 인천 | ✅ |
+| 강원 | ✅ |
+| 충북 | ✅ |
+| 충남 | ✅ |
+| 세종 | ✅ |
+| 대전 | ✅ |
+| 광주 | ✅ |
+| 전북 | ✅ |
+| 전남 | ✅ |
+| 경남 | ✅ |
+| 울산 | ✅ |
+| 제주 | ✅ |
+
+---
 
 ## 기술 스택
 
-**프론트엔드**
-- **Framework**: React 18 + TypeScript + Vite
-- **스타일링**: TailwindCSS (커스텀 컬러 팔레트)
-- **상태 관리**: Zustand (authStore, searchStore, toastStore)
-- **라우팅**: React Router v6
-- **배포**: Cloudflare Pages
+### 프론트엔드
+| 기술 | 용도 |
+|------|------|
+| React 18 + TypeScript | UI 프레임워크 |
+| Vite | 빌드 도구 |
+| Tailwind CSS | 스타일링 |
+| Zustand | 상태 관리 |
+| Framer Motion | 애니메이션 |
+| Kakao Maps API | 지도 표시, 길찾기 |
+| PWA (Workbox) | 오프라인 지원 |
 
-**백엔드**
-- **데이터베이스**: Supabase (PostgreSQL + RLS 정책)
-- **인증**: Supabase Auth (Google OAuth)
-- **실시간**: Supabase Realtime (신규 공고 알림)
-- **서버리스**: Supabase Edge Functions (Deno)
-  - `profile-recommendations`: AI 추천 생성
-  - `download-attachment`: 첨부파일 프록시
+### 백엔드
+| 기술 | 용도 |
+|------|------|
+| Supabase | PostgreSQL + Auth + Realtime |
+| Edge Functions (Deno) | AI 추천, 첨부파일 프록시 |
+| RLS 정책 | 데이터 접근 제어 |
 
-**크롤링**
-- **런타임**: Node.js 18
-- **브라우저 자동화**: Playwright (Chromium)
-- **AI 파싱**: Google Gemini 2.0 Flash (Vision API)
-- **스케줄링**: GitHub Actions (매일 오전 7시)
-- **토큰 추적**: 세션별 사용량 로깅
+### 크롤러
+| 기술 | 용도 |
+|------|------|
+| Node.js 18 | 런타임 |
+| Playwright | 브라우저 자동화 |
+| Gemini Vision API | 데이터 추출 |
+| GitHub Actions | 스케줄링 (매일 오전 7시) |
 
-**AI & 검색**
-- **자연어 처리**: Google Gemini 2.0 Flash
-- **검색 엔진**: PostgreSQL FTS (pg_trgm GIN 인덱스)
-- **매칭 알고리즘**: 다중 요인 스코어링 (위치/경력/과목/자격)
+### 배포
+| 서비스 | 용도 |
+|--------|------|
+| Cloudflare Pages | 프론트엔드 호스팅 |
+| Supabase Cloud | 데이터베이스, 인증 |
+| GitHub Actions | CI/CD, 크롤러 스케줄링 |
+
+---
+
+## 시스템 아키텍처
+
+```
+[크롤러] GitHub Actions (매일 오전 7시)
+    ↓
+[수집] Playwright + Gemini Vision AI
+    ↓
+[저장] Supabase PostgreSQL
+    ↓
+[API] Edge Functions (AI 추천)
+    ↓
+[프론트] React + Kakao Maps
+    ↓
+[사용자] 웹 / PWA
+```
+
+---
 
 ## 빠른 시작
 
-```powershell
+```bash
 # 의존성 설치
 npm install
 
@@ -102,6 +135,9 @@ npm run dev
 
 # 빌드
 npm run build
+
+# 미리보기
+npm run preview
 ```
 
 ## 환경 변수
@@ -110,73 +146,42 @@ npm run build
 # .env.local
 VITE_SUPABASE_URL=your_supabase_url
 VITE_SUPABASE_ANON_KEY=your_anon_key
+VITE_KAKAO_MAP_API_KEY=your_kakao_key
+VITE_IS_BETA=true
+VITE_BETA_END_DATE=2026-02-02
 ```
-
-## 시스템 아키텍처
-
-```
-GitHub Actions (매일 오전 7시)
-    ↓
-크롤러 (Node.js + Playwright + Gemini)
-    ↓
-중복 체크 (URL 기반) ← AI 호출 전 필터링
-    ↓
-Gemini Vision API (데이터 정규화) ← 신규 공고만
-    ↓
-Supabase PostgreSQL (job_postings, talents, user_profiles)
-    ↓
-Edge Functions (profile-recommendations)
-    ↓
-프론트엔드 (React + Vite)
-    ↓
-사용자 (웹/PWA)
-```
-
-## 데이터 흐름
-
-### 1. 크롤링 → 저장
-```javascript
-교육청 게시판 → Playwright 수집 → Gemini AI 파싱
-→ 구조화된 JSON → Supabase 저장 → Realtime 업데이트
-```
-
-### 2. 검색
-```javascript
-사용자 검색어 → 토큰 그룹 확장 → FTS + ILIKE 쿼리
-→ 후처리 필터링 → 정렬 → 무한 스크롤
-```
-
-### 3. AI 추천
-```javascript
-사용자 프로필 → Edge Function 호출 → 스코어링 (위치/과목/경력)
-→ Gemini AI 정제 → 캐싱 (24시간) → 프론트엔드 표시
-```
-
-## 주요 데이터베이스 테이블
-
-| 테이블 | 용도 | 주요 필드 |
-|--------|------|-----------|
-| `job_postings` | 채용 공고 | organization, title, location, deadline, school_level, subject |
-| `user_profiles` | 사용자 프로필 | roles, interest_regions, experience_years, capable_subjects |
-| `talents` | 강사 인력풀 | name, specialty, location, experience_years, rating |
-| `recommendations_cache` | AI 추천 캐시 | user_id, cards (JSONB), ai_comment, valid_until |
-| `crawl_boards` | 크롤링 소스 | board_name, base_url, last_crawled_at, crawl_batch_size |
-| `promo_cards` | 프로모 카드 | headline, background_gradient, font_color, auto_play |
-
-## 배포
-
-- **프론트엔드**: Cloudflare Pages (자동 배포)
-- **크롤러**: GitHub Actions (cron 스케줄링)
-- **데이터베이스**: Supabase Cloud
-- **Edge Functions**: Supabase (Deno runtime)
 
 ---
 
-## 📚 문서
+## PWA 기능
 
-- [PROJECT_RULES.md](PROJECT_RULES.md) - 개발 규칙 및 컨벤션
-- [CLAUDE.md](CLAUDE.md) - 프로젝트 아키텍처 상세 가이드
-- [CRAWLING_PLAN.md](CRAWLING_PLAN.md) - 크롤링 시스템 설계
-- [SEARCH_SYSTEM_REDESIGN.md](SEARCH_SYSTEM_REDESIGN.md) - 검색 시스템 재설계
-- [FRONTEND_STRUCTURE.md](FRONTEND_STRUCTURE.md) - 프론트엔드 구조
-- [BACKEND_STRUCTURE.md](BACKEND_STRUCTURE.md) - 백엔드 구조
+- **홈 화면 추가**: 앱처럼 사용 가능
+- **오프라인 캐싱**: 폰트, 정적 리소스 캐싱
+- **리셋 기능**: `?reset-pwa=true` 파라미터로 캐시 초기화
+
+---
+
+## 주요 데이터베이스 테이블
+
+| 테이블 | 용도 |
+|--------|------|
+| `job_postings` | 채용 공고 |
+| `user_profiles` | 사용자 프로필 |
+| `recommendations_cache` | AI 추천 캐시 |
+| `crawl_boards` | 크롤링 소스 설정 |
+
+---
+
+## 문서
+
+- [CLAUDE.md](CLAUDE.md) - 프로젝트 아키텍처 가이드
+- [docs/PROJECT_RULES.md](docs/PROJECT_RULES.md) - 개발 규칙
+- [docs/CRAWLING_PLAN.md](docs/CRAWLING_PLAN.md) - 크롤링 시스템 설계
+- [docs/FRONTEND_STRUCTURE.md](docs/FRONTEND_STRUCTURE.md) - 프론트엔드 구조
+- [docs/BACKEND_STRUCTURE.md](docs/BACKEND_STRUCTURE.md) - 백엔드 구조
+
+---
+
+## 라이선스
+
+Private - All rights reserved

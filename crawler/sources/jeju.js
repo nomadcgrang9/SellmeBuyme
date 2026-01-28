@@ -17,7 +17,7 @@ export async function crawlJeju(page, config) {
 
         console.log(`📄 목록 페이지 1 크롤링...`);
         const listUrl = config.baseUrl;
-        await page.goto(listUrl, { waitUntil: 'domcontentloaded' });
+        await page.goto(listUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
 
         const rows = await page.$$('table tbody tr');
 
@@ -127,7 +127,7 @@ export async function crawlJeju(page, config) {
 
 async function crawlDetailPage(page, url) {
     try {
-        await page.goto(url, { waitUntil: 'domcontentloaded' });
+        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
         const content = await page.evaluate(() => {
             const el = document.querySelector('.boardViewWrap') || document.querySelector('.board_view_con') || document.querySelector('.view_content');
             return el ? el.innerText.trim() : '';
