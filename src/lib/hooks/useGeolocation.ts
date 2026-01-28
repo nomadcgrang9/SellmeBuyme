@@ -85,9 +85,24 @@ export function useGeolocation() {
           });
         } catch (err) {
           console.error('Geocoding failed:', err);
+
+          // Fallback: reverseGeocode 내부에서 이미 fallback 처리가 되어 있지만,
+          // 그마저도 실패한 경우를 대비해 빈 주소라도 저장 (다음 시도를 위해)
+          // 또는 좌표 기반으로 대략적 지역 추정
+          const fallbackAddress = { city: '', district: '' };
+
+          // localStorage에 저장 (빈 값이라도 저장해서 캐시 역할)
+          const cache: LocationCache = {
+            coords,
+            address: fallbackAddress,
+            timestamp: Date.now(),
+          };
+          localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
+          console.warn('[Geolocation] Geocoding 실패, fallback 주소 저장:', fallbackAddress);
+
           setState({
             coords,
-            address: null,
+            address: fallbackAddress,
             loading: false,
             error: (err as Error).message,
             permissionDenied: false

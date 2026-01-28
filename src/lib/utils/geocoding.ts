@@ -5,13 +5,16 @@ interface KakaoAddress {
   district: string; // "분당"
 }
 
+interface KakaoAddressDetail {
+  region_1depth_name: string; // "경기도" 또는 "경기"
+  region_2depth_name: string; // "성남시" 또는 "안성시"
+  region_3depth_name: string; // "분당구" 또는 "죽산면"
+}
+
 interface KakaoGeocodingResponse {
   documents: Array<{
-    address: {
-      region_1depth_name: string; // "경기도"
-      region_2depth_name: string; // "성남시"
-      region_3depth_name: string; // "분당구"
-    };
+    address: KakaoAddressDetail | null; // 지번 주소 (없을 수 있음)
+    road_address: KakaoAddressDetail | null; // 도로명 주소 (없을 수 있음)
   }>;
 }
 
@@ -44,22 +47,30 @@ export async function reverseGeocode(lat: number, lng: number): Promise<KakaoAdd
       return getCityFromCoordinates(lat, lng);
     }
 
-    const address = data.documents[0].address;
+    const doc = data.documents[0];
+    // address가 null일 수 있음 (특정 좌표에서 지번 주소가 없는 경우)
+    // road_address를 fallback으로 사용
+    const addressData = doc.address || doc.road_address;
+
+    if (!addressData || !addressData.region_1depth_name) {
+      console.warn('🗺️ [Kakao API] address/road_address에 지역 정보 없음, fallback 사용');
+      return getCityFromCoordinates(lat, lng);
+    }
 
     console.log('🗺️ [Kakao API 응답]');
-    console.log('  - region_1depth_name:', address.region_1depth_name);
-    console.log('  - region_2depth_name:', address.region_2depth_name);
-    console.log('  - region_3depth_name:', address.region_3depth_name);
+    console.log('  - region_1depth_name:', addressData.region_1depth_name);
+    console.log('  - region_2depth_name:', addressData.region_2depth_name);
+    console.log('  - region_3depth_name:', addressData.region_3depth_name);
 
     // region_1depth_name: "경기도" → "경기" (광역시/도)
     // region_2depth_name: "성남시" → "성남" (시/군)
-    const province = address.region_1depth_name
+    const province = addressData.region_1depth_name
       .replace(/특별시$/, '')
       .replace(/광역시$/, '')
       .replace(/특별자치시$/, '')
       .replace(/특별자치도$/, '')
       .replace(/도$/, ''); // "경기도" → "경기", "서울특별시" → "서울"
-    const city = address.region_2depth_name.replace(/시$|군$/, ''); // "성남시" → "성남"
+    const city = addressData.region_2depth_name?.replace(/시$|군$/, '') || ''; // "성남시" → "성남"
 
     console.log('✅ [정규화 후]');
     console.log('  - city (광역):', province);
