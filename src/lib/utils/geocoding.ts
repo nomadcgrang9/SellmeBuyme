@@ -51,18 +51,23 @@ export async function reverseGeocode(lat: number, lng: number): Promise<KakaoAdd
     console.log('  - region_2depth_name:', address.region_2depth_name);
     console.log('  - region_3depth_name:', address.region_3depth_name);
 
-    // region_2depth_name: "성남시"
-    // region_3depth_name: "분당구"
-    const city = address.region_2depth_name.replace(/시$/, ''); // "성남시" → "성남"
-    const district = address.region_3depth_name.replace(/구$/, ''); // "분당구" → "분당"
+    // region_1depth_name: "경기도" → "경기" (광역시/도)
+    // region_2depth_name: "성남시" → "성남" (시/군)
+    const province = address.region_1depth_name
+      .replace(/특별시$/, '')
+      .replace(/광역시$/, '')
+      .replace(/특별자치시$/, '')
+      .replace(/특별자치도$/, '')
+      .replace(/도$/, ''); // "경기도" → "경기", "서울특별시" → "서울"
+    const city = address.region_2depth_name.replace(/시$|군$/, ''); // "성남시" → "성남"
 
     console.log('✅ [정규화 후]');
-    console.log('  - city:', city);
-    console.log('  - district:', district);
+    console.log('  - city (광역):', province);
+    console.log('  - district (시군):', city);
 
     return {
-      city,      // "성남"
-      district,  // "분당"
+      city: province,   // "경기" (대시보드 ALL_REGIONS와 매칭)
+      district: city,   // "성남"
     };
   } catch (error) {
     console.error('Geocoding error:', error);
@@ -72,54 +77,36 @@ export async function reverseGeocode(lat: number, lng: number): Promise<KakaoAdd
 }
 
 /**
- * Fallback: API 오류 시 좌표 범위로 지역 추정
+ * Fallback: API 오류 시 좌표 범위로 광역시/도 추정
  */
 function getCityFromCoordinates(lat: number, lng: number): KakaoAddress {
-  // 경기도 주요 도시 좌표 범위 (대략적)
-  const cityRanges = [
-    { city: '성남', lat: [37.3, 37.5], lng: [127.0, 127.2] },
-    { city: '수원', lat: [37.2, 37.35], lng: [126.9, 127.1] },
-    { city: '의정부', lat: [37.7, 37.8], lng: [127.0, 127.15] },
-    { city: '안양', lat: [37.35, 37.45], lng: [126.9, 127.0] },
-    { city: '부천', lat: [37.48, 37.55], lng: [126.75, 126.85] },
-    { city: '광명', lat: [37.45, 37.5], lng: [126.85, 126.9] },
-    { city: '평택', lat: [36.95, 37.05], lng: [127.0, 127.15] },
-    { city: '동두천', lat: [37.9, 38.0], lng: [127.05, 127.15] },
-    { city: '안산', lat: [37.3, 37.35], lng: [126.8, 126.9] },
-    { city: '고양', lat: [37.6, 37.7], lng: [126.75, 126.9] },
-    { city: '과천', lat: [37.42, 37.45], lng: [126.98, 127.02] },
-    { city: '구리', lat: [37.58, 37.62], lng: [127.12, 127.16] },
-    { city: '남양주', lat: [37.6, 37.7], lng: [127.1, 127.3] },
-    { city: '오산', lat: [37.13, 37.18], lng: [127.05, 127.1] },
-    { city: '시흥', lat: [37.35, 37.45], lng: [126.75, 126.85] },
-    { city: '군포', lat: [37.35, 37.4], lng: [126.93, 126.98] },
-    { city: '의왕', lat: [37.32, 37.37], lng: [126.95, 127.0] },
-    { city: '하남', lat: [37.52, 37.57], lng: [127.18, 127.24] },
-    { city: '용인', lat: [37.2, 37.35], lng: [127.1, 127.3] },
-    { city: '파주', lat: [37.75, 37.85], lng: [126.7, 126.85] },
-    { city: '이천', lat: [37.25, 37.3], lng: [127.4, 127.5] },
-    { city: '안성', lat: [37.0, 37.05], lng: [127.25, 127.35] },
-    { city: '김포', lat: [37.6, 37.7], lng: [126.6, 126.75] },
-    { city: '화성', lat: [37.15, 37.25], lng: [126.9, 127.1] },
-    { city: '광주', lat: [37.4, 37.45], lng: [127.25, 127.3] },
-    { city: '양주', lat: [37.75, 37.85], lng: [127.0, 127.1] },
-    { city: '포천', lat: [37.85, 37.95], lng: [127.15, 127.25] },
-    { city: '여주', lat: [37.25, 37.35], lng: [127.6, 127.7] },
-    { city: '연천', lat: [38.05, 38.15], lng: [127.05, 127.15] },
-    { city: '가평', lat: [37.8, 37.9], lng: [127.45, 127.55] },
-    { city: '양평', lat: [37.45, 37.55], lng: [127.45, 127.55] },
-    // 서울
-    { city: '서울', lat: [37.45, 37.65], lng: [126.8, 127.2] },
-    // 인천
-    { city: '인천', lat: [37.35, 37.55], lng: [126.5, 126.8] },
+  // 광역시/도 단위 좌표 범위 (대시보드 ALL_REGIONS와 매칭)
+  const provinceRanges = [
+    { province: '서울', lat: [37.45, 37.65], lng: [126.8, 127.2] },
+    { province: '인천', lat: [37.35, 37.55], lng: [126.5, 126.8] },
+    { province: '경기', lat: [36.9, 38.2], lng: [126.5, 127.8] },
+    { province: '부산', lat: [35.0, 35.3], lng: [128.8, 129.3] },
+    { province: '대구', lat: [35.7, 36.0], lng: [128.4, 128.8] },
+    { province: '광주', lat: [35.0, 35.25], lng: [126.7, 127.0] },
+    { province: '대전', lat: [36.2, 36.5], lng: [127.2, 127.5] },
+    { province: '울산', lat: [35.4, 35.7], lng: [129.0, 129.5] },
+    { province: '세종', lat: [36.4, 36.7], lng: [127.0, 127.3] },
+    { province: '강원', lat: [37.0, 38.5], lng: [127.5, 129.5] },
+    { province: '충북', lat: [36.4, 37.2], lng: [127.2, 128.2] },
+    { province: '충남', lat: [36.0, 36.9], lng: [126.0, 127.3] },
+    { province: '전북', lat: [35.3, 36.2], lng: [126.3, 127.5] },
+    { province: '전남', lat: [34.0, 35.5], lng: [126.0, 127.8] },
+    { province: '경북', lat: [35.5, 37.2], lng: [128.0, 130.0] },
+    { province: '경남', lat: [34.5, 35.8], lng: [127.5, 129.5] },
+    { province: '제주', lat: [33.0, 34.0], lng: [126.0, 127.0] },
   ];
 
-  for (const range of cityRanges) {
+  for (const range of provinceRanges) {
     if (
       lat >= range.lat[0] && lat <= range.lat[1] &&
       lng >= range.lng[0] && lng <= range.lng[1]
     ) {
-      return { city: range.city, district: '' };
+      return { city: range.province, district: '' };
     }
   }
 

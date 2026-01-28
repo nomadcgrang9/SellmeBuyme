@@ -44,6 +44,37 @@ const getRegionInfo = (): { city?: string; district?: string } => {
   return {};
 };
 
+// 지역 정보가 localStorage에 저장될 때까지 대기 (최대 3초)
+const waitForRegionInfo = async (maxWaitMs = 3000, intervalMs = 300): Promise<{ city?: string; district?: string }> => {
+  const startTime = Date.now();
+
+  // 즉시 확인
+  let regionInfo = getRegionInfo();
+  if (regionInfo.city) {
+    return regionInfo;
+  }
+
+  // 폴링으로 대기
+  return new Promise((resolve) => {
+    const checkInterval = setInterval(() => {
+      regionInfo = getRegionInfo();
+
+      // 지역 정보가 있으면 반환
+      if (regionInfo.city) {
+        clearInterval(checkInterval);
+        resolve(regionInfo);
+        return;
+      }
+
+      // 타임아웃
+      if (Date.now() - startTime >= maxWaitMs) {
+        clearInterval(checkInterval);
+        resolve(regionInfo); // 빈 값이라도 반환
+      }
+    }, intervalMs);
+  });
+};
+
 interface TrackActivityParams {
   actionType: string;
   metadata?: Record<string, unknown>;
@@ -56,7 +87,11 @@ export async function trackActivity({ actionType, metadata = {} }: TrackActivity
   try {
     const sessionId = getSessionId();
     const deviceType = getDeviceType();
-    const regionInfo = getRegionInfo();
+
+    // page_view일 경우 위치 정보를 기다림 (최대 3초)
+    const regionInfo = actionType === 'page_view'
+      ? await waitForRegionInfo(3000, 300)
+      : getRegionInfo();
 
     // 현재 로그인한 사용자 ID (없으면 null)
     const { data: { user } } = await supabase.auth.getUser();
