@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronUp, ChevronDown, ChevronLeft, ChevronRight, User } from 'lucide-react';
-import { SCHOOL_LEVELS } from '../constants';
 import { useKakaoMaps } from '@/hooks/useKakaoMaps';
 import { fetchJobsByBoardRegion } from '@/lib/supabase/queries';
 import type { JobPostingCard } from '@/types';
@@ -13,7 +12,8 @@ import { DirectionsPanel } from '@/components/directions/DirectionsPanel';
 import TeacherMarkerModal from '@/components/map/TeacherMarkerModal';
 import ProgramMarkerModal from '@/components/map/ProgramMarkerModal';
 import FullScreenLocationPicker from '@/components/map/FullScreenLocationPicker';
-import SchoolLevelFilterBar from '@/components/map/SchoolLevelFilterBar';
+import CascadingFilterBar from '@/components/map/CascadingFilterBar';
+import { type CascadingFilter, matchesCascadingFilter } from '@/lib/utils/jobClassifier';
 import MarkerPopup from '@/components/map/MarkerPopup';
 import AuthModal from '@/components/auth/AuthModal';
 import ProfileButton from '@/components/auth/ProfileButton';
@@ -22,7 +22,7 @@ import { ListSkeleton } from '@/components/common/CardSkeleton';
 import { BetaBadge } from '@/components/common/BetaBadge';
 import { WelcomeModal } from '@/components/survey/WelcomeModal';
 import { SurveyTracker } from '@/lib/utils/surveyTracking';
-import { getSchoolLevelFromJob, generateSchoolLevelMarker, MARKER_SIZE, URGENT_MARKER_SIZE } from '@/lib/constants/markerColors';
+import { getSchoolLevelFromJob, generateSchoolLevelMarker, MARKER_SIZE, URGENT_MARKER_SIZE, SCHOOL_LEVEL_MARKER_COLORS } from '@/lib/constants/markerColors';
 import { formatLocationDisplay } from '@/lib/constants/regionHierarchy';
 
 // 모바일 전용 컴포넌트
@@ -60,22 +60,12 @@ import { fetchTeacherMarkers, fetchProgramMarkers } from '@/lib/supabase/markers
 import { type MarkerLayer, type TeacherMarker, type ProgramMarker, MARKER_COLORS } from '@/types/markers';
 
 export const Hero: React.FC = () => {
-  // 지도 필터 옵션
-  const MAP_FILTER_SUBJECTS = ['국어', '영어', '수학', '사회', '과학', '체육', '음악', '미술', '정보', '보건', '사서', '상담'] as const;
-
-  // 지도 필터 상태
-  const [mapFilters, setMapFilters] = useState<{
-    schoolLevels: string[];
-    subjects: string[];
-    urgentOnly: boolean;  // 긴급 공고만 필터링
-  }>({
-    schoolLevels: [],
-    subjects: [],
-    urgentOnly: false,
+  // 캐스케이딩 필터 상태 (1차/2차/3차)
+  const [cascadingFilter, setCascadingFilter] = useState<CascadingFilter>({
+    primary: null,
+    secondary: null,
+    tertiary: null,
   });
-
-  // 드롭다운 열림 상태
-  const [openDropdown, setOpenDropdown] = useState<'schoolLevel' | 'subject' | null>(null);
 
   // 선택된 공고 (상세 패널용)
   const [selectedJob, setSelectedJob] = useState<JobPostingCard | null>(null);
@@ -134,9 +124,7 @@ export const Hero: React.FC = () => {
     setShowMobileDetailRef.current = setShowMobileDetail;
   }, [setSelectedJob, setShowMobileDetail]);
   const [showLocationModal, setShowLocationModal] = useState(false);
-  const [mobileQuickFilters, setMobileQuickFilters] = useState<string[]>([]);
-  const [mobileQuickSubjects, setMobileQuickSubjects] = useState<Record<string, string[]>>({});
-  const [mobileGlobalSubjects, setMobileGlobalSubjects] = useState<string[]>([]);
+  // (모바일은 cascadingFilter 공유)
   const [isLocating, setIsLocating] = useState(false);
   const locationPermissionCheckedRef = useRef(false);
 
@@ -451,15 +439,7 @@ export const Hero: React.FC = () => {
     }
   }, []);
 
-  // 필터 토글 핸들러
-  const toggleMapFilter = (category: 'schoolLevels' | 'subjects', value: string) => {
-    setMapFilters(prev => ({
-      ...prev,
-      [category]: prev[category].includes(value)
-        ? prev[category].filter(v => v !== value)
-        : [...prev[category], value]
-    }));
-  };
+  // (필터 토글은 cascadingFilter로 대체)
 
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
@@ -519,59 +499,9 @@ export const Hero: React.FC = () => {
     // 먼저 중복 제거
     let filtered = deduplicateJobs(jobPostings);
 
-    // 모바일 필터 ID → 학교급 한글 매핑
-    const mobileFilterToSchoolLevel: Record<string, string> = {
-      kindergarten: '유치원',
-      elementary: '초등학교',
-      middle: '중학교',
-      high: '고등학교',
-      special: '특수학교',
-      etc: '기타',
-    };
-
-    // 모바일 필터 적용 (mobileQuickFilters)
-    if (mobileQuickFilters.length > 0) {
-      const selectedSchoolLevels = mobileQuickFilters.map(f => mobileFilterToSchoolLevel[f]).filter(Boolean);
-      if (selectedSchoolLevels.length > 0) {
-        filtered = filtered.filter(job => {
-          const jobSchoolLevel = getSchoolLevelFromJob(job);
-          return selectedSchoolLevels.includes(jobSchoolLevel);
-        });
-      }
-    }
-
-    // 모바일 과목 필터 적용 (mobileQuickSubjects)
-    const allMobileSubjects = Object.values(mobileQuickSubjects).flat();
-    if (allMobileSubjects.length > 0) {
-      filtered = filtered.filter(job => {
-        const title = (job.title || '').toLowerCase();
-        const tags = job.tags || [];
-        return allMobileSubjects.some(subject => {
-          const subLower = subject.toLowerCase();
-          return title.includes(subLower) || tags.some(t => t.toLowerCase() === subLower);
-        });
-      });
-    }
-
-    // 데스크톱 학교급 필터 - getSchoolLevelFromJob과 동일한 로직 사용
-    if (mapFilters.schoolLevels.length > 0) {
-      filtered = filtered.filter(job => {
-        const jobSchoolLevel = getSchoolLevelFromJob(job);
-        return mapFilters.schoolLevels.includes(jobSchoolLevel);
-      });
-    }
-
-    // 과목 필터
-    if (mapFilters.subjects.length > 0) {
-      filtered = filtered.filter(job => {
-        const title = (job.title || '').toLowerCase();
-        const tags = job.tags || [];
-
-        return mapFilters.subjects.some(subject => {
-          const subLower = subject.toLowerCase();
-          return title.includes(subLower) || tags.some(t => t.toLowerCase() === subLower);
-        });
-      });
+    // 캐스케이딩 필터 적용 (데스크톱 + 모바일 통합)
+    if (cascadingFilter.primary) {
+      filtered = filtered.filter(job => matchesCascadingFilter(job, cascadingFilter));
     }
 
     // 주소 검색 키워드 필터
@@ -598,13 +528,6 @@ export const Hero: React.FC = () => {
             title.includes(specificKeyword);
         });
       }
-    }
-
-    // 긴급 공고 필터 (D-3 이하만)
-    if (mapFilters.urgentOnly) {
-      filtered = filtered.filter(job => {
-        return job.daysLeft !== undefined && job.daysLeft >= 0 && job.daysLeft <= 3;
-      });
     }
 
     // 뷰포트 기반 필터링 (줌 인/아웃 시 현재 화면에 보이는 공고만 표시)
@@ -653,7 +576,7 @@ export const Hero: React.FC = () => {
 
     return filtered;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [jobPostings, mapFilters, activeLocationFilter, deduplicateJobs, viewportBounds, coordsCacheVersion, selectedJob, mobileQuickFilters, mobileQuickSubjects]);
+  }, [jobPostings, cascadingFilter, activeLocationFilter, deduplicateJobs, viewportBounds, coordsCacheVersion, selectedJob]);
 
   // 인증 상태 초기화
   const { initialize: initializeAuth } = useAuthStore();
@@ -1593,18 +1516,6 @@ export const Hero: React.FC = () => {
     };
   }, [isLoaded, filteredJobPostings, activeLayers]);
 
-  // 드롭다운 외부 클릭 시 닫기
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      if (!target.closest('.filter-dropdown')) {
-        setOpenDropdown(null);
-      }
-    };
-    document.addEventListener('click', handleClickOutside);
-    return () => document.removeEventListener('click', handleClickOutside);
-  }, []);
-
   return (
     <section className="h-full w-full relative">
       {/* 지도 영역 */}
@@ -1797,51 +1708,29 @@ export const Hero: React.FC = () => {
         }}
       />
 
-      {/* 하단 중앙: 학교급 필터 바 (데스크톱 전용) */}
-      <div className="hidden md:block absolute bottom-4 left-1/2 -translate-x-1/2 z-20">
-        <SchoolLevelFilterBar
-          selectedLevels={mapFilters.schoolLevels}
-          onToggleLevel={(level) => {
-            setMapFilters((prev) => ({
-              ...prev,
-              schoolLevels: prev.schoolLevels.includes(level)
-                ? prev.schoolLevels.filter((l) => l !== level)
-                : [...prev.schoolLevels, level],
-            }));
-          }}
-          onClearAll={() => setMapFilters((prev) => ({ ...prev, schoolLevels: [], urgentOnly: false }))}
-          urgentOnly={mapFilters.urgentOnly}
-          onToggleUrgent={() => setMapFilters((prev) => ({ ...prev, urgentOnly: !prev.urgentOnly }))}
+      {/* 하단: 캐스케이딩 필터 바 (데스크톱 전용, 우측 배치) */}
+      <div className="hidden md:block absolute bottom-4 right-4 z-20">
+        <CascadingFilterBar
+          filter={cascadingFilter}
+          onFilterChange={setCascadingFilter}
         />
       </div>
 
-      {/* 우측 하단: 로그인/회원가입 또는 프로필 버튼 - PC만 */}
-      <div className="hidden md:block absolute bottom-4 right-4 z-20">
+      {/* 우측 상단: 로그인 또는 프로필 버튼 - PC만 */}
+      <div className="hidden md:block absolute top-4 right-4 z-20">
         {user ? (
           <ProfileButton />
         ) : (
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => {
-                setAuthModalInitialTab('login');
-                setIsAuthModalOpen(true);
-              }}
-              className="px-4 py-2.5 text-sm text-gray-600 bg-white/95 backdrop-blur-sm border border-gray-200 rounded-full hover:bg-white hover:text-gray-900 hover:shadow-md transition-all font-medium active:scale-95"
-              style={{ boxShadow: '0 4px 12px rgba(0, 0, 0, 0.08)' }}
-            >
-              로그인
-            </button>
-            <button
-              onClick={() => {
-                setAuthModalInitialTab('signup');
-                setIsAuthModalOpen(true);
-              }}
-              className="px-4 py-2.5 text-sm font-semibold text-white bg-gray-900 rounded-full hover:bg-gray-800 hover:shadow-lg hover:-translate-y-0.5 transition-all active:scale-95"
-              style={{ boxShadow: '0 4px 14px rgba(0,0,0,0.2)' }}
-            >
-              회원가입
-            </button>
-          </div>
+          <button
+            onClick={() => {
+              setAuthModalInitialTab('login');
+              setIsAuthModalOpen(true);
+            }}
+            className="px-4 py-2.5 text-sm font-medium text-gray-600 bg-white/95 backdrop-blur-sm border border-gray-200 rounded-full hover:bg-white hover:text-gray-900 hover:shadow-md transition-all active:scale-95"
+            style={{ boxShadow: '0 4px 12px rgba(0, 0, 0, 0.08)' }}
+          >
+            로그인
+          </button>
         )}
       </div>
 
@@ -1868,7 +1757,7 @@ export const Hero: React.FC = () => {
             <button
               onClick={() => {
                 // 필터 초기화
-                setMapFilters({ schoolLevels: [], subjects: [], urgentOnly: false });
+                setCascadingFilter({ primary: null, secondary: null, tertiary: null });
                 setLocationSearchQuery('');
                 setActiveLocationFilter(null);
                 // 목록 펼치기
@@ -1894,102 +1783,9 @@ export const Hero: React.FC = () => {
             </button>
           </div>
 
-          {/* 필터 영역 */}
-          <div className="px-3 py-3 border-b border-gray-100 flex-shrink-0 space-y-2.5">
-            {/* 필터 드롭다운 버튼들 (먼저 표시) */}
-            <div className="flex gap-2">
-              {/* 학교급 드롭다운 */}
-              <div className="relative filter-dropdown flex-1">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setOpenDropdown(openDropdown === 'schoolLevel' ? null : 'schoolLevel');
-                  }}
-                  className={`w-full px-3 py-2 text-xs rounded-lg border flex items-center justify-between gap-1 transition-all active:scale-[0.98] ${openDropdown === 'schoolLevel'
-                    ? 'bg-[#5B6EF7]/15 border-[#5B6EF7] text-[#5B6EF7] shadow-sm'
-                    : mapFilters.schoolLevels.length > 0
-                      ? 'bg-[#5B6EF7]/10 border-[#5B6EF7] text-[#5B6EF7]'
-                      : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50'
-                    }`}
-                  aria-expanded={openDropdown === 'schoolLevel'}
-                  aria-haspopup="listbox"
-                >
-                  <span className="truncate">
-                    {mapFilters.schoolLevels.length > 0
-                      ? `학교급 (${mapFilters.schoolLevels.length})`
-                      : '학교급'}
-                  </span>
-                  <svg className={`w-3.5 h-3.5 flex-shrink-0 transition-transform ${openDropdown === 'schoolLevel' ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
-                {openDropdown === 'schoolLevel' && (
-                  <div className="absolute top-full left-0 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg z-20 py-1.5">
-                    {SCHOOL_LEVELS.map(level => (
-                      <label
-                        key={level}
-                        className="flex items-center gap-2.5 px-3 py-1.5 hover:bg-gray-50 cursor-pointer text-xs"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={mapFilters.schoolLevels.includes(level)}
-                          onChange={() => toggleMapFilter('schoolLevels', level)}
-                          className="w-3.5 h-3.5 rounded border-gray-300 text-[#5B6EF7] focus:ring-[#5B6EF7]"
-                        />
-                        <span className="text-gray-700">{level}</span>
-                      </label>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* 과목 드롭다운 */}
-              <div className="relative filter-dropdown flex-1">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setOpenDropdown(openDropdown === 'subject' ? null : 'subject');
-                  }}
-                  className={`w-full px-3 py-2 text-xs rounded-lg border flex items-center justify-between gap-1 transition-all active:scale-[0.98] ${openDropdown === 'subject'
-                    ? 'bg-[#5B6EF7]/15 border-[#5B6EF7] text-[#5B6EF7] shadow-sm'
-                    : mapFilters.subjects.length > 0
-                      ? 'bg-[#5B6EF7]/10 border-[#5B6EF7] text-[#5B6EF7]'
-                      : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50'
-                    }`}
-                  aria-expanded={openDropdown === 'subject'}
-                  aria-haspopup="listbox"
-                >
-                  <span className="truncate">
-                    {mapFilters.subjects.length > 0
-                      ? `과목 (${mapFilters.subjects.length})`
-                      : '과목'}
-                  </span>
-                  <svg className={`w-3.5 h-3.5 flex-shrink-0 transition-transform ${openDropdown === 'subject' ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
-                {openDropdown === 'subject' && (
-                  <div className="absolute top-full left-0 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg z-20 py-1.5 max-h-[200px] overflow-y-auto">
-                    {MAP_FILTER_SUBJECTS.map(subject => (
-                      <label
-                        key={subject}
-                        className="flex items-center gap-2.5 px-3 py-1.5 hover:bg-gray-50 cursor-pointer text-xs"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={mapFilters.subjects.includes(subject)}
-                          onChange={() => toggleMapFilter('subjects', subject)}
-                          className="w-3.5 h-3.5 rounded border-gray-300 text-[#5B6EF7] focus:ring-[#5B6EF7]"
-                        />
-                        <span className="text-gray-700">{subject}</span>
-                      </label>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* 검색 (필터 아래에 표시) */}
+          {/* 검색 영역 */}
+          <div className="px-3 py-3 border-b border-gray-100 flex-shrink-0">
+            {/* 검색 */}
             <div className="relative">
               {activeLocationFilter ? (
                 <div className="w-full px-3 py-2 text-sm border border-[#5B6EF7] bg-[#5B6EF7]/10 rounded-lg flex items-center justify-between">
@@ -2272,29 +2068,12 @@ export const Hero: React.FC = () => {
           }}
         />
         <MobileQuickFilters
-          selectedFilters={mobileQuickFilters}
-          selectedSubjects={mobileQuickSubjects}
-          onFilterToggle={(filterId) => {
-            setMobileQuickFilters(prev =>
-              prev.includes(filterId)
-                ? prev.filter(f => f !== filterId)
-                : [...prev, filterId]
-            );
-          }}
-          onSubjectsChange={(filterId, subjects) => {
-            setMobileQuickSubjects(prev => ({
-              ...prev,
-              [filterId]: subjects,
-            }));
-          }}
+          filter={cascadingFilter}
+          onFilterChange={setCascadingFilter}
           onReset={() => {
-            setMobileQuickFilters([]);
-            setMobileQuickSubjects({});
-            setMobileGlobalSubjects([]);
+            setCascadingFilter({ primary: null, secondary: null, tertiary: null });
           }}
           bottomSheetHeight={bottomSheetHeight}
-          globalSubjects={mobileGlobalSubjects}
-          onGlobalSubjectsChange={setMobileGlobalSubjects}
         />
       </div>
 

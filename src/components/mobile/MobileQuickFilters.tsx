@@ -1,378 +1,394 @@
-import React, { useRef, useState, useEffect } from 'react';
+/**
+ * 모바일 퀵 필터
+ * Option B: 2줄 그리드 + 방과후/돌봄 검색 UI
+ * 카테고리별 최적화: 유치원/비교과/행정 1줄, 교과과목 2줄
+ */
 
-// 학교급별 색상 (프로젝트 컬러 팔레트 기반)
-const SCHOOL_LEVEL_COLORS: Record<string, { border: string; bg: string; text: string; activeBg: string; activeText: string }> = {
-  urgent: { border: 'border-red-400', bg: 'bg-white', text: 'text-red-500', activeBg: 'bg-red-500', activeText: 'text-white' },
-  kindergarten: { border: 'border-amber-600', bg: 'bg-white', text: 'text-amber-700', activeBg: 'bg-amber-600', activeText: 'text-white' },
-  elementary: { border: 'border-green-500', bg: 'bg-white', text: 'text-green-600', activeBg: 'bg-green-500', activeText: 'text-white' },
-  middle: { border: 'border-blue-500', bg: 'bg-white', text: 'text-blue-600', activeBg: 'bg-blue-500', activeText: 'text-white' },
-  high: { border: 'border-blue-800', bg: 'bg-white', text: 'text-blue-800', activeBg: 'bg-blue-800', activeText: 'text-white' },
-  special: { border: 'border-violet-500', bg: 'bg-white', text: 'text-violet-600', activeBg: 'bg-violet-500', activeText: 'text-white' },
-  etc: { border: 'border-gray-400', bg: 'bg-white', text: 'text-gray-600', activeBg: 'bg-gray-500', activeText: 'text-white' },
-};
+import React, { useState, useRef, useCallback, useEffect } from 'react';
+import { ChevronLeft, X, Search } from 'lucide-react';
+import {
+  type CascadingFilter,
+  type PrimaryCategory,
+  PRIMARY_CATEGORIES,
+  PRIMARY_COLORS,
+  SECONDARY_OPTIONS,
+  TERTIARY_OPTIONS,
+} from '@/lib/utils/jobClassifier';
 
-// 과목 목록 (중등/고등용)
-const SUBJECTS = ['전체', '국어', '영어', '수학', '사회', '과학', '체육', '음악', '미술', '정보', '보건', '사서', '상담'] as const;
-
-interface QuickFilter {
-  id: string;
-  label: string;
-  shortLabel: string;
-  colorKey: keyof typeof SCHOOL_LEVEL_COLORS;
-  hasSubjects?: boolean; // 과목 선택 가능 여부
-}
-
-const QUICK_FILTERS: QuickFilter[] = [
-  { id: 'kindergarten', label: '유치원', shortLabel: '유', colorKey: 'kindergarten' },
-  { id: 'elementary', label: '초등', shortLabel: '초', colorKey: 'elementary' },
-  { id: 'middle', label: '중등', shortLabel: '중', colorKey: 'middle', hasSubjects: true },
-  { id: 'high', label: '고등', shortLabel: '고', colorKey: 'high', hasSubjects: true },
-  { id: 'special', label: '특수', shortLabel: '특', colorKey: 'special' },
-  { id: 'etc', label: '기타', shortLabel: '기타', colorKey: 'etc' },
+// 방과후/돌봄 인기 키워드 칩 (데스크톱과 동일)
+const AFTERSCHOOL_CATEGORY_CHIPS = [
+  '체육',
+  '영어',
+  '코딩',
+  '논술',
+  '미술',
+  '돌봄',
 ];
 
 interface MobileQuickFiltersProps {
-  selectedFilters: string[];
-  selectedSubjects: Record<string, string[]>; // { middle: ['국어', '영어'], high: ['수학'] }
-  onFilterToggle: (filterId: string) => void;
-  onSubjectsChange: (filterId: string, subjects: string[]) => void;
+  filter: CascadingFilter;
+  onFilterChange: (filter: CascadingFilter) => void;
   onReset: () => void;
-  urgentCount?: number;
   bottomSheetHeight?: 'collapsed' | 'half' | 'full';
-  // 전역 과목 필터 (검색바 필터 버튼 대체)
-  globalSubjects: string[];
-  onGlobalSubjectsChange: (subjects: string[]) => void;
 }
 
 const MobileQuickFilters: React.FC<MobileQuickFiltersProps> = ({
-  selectedFilters,
-  selectedSubjects,
-  onFilterToggle,
-  onSubjectsChange,
+  filter,
+  onFilterChange,
   onReset,
   bottomSheetHeight = 'collapsed',
-  globalSubjects,
-  onGlobalSubjectsChange,
 }) => {
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const [showSubjectSheet, setShowSubjectSheet] = useState<string | null>(null);
-  const [showGlobalSubjectSheet, setShowGlobalSubjectSheet] = useState(false);
-  const [tempSubjects, setTempSubjects] = useState<string[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
-  // 필터 클릭 핸들러
-  const handleFilterClick = (filter: QuickFilter) => {
-    const isSelected = selectedFilters.includes(filter.id);
+  const secondaryOptions = filter.primary ? SECONDARY_OPTIONS[filter.primary] : null;
+  const showTertiaryLevel = filter.primary === '교과과목' && filter.secondary;
+  const isAfterSchoolSearch = filter.primary === '방과후/돌봄';
 
-    if (filter.hasSubjects) {
-      // 중등/고등 - 과목 있는 필터
-      if (isSelected) {
-        // 이미 선택됨
-        const hasSubjects = selectedSubjects[filter.id] && selectedSubjects[filter.id].length > 0;
-        if (hasSubjects) {
-          // 과목이 선택되어 있으면 → 과목만 초기화 (필터는 유지)
-          onSubjectsChange(filter.id, []);
-        } else {
-          // 과목이 없으면 → 필터 해제
-          onFilterToggle(filter.id);
-        }
-      } else {
-        // 선택 안됨 → 과목 모달 열기
-        setTempSubjects(selectedSubjects[filter.id] || []);
-        setShowSubjectSheet(filter.id);
-      }
+  // 현재 단계 결정
+  const getCurrentLevel = (): 'primary' | 'secondary' | 'tertiary' => {
+    if (showTertiaryLevel) return 'tertiary';
+    if (filter.primary && (secondaryOptions || isAfterSchoolSearch)) return 'secondary';
+    return 'primary';
+  };
+
+  const currentLevel = getCurrentLevel();
+  const currentColors = filter.primary ? PRIMARY_COLORS[filter.primary] : null;
+
+  // 방과후/돌봄 선택 시 검색창 포커스
+  useEffect(() => {
+    if (isAfterSchoolSearch && searchInputRef.current) {
+      searchInputRef.current.focus();
+    }
+  }, [isAfterSchoolSearch]);
+
+  // 검색어 변경 시 debounce 처리 (150ms)
+  const handleSearchChange = useCallback((value: string) => {
+    setSearchQuery(value);
+
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
+
+    debounceRef.current = setTimeout(() => {
+      onFilterChange({
+        ...filter,
+        secondary: value.trim() || null,
+        tertiary: null,
+      });
+    }, 150);
+  }, [filter, onFilterChange]);
+
+  // 인기 키워드 클릭
+  const handlePopularKeywordClick = useCallback((keyword: string) => {
+    setSearchQuery(keyword);
+    onFilterChange({
+      ...filter,
+      secondary: keyword,
+      tertiary: null,
+    });
+  }, [filter, onFilterChange]);
+
+  // 뒤로가기 핸들러
+  const handleBack = () => {
+    if (currentLevel === 'tertiary') {
+      onFilterChange({ ...filter, secondary: null, tertiary: null });
+    } else if (currentLevel === 'secondary') {
+      setSearchQuery('');
+      onFilterChange({ primary: null, secondary: null, tertiary: null });
+    }
+  };
+
+  // 1차 카테고리 선택
+  const handlePrimaryClick = (key: PrimaryCategory) => {
+    onFilterChange({ primary: key, secondary: null, tertiary: null });
+  };
+
+  // 2차 옵션 선택
+  const handleSecondaryClick = (key: string) => {
+    if (filter.secondary === key) {
+      onFilterChange({ ...filter, secondary: null, tertiary: null });
     } else {
-      // 유치원/초등/특수/기타 - 단순 토글
-      onFilterToggle(filter.id);
+      onFilterChange({ ...filter, secondary: key, tertiary: null });
     }
   };
 
-  // 과목 선택 적용
-  const handleApplySubjects = () => {
-    if (showSubjectSheet) {
-      onSubjectsChange(showSubjectSheet, tempSubjects);
-      // 과목을 선택했으면 해당 필터도 자동 활성화
-      if (!selectedFilters.includes(showSubjectSheet)) {
-        onFilterToggle(showSubjectSheet);
-      }
-      setShowSubjectSheet(null);
-    }
+  // 3차 옵션 선택
+  const handleTertiaryClick = (key: string | null) => {
+    onFilterChange({ ...filter, tertiary: key });
   };
 
-  // 전역 과목 시트 열기
-  const handleGlobalSubjectClick = () => {
-    setTempSubjects(globalSubjects);
-    setShowGlobalSubjectSheet(true);
-  };
-
-  // 전역 과목 선택 적용
-  const handleApplyGlobalSubjects = () => {
-    onGlobalSubjectsChange(tempSubjects);
-    setShowGlobalSubjectSheet(false);
-  };
-
-  // 과목 토글
-  const toggleSubject = (subject: string) => {
-    if (subject === '전체') {
-      // '전체' 클릭 시 모든 과목 선택 해제
-      setTempSubjects([]);
-    } else {
-      setTempSubjects(prev =>
-        prev.includes(subject)
-          ? prev.filter(s => s !== subject)
-          : [...prev, subject]
-      );
-    }
-  };
-
-  // 칩에 표시할 라벨 (항상 shortLabel만 - 과목은 별도 영역에 표시)
-  const getChipLabel = (filter: QuickFilter): string => {
-    return filter.shortLabel;
-  };
-
-  // 선택된 모든 과목 목록 (학교급별로 묶어서)
-  const getSelectedSubjectsList = (): { filterId: string; filterLabel: string; subjects: string[] }[] => {
-    return Object.entries(selectedSubjects)
-      .filter(([_, subjects]) => subjects.length > 0)
-      .map(([filterId, subjects]) => ({
-        filterId,
-        filterLabel: QUICK_FILTERS.find(f => f.id === filterId)?.shortLabel || '',
-        subjects,
-      }));
-  };
-
-  const hasActiveFilters = selectedFilters.length > 0 || Object.values(selectedSubjects).some(s => s.length > 0) || globalSubjects.length > 0;
-
-  // 과목 칩 라벨
-  const getGlobalSubjectLabel = (): string => {
-    if (globalSubjects.length === 0) return '과목';
-    if (globalSubjects.length === 1) return globalSubjects[0];
-    return `과목 ${globalSubjects.length}`;
-  };
-
-  // 바텀시트 높이에 따른 애니메이션 스타일
   const getAnimationStyle = (): React.CSSProperties => {
     switch (bottomSheetHeight) {
       case 'full':
-        return {
-          opacity: 0,
-          transform: 'translateY(-10px)',
-          pointerEvents: 'none' as const,
-        };
+        return { opacity: 0, transform: 'translateY(-10px)', pointerEvents: 'none' as const };
       case 'half':
-        return {
-          opacity: 0.7,
-          transform: 'translateY(-2px)',
-        };
+        return { opacity: 0.7, transform: 'translateY(-2px)' };
       default:
-        return {
-          opacity: 1,
-          transform: 'translateY(0)',
-        };
+        return { opacity: 1, transform: 'translateY(0)' };
     }
   };
 
-  return (
-    <>
-      {/* 빠른 필터 칩 영역 */}
-      <div
-        className="px-4 pb-2 transition-all duration-300 ease-out"
-        style={getAnimationStyle()}
-      >
-        <div
-          ref={scrollRef}
-          className="flex items-center justify-center gap-2 overflow-x-auto scrollbar-hide"
-          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-        >
-          {QUICK_FILTERS.map((filter) => {
-            const isSelected = selectedFilters.includes(filter.id);
-            const colors = SCHOOL_LEVEL_COLORS[filter.colorKey];
-            const label = getChipLabel(filter);
-            const hasSubjectsSelected = selectedSubjects[filter.id]?.length > 0;
+  // 1차 필터 렌더링 (2줄 그리드)
+  const renderPrimaryLevel = () => (
+    <div className="flex flex-col gap-1.5">
+      {/* 1줄: 유치원, 초등담임, 교과과목, 비교과, 특수 */}
+      <div className="flex items-center gap-1.5 flex-wrap">
+        {PRIMARY_CATEGORIES.slice(0, 5).map(({ key, label }) => {
+          const colors = PRIMARY_COLORS[key];
+
+          return (
+            <button
+              key={key}
+              onClick={() => handlePrimaryClick(key)}
+              className="flex-shrink-0 px-2.5 py-1.5 rounded-full text-xs font-medium border-2 transition-all duration-200 active:scale-95"
+              style={{
+                borderColor: colors.base + '60',
+                backgroundColor: 'white',
+                color: colors.text,
+              }}
+            >
+              {label}
+            </button>
+          );
+        })}
+      </div>
+      {/* 2줄: 방과후/돌봄, 행정·교육지원, 기타 */}
+      <div className="flex items-center gap-1.5 flex-wrap">
+        {PRIMARY_CATEGORIES.slice(5).map(({ key, label }) => {
+          const colors = PRIMARY_COLORS[key];
+
+          return (
+            <button
+              key={key}
+              onClick={() => handlePrimaryClick(key)}
+              className="flex-shrink-0 px-2.5 py-1.5 rounded-full text-xs font-medium border-2 transition-all duration-200 active:scale-95"
+              style={{
+                borderColor: colors.base + '60',
+                backgroundColor: 'white',
+                color: colors.text,
+              }}
+            >
+              {label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+
+  // 방과후/돌봄 검색 UI 렌더링
+  const renderAfterSchoolSearch = () => {
+    return (
+      <div className="flex flex-col gap-2">
+        {/* 1줄: 뒤로가기 + 검색창 */}
+        <div className="flex items-center gap-2 max-w-full">
+          <button
+            onClick={handleBack}
+            className="flex items-center gap-0.5 flex-shrink-0 px-2 py-1.5 rounded-full text-xs font-medium transition-all active:scale-95"
+            style={{
+              backgroundColor: currentColors?.base,
+              color: 'white',
+            }}
+          >
+            <ChevronLeft size={14} />
+            방과후/돌봄
+          </button>
+
+          {/* 검색 입력창 */}
+          <div className="flex items-center gap-1.5 flex-1 min-w-0 max-w-[180px] px-2 py-1.5 bg-gray-100 rounded-full">
+            <Search size={14} className="text-gray-400 flex-shrink-0" />
+            <input
+              ref={searchInputRef}
+              type="text"
+              value={searchQuery}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              placeholder="과목 검색..."
+              className="bg-transparent border-none outline-none text-xs text-gray-800 placeholder-gray-400 flex-1 min-w-0"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => {
+                  setSearchQuery('');
+                  onFilterChange({ ...filter, secondary: null });
+                }}
+                className="p-0.5 text-gray-400 active:text-gray-600 transition-colors flex-shrink-0"
+              >
+                <X size={12} />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* 2줄: 인기 키워드 칩 */}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {AFTERSCHOOL_CATEGORY_CHIPS.map((keyword) => {
+            const isSelected = filter.secondary === keyword;
 
             return (
               <button
-                key={filter.id}
-                onClick={() => handleFilterClick(filter)}
-                className={`
-                  relative flex-shrink-0 px-3 py-1.5 rounded-full text-sm font-medium
-                  border-2 transition-all duration-200 active:scale-95
-                  ${isSelected
-                    ? `${colors.activeBg} ${colors.activeText} border-transparent`
-                    : `${colors.bg} ${colors.text} ${colors.border}`
-                  }
-                `}
+                key={keyword}
+                onClick={() => handlePopularKeywordClick(keyword)}
+                className="flex-shrink-0 px-2.5 py-1.5 rounded-full text-xs font-medium transition-all duration-200 active:scale-95"
+                style={{
+                  backgroundColor: isSelected ? currentColors?.light : '#F1F5F9',
+                  color: isSelected ? currentColors?.text : '#64748B',
+                  border: isSelected ? `1px solid ${currentColors?.base}40` : '1px solid transparent',
+                }}
               >
-                {label}
-                {/* 과목 선택됨 표시 (점) */}
-                {hasSubjectsSelected && (
-                  <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-blue-500 rounded-full border border-white" />
-                )}
+                {keyword}
               </button>
             );
           })}
-
         </div>
-
-        {/* 선택된 과목 태그 영역 */}
-        {getSelectedSubjectsList().length > 0 && (
-          <div className="flex items-center justify-center gap-2 mt-2 overflow-x-auto scrollbar-hide">
-            {getSelectedSubjectsList().map(({ filterId, filterLabel, subjects }) => (
-              subjects.map(subject => (
-                <span
-                  key={`${filterId}-${subject}`}
-                  className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full flex-shrink-0"
-                >
-                  <span>{filterLabel}:{subject}</span>
-                  <button
-                    onClick={() => {
-                      const newSubjects = selectedSubjects[filterId].filter(s => s !== subject);
-                      onSubjectsChange(filterId, newSubjects);
-                    }}
-                    className="w-3.5 h-3.5 flex items-center justify-center hover:bg-blue-200 rounded-full"
-                  >
-                    <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </span>
-              ))
-            ))}
-          </div>
-        )}
       </div>
+    );
+  };
 
-      {/* 과목 선택 센터 모달 */}
-      {showSubjectSheet && (
-        <div
-          className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
-          onClick={() => setShowSubjectSheet(null)}
-        >
+  // 2차 필터 렌더링 (카테고리별 최적화)
+  const renderSecondaryLevel = () => {
+    // 방과후/돌봄은 검색 UI로 대체
+    if (filter.primary === '방과후/돌봄') {
+      return renderAfterSchoolSearch();
+    }
+
+    if (!filter.primary || !secondaryOptions) return null;
+
+    const primaryLabel = PRIMARY_CATEGORIES.find(c => c.key === filter.primary)?.label || '';
+    const optionCount = secondaryOptions.length;
+
+    // 카테고리별 줄 수 결정
+    // 유치원 (2개), 비교과 (4개), 행정 (7개): 1줄
+    // 교과과목 (12개): 2줄 (6개씩)
+    let rows: { key: string; label: string }[][] = [];
+
+    if (optionCount <= 8) {
+      // 1줄: 유치원, 비교과, 행정·교육지원
+      rows = [secondaryOptions];
+    } else {
+      // 2줄: 교과과목
+      // 1줄: 국어, 영어, 수학, 과학, 사회 (5개) + 뒤로가기 버튼
+      // 2줄: 체육, 음악, 미술, 기술가정, 정보, 도덕, 제2외국어 (7개)
+      rows = [
+        secondaryOptions.slice(0, 5),   // 국어~사회
+        secondaryOptions.slice(5),      // 체육~제2외국어
+      ];
+    }
+
+    return (
+      <div className="flex flex-col gap-1.5">
+        {rows.map((row, rowIndex) => (
           <div
-            className="bg-white rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl animate-scale-up"
-            onClick={(e) => e.stopPropagation()}
+            key={rowIndex}
+            className="flex items-center gap-1.5 flex-wrap"
           >
-            {/* 헤더 */}
-            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-              <h3 className="text-lg font-bold text-gray-900">
-                {QUICK_FILTERS.find(f => f.id === showSubjectSheet)?.label} 과목 선택
-              </h3>
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-blue-600 font-medium">
-                  {tempSubjects.length > 0 ? `${tempSubjects.length}개 선택` : '전체'}
-                </span>
-                <button
-                  onClick={() => setShowSubjectSheet(null)}
-                  className="p-1 text-gray-400 hover:text-gray-600"
-                >
-                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-
-            {/* 과목 그리드 - 구분 없이 모두 동일하게 */}
-            <div className="p-5 max-h-[60vh] overflow-y-auto">
-              <div className="flex flex-wrap gap-2 mb-4">
-                {SUBJECTS.map((subject) => (
-                  <button
-                    key={subject}
-                    onClick={() => toggleSubject(subject)}
-                    className={`
-                      px-4 py-2 rounded-full text-sm font-medium
-                      transition-all duration-200 active:scale-95
-                      ${subject === '전체'
-                        ? (tempSubjects.length === 0
-                          ? 'bg-blue-500 text-white'
-                          : 'bg-gray-100 text-gray-700')
-                        : (tempSubjects.includes(subject)
-                          ? 'bg-blue-500 text-white'
-                          : 'bg-gray-100 text-gray-700')
-                      }
-                    `}
-                  >
-                    {subject}
-                  </button>
-                ))}
-              </div>
-
-              {/* 적용하기 버튼 */}
+            {/* 첫 줄에만 뒤로가기 버튼 */}
+            {rowIndex === 0 && (
               <button
-                onClick={handleApplySubjects}
-                className="w-full py-3 bg-blue-500 text-white font-medium rounded-xl active:bg-blue-600 transition-colors"
+                onClick={handleBack}
+                className="flex items-center gap-0.5 flex-shrink-0 px-2 py-1.5 rounded-full text-xs font-medium transition-all active:scale-95"
+                style={{
+                  backgroundColor: currentColors?.base,
+                  color: 'white',
+                }}
               >
-                적용하기
+                <ChevronLeft size={14} />
+                {primaryLabel}
               </button>
-            </div>
-          </div>
-        </div>
-      )}
+            )}
 
-      {/* 전역 과목 선택 센터 모달 */}
-      {showGlobalSubjectSheet && (
-        <div
-          className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
-          onClick={() => setShowGlobalSubjectSheet(false)}
+            {row.map(({ key, label }) => {
+              const isSelected = filter.secondary === key;
+
+              return (
+                <button
+                  key={key}
+                  onClick={() => handleSecondaryClick(key)}
+                  className="flex-shrink-0 px-2.5 py-1.5 rounded-full text-xs font-medium transition-all duration-200 active:scale-95"
+                  style={{
+                    backgroundColor: isSelected ? currentColors?.light : '#F1F5F9',
+                    color: isSelected ? currentColors?.text : '#64748B',
+                    border: isSelected ? `1px solid ${currentColors?.base}40` : '1px solid transparent',
+                  }}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  // 3차 필터 렌더링 (교과과목 → 과목 선택 후)
+  const renderTertiaryLevel = () => {
+    if (!filter.secondary) return null;
+
+    const secondaryLabel = secondaryOptions?.find(o => o.key === filter.secondary)?.label || '';
+
+    return (
+      <div className="flex items-center gap-1.5 flex-wrap">
+        {/* 뒤로가기 버튼 */}
+        <button
+          onClick={handleBack}
+          className="flex items-center gap-0.5 flex-shrink-0 px-2 py-1.5 rounded-full text-xs font-medium transition-all active:scale-95"
+          style={{
+            backgroundColor: currentColors?.base,
+            color: 'white',
+          }}
         >
-          <div
-            className="bg-white rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl animate-scale-up"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* 헤더 */}
-            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-              <h3 className="text-lg font-bold text-gray-900">과목 선택</h3>
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-blue-600 font-medium">
-                  {tempSubjects.length > 0 ? `${tempSubjects.length}개 선택` : '전체'}
-                </span>
-                <button
-                  onClick={() => setShowGlobalSubjectSheet(false)}
-                  className="p-1 text-gray-400 hover:text-gray-600"
-                >
-                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-            </div>
+          <ChevronLeft size={14} />
+          {secondaryLabel}
+        </button>
 
-            {/* 과목 그리드 - 구분 없이 모두 동일하게 */}
-            <div className="p-5 max-h-[60vh] overflow-y-auto">
-              <div className="flex flex-wrap gap-2 mb-4">
-                {SUBJECTS.map((subject) => (
-                  <button
-                    key={subject}
-                    onClick={() => toggleSubject(subject)}
-                    className={`
-                      px-4 py-2 rounded-full text-sm font-medium
-                      transition-all duration-200 active:scale-95
-                      ${subject === '전체'
-                        ? (tempSubjects.length === 0
-                          ? 'bg-blue-500 text-white'
-                          : 'bg-gray-100 text-gray-700')
-                        : (tempSubjects.includes(subject)
-                          ? 'bg-blue-500 text-white'
-                          : 'bg-gray-100 text-gray-700')
-                      }
-                    `}
-                  >
-                    {subject}
-                  </button>
-                ))}
-              </div>
+        {/* 전체 옵션 */}
+        <button
+          onClick={() => handleTertiaryClick(null)}
+          className="flex-shrink-0 px-2.5 py-1.5 rounded-full text-xs font-medium transition-all duration-200 active:scale-95"
+          style={{
+            backgroundColor: !filter.tertiary ? currentColors?.light : '#F1F5F9',
+            color: !filter.tertiary ? currentColors?.text : '#64748B',
+            border: !filter.tertiary ? `1px solid ${currentColors?.base}40` : '1px solid transparent',
+          }}
+        >
+          전체
+        </button>
 
-              {/* 적용하기 버튼 */}
-              <button
-                onClick={handleApplyGlobalSubjects}
-                className="w-full py-3 bg-blue-500 text-white font-medium rounded-xl active:bg-blue-600 transition-colors"
-              >
-                적용하기
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </>
+        {/* 학교급 옵션들 */}
+        {TERTIARY_OPTIONS.map(({ key, label }) => {
+          const isSelected = filter.tertiary === key;
+
+          return (
+            <button
+              key={key}
+              onClick={() => handleTertiaryClick(key)}
+              className="flex-shrink-0 px-2.5 py-1.5 rounded-full text-xs font-medium transition-all duration-200 active:scale-95"
+              style={{
+                backgroundColor: isSelected ? currentColors?.light : '#F1F5F9',
+                color: isSelected ? currentColors?.text : '#64748B',
+                border: isSelected ? `1px solid ${currentColors?.base}40` : '1px solid transparent',
+              }}
+            >
+              {label}
+            </button>
+          );
+        })}
+      </div>
+    );
+  };
+
+  return (
+    <div
+      className="px-4 pb-2 transition-all duration-300 ease-out"
+      style={getAnimationStyle()}
+    >
+      {/* 현재 단계에 맞는 UI 렌더링 */}
+      {currentLevel === 'primary' && renderPrimaryLevel()}
+      {currentLevel === 'secondary' && renderSecondaryLevel()}
+      {currentLevel === 'tertiary' && renderTertiaryLevel()}
+    </div>
   );
 };
 

@@ -21,7 +21,7 @@ export const PRIMARY_CATEGORIES: { key: PrimaryCategory; label: string; mobileLa
   { key: '교과과목', label: '교과과목', mobileLabel: '교과' },
   { key: '비교과', label: '비교과', mobileLabel: '비교과' },
   { key: '특수', label: '특수', mobileLabel: '특수' },
-  { key: '방과후/돌봄', label: '방과후/돌봄', mobileLabel: '방돌' },
+  { key: '방과후/돌봄', label: '방과후/돌봄', mobileLabel: '방과후/돌봄' },
   { key: '행정·교육지원', label: '행정·교육지원', mobileLabel: '행정' },
   { key: '기타', label: '기타', mobileLabel: '기타' },
 ];
@@ -83,14 +83,14 @@ export const TERTIARY_OPTIONS = [
 
 // 1차 카테고리 색상
 export const PRIMARY_COLORS: Record<PrimaryCategory, { base: string; light: string; text: string }> = {
-  '유치원':       { base: '#8D6E63', light: '#EFEBE9', text: '#3E2723' },
-  '초등담임':     { base: '#4CAF50', light: '#E8F5E9', text: '#1B5E20' },
-  '교과과목':     { base: '#2196F3', light: '#E3F2FD', text: '#0D47A1' },
-  '비교과':       { base: '#009688', light: '#E0F2F1', text: '#004D40' },
-  '특수':         { base: '#FF9800', light: '#FFF3E0', text: '#E65100' },
-  '방과후/돌봄':  { base: '#7C4DFF', light: '#EDE7F6', text: '#4A148C' },
+  '유치원': { base: '#8D6E63', light: '#EFEBE9', text: '#3E2723' },
+  '초등담임': { base: '#4CAF50', light: '#E8F5E9', text: '#1B5E20' },
+  '교과과목': { base: '#2196F3', light: '#E3F2FD', text: '#0D47A1' },
+  '비교과': { base: '#009688', light: '#E0F2F1', text: '#004D40' },
+  '특수': { base: '#FF9800', light: '#FFF3E0', text: '#E65100' },
+  '방과후/돌봄': { base: '#7C4DFF', light: '#EDE7F6', text: '#4A148C' },
   '행정·교육지원': { base: '#607D8B', light: '#ECEFF1', text: '#263238' },
-  '기타':         { base: '#9E9E9E', light: '#F5F5F5', text: '#424242' },
+  '기타': { base: '#9E9E9E', light: '#F5F5F5', text: '#424242' },
 };
 
 interface JobLike {
@@ -102,7 +102,7 @@ interface JobLike {
 
 /**
  * 공고를 1차 카테고리로 분류 (우선순위 기반)
- * v3: tags 기반 특수/비교과 체크 추가, 교과전담 분리
+ * v4: 특수 분류 하이브리드 접근법 - 직무 키워드 최우선 + 교사/교원 조합 필수
  */
 export function classifyJob(job: JobLike): PrimaryCategory {
   const title = job.title || '';
@@ -113,19 +113,64 @@ export function classifyJob(job: JobLike): PrimaryCategory {
   // 태그 준비 (모든 우선순위에서 사용)
   const tagsLower = (job.tags || []).map(t => t.toLowerCase()).join(' ');
 
-  // P1: 특수 (타이틀 OR 태그에 '특수' 포함)
-  if (tl.includes('특수') || tagsLower.includes('특수')) return '특수';
+  // 교사/교원 여부 판별 (여러 우선순위에서 사용)
+  const isTeacherRole = tl.includes('교사') || tl.includes('교원') ||
+    tl.includes('기간제') || tl.includes('계약제');
 
-  // P1.5: 특수학교 판별 (organization이 "XX학교"로만 끝나는 경우)
-  // 한국에서 "성은학교", "성심학교" 등 초등/중/고등/대학교가 아닌 "XX학교"는 특수학교
+  // ============================================
+  // P0: 직무 키워드 최우선 처리 (학교 종류 무관)
+  // ============================================
+
+  // P0.1: 통학/운전 관련 → 행정·교육지원
+  if (tl.includes('통학') || tl.includes('운전')) {
+    return '행정·교육지원';
+  }
+
+  // P0.2: 행정·교육지원 키워드 (특수학교의 행정직도 포함)
+  const adminJobKeywords = ['시설', '미화', '운영직', '경비', '조리', '당직', '청소',
+    '보조원', '실무사', '급식', '배식', '청원경찰'];
+  if (adminJobKeywords.some(kw => tl.includes(kw))) {
+    return '행정·교육지원';
+  }
+
+  // P0.3: 강사(단독) - 교사/교원 언급 없는 강사 → 방과후/돌봄
+  // 단, "사서교사" 등은 제외 (isTeacherRole 아닐 때만)
+  if (tl.includes('강사') && !isTeacherRole) {
+    return '방과후/돌봄';
+  }
+
+  // P0.4: 방과후/돌봄 명시적 키워드 → 방과후/돌봄
+  if (tl.includes('방과후') || tl.includes('돌봄') || tl.includes('늘봄') ||
+    tl.includes('에듀케어') || tl.includes('스포츠강사')) {
+    return '방과후/돌봄';
+  }
+
+  // P0.5: 사서 + 교사/교원 → 비교과 (특수학교 사서교사도 비교과)
+  if (tl.includes('사서') && isTeacherRole) {
+    return '비교과';
+  }
+
+  // ============================================
+  // P1: 특수 (교사/교원 조합 필수)
+  // ============================================
+  // "특수" 키워드가 있어도 교사/교원이 아니면 특수로 분류하지 않음
+  if ((tl.includes('특수') || tagsLower.includes('특수')) && isTeacherRole) {
+    return '특수';
+  }
+
+  // ============================================
+  // P1.5: 특수학교 판별 (XX학교 + 교사/교원 조합)
+  // ============================================
+  // 한국에서 "성은학교", "서울정민학교" 등은 특수학교이지만,
+  // 해당 학교의 "운전원", "강사" 등은 특수가 아님
   const orgRaw = (job.organization || '').trim();
-  if (
-    orgRaw.endsWith('학교') &&
+  const isSpecialSchoolName = orgRaw.endsWith('학교') &&
     !orgRaw.endsWith('초등학교') &&
     !orgRaw.endsWith('중학교') &&
     !orgRaw.endsWith('고등학교') &&
-    !orgRaw.endsWith('대학교')
-  ) {
+    !orgRaw.endsWith('대학교');
+
+  if (isSpecialSchoolName && isTeacherRole) {
     return '특수';
   }
 
@@ -207,7 +252,7 @@ export function classifyJob(job: JobLike): PrimaryCategory {
 
     // 4. 기간제/계약제 교사/교원 체크 (담임 or 교과전담 구분)
     const isGiganje = (tl.includes('기간제') || tl.includes('계약제')) &&
-                      (tl.includes('교사') || tl.includes('교원'));
+      (tl.includes('교사') || tl.includes('교원'));
     if (isGiganje) {
       // 특정 과목만 있고 담임 없으면 → 교과과목으로 분류
       if (isSubjectOnly && !hasDamim) {
@@ -227,7 +272,8 @@ export function classifyJob(job: JobLike): PrimaryCategory {
     if (tl.includes('방과후') || tl.includes('돌봄') || tl.includes('늘봄')) return '방과후/돌봄';
     if (
       tl.includes('실무') || tl.includes('공무직') || tl.includes('봉사') ||
-      tl.includes('지킴이') || tl.includes('안전') || tl.includes('보조') || tl.includes('영양사')
+      tl.includes('지킴이') || tl.includes('안전') || tl.includes('보조') || tl.includes('영양사') ||
+      tl.includes('튜터') || tl.includes('협력강사') || tl.includes('학습지원')
     ) {
       return '행정·교육지원';
     }
@@ -358,26 +404,64 @@ function matchesBigyogwa(titleLower: string, tagsLower: string[], category: stri
 }
 
 // 방과후/돌봄 세부 매칭 (title OR tags)
+// v4: 6개 카테고리 그룹핑 (분석 기반 최적화)
+// 커버리지: 체육(25.9%) + 영어(14.5%) + 코딩(12.4%) + 논술(5.3%) + 미술(11.7%) + 돌봄(43.3%)
 function matchesAfterSchool(titleLower: string, tagsLower: string[], subject: string): boolean {
   const keywords: Record<string, string[]> = {
-    '체육': ['체육', '스포츠', '축구', '농구', '배드민턴', '태권도', '수영'],
-    '음악': ['음악', '피아노', '바이올린', '기타연주', '합창', '밴드', '우쿨렐레'],
-    '미술': ['미술', '그림', '도예', '공예', '드로잉'],
-    '무용': ['무용', '발레', '댄스'],
-    '요리': ['요리', '조리', '베이킹', '제과', '제빵'],
-    '외국어': ['영어', '중국어', '일본어', '외국어'],
-    '코딩/STEM': ['코딩', 'sw', '로봇', '드론', 'stem', '3d', '과학실험', '프로그래밍'],
-    '돌봄/늘봄': ['돌봄', '늘봄', '에듀케어', '방과후과정', '방과후'],
+    // 체육 계열 (228건, 25.9%)
+    '체육': [
+      '체육', '놀이체육', '스포츠', '축구', '농구', '배드민턴', '베드민턴',
+      '태권도', '수영', '체조', '육상', '배구', '야구', '탁구', '줄넘기', '음악줄넘기',
+      '체육놀이', '생활체육', '키성장운동', '뉴스포츠', '소프트테니스', '양궁',
+      '방송댄스', '무용', '발레', '댄스', '케이팝', 'k-pop', '치어리딩',
+    ],
+    // 영어/외국어 계열 (128건, 14.5%)
+    '영어': [
+      '영어', '영어회화', '중국어', '일본어', '외국어', '한국어', '스페인어',
+      '영어뮤지컬', '영어동화', '파닉스',
+    ],
+    // 코딩/과학 계열 (109건, 12.4%)
+    '코딩': [
+      '코딩', '컴퓨터', 'sw', '로봇', '드론', 'stem', '3d', '과학', '과학실험',
+      '프로그래밍', '스마트레고', '레고', '발명', '창의과학', 'ai', '인공지능',
+    ],
+    // 논술 계열 (51건, 5.3%)
+    '논술': [
+      '독서', '독서논술', '논술', '한자', '책놀이',
+    ],
+    // 미술/공예 계열 (103건, 11.7%)
+    '미술': [
+      '미술', '그림', '도예', '공예', '드로잉', '창의미술', '일러스트', '웹툰',
+      '애니메이션', '토탈공예', '종이접기', '클레이', '캘리그라피', '디자인',
+    ],
+    // 돌봄 계열 (382건, 43.3%)
+    '돌봄': [
+      '돌봄', '늘봄', '에듀케어', '방과후과정', '방과후', '돌봄교실', '보육',
+      '초등돌봄교실', '늘봄학교',
+    ],
     '기타': [],
   };
   if (subject === '기타') return true;
-  const kws = keywords[subject] || [];
-  // title에서 매칭
-  if (kws.some(kw => titleLower.includes(kw))) return true;
-  // tags에서 매칭
-  return tagsLower.some(tag =>
-    kws.some(kw => tag.includes(kw) || kw.includes(tag))
-  );
+
+  // 기존 카테고리 키워드가 있으면 사용
+  const kws = keywords[subject];
+  if (kws && kws.length > 0) {
+    // title에서 매칭
+    if (kws.some(kw => titleLower.includes(kw))) return true;
+    // tags에서 매칭
+    return tagsLower.some(tag =>
+      kws.some(kw => tag.includes(kw) || kw.includes(tag))
+    );
+  }
+
+  // 자유 검색어: subject를 직접 검색어로 사용 (실시간 타이핑 검색)
+  const searchQuery = subject.toLowerCase().trim();
+  if (!searchQuery) return true;
+
+  // title에서 검색어 포함 여부
+  if (titleLower.includes(searchQuery)) return true;
+  // tags에서 검색어 포함 여부
+  return tagsLower.some(tag => tag.includes(searchQuery));
 }
 
 // 행정·교육지원 세부 매칭 (title OR tags)
@@ -385,7 +469,7 @@ function matchesAdmin(titleLower: string, tagsLower: string[], category: string)
   const keywords: Record<string, string[]> = {
     '교무실무사': ['교무실무', '교무행정'],
     '조리실무사': ['조리실무', '조리사'],
-    '시설/환경': ['시설', '환경', '관리원'],
+    '시설/환경': ['시설', '환경', '관리원', '미화', '경비', '청소'],
     '영양사': ['영양사'],
     '학습튜터/협력강사': ['튜터', '협력강사', '학습지원', '찬찬'],
     '자원봉사': ['봉사', '자원봉사'],
