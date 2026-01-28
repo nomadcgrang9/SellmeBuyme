@@ -525,6 +525,12 @@ async function main() {
       throw new Error(`지원하지 않는 크롤러: ${targetSource} (parserType: ${parserType})`);
     }
 
+    // rawJobs가 null/undefined인 경우 빈 배열로 처리
+    if (!rawJobs) {
+      logWarn('crawler', 'rawJobs가 null/undefined입니다. 빈 배열로 처리합니다.', { targetSource });
+      rawJobs = [];
+    }
+
     if (rawJobs.length === 0) {
       logWarn('crawler', '수집된 공고 없음, HTML 구조 변경 의심', { targetSource });
       await recordCrawlFailure(crawlSourceId, '수집된 공고 없음 - HTML 구조 변경 의심');
