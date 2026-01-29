@@ -36,6 +36,8 @@ import MobileJobCard from '@/components/mobile/MobileJobCard';
 import MobileJobDetail from '@/components/mobile/MobileJobDetail';
 import LocationPermissionModal from '@/components/mobile/LocationPermissionModal';
 import DirectionsUnifiedSheet from '@/components/mobile/DirectionsUnifiedSheet';
+import MobileRegisterNav from '@/components/mobile/MobileRegisterNav';
+import ComingSoonModal from '@/components/common/ComingSoonModal';
 
 // 간단한 debounce 유틸리티
 function debounce<T extends (...args: any[]) => void>(fn: T, delay: number): T & { cancel: () => void } {
@@ -132,6 +134,10 @@ export const Hero: React.FC = () => {
 
   // 프로필 모달 상태
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+
+  // 구현 예정(Coming Soon) 모달 상태
+  const [comingSoonFeature, setComingSoonFeature] = useState('');
+  const [isComingSoonOpen, setIsComingSoonOpen] = useState(false);
 
   // ★ 로그인 성공 후 pendingAction 처리 (등록 플로우 이어가기)
   useEffect(() => {
@@ -1930,6 +1936,14 @@ export const Hero: React.FC = () => {
             setLocationPickerType('jobPosting');
             setIsLocationPickerOpen(true);
           }}
+          onFavoritesClick={() => {
+            setComingSoonFeature('즐겨찾기');
+            setIsComingSoonOpen(true);
+          }}
+          onChatClick={() => {
+            setComingSoonFeature('채팅');
+            setIsComingSoonOpen(true);
+          }}
           onLoginClick={() => {
             if (user) {
               // 로그인 상태: 프로필 모달 열기
@@ -1945,6 +1959,13 @@ export const Hero: React.FC = () => {
           userName={user?.email?.split('@')[0] || null}
         />
       </div>
+
+      {/* 구현 예정 모달 */}
+      <ComingSoonModal
+        isOpen={isComingSoonOpen}
+        onClose={() => setIsComingSoonOpen(false)}
+        title={comingSoonFeature}
+      />
 
       {/* 마커 팝업 */}
       {selectedMarker && (
@@ -2495,6 +2516,50 @@ export const Hero: React.FC = () => {
           }}
         />
       </div>
+
+      {/* 모바일 하단 등록탭 네비게이션 */}
+      <MobileRegisterNav
+        showJobLayer={showJobLayer}
+        showSeekerLayer={showSeekerLayer}
+        onJobLayerToggle={() => setShowJobLayer(prev => !prev)}
+        onSeekerLayerToggle={() => setShowSeekerLayer(prev => !prev)}
+        onJobSeekerRegister={() => {
+          if (!user) {
+            setPendingAction('register');
+            setAuthModalInitialTab('login');
+            setIsAuthModalOpen(true);
+            return;
+          }
+          setLocationPickerType('teacher');
+          setIsLocationPickerOpen(true);
+        }}
+        onJobPostRegister={() => {
+          if (!user) {
+            setPendingAction('jobPost');
+            setAuthModalInitialTab('login');
+            setIsAuthModalOpen(true);
+            return;
+          }
+          setLocationPickerType('jobPosting');
+          setIsLocationPickerOpen(true);
+        }}
+        onChatClick={() => {
+          setComingSoonFeature('채팅');
+          setIsComingSoonOpen(true);
+        }}
+        onBookmarkClick={() => {
+          setComingSoonFeature('즐겨찾기');
+          setIsComingSoonOpen(true);
+        }}
+        isLoggedIn={!!user}
+      />
+
+      {/* 구현 예정 모달 */}
+      <ComingSoonModal
+        isOpen={isComingSoonOpen}
+        onClose={() => setIsComingSoonOpen(false)}
+        title={comingSoonFeature}
+      />
 
       {/* 위치 권한 모달 (모바일만) */}
       <LocationPermissionModal

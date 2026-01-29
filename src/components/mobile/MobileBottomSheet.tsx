@@ -31,7 +31,7 @@ const MobileBottomSheet: React.FC<MobileBottomSheetProps> = ({
         className="absolute left-4 right-4 z-30 bg-white rounded-2xl shadow-lg"
         style={{
           boxShadow: '0 2px 16px rgba(0, 0, 0, 0.12)',
-          bottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))'
+          bottom: 'calc(64px + 1rem + env(safe-area-inset-bottom, 0px))'
         }}
       >
         <div className="flex items-center justify-between px-4 py-3">
@@ -83,7 +83,7 @@ const MobileBottomSheet: React.FC<MobileBottomSheetProps> = ({
         style={{
           maxHeight: height === 'full' ? 'calc(100vh - 120px)' : '60vh',
           boxShadow: '0 4px 24px rgba(0, 0, 0, 0.15)',
-          bottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))'
+          bottom: 'calc(64px + 1rem + env(safe-area-inset-bottom, 0px))'
         }}
       >
         {/* 헤더 */}
