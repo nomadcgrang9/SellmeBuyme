@@ -9,8 +9,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 interface FullScreenLocationPickerProps {
     isOpen: boolean;
     onClose: () => void;
-    onConfirm: (coords: { lat: number; lng: number }) => void;
-    markerType: 'teacher' | 'program';
+    onConfirm: (coords: { lat: number; lng: number }, address: string) => void;
+    markerType: 'teacher' | 'program' | 'jobPosting' | 'instructor';
 }
 
 export default function FullScreenLocationPicker({
@@ -30,46 +30,69 @@ export default function FullScreenLocationPicker({
     const [isSearching, setIsSearching] = useState(false);
     const [searchResults, setSearchResults] = useState<any[]>([]);
     const [showResults, setShowResults] = useState(false);
+    const [isLoadingLocation, setIsLoadingLocation] = useState(true);
 
-    // 지도 초기화
+    // 지도 초기화 - 사용자 현재 위치로 시작
     useEffect(() => {
         if (!isOpen || !mapContainerRef.current || !window.kakao?.maps) return;
 
-        // 기본 위치 (서울 시청)
-        const defaultCenter = new window.kakao.maps.LatLng(37.5665, 126.978);
+        // 지도 생성 함수
+        const initializeMap = (lat: number, lng: number) => {
+            const center = new window.kakao.maps.LatLng(lat, lng);
+            const mapOptions = {
+                center: center,
+                level: 4  // 현재 위치일 때 더 가까이 zoom
+            };
 
-        const mapOptions = {
-            center: defaultCenter,
-            level: 5
+            const map = new window.kakao.maps.Map(mapContainerRef.current!, mapOptions);
+            mapInstanceRef.current = map;
+
+            // 중앙 좌표 초기 설정
+            setSelectedCoords({ lat, lng });
+
+            // 지도 이동 시 중앙 좌표 업데이트
+            window.kakao.maps.event.addListener(map, 'center_changed', () => {
+                const newCenter = map.getCenter();
+                setSelectedCoords({
+                    lat: newCenter.getLat(),
+                    lng: newCenter.getLng()
+                });
+            });
+
+            // 지도 이동 끝날 때 주소 가져오기
+            window.kakao.maps.event.addListener(map, 'idle', () => {
+                const newCenter = map.getCenter();
+                getAddressFromCoords(newCenter.getLat(), newCenter.getLng());
+            });
+
+            // 초기 주소 가져오기
+            getAddressFromCoords(lat, lng);
+            setIsLoadingLocation(false);
         };
 
-        const map = new window.kakao.maps.Map(mapContainerRef.current, mapOptions);
-        mapInstanceRef.current = map;
-
-        // 중앙 좌표 초기 설정
-        const center = map.getCenter();
-        setSelectedCoords({
-            lat: center.getLat(),
-            lng: center.getLng()
-        });
-
-        // 지도 이동 시 중앙 좌표 업데이트
-        window.kakao.maps.event.addListener(map, 'center_changed', () => {
-            const newCenter = map.getCenter();
-            setSelectedCoords({
-                lat: newCenter.getLat(),
-                lng: newCenter.getLng()
-            });
-        });
-
-        // 지도 이동 끝날 때 주소 가져오기
-        window.kakao.maps.event.addListener(map, 'idle', () => {
-            const newCenter = map.getCenter();
-            getAddressFromCoords(newCenter.getLat(), newCenter.getLng());
-        });
-
-        // 초기 주소 가져오기
-        getAddressFromCoords(center.getLat(), center.getLng());
+        // 사용자 현재 위치 가져오기 시도
+        setIsLoadingLocation(true);
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    // 현재 위치 성공
+                    initializeMap(position.coords.latitude, position.coords.longitude);
+                },
+                (error) => {
+                    // 위치 가져오기 실패 - 서울 시청으로 폴백
+                    console.log('위치 권한 거부 또는 오류, 기본 위치 사용:', error);
+                    initializeMap(37.5665, 126.978);
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: 5000,
+                    maximumAge: 0
+                }
+            );
+        } else {
+            // Geolocation 미지원 - 서울 시청으로 폴백
+            initializeMap(37.5665, 126.978);
+        }
 
         return () => {
             mapInstanceRef.current = null;
@@ -194,13 +217,15 @@ export default function FullScreenLocationPicker({
     // 확인 버튼 클릭
     const handleConfirm = useCallback(() => {
         if (selectedCoords) {
-            onConfirm(selectedCoords);
+            onConfirm(selectedCoords, address);
         }
-    }, [selectedCoords, onConfirm]);
+    }, [selectedCoords, address, onConfirm]);
 
     const markerColors = {
-        teacher: '#10B981', // Emerald
-        program: '#F59E0B'  // Amber
+        teacher: '#68B2FF', // Sky Blue (사이트 primary color)
+        program: '#F59E0B', // Amber
+        jobPosting: '#68B2FF', // Sky Blue (공고 등록도 동일한 색상)
+        instructor: '#F9A8D4' // 소프트 핑크 (교원연수 강사 마커 색상)
     };
 
     return (
@@ -218,6 +243,19 @@ export default function FullScreenLocationPicker({
                         className="absolute inset-0 w-full h-full"
                         onClick={() => setShowResults(false)}
                     />
+
+                    {/* 위치 로딩 중 오버레이 */}
+                    {isLoadingLocation && (
+                        <div className="absolute inset-0 z-30 bg-white/80 flex items-center justify-center">
+                            <div className="text-center">
+                                <svg className="w-8 h-8 animate-spin text-sky-500 mx-auto mb-3" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                <p className="text-sm text-gray-600 font-medium">현재 위치를 가져오는 중...</p>
+                            </div>
+                        </div>
+                    )}
 
                     {/* 상단 검색 아일랜드 ("Island Card" 스타일) */}
                     <div

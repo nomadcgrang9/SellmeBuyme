@@ -28,7 +28,16 @@ const AFTERSCHOOL_CATEGORY_CHIPS = [
 
 // 색상 배경을 적용할 카테고리 (마커 색상과 연동)
 const COLORED_CATEGORIES: PrimaryCategory[] = [
-  '유치원', '초등담임', '교과과목', '비교과', '특수'
+  '유치원', '초등담임', '교과과목', '비교과', '특수', '교원연수'
+];
+
+// 교원연수 대표 분야 5개 칩
+const INSTRUCTOR_CATEGORY_CHIPS = [
+  '에듀테크/AI',
+  '생활지도/상담',
+  '학부모교육',
+  '수업/평가혁신',
+  '학교폭력예방',
 ];
 
 interface CascadingFilterBarProps {
@@ -56,13 +65,14 @@ export default function CascadingFilterBar({
   const secondaryOptions = filter.primary ? SECONDARY_OPTIONS[filter.primary] : null;
   const showTertiaryLevel = filter.primary === '교과과목' && filter.secondary;
   const isAfterSchoolSearch = filter.primary === '방과후/돌봄';
+  const isInstructorSearch = filter.primary === '교원연수';
 
-  // 방과후/돌봄 선택 시 검색창 포커스
+  // 방과후/돌봄 또는 교원연수 선택 시 검색창 포커스
   useEffect(() => {
-    if (isAfterSchoolSearch && searchInputRef.current) {
+    if ((isAfterSchoolSearch || isInstructorSearch) && searchInputRef.current) {
       searchInputRef.current.focus();
     }
-  }, [isAfterSchoolSearch]);
+  }, [isAfterSchoolSearch, isInstructorSearch]);
 
   // 검색어 변경 시 debounce 처리 (150ms)
   const handleSearchChange = useCallback((value: string) => {
@@ -266,11 +276,88 @@ export default function CascadingFilterBar({
     );
   };
 
+  // 교원연수 검색 UI 렌더링
+  const renderInstructorSearch = () => {
+    const primaryLabel = PRIMARY_CATEGORIES.find(c => c.key === filter.primary)?.label || '';
+
+    return (
+      <>
+        {/* 뒤로가기 버튼 */}
+        <button
+          onClick={handleBack}
+          className="flex items-center gap-1 px-2 py-1.5 text-sm font-medium rounded-lg transition-colors hover:bg-white/10 flex-shrink-0"
+          style={{ color: currentColors?.light || '#FDF2F8' }}
+        >
+          <ChevronLeft size={16} />
+          <span>{primaryLabel}</span>
+        </button>
+
+        <div className="w-px h-5 bg-gray-500 mx-1 flex-shrink-0" />
+
+        {/* 검색 입력창 */}
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          <Search size={14} className="text-gray-400" />
+          <input
+            ref={searchInputRef}
+            type="text"
+            value={searchQuery}
+            onChange={(e) => handleSearchChange(e.target.value)}
+            placeholder="검색 (예: 하이러닝, SEL)"
+            className="bg-transparent border-none outline-none text-sm text-white placeholder-gray-500 w-[150px]"
+            style={{ caretColor: currentColors?.light }}
+          />
+          {searchQuery && (
+            <button
+              onClick={() => {
+                setSearchQuery('');
+                onFilterChange({ ...filter, secondary: null });
+              }}
+              className="p-0.5 text-gray-400 hover:text-white transition-colors"
+            >
+              <X size={12} />
+            </button>
+          )}
+        </div>
+
+        <div className="w-px h-5 bg-gray-500 mx-1 flex-shrink-0" />
+
+        {/* 대표 분야 5개 칩 */}
+        <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide">
+          {INSTRUCTOR_CATEGORY_CHIPS.map((keyword) => {
+            const isSelected = filter.secondary === keyword;
+            const isHovered = hoveredItem === `instructor-${keyword}`;
+
+            return (
+              <button
+                key={keyword}
+                onClick={() => handlePopularKeywordClick(keyword)}
+                onMouseEnter={() => setHoveredItem(`instructor-${keyword}`)}
+                onMouseLeave={() => setHoveredItem(null)}
+                className="px-2 py-1 text-xs font-medium transition-all duration-200 whitespace-nowrap rounded-md flex-shrink-0"
+                style={{
+                  color: isSelected ? currentColors?.text : isHovered ? currentColors?.text : '#94A3B8',
+                  backgroundColor: isSelected ? currentColors?.light : isHovered ? `${currentColors?.light}60` : 'rgba(255,255,255,0.05)',
+                }}
+              >
+                {keyword}
+              </button>
+            );
+          })}
+        </div>
+      </>
+    );
+  };
+
   // 2차 필터 렌더링 (1차 선택 후)
   const renderSecondaryLevel = () => {
     // 방과후/돌봄은 검색 UI로 대체
     if (filter.primary === '방과후/돌봄') {
       return renderAfterSchoolSearch();
+    }
+
+    // 교원연수도 검색 UI로 대체
+    if (filter.primary === '교원연수') {
+      return renderInstructorSearch();
     }
 
     if (!filter.primary || !secondaryOptions) return null;

@@ -9,11 +9,13 @@ import PresentationGraph from '@solar-icons/react/csr/business/PresentationGraph
 interface InstructorInfoModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onRegister?: () => void;  // 등록하기 버튼 클릭 콜백
 }
 
 export default function InstructorInfoModal({
   isOpen,
   onClose,
+  onRegister,
 }: InstructorInfoModalProps) {
   if (!isOpen) return null;
 
@@ -61,21 +63,40 @@ export default function InstructorInfoModal({
             </p>
             <p>
               알음알음 인맥중심으로 하던 틀에서<br />
-              벗어나 지도와 모바일 기능으로<br />
+              벗어나 지도와 모바일 기반으로<br />
               선생님의 재능을 학교와 연결합니다.
-            </p>
-            <p className="text-gray-500">
-              2월초 구현예정입니다.
             </p>
           </div>
 
           {/* 버튼 */}
-          <button
-            onClick={onClose}
-            className="w-full py-3.5 bg-[#4facfe] hover:bg-[#3d9bef] text-white rounded-xl text-lg font-medium transition-colors"
-          >
-            확인
-          </button>
+          <div className="flex gap-3 w-full">
+            {onRegister ? (
+              <>
+                <button
+                  onClick={onClose}
+                  className="flex-1 py-3.5 border border-gray-300 text-gray-600 hover:bg-gray-50 rounded-xl text-lg font-medium transition-colors"
+                >
+                  닫기
+                </button>
+                <button
+                  onClick={() => {
+                    onClose();
+                    onRegister();
+                  }}
+                  className="flex-1 py-3.5 bg-pink-400 hover:bg-pink-500 text-white rounded-xl text-lg font-medium transition-colors"
+                >
+                  등록하기
+                </button>
+              </>
+            ) : (
+              <button
+                onClick={onClose}
+                className="w-full py-3.5 bg-[#4facfe] hover:bg-[#3d9bef] text-white rounded-xl text-lg font-medium transition-colors"
+              >
+                확인
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>

@@ -12,13 +12,54 @@ export const NICKNAME_CHARACTERS = [
   '셀리', '코리', '타이디', '프롱', '하이', '라니아', '호크'
 ] as const;
 
-// 과목 옵션
+// ============================================
+// 1차 분류 (주력 분야) - 8개 카테고리
+// ============================================
+export const PRIMARY_CATEGORY_OPTIONS = [
+  '유치원', '초등담임', '교과과목', '비교과',
+  '특수교육', '방과후/돌봄', '행정·교육지원', '기타'
+] as const;
+
+export type PrimaryCategory = typeof PRIMARY_CATEGORY_OPTIONS[number];
+
+// ============================================
+// 2차 분류 (세부 분야) - 1차 분류별 매핑
+// ============================================
+export const SUB_CATEGORY_OPTIONS: Record<PrimaryCategory, readonly string[]> = {
+  '유치원': ['유치원담임', '유치원방과후'],
+  '초등담임': [], // 2차 없음
+  '교과과목': ['국어', '영어', '수학', '과학', '사회', '체육', '음악', '미술', '정보', '기술가정', '기타'],
+  '비교과': ['보건', '상담', '사서', '영양교사'],
+  '특수교육': [], // 2차 없음
+  '방과후/돌봄': ['체육', '영어', '코딩', '논술', '미술', '돌봄'],
+  '행정·교육지원': ['교무실무사', '조리실무사', '시설/환경', '영양사', '학습튜터/협력강사', '자원봉사', '안전지킴이'],
+  '기타': [], // 2차 없음
+} as const;
+
+// 교과과목용 학교급 선택
+export const SUBJECT_SCHOOL_LEVELS = ['초등학교', '중학교', '고등학교'] as const;
+
+// ============================================
+// 카테고리별 마커 색상 (필터바 연동)
+// ============================================
+export const CATEGORY_MARKER_COLORS: Record<PrimaryCategory, string> = {
+  '유치원': '#F97316',       // Orange
+  '초등담임': '#22C55E',     // Green
+  '교과과목': '#14B8A6',     // Teal
+  '비교과': '#10B981',       // Emerald
+  '특수교육': '#EF4444',     // Red
+  '방과후/돌봄': '#6B7280',  // Gray
+  '행정·교육지원': '#9CA3AF', // Light Gray
+  '기타': '#D1D5DB',         // Lighter Gray
+} as const;
+
+// 기존 과목 옵션 (하위 호환성)
 export const SUBJECT_OPTIONS = [
   '국어', '수학', '영어', '과학', '사회',
   '음악', '미술', '체육', '정보', '기타'
 ] as const;
 
-// 학교급 옵션
+// 기존 학교급 옵션 (하위 호환성)
 export const SCHOOL_LEVEL_OPTIONS = [
   '유치원', '초등', '중등', '고등', '특수'
 ] as const;
@@ -51,10 +92,10 @@ export const PROGRAM_CATEGORIES = [
 // 마커 레이어 타입
 export type MarkerLayer = 'job' | 'teacher' | 'program';
 
-// 마커 색상 정의
+// 마커 색상 정의 (사이트 컨셉: 스카이블루)
 export const MARKER_COLORS = {
   job: '#3B82F6',      // Blue (학교공고)
-  teacher: '#10B981',  // Emerald (구직교사)
+  teacher: '#68B2FF',  // Sky Blue (구직교사) - 사이트 primary color
   program: '#F59E0B'   // Amber (체험프로그램)
 } as const;
 
@@ -66,13 +107,19 @@ export interface TeacherMarker {
   longitude: number;
   nickname: string;
   email: string;
+  // 신규: 카테고리 기반 분류
+  primary_category?: PrimaryCategory;     // 1차 분류 (단일 선택)
+  sub_categories?: string[];              // 2차 분류 (복수 선택)
+  preferred_school_levels?: string[];     // 희망 학교급 (교과과목용)
+  other_subject?: string;                 // 기타 및 추가입력
+  // 기존 필드 (하위 호환)
   subjects?: string[];
-  other_subject?: string;
   school_levels?: string[];
   experience_years?: string;
   available_regions?: string[];
   introduction?: string;
   profile_image_url?: string;
+  privacy_agreed?: boolean;               // 개인정보 동의
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -80,17 +127,24 @@ export interface TeacherMarker {
 
 // 구직 교사 마커 생성 입력
 export interface TeacherMarkerInput {
+  user_id: string;  // 필수: RLS 정책에서 auth.uid() = user_id 검증
   latitude: number;
   longitude: number;
   nickname: string;
   email: string;
+  // 신규: 카테고리 기반 분류
+  primary_category: PrimaryCategory;      // 1차 분류 (필수, 단일 선택)
+  sub_categories?: string[];              // 2차 분류 (복수 선택)
+  preferred_school_levels?: string[];     // 희망 학교급 (교과과목용)
+  other_subject?: string;                 // 기타 및 추가입력
+  // 기존 필드 (하위 호환)
   subjects?: string[];
-  other_subject?: string;
   school_levels?: string[];
   experience_years?: string;
   available_regions?: string[];
   introduction?: string;
   profile_image_url?: string;
+  privacy_agreed: boolean;                // 개인정보 동의 (필수)
 }
 
 // 프로그램 마커 타입
@@ -164,9 +218,29 @@ export interface MarkerFilters {
   };
 }
 
+// 구직자 마커 필터 타입 (카테고리 기반)
+export interface TeacherMarkerFilters {
+  primaryCategory?: PrimaryCategory;         // 1차 분류 필터
+  subCategories?: string[];                  // 2차 분류 필터
+  preferredSchoolLevels?: string[];          // 희망 학교급 필터 (교과과목용)
+  searchKeyword?: string;                    // 텍스트 검색 (other_subject 포함)
+  bounds?: {
+    north: number;
+    south: number;
+    east: number;
+    west: number;
+  };
+}
+
 // 닉네임 생성 함수
 export function generateRandomNickname(): string {
   const adjective = NICKNAME_ADJECTIVES[Math.floor(Math.random() * NICKNAME_ADJECTIVES.length)];
   const character = NICKNAME_CHARACTERS[Math.floor(Math.random() * NICKNAME_CHARACTERS.length)];
   return `${adjective} ${character}`;
+}
+
+// 카테고리별 마커 색상 반환 함수
+export function getTeacherMarkerColor(primaryCategory?: PrimaryCategory | null): string {
+  if (!primaryCategory) return MARKER_COLORS.teacher; // 기본값
+  return CATEGORY_MARKER_COLORS[primaryCategory] || MARKER_COLORS.teacher;
 }

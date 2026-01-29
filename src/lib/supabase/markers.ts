@@ -9,7 +9,8 @@ import type {
     ProgramMarkerInput,
     MarkerComment,
     MarkerCommentInput,
-    MarkerFilters
+    MarkerFilters,
+    TeacherMarkerFilters
 } from '@/types/markers';
 
 // ============================================================================
@@ -17,7 +18,7 @@ import type {
 // ============================================================================
 
 /**
- * 구직 교사 마커 목록 조회
+ * 구직 교사 마커 목록 조회 (기존 호환)
  */
 export async function fetchTeacherMarkers(filters?: MarkerFilters): Promise<TeacherMarker[]> {
     let query = supabase
@@ -53,6 +54,64 @@ export async function fetchTeacherMarkers(filters?: MarkerFilters): Promise<Teac
     }
 
     return data || [];
+}
+
+/**
+ * 구직 교사 마커 목록 조회 (카테고리 기반 필터)
+ * 필터바 연동용
+ */
+export async function fetchTeacherMarkersByCategory(
+    filters?: TeacherMarkerFilters
+): Promise<TeacherMarker[]> {
+    let query = supabase
+        .from('teacher_markers')
+        .select('*')
+        .eq('is_active', true)
+        .order('created_at', { ascending: false });
+
+    // 1차 분류 필터 (primary_category)
+    if (filters?.primaryCategory) {
+        query = query.eq('primary_category', filters.primaryCategory);
+    }
+
+    // 2차 분류 필터 (sub_categories)
+    if (filters?.subCategories && filters.subCategories.length > 0) {
+        query = query.overlaps('sub_categories', filters.subCategories);
+    }
+
+    // 희망 학교급 필터 (교과과목용)
+    if (filters?.preferredSchoolLevels && filters.preferredSchoolLevels.length > 0) {
+        query = query.overlaps('preferred_school_levels', filters.preferredSchoolLevels);
+    }
+
+    // 지도 영역 필터 (bounds)
+    if (filters?.bounds) {
+        query = query
+            .gte('latitude', filters.bounds.south)
+            .lte('latitude', filters.bounds.north)
+            .gte('longitude', filters.bounds.west)
+            .lte('longitude', filters.bounds.east);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+        console.error('fetchTeacherMarkersByCategory error:', error);
+        throw error;
+    }
+
+    // 텍스트 검색 필터 (클라이언트 사이드)
+    // Supabase에서 ILIKE OR 조건이 복잡하므로 클라이언트에서 처리
+    let result = data || [];
+    if (filters?.searchKeyword) {
+        const keyword = filters.searchKeyword.toLowerCase();
+        result = result.filter(marker =>
+            marker.sub_categories?.some((s: string) => s.toLowerCase().includes(keyword)) ||
+            marker.other_subject?.toLowerCase().includes(keyword)
+        );
+    }
+
+    return result;
 }
 
 /**
@@ -92,14 +151,55 @@ export async function fetchMyTeacherMarkers(userId: string): Promise<TeacherMark
 }
 
 /**
- * 구직 교사 마커 생성
+ * 구직 교사 마커 생성 (이미 존재하면 업데이트)
  */
 export async function createTeacherMarker(input: TeacherMarkerInput): Promise<TeacherMarker> {
-    const { data, error } = await supabase
+    console.log('[createTeacherMarker] Input:', input);
+
+    // 먼저 기존 마커가 있는지 확인
+    const { data: existing, error: findError } = await supabase
         .from('teacher_markers')
-        .insert(input)
-        .select()
+        .select('id')
+        .eq('user_id', input.user_id)
         .single();
+
+    console.log('[createTeacherMarker] Existing marker:', existing, 'Find error:', findError);
+
+    let data, error;
+
+    if (existing?.id) {
+        // 기존 마커가 있으면 업데이트 (user_id는 제외)
+        const { user_id, ...updateData } = input;
+        console.log('[createTeacherMarker] Updating existing marker id:', existing.id, 'with data:', updateData);
+
+        const result = await supabase
+            .from('teacher_markers')
+            .update({
+                ...updateData,
+                is_active: true,  // 활성화 상태로 변경
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', existing.id)
+            .select()
+            .single();
+        data = result.data;
+        error = result.error;
+        console.log('[createTeacherMarker] Update result:', data, 'Error:', error);
+    } else {
+        // 없으면 새로 생성
+        console.log('[createTeacherMarker] Creating new marker');
+        const result = await supabase
+            .from('teacher_markers')
+            .insert({
+                ...input,
+                is_active: true  // 명시적으로 활성화 상태로 생성
+            })
+            .select()
+            .single();
+        data = result.data;
+        error = result.error;
+        console.log('[createTeacherMarker] Insert result:', data, 'Error:', error);
+    }
 
     if (error) {
         console.error('createTeacherMarker error:', error);
@@ -133,17 +233,28 @@ export async function updateTeacherMarker(
 
 /**
  * 구직 교사 마커 삭제 (soft delete)
+ * @param id - 마커 ID
+ * @param userId - 현재 로그인 사용자 ID (선택적, RLS가 처리하지만 추가 보안용)
  */
-export async function deleteTeacherMarker(id: string): Promise<void> {
-    const { error } = await supabase
+export async function deleteTeacherMarker(id: string, userId?: string): Promise<void> {
+    let query = supabase
         .from('teacher_markers')
-        .update({ is_active: false })
+        .update({ is_active: false, updated_at: new Date().toISOString() })
         .eq('id', id);
+
+    // userId가 제공되면 추가 검증
+    if (userId) {
+        query = query.eq('user_id', userId);
+    }
+
+    const { error, count } = await query;
 
     if (error) {
         console.error('deleteTeacherMarker error:', error);
         throw error;
     }
+
+    console.log('[deleteTeacherMarker] 삭제 완료, id:', id);
 }
 
 // ============================================================================

@@ -248,49 +248,53 @@ export default function JobDetailModal({ job, isOpen, onClose, onEditClick }: Jo
           )}
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-            {/* 사용자 업로드 공고문 (attachment_url) */}
-            {job.attachment_url && job.source === 'user_posted' ? (
-              <a
-                href={job.attachment_url}
-                download
-                className="flex items-center justify-center gap-2 px-5 py-2.5 bg-primary text-white font-semibold rounded-lg hover:bg-primary/90 transition-colors"
-              >
-                <IconFileDownload size={20} />
-                공고문 다운로드
-              </a>
-            ) : job.attachment_url && job.source !== 'user_posted' ? (
-              // 크롤링 공고의 경우 (attachment_url이 있으면 외부 링크)
-              <a
-                href={job.attachment_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={(e) => {
-                  if (job.attachment_url) {
-                    console.log('[DEBUG] 다운로드 URL:', job.attachment_url);
-                    console.log('[DEBUG] URL에 apikey 포함 여부:', job.attachment_url.includes('apikey='));
-                    try {
-                      console.log('[DEBUG] 전체 URL 파라미터:', new URL(job.attachment_url).searchParams.toString());
-                    } catch (err) {
-                      console.log('[DEBUG] URL 파싱 실패:', err);
-                    }
-                  }
-                }}
-                className="flex items-center justify-center gap-2 px-5 py-2.5 bg-primary text-white font-semibold rounded-lg hover:bg-primary/90 transition-colors"
-              >
-                <IconFileDownload size={20} />
-                공고문 다운로드
-              </a>
+            {/* source에 따라 첨부파일/공고문 버튼 분기 */}
+            {job.source === 'user_posted' ? (
+              // 직접등록 공고 - 첨부파일 다운로드
+              job.attachment_url ? (
+                <a
+                  href={job.attachment_url}
+                  download
+                  className="flex items-center justify-center gap-2 px-5 py-2.5 bg-primary text-white font-semibold rounded-lg hover:bg-primary/90 transition-colors"
+                >
+                  <IconFileDownload size={20} />
+                  첨부파일
+                </a>
+              ) : (
+                <button
+                  type="button"
+                  disabled
+                  className="flex items-center justify-center gap-2 px-5 py-2.5 bg-gray-100 text-gray-400 font-semibold rounded-lg cursor-not-allowed"
+                >
+                  <IconFileDownload size={20} />
+                  첨부파일 없음
+                </button>
+              )
             ) : (
-              <button
-                type="button"
-                disabled
-                className="flex items-center justify-center gap-2 px-5 py-2.5 bg-gray-100 text-gray-400 font-semibold rounded-lg cursor-not-allowed"
-              >
-                <IconFileDownload size={20} />
-                공고문 준비 중
-              </button>
+              // 크롤링 공고 - 공고문 다운로드
+              job.attachment_url ? (
+                <a
+                  href={job.attachment_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-2 px-5 py-2.5 bg-primary text-white font-semibold rounded-lg hover:bg-primary/90 transition-colors"
+                >
+                  <IconFileDownload size={20} />
+                  공고문 다운로드
+                </a>
+              ) : (
+                <button
+                  type="button"
+                  disabled
+                  className="flex items-center justify-center gap-2 px-5 py-2.5 bg-gray-100 text-gray-400 font-semibold rounded-lg cursor-not-allowed"
+                >
+                  <IconFileDownload size={20} />
+                  공고문 준비 중
+                </button>
+              )
             )}
-            {job.source_url && (
+            {/* 원문링크 - 크롤링 공고에만 표시 */}
+            {job.source !== 'user_posted' && job.source_url && (
               <a
                 href={job.source_url}
                 target="_blank"
@@ -301,6 +305,7 @@ export default function JobDetailModal({ job, isOpen, onClose, onEditClick }: Jo
                 원문링크
               </a>
             )}
+            {/* 수정하기 - 본인 공고만 */}
             {isOwner && onEditClick && (
               <button
                 type="button"

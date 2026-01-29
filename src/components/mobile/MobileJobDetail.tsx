@@ -38,12 +38,22 @@ const MobileJobDetail: React.FC<MobileJobDetailProps> = ({ job, onClose, onDirec
     }
   };
 
-  // 원본 링크
+  // 원본 링크 (크롤링 공고)
   const handleSourceLink = () => {
     if (job.source_url) {
       window.open(job.source_url, '_blank');
     }
   };
+
+  // 첨부파일 다운로드 (직접등록 공고)
+  const handleAttachmentDownload = () => {
+    if (job.attachment_url) {
+      window.open(job.attachment_url, '_blank');
+    }
+  };
+
+  // 직접등록 공고 여부
+  const isUserPosted = job.source === 'user_posted';
 
   // D-day 스타일
   const getDdayStyle = () => {
@@ -218,21 +228,40 @@ const MobileJobDetail: React.FC<MobileJobDetailProps> = ({ job, onClose, onDirec
               전화
             </button>
 
-            {/* 원문링크 */}
-            <button
-              onClick={handleSourceLink}
-              disabled={!job.source_url}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl font-medium text-sm
-                ${job.source_url
-                  ? 'bg-white text-gray-700 border border-gray-200 active:bg-gray-100'
-                  : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                }`}
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-              </svg>
-              원문
-            </button>
+            {/* source에 따라 원문링크 또는 첨부파일 */}
+            {isUserPosted ? (
+              // 직접등록 공고 - 첨부파일
+              <button
+                onClick={handleAttachmentDownload}
+                disabled={!job.attachment_url}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl font-medium text-sm
+                  ${job.attachment_url
+                    ? 'bg-white text-gray-700 border border-gray-200 active:bg-gray-100'
+                    : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                  }`}
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                첨부
+              </button>
+            ) : (
+              // 크롤링 공고 - 원문링크
+              <button
+                onClick={handleSourceLink}
+                disabled={!job.source_url}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl font-medium text-sm
+                  ${job.source_url
+                    ? 'bg-white text-gray-700 border border-gray-200 active:bg-gray-100'
+                    : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                  }`}
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+                원문
+              </button>
+            )}
 
             {/* 길찾기 */}
             <button

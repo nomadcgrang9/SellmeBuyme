@@ -206,3 +206,78 @@ export function generateClusterMarker(count: number, dominantLevel?: SchoolLevel
         font-family="system-ui, -apple-system, sans-serif">${displayCount}</text>
 </svg>`;
 }
+
+/**
+ * 구직자 마커 크기 상수
+ */
+export const TEACHER_MARKER_SIZE = {
+  width: 28,
+  height: 28,
+  radius: 12,
+  centerX: 14,
+  centerY: 14,
+} as const;
+
+/**
+ * 구직자(교사) 마커 생성 - 원형 + 사람 아이콘
+ * Solar Icons UserRounded 스타일 참고
+ * 사이트 primary color: #68B2FF (스카이블루)
+ */
+export function generateTeacherMarkerSVG(color: string = '#68B2FF'): string {
+  const { width, height, radius, centerX, centerY } = TEACHER_MARKER_SIZE;
+
+  // 사람 아이콘 path (Solar Icons UserRounded Bold 스타일 기반)
+  // 얼굴 원 + 몸통 경로
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+  <defs>
+    <filter id="teacherShadow" x="-30%" y="-20%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="1" stdDeviation="1.5" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+  <!-- 외부 원형 배경 -->
+  <circle cx="${centerX}" cy="${centerY}" r="${radius}" fill="${color}" stroke="white" stroke-width="2" filter="url(#teacherShadow)"/>
+  <!-- 사람 아이콘 (흰색) -->
+  <g transform="translate(${centerX - 6}, ${centerY - 7})">
+    <!-- 머리 -->
+    <circle cx="6" cy="4" r="3" fill="white"/>
+    <!-- 몸통 -->
+    <path d="M6 8c-3.5 0-6 1.5-6 3v1.5c0 0.3 0.2 0.5 0.5 0.5h11c0.3 0 0.5-0.2 0.5-0.5V11c0-1.5-2.5-3-6-3z" fill="white"/>
+  </g>
+</svg>`;
+}
+
+/**
+ * 교원연수 강사 마커 크기 상수
+ */
+export const INSTRUCTOR_MARKER_SIZE = {
+  width: 28,
+  height: 28,
+  radius: 12,
+  centerX: 14,
+  centerY: 14,
+} as const;
+
+/**
+ * 교원연수 강사 마커 생성 - 원형 + 사람 아이콘 (핑크)
+ * 구직자 마커와 동일한 디자인, 색상만 핑크
+ */
+export function generateInstructorMarkerSVG(color: string = '#F9A8D4'): string {
+  const { width, height, radius, centerX, centerY } = INSTRUCTOR_MARKER_SIZE;
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+  <defs>
+    <filter id="instructorShadow" x="-30%" y="-20%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="1" stdDeviation="1.5" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+  <!-- 외부 원형 배경 -->
+  <circle cx="${centerX}" cy="${centerY}" r="${radius}" fill="${color}" stroke="white" stroke-width="2" filter="url(#instructorShadow)"/>
+  <!-- 사람 아이콘 (흰색) -->
+  <g transform="translate(${centerX - 6}, ${centerY - 7})">
+    <!-- 머리 -->
+    <circle cx="6" cy="4" r="3" fill="white"/>
+    <!-- 몸통 -->
+    <path d="M6 8c-3.5 0-6 1.5-6 3v1.5c0 0.3 0.2 0.5 0.5 0.5h11c0.3 0 0.5-0.2 0.5-0.5V11c0-1.5-2.5-3-6-3z" fill="white"/>
+  </g>
+</svg>`;
+}

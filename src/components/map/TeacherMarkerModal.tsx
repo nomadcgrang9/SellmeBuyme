@@ -1,27 +1,32 @@
-// 구직 교사 마커 등록 모달
+// 구직 교사 마커 등록 모달 (v2)
+// 단일 스크롤 방식 + 카테고리 기반 분류
 // Anti-Vibe Design 원칙 적용
-// 작성일: 2026-01-12
+// 작성일: 2026-01-29
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     generateRandomNickname,
-    SUBJECT_OPTIONS,
-    SCHOOL_LEVEL_OPTIONS,
+    PRIMARY_CATEGORY_OPTIONS,
+    SUB_CATEGORY_OPTIONS,
+    SUBJECT_SCHOOL_LEVELS,
+    CATEGORY_MARKER_COLORS,
     EXPERIENCE_OPTIONS,
     REGION_OPTIONS,
-    MARKER_COLORS,
+    type PrimaryCategory,
     type TeacherMarkerInput
 } from '@/types/markers';
 import { createTeacherMarker, uploadMarkerImage } from '@/lib/supabase/markers';
 import { useAuthStore } from '@/stores/authStore';
+import { useToastStore } from '@/stores/toastStore';
 
 interface TeacherMarkerModalProps {
     isOpen: boolean;
     onClose: () => void;
     onSuccess: () => void;
     initialCoords?: { lat: number; lng: number } | null;
-    onRequestMapClick: (callback: (coords: { lat: number; lng: number }) => void) => void;
+    initialAddress?: string | null;
+    onRequestLocationChange?: () => void;
 }
 
 export default function TeacherMarkerModal({
@@ -29,53 +34,86 @@ export default function TeacherMarkerModal({
     onClose,
     onSuccess,
     initialCoords,
-    onRequestMapClick
+    initialAddress,
+    onRequestLocationChange
 }: TeacherMarkerModalProps) {
     const { user } = useAuthStore();
+    const { showToast } = useToastStore();
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     // 폼 상태
-    const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(initialCoords || null);
+    const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+    const [address, setAddress] = useState<string>('');
     const [nickname, setNickname] = useState(generateRandomNickname());
-    const [isCustomNickname, setIsCustomNickname] = useState(false);
-    const [email, setEmail] = useState(user?.email || '');
-    const [subjects, setSubjects] = useState<string[]>([]);
+    const [email, setEmail] = useState('');
+
+    // 카테고리 기반 분류 (신규)
+    const [primaryCategory, setPrimaryCategory] = useState<PrimaryCategory | null>(null);
+    const [subCategories, setSubCategories] = useState<string[]>([]);
+    const [preferredSchoolLevels, setPreferredSchoolLevels] = useState<string[]>([]);
     const [otherSubject, setOtherSubject] = useState('');
-    const [schoolLevels, setSchoolLevels] = useState<string[]>([]);
+    const [showOtherInput, setShowOtherInput] = useState(false);
+
+    // 추가 정보
     const [experienceYears, setExperienceYears] = useState('');
     const [availableRegions, setAvailableRegions] = useState<string[]>([]);
     const [introduction, setIntroduction] = useState('');
     const [profileImage, setProfileImage] = useState<File | null>(null);
     const [profileImagePreview, setProfileImagePreview] = useState<string | null>(null);
 
+    // 개인정보 동의
+    const [privacyAgreed, setPrivacyAgreed] = useState(false);
+
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    // 초기 좌표 설정
+    // 초기값 설정
     useEffect(() => {
-        if (initialCoords) {
-            setCoords(initialCoords);
+        if (isOpen) {
+            setCoords(initialCoords || null);
+            setAddress(initialAddress || '');
+            setEmail(user?.email || '');
         }
-    }, [initialCoords]);
+    }, [isOpen, initialCoords, initialAddress, user?.email]);
 
     // 닉네임 재생성
     const regenerateNickname = () => {
         setNickname(generateRandomNickname());
-        setIsCustomNickname(false);
     };
 
-    // 과목 토글
-    const toggleSubject = (subject: string) => {
-        setSubjects(prev =>
-            prev.includes(subject)
-                ? prev.filter(s => s !== subject)
-                : [...prev, subject]
+    // 1차 분류 선택
+    const handlePrimarySelect = (category: PrimaryCategory) => {
+        if (primaryCategory === category) {
+            setPrimaryCategory(null);
+            setSubCategories([]);
+            setPreferredSchoolLevels([]);
+            setShowOtherInput(false);
+            setOtherSubject('');
+        } else {
+            setPrimaryCategory(category);
+            setSubCategories([]);
+            setPreferredSchoolLevels([]);
+            setShowOtherInput(false);
+            setOtherSubject('');
+        }
+    };
+
+    // 2차 분류 토글
+    const toggleSubCategory = (sub: string) => {
+        if (sub === '기타 및 추가입력') {
+            setShowOtherInput(!showOtherInput);
+            return;
+        }
+        setSubCategories(prev =>
+            prev.includes(sub)
+                ? prev.filter(s => s !== sub)
+                : [...prev, sub]
         );
     };
 
-    // 학교급 토글
+    // 학교급 토글 (교과과목용)
     const toggleSchoolLevel = (level: string) => {
-        setSchoolLevels(prev =>
+        setPreferredSchoolLevels(prev =>
             prev.includes(level)
                 ? prev.filter(l => l !== level)
                 : [...prev, level]
@@ -104,23 +142,38 @@ export default function TeacherMarkerModal({
         }
     };
 
-    // 지도에서 위치 선택
-    const handleMapClick = useCallback(() => {
-        onClose(); // 모달 임시 닫기
-        onRequestMapClick((selectedCoords) => {
-            setCoords(selectedCoords);
-            // 모달 다시 열기는 부모에서 처리
-        });
-    }, [onClose, onRequestMapClick]);
+    // 위치 변경 요청
+    const handleLocationChange = useCallback(() => {
+        if (onRequestLocationChange) {
+            onRequestLocationChange();
+        }
+    }, [onRequestLocationChange]);
 
     // 제출
     const handleSubmit = async () => {
+        // 유효성 검사
         if (!coords) {
-            setError('지도에서 위치를 선택해주세요.');
+            setError('위치를 선택해주세요.');
+            return;
+        }
+        if (!nickname.trim()) {
+            setError('닉네임을 입력해주세요.');
             return;
         }
         if (!email.trim()) {
             setError('이메일을 입력해주세요.');
+            return;
+        }
+        if (!primaryCategory) {
+            setError('주력 분야를 선택해주세요.');
+            return;
+        }
+        if (!privacyAgreed) {
+            setError('개인정보 이용에 동의해주세요.');
+            return;
+        }
+        if (!user?.id) {
+            setError('로그인이 필요합니다.');
             return;
         }
 
@@ -137,25 +190,31 @@ export default function TeacherMarkerModal({
             }
 
             const input: TeacherMarkerInput = {
+                user_id: user.id,
                 latitude: coords.lat,
                 longitude: coords.lng,
                 nickname: nickname.trim(),
                 email: email.trim(),
-                subjects: subjects.length > 0 ? subjects : undefined,
-                other_subject: subjects.includes('기타') ? otherSubject.trim() : undefined,
-                school_levels: schoolLevels.length > 0 ? schoolLevels : undefined,
+                primary_category: primaryCategory,
+                sub_categories: subCategories.length > 0 ? subCategories : undefined,
+                preferred_school_levels: preferredSchoolLevels.length > 0 ? preferredSchoolLevels : undefined,
+                other_subject: otherSubject.trim() || undefined,
                 experience_years: experienceYears || undefined,
                 available_regions: availableRegions.length > 0 ? availableRegions : undefined,
                 introduction: introduction.trim() || undefined,
-                profile_image_url: profileImageUrl
+                profile_image_url: profileImageUrl,
+                privacy_agreed: privacyAgreed
             };
 
             await createTeacherMarker(input);
+            showToast('구직 마커가 등록되었습니다!', 'success');
             onSuccess();
-            onClose();
-        } catch (err) {
+            handleClose();
+        } catch (err: any) {
             console.error('마커 등록 실패:', err);
-            setError('마커 등록에 실패했습니다. 다시 시도해주세요.');
+            const errorMessage = err?.message || '마커 등록에 실패했습니다. 다시 시도해주세요.';
+            setError(errorMessage);
+            showToast('마커 등록 실패: ' + errorMessage, 'error');
         } finally {
             setIsSubmitting(false);
         }
@@ -164,20 +223,39 @@ export default function TeacherMarkerModal({
     // 모달 닫기 시 상태 초기화
     const handleClose = () => {
         setCoords(null);
+        setAddress('');
         setNickname(generateRandomNickname());
-        setIsCustomNickname(false);
         setEmail(user?.email || '');
-        setSubjects([]);
+        setPrimaryCategory(null);
+        setSubCategories([]);
+        setPreferredSchoolLevels([]);
         setOtherSubject('');
-        setSchoolLevels([]);
+        setShowOtherInput(false);
         setExperienceYears('');
         setAvailableRegions([]);
         setIntroduction('');
         setProfileImage(null);
         setProfileImagePreview(null);
+        setPrivacyAgreed(false);
         setError(null);
         onClose();
     };
+
+    // 현재 카테고리의 마커 색상
+    const currentMarkerColor = primaryCategory
+        ? CATEGORY_MARKER_COLORS[primaryCategory]
+        : '#68B2FF';
+
+    // 2차 분류 옵션 가져오기
+    const subCategoryOptions = primaryCategory
+        ? SUB_CATEGORY_OPTIONS[primaryCategory]
+        : [];
+
+    // 2차 분류가 필요한지 확인
+    const hasSubCategories = subCategoryOptions.length > 0;
+
+    // 방과후/돌봄은 "기타 및 추가입력" 버튼 추가
+    const isAfterSchool = primaryCategory === '방과후/돌봄';
 
     return (
         <AnimatePresence>
@@ -194,24 +272,27 @@ export default function TeacherMarkerModal({
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.95, y: 20 }}
                         transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-                        className="relative w-full max-w-lg mx-4 bg-white rounded-2xl shadow-2xl overflow-hidden"
+                        className="relative w-full max-w-lg mx-4 bg-white rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col"
                         onClick={(e) => e.stopPropagation()}
                     >
-                        {/* 헤더 */}
+                        {/* 헤더 - 글래스모피즘 적용 */}
                         <div
-                            className="px-6 py-4 border-b"
+                            className="px-6 py-4 border-b flex-shrink-0 backdrop-blur-md"
                             style={{
-                                background: `linear-gradient(135deg, ${MARKER_COLORS.teacher}08 0%, ${MARKER_COLORS.teacher}15 100%)`,
-                                borderColor: `${MARKER_COLORS.teacher}20`
+                                background: `linear-gradient(135deg, rgba(104, 178, 255, 0.15) 0%, rgba(104, 178, 255, 0.25) 100%)`,
+                                borderColor: 'rgba(104, 178, 255, 0.3)',
+                                boxShadow: '0 4px 30px rgba(104, 178, 255, 0.1)',
+                                backdropFilter: 'blur(10px)',
+                                WebkitBackdropFilter: 'blur(10px)'
                             }}
                         >
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-3">
                                     <span
-                                        className="w-3 h-3 rounded-full"
-                                        style={{ backgroundColor: MARKER_COLORS.teacher }}
+                                        className="w-3 h-3 rounded-full transition-colors duration-300"
+                                        style={{ backgroundColor: '#68B2FF' }}
                                     />
-                                    <h2 className="text-lg font-bold text-gray-900">구직 마커 등록</h2>
+                                    <h2 className="text-lg font-bold text-gray-900">구직 등록</h2>
                                 </div>
                                 <button
                                     onClick={handleClose}
@@ -224,258 +305,343 @@ export default function TeacherMarkerModal({
                             </div>
                         </div>
 
-                        {/* 본문 */}
-                        <div className="px-6 py-5 max-h-[70vh] overflow-y-auto space-y-5">
-                            {/* 위치 선택 */}
-                            <div>
+                        {/* 본문 - 스크롤 영역 */}
+                        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
+                            {/* ========== 희망 활동 위치 ========== */}
+                            <section>
                                 <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                    위치 선택 <span className="text-red-500">*</span>
+                                    희망 활동 위치 <span className="text-red-500">*</span>
                                 </label>
-                                {coords ? (
-                                    <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg">
-                                        <div className="flex items-center gap-2 text-sm text-green-700">
-                                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                                            </svg>
-                                            <span>위치가 선택되었습니다</span>
-                                        </div>
-                                        <button
-                                            type="button"
-                                            onClick={handleMapClick}
-                                            className="text-xs text-green-600 hover:text-green-700 font-medium"
-                                        >
-                                            다시 선택
-                                        </button>
+                                <div className="flex items-center justify-between p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                                    <div className="flex items-center gap-2 text-sm text-gray-700">
+                                        <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                                        </svg>
+                                        <span className="truncate max-w-[250px]">
+                                            {address || '위치를 선택해주세요'}
+                                        </span>
                                     </div>
-                                ) : (
                                     <button
                                         type="button"
-                                        onClick={handleMapClick}
-                                        className="w-full p-4 border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-gray-400 hover:text-gray-600 transition-colors flex flex-col items-center gap-2"
+                                        onClick={handleLocationChange}
+                                        className="text-xs text-sky-600 hover:text-sky-700 font-medium whitespace-nowrap"
                                     >
-                                        <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                                        </svg>
-                                        <span className="text-sm font-medium">지도에서 위치 클릭하기</span>
+                                        변경
                                     </button>
-                                )}
-                            </div>
+                                </div>
+                            </section>
 
-                            {/* 닉네임 */}
-                            <div>
-                                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                    닉네임 <span className="text-red-500">*</span>
-                                </label>
-                                <div className="flex gap-2">
-                                    <div className="relative flex-1">
+                            {/* ========== 기본 정보 ========== */}
+                            <section>
+                                <h3 className="text-sm font-semibold text-gray-700 mb-3 pb-2 border-b border-gray-100">
+                                    기본 정보
+                                </h3>
+
+                                {/* 닉네임 */}
+                                <div className="mb-4">
+                                    <label className="block text-sm font-medium text-gray-600 mb-1.5">
+                                        닉네임 <span className="text-red-500">*</span>
+                                    </label>
+                                    <div className="flex gap-2">
                                         <input
                                             type="text"
                                             value={nickname}
-                                            onChange={(e) => {
-                                                setNickname(e.target.value);
-                                                setIsCustomNickname(true);
-                                            }}
+                                            onChange={(e) => setNickname(e.target.value)}
                                             placeholder="닉네임을 입력하세요"
-                                            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all"
-                                        />
-                                    </div>
-                                    <button
-                                        type="button"
-                                        onClick={regenerateNickname}
-                                        className="px-3 py-2.5 text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors flex items-center gap-1.5"
-                                    >
-                                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                                        </svg>
-                                        랜덤
-                                    </button>
-                                </div>
-                                <p className="mt-1.5 text-xs text-gray-500">
-                                    자동 생성된 닉네임을 사용하거나 직접 입력할 수 있습니다.
-                                </p>
-                            </div>
-
-                            {/* 이메일 */}
-                            <div>
-                                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                    연락용 이메일 <span className="text-red-500">*</span>
-                                </label>
-                                <input
-                                    type="email"
-                                    value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
-                                    placeholder="example@email.com"
-                                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all"
-                                />
-                                <p className="mt-1.5 text-xs text-gray-500">
-                                    학교 담당자가 연락할 수 있는 이메일 주소입니다.
-                                </p>
-                            </div>
-
-                            {/* 프로필 이미지 */}
-                            <div>
-                                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                    프로필 이미지 (선택)
-                                </label>
-                                <input
-                                    ref={fileInputRef}
-                                    type="file"
-                                    accept="image/*"
-                                    onChange={handleImageChange}
-                                    className="hidden"
-                                />
-                                {profileImagePreview ? (
-                                    <div className="relative w-24 h-24">
-                                        <img
-                                            src={profileImagePreview}
-                                            alt="프로필 미리보기"
-                                            className="w-full h-full object-cover rounded-lg border border-gray-200"
+                                            className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 transition-all text-sm"
                                         />
                                         <button
                                             type="button"
-                                            onClick={() => {
-                                                setProfileImage(null);
-                                                setProfileImagePreview(null);
-                                            }}
-                                            className="absolute -top-2 -right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
+                                            onClick={regenerateNickname}
+                                            className="px-3 py-2.5 text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors flex items-center gap-1.5"
                                         >
-                                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                                             </svg>
+                                            랜덤
                                         </button>
                                     </div>
-                                ) : (
-                                    <button
-                                        type="button"
-                                        onClick={() => fileInputRef.current?.click()}
-                                        className="w-24 h-24 border-2 border-dashed border-gray-300 rounded-lg text-gray-400 hover:border-gray-400 hover:text-gray-500 transition-colors flex flex-col items-center justify-center gap-1"
-                                    >
-                                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                        </svg>
-                                        <span className="text-xs">업로드</span>
-                                    </button>
-                                )}
-                            </div>
-
-                            {/* 과목 */}
-                            <div>
-                                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                    담당 가능 과목 (선택)
-                                </label>
-                                <div className="flex flex-wrap gap-2">
-                                    {SUBJECT_OPTIONS.map((subject) => (
-                                        <button
-                                            key={subject}
-                                            type="button"
-                                            onClick={() => toggleSubject(subject)}
-                                            className={`px-3 py-1.5 text-sm rounded-full border transition-all ${subjects.includes(subject)
-                                                ? 'bg-red-50 border-red-300 text-red-700'
-                                                : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
-                                                }`}
-                                        >
-                                            {subject}
-                                        </button>
-                                    ))}
                                 </div>
-                                {subjects.includes('기타') && (
+
+                                {/* 이메일 */}
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-600 mb-1.5">
+                                        이메일 <span className="text-red-500">*</span>
+                                    </label>
                                     <input
-                                        type="text"
-                                        value={otherSubject}
-                                        onChange={(e) => setOtherSubject(e.target.value)}
-                                        placeholder="기타 과목명을 입력하세요"
-                                        className="mt-2 w-full px-4 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500"
+                                        type="email"
+                                        value={email}
+                                        onChange={(e) => setEmail(e.target.value)}
+                                        placeholder="example@email.com"
+                                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 transition-all text-sm"
                                     />
-                                )}
-                            </div>
-
-                            {/* 학교급 */}
-                            <div>
-                                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                    희망 학교급 (선택)
-                                </label>
-                                <div className="flex flex-wrap gap-2">
-                                    {SCHOOL_LEVEL_OPTIONS.map((level) => (
-                                        <button
-                                            key={level}
-                                            type="button"
-                                            onClick={() => toggleSchoolLevel(level)}
-                                            className={`px-3 py-1.5 text-sm rounded-full border transition-all ${schoolLevels.includes(level)
-                                                ? 'bg-red-50 border-red-300 text-red-700'
-                                                : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
-                                                }`}
-                                        >
-                                            {level}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-
-                            {/* 경력 */}
-                            <div>
-                                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                    경력 (선택)
-                                </label>
-                                <select
-                                    value={experienceYears}
-                                    onChange={(e) => setExperienceYears(e.target.value)}
-                                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all bg-white"
-                                >
-                                    <option value="">선택하세요</option>
-                                    {EXPERIENCE_OPTIONS.map((exp) => (
-                                        <option key={exp} value={exp}>{exp}</option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            {/* 활동 가능 지역 */}
-                            <div>
-                                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                    활동 가능 지역 (복수 선택)
-                                </label>
-                                <p className="text-xs text-gray-500 mb-2">
-                                    선택한 지역에서 검색 시 노출됩니다.
-                                </p>
-                                <div className="flex flex-wrap gap-2">
-                                    {REGION_OPTIONS.map((region) => (
-                                        <button
-                                            key={region}
-                                            type="button"
-                                            onClick={() => toggleRegion(region)}
-                                            className={`px-3 py-1.5 text-sm rounded-full border transition-all ${availableRegions.includes(region)
-                                                    ? 'bg-red-50 border-red-300 text-red-700'
-                                                    : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
-                                                }`}
-                                        >
-                                            {region}
-                                        </button>
-                                    ))}
-                                </div>
-                                {availableRegions.length > 0 && (
-                                    <p className="mt-2 text-xs text-gray-500">
-                                        선택됨: {availableRegions.join(', ')}
+                                    <p className="mt-1 text-xs text-gray-500">
+                                        학교 담당자가 연락할 수 있는 이메일 주소입니다.
                                     </p>
-                                )}
-                            </div>
+                                </div>
+                            </section>
 
-                            {/* 자기소개 */}
-                            <div>
-                                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                    자기소개 (선택)
-                                </label>
-                                <textarea
-                                    value={introduction}
-                                    onChange={(e) => setIntroduction(e.target.value.slice(0, 500))}
-                                    placeholder="간단한 자기소개를 작성해주세요. (최대 500자)"
-                                    rows={3}
-                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all resize-none"
-                                />
-                                <p className="mt-1 text-xs text-gray-400 text-right">
-                                    {introduction.length}/500
+                            {/* ========== 주력 분야 (1차 분류) ========== */}
+                            <section>
+                                <h3 className="text-sm font-semibold text-gray-700 mb-3 pb-2 border-b border-gray-100">
+                                    주력 분야 <span className="text-red-500">*</span>
+                                    <span className="font-normal text-gray-400 ml-2">(1개만 선택)</span>
+                                </h3>
+                                <div className="flex flex-wrap gap-2">
+                                    {PRIMARY_CATEGORY_OPTIONS.map((category) => {
+                                        const isSelected = primaryCategory === category;
+                                        return (
+                                            <button
+                                                key={category}
+                                                type="button"
+                                                onClick={() => handlePrimarySelect(category)}
+                                                className={`px-3 py-2 text-sm rounded-lg border-2 transition-all font-medium ${isSelected
+                                                    ? 'text-white bg-sky-500 border-sky-500'
+                                                    : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
+                                                    }`}
+                                            >
+                                                {category}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </section>
+
+                            {/* ========== 세부 분야 (2차 분류) - 동적 표시 ========== */}
+                            {primaryCategory && hasSubCategories && (
+                                <section>
+                                    <h3 className="text-sm font-semibold text-gray-700 mb-3 pb-2 border-b border-gray-100">
+                                        세부 분야
+                                        <span className="font-normal text-gray-400 ml-2">(복수 선택 가능)</span>
+                                    </h3>
+                                    <p className="text-xs text-gray-500 mb-3">
+                                        선택: {primaryCategory}
+                                    </p>
+                                    <div className="flex flex-wrap gap-2">
+                                        {subCategoryOptions.map((sub) => {
+                                            const isSelected = subCategories.includes(sub);
+                                            return (
+                                                <button
+                                                    key={sub}
+                                                    type="button"
+                                                    onClick={() => toggleSubCategory(sub)}
+                                                    className={`px-3 py-1.5 text-sm rounded-full border transition-all ${isSelected
+                                                        ? 'bg-sky-50 border-sky-300 text-sky-700'
+                                                        : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
+                                                        }`}
+                                                >
+                                                    {sub}
+                                                </button>
+                                            );
+                                        })}
+                                        {/* 방과후/돌봄일 때 "기타 및 추가입력" 버튼 */}
+                                        {isAfterSchool && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowOtherInput(!showOtherInput)}
+                                                className={`px-3 py-1.5 text-sm rounded-full border transition-all ${showOtherInput
+                                                    ? 'bg-sky-50 border-sky-300 text-sky-700'
+                                                    : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
+                                                    }`}
+                                            >
+                                                + 기타 및 추가입력
+                                            </button>
+                                        )}
+                                    </div>
+
+                                    {/* 기타 및 추가입력 필드 */}
+                                    {isAfterSchool && showOtherInput && (
+                                        <div className="mt-3">
+                                            <input
+                                                type="text"
+                                                value={otherSubject}
+                                                onChange={(e) => setOtherSubject(e.target.value)}
+                                                placeholder="예) 피아노, 바이올린, 서예, 로봇공학..."
+                                                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 transition-all text-sm"
+                                            />
+                                            <p className="mt-1 text-xs text-gray-500">
+                                                대분류 6개 외 추가 분야를 직접 입력하세요.
+                                            </p>
+                                        </div>
+                                    )}
+                                </section>
+                            )}
+
+                            {/* ========== 교과과목용 학교급 선택 ========== */}
+                            {primaryCategory === '교과과목' && (
+                                <section>
+                                    <h3 className="text-sm font-semibold text-gray-700 mb-3 pb-2 border-b border-gray-100">
+                                        희망 학교급
+                                        <span className="font-normal text-gray-400 ml-2">(복수 선택 가능)</span>
+                                    </h3>
+                                    <div className="flex flex-wrap gap-2">
+                                        {SUBJECT_SCHOOL_LEVELS.map((level) => {
+                                            const isSelected = preferredSchoolLevels.includes(level);
+                                            return (
+                                                <button
+                                                    key={level}
+                                                    type="button"
+                                                    onClick={() => toggleSchoolLevel(level)}
+                                                    className={`px-4 py-2 text-sm rounded-lg border transition-all ${isSelected
+                                                        ? 'bg-sky-50 border-sky-300 text-sky-700'
+                                                        : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
+                                                        }`}
+                                                >
+                                                    {level}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </section>
+                            )}
+
+                            {/* ========== 추가 정보 (선택) ========== */}
+                            <section>
+                                <h3 className="text-sm font-semibold text-gray-700 mb-3 pb-2 border-b border-gray-100">
+                                    추가 정보
+                                    <span className="font-normal text-gray-400 ml-2">(선택)</span>
+                                </h3>
+
+                                {/* 경력 */}
+                                <div className="mb-4">
+                                    <label className="block text-sm font-medium text-gray-600 mb-2">
+                                        경력
+                                    </label>
+                                    <div className="flex flex-wrap gap-2">
+                                        {EXPERIENCE_OPTIONS.map((exp) => {
+                                            const isSelected = experienceYears === exp;
+                                            return (
+                                                <button
+                                                    key={exp}
+                                                    type="button"
+                                                    onClick={() => setExperienceYears(isSelected ? '' : exp)}
+                                                    className={`px-3 py-1.5 text-sm rounded-full border transition-all ${isSelected
+                                                        ? 'bg-sky-50 border-sky-300 text-sky-700'
+                                                        : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
+                                                        }`}
+                                                >
+                                                    {exp}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+
+                                {/* 활동 가능 지역 */}
+                                <div className="mb-4">
+                                    <label className="block text-sm font-medium text-gray-600 mb-2">
+                                        활동 가능 지역 (복수 선택)
+                                    </label>
+                                    <div className="flex flex-wrap gap-2">
+                                        {REGION_OPTIONS.map((region) => {
+                                            const isSelected = availableRegions.includes(region);
+                                            return (
+                                                <button
+                                                    key={region}
+                                                    type="button"
+                                                    onClick={() => toggleRegion(region)}
+                                                    className={`px-3 py-1.5 text-sm rounded-full border transition-all ${isSelected
+                                                        ? 'bg-sky-50 border-sky-300 text-sky-700'
+                                                        : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
+                                                        }`}
+                                                >
+                                                    {region}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                    {availableRegions.length > 0 && (
+                                        <p className="mt-2 text-xs text-gray-500">
+                                            선택됨: {availableRegions.join(', ')}
+                                        </p>
+                                    )}
+                                </div>
+
+                                {/* 자기소개 */}
+                                <div className="mb-4">
+                                    <label className="block text-sm font-medium text-gray-600 mb-2">
+                                        자기소개
+                                    </label>
+                                    <textarea
+                                        value={introduction}
+                                        onChange={(e) => setIntroduction(e.target.value.slice(0, 500))}
+                                        placeholder="간단한 경력 및 강점을 적어주세요 (최대 500자)"
+                                        rows={3}
+                                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 transition-all resize-none text-sm"
+                                    />
+                                    <p className="mt-1 text-xs text-gray-400 text-right">
+                                        {introduction.length}/500
+                                    </p>
+                                </div>
+
+                                {/* 프로필 이미지 */}
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-600 mb-2">
+                                        프로필 이미지
+                                    </label>
+                                    <input
+                                        ref={fileInputRef}
+                                        type="file"
+                                        accept="image/*"
+                                        onChange={handleImageChange}
+                                        className="hidden"
+                                    />
+                                    {profileImagePreview ? (
+                                        <div className="relative w-20 h-20">
+                                            <img
+                                                src={profileImagePreview}
+                                                alt="프로필 미리보기"
+                                                className="w-full h-full object-cover rounded-lg border border-gray-200"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setProfileImage(null);
+                                                    setProfileImagePreview(null);
+                                                }}
+                                                className="absolute -top-2 -right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
+                                            >
+                                                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                                </svg>
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <button
+                                            type="button"
+                                            onClick={() => fileInputRef.current?.click()}
+                                            className="w-20 h-20 border-2 border-dashed border-gray-300 rounded-lg text-gray-400 hover:border-gray-400 hover:text-gray-500 transition-colors flex flex-col items-center justify-center gap-1"
+                                        >
+                                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                            </svg>
+                                            <span className="text-xs">업로드</span>
+                                        </button>
+                                    )}
+                                </div>
+                            </section>
+
+                            {/* ========== 개인정보 동의 ========== */}
+                            <section className="bg-gray-50 rounded-lg p-4">
+                                <h3 className="text-sm font-semibold text-gray-700 mb-3">
+                                    개인정보 동의 <span className="text-red-500">*</span>
+                                </h3>
+                                <p className="text-sm text-gray-600 mb-3 leading-relaxed">
+                                    실제 구인구직이 되기 위한 정말 최소한의 정보만 받고 있습니다.
                                 </p>
-                            </div>
+                                <label className="flex items-start gap-3 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={privacyAgreed}
+                                        onChange={(e) => setPrivacyAgreed(e.target.checked)}
+                                        className="mt-0.5 w-4 h-4 text-sky-600 border-gray-300 rounded focus:ring-sky-500"
+                                    />
+                                    <span className="text-sm text-gray-700">
+                                        현재 등록한 내용에 대한 개인정보이용과 서비스 내 노출에 동의합니다.
+                                    </span>
+                                </label>
+                            </section>
 
                             {/* 에러 메시지 */}
                             {error && (
@@ -486,26 +652,23 @@ export default function TeacherMarkerModal({
                         </div>
 
                         {/* 푸터 */}
-                        <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 flex justify-end gap-3">
-                            <button
-                                type="button"
-                                onClick={handleClose}
-                                className="px-5 py-2.5 text-sm font-medium text-gray-600 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                            >
-                                취소
-                            </button>
+                        <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 flex-shrink-0">
                             <button
                                 type="button"
                                 onClick={handleSubmit}
-                                disabled={isSubmitting || !coords}
-                                className="px-5 py-2.5 text-sm font-semibold text-white rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                disabled={isSubmitting || !coords || !primaryCategory || !privacyAgreed}
+                                className="w-full py-3 text-sm font-semibold text-white rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed bg-sky-500 hover:bg-sky-600"
                                 style={{
-                                    backgroundColor: MARKER_COLORS.teacher,
-                                    boxShadow: `0 4px 14px ${MARKER_COLORS.teacher}40`
+                                    boxShadow: '0 4px 14px rgba(14, 165, 233, 0.4)'
                                 }}
                             >
-                                {isSubmitting ? '등록 중...' : '마커 등록'}
+                                {isSubmitting ? '등록 중...' : '등록하기'}
                             </button>
+                            {!privacyAgreed && (
+                                <p className="mt-2 text-xs text-center text-gray-500">
+                                    동의 체크 필수 - 미체크 시 버튼 비활성화
+                                </p>
+                            )}
                         </div>
                     </motion.div>
                 </motion.div>

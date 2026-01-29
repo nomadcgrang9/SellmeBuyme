@@ -6,7 +6,7 @@
 
 export type PrimaryCategory =
   | '유치원' | '초등담임' | '교과과목' | '비교과'
-  | '특수' | '방과후/돌봄' | '행정·교육지원' | '기타';
+  | '특수' | '교원연수' | '방과후/돌봄' | '행정·교육지원' | '기타';
 
 export interface CascadingFilter {
   primary: PrimaryCategory | null;
@@ -21,6 +21,7 @@ export const PRIMARY_CATEGORIES: { key: PrimaryCategory; label: string; mobileLa
   { key: '교과과목', label: '교과과목', mobileLabel: '교과' },
   { key: '비교과', label: '비교과', mobileLabel: '비교과' },
   { key: '특수', label: '특수', mobileLabel: '특수' },
+  { key: '교원연수', label: '교원연수', mobileLabel: '연수' },
   { key: '방과후/돌봄', label: '방과후/돌봄', mobileLabel: '방과후/돌봄' },
   { key: '행정·교육지원', label: '행정·교육지원', mobileLabel: '행정' },
   { key: '기타', label: '기타', mobileLabel: '기타' },
@@ -51,6 +52,28 @@ export const SECONDARY_OPTIONS: Partial<Record<PrimaryCategory, { key: string; l
     { key: '상담', label: '상담' },
     { key: '사서', label: '사서' },
     { key: '영양교사', label: '영양교사' },
+  ],
+  '교원연수': [
+    { key: '에듀테크/AI', label: '에듀테크/AI' },
+    { key: '다문화/세계시민', label: '다문화/세계시민' },
+    { key: '특수/통합교육', label: '특수/통합교육' },
+    { key: '생활지도/상담', label: '생활지도/상담' },
+    { key: '학교폭력예방', label: '학교폭력예방' },
+    { key: '마음챙김/인성', label: '마음챙김/인성' },
+    { key: '진로/직업', label: '진로/직업' },
+    { key: '융합/STEAM', label: '융합/STEAM' },
+    { key: '예술교육', label: '예술교육' },
+    { key: '독서/논술', label: '독서/논술' },
+    { key: '영재교육', label: '영재교육' },
+    { key: '기초학력', label: '기초학력' },
+    { key: '수업/평가혁신', label: '수업/평가혁신' },
+    { key: '환경/탄소중립', label: '환경/탄소중립' },
+    { key: '학교안전', label: '학교안전' },
+    { key: '학부모교육', label: '학부모교육' },
+    { key: '유아/놀이', label: '유아/놀이' },
+    { key: '인권/노동', label: '인권/노동' },
+    { key: '교양/자기계발', label: '교양/자기계발' },
+    { key: '전통문화', label: '전통문화' },
   ],
   '방과후/돌봄': [
     { key: '체육', label: '체육' },
@@ -88,6 +111,7 @@ export const PRIMARY_COLORS: Record<PrimaryCategory, { base: string; light: stri
   '교과과목': { base: '#2196F3', light: '#E3F2FD', text: '#0D47A1' },
   '비교과': { base: '#009688', light: '#E0F2F1', text: '#004D40' },
   '특수': { base: '#FF9800', light: '#FFF3E0', text: '#E65100' },
+  '교원연수': { base: '#F9A8D4', light: '#FDF2F8', text: '#BE185D' },
   '방과후/돌봄': { base: '#7C4DFF', light: '#EDE7F6', text: '#4A148C' },
   '행정·교육지원': { base: '#607D8B', light: '#ECEFF1', text: '#263238' },
   '기타': { base: '#9E9E9E', light: '#F5F5F5', text: '#424242' },

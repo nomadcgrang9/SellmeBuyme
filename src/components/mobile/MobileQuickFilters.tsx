@@ -131,22 +131,32 @@ const MobileQuickFilters: React.FC<MobileQuickFiltersProps> = ({
   };
 
   // 1차 필터 렌더링 (2줄 그리드)
+  // 2차 옵션이 없는 카테고리(초등담임, 특수, 기타)는 선택 시 색상 반전
   const renderPrimaryLevel = () => (
     <div className="flex flex-col gap-1.5">
       {/* 1줄: 유치원, 초등담임, 교과과목, 비교과, 특수 */}
       <div className="flex items-center gap-1.5 flex-wrap">
         {PRIMARY_CATEGORIES.slice(0, 5).map(({ key, label }) => {
           const colors = PRIMARY_COLORS[key];
+          const hasSecondary = !!SECONDARY_OPTIONS[key];
+          const isSelected = filter.primary === key && !hasSecondary;
 
           return (
             <button
               key={key}
-              onClick={() => handlePrimaryClick(key)}
+              onClick={() => {
+                // 2차 옵션이 없는 카테고리는 토글 방식
+                if (!hasSecondary && filter.primary === key) {
+                  onFilterChange({ primary: null, secondary: null, tertiary: null });
+                } else {
+                  handlePrimaryClick(key);
+                }
+              }}
               className="flex-shrink-0 px-2.5 py-1.5 rounded-full text-xs font-medium border-2 transition-all duration-200 active:scale-95"
               style={{
                 borderColor: colors.base + '60',
-                backgroundColor: 'white',
-                color: colors.text,
+                backgroundColor: isSelected ? colors.base : 'white',
+                color: isSelected ? 'white' : colors.text,
               }}
             >
               {label}
@@ -154,20 +164,29 @@ const MobileQuickFilters: React.FC<MobileQuickFiltersProps> = ({
           );
         })}
       </div>
-      {/* 2줄: 방과후/돌봄, 행정·교육지원, 기타 */}
+      {/* 2줄: 교원연수, 방과후/돌봄, 행정·교육지원, 기타 */}
       <div className="flex items-center gap-1.5 flex-wrap">
         {PRIMARY_CATEGORIES.slice(5).map(({ key, label }) => {
           const colors = PRIMARY_COLORS[key];
+          const hasSecondary = !!SECONDARY_OPTIONS[key];
+          const isSelected = filter.primary === key && !hasSecondary;
 
           return (
             <button
               key={key}
-              onClick={() => handlePrimaryClick(key)}
+              onClick={() => {
+                // 2차 옵션이 없는 카테고리는 토글 방식
+                if (!hasSecondary && filter.primary === key) {
+                  onFilterChange({ primary: null, secondary: null, tertiary: null });
+                } else {
+                  handlePrimaryClick(key);
+                }
+              }}
               className="flex-shrink-0 px-2.5 py-1.5 rounded-full text-xs font-medium border-2 transition-all duration-200 active:scale-95"
               style={{
                 borderColor: colors.base + '60',
-                backgroundColor: 'white',
-                color: colors.text,
+                backgroundColor: isSelected ? colors.base : 'white',
+                color: isSelected ? 'white' : colors.text,
               }}
             >
               {label}

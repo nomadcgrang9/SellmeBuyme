@@ -3,10 +3,10 @@
 @tailwind utilities;
 
 /* 카카오작은글씨 (KakaoSmallSans) 폰트 정의 */
+/* OTF 파일 사용 - TTF 파일의 maxZones 메타데이터 오류 해결 */
 @font-face {
   font-family: 'KakaoSmallSans';
-  src: url('/fonts/카카오작은글씨/웹폰트/woff2/KakaoSmallSans-Light.woff2') format('woff2'),
-       url('/fonts/KakaoSmallSans-Light.ttf') format('truetype');
+  src: url('/fonts/KakaoSmallSans-Light.otf') format('opentype');
   font-weight: 300;
   font-style: normal;
   font-display: swap;
@@ -14,8 +14,7 @@
 
 @font-face {
   font-family: 'KakaoSmallSans';
-  src: url('/fonts/카카오작은글씨/웹폰트/woff2/KakaoSmallSans-Light.woff2') format('woff2'),
-       url('/fonts/KakaoSmallSans-Light.ttf') format('truetype');
+  src: url('/fonts/KakaoSmallSans-Light.otf') format('opentype');
   font-weight: 400;
   font-style: normal;
   font-display: swap;
@@ -23,8 +22,7 @@
 
 @font-face {
   font-family: 'KakaoSmallSans';
-  src: url('/fonts/카카오작은글씨/웹폰트/woff2/KakaoSmallSans-Regular.woff2') format('woff2'),
-       url('/fonts/KakaoSmallSans-Regular.ttf') format('truetype');
+  src: url('/fonts/KakaoSmallSans-Regular.otf') format('opentype');
   font-weight: 500;
   font-style: normal;
   font-display: swap;
@@ -32,8 +30,7 @@
 
 @font-face {
   font-family: 'KakaoSmallSans';
-  src: url('/fonts/카카오작은글씨/웹폰트/woff2/KakaoSmallSans-Bold.woff2') format('woff2'),
-       url('/fonts/KakaoSmallSans-Bold.ttf') format('truetype');
+  src: url('/fonts/KakaoSmallSans-Bold.otf') format('opentype');
   font-weight: 700;
   font-style: normal;
   font-display: swap;
@@ -41,8 +38,7 @@
 
 @font-face {
   font-family: 'KakaoSmallSans';
-  src: url('/fonts/카카오작은글씨/웹폰트/woff2/KakaoSmallSans-Bold.woff2') format('woff2'),
-       url('/fonts/KakaoSmallSans-Bold.ttf') format('truetype');
+  src: url('/fonts/KakaoSmallSans-Bold.otf') format('opentype');
   font-weight: 800;
   font-style: normal;
   font-display: swap;
@@ -51,8 +47,7 @@
 /* 레거시 호환을 위한 esamanru 별칭 유지 */
 @font-face {
   font-family: 'esamanru';
-  src: url('/fonts/카카오작은글씨/웹폰트/woff2/KakaoSmallSans-Regular.woff2') format('woff2'),
-       url('/fonts/KakaoSmallSans-Regular.ttf') format('truetype');
+  src: url('/fonts/KakaoSmallSans-Regular.otf') format('opentype');
   font-weight: 400;
   font-style: normal;
   font-display: swap;
@@ -60,8 +55,7 @@
 
 @font-face {
   font-family: 'esamanru';
-  src: url('/fonts/카카오작은글씨/웹폰트/woff2/KakaoSmallSans-Regular.woff2') format('woff2'),
-       url('/fonts/KakaoSmallSans-Regular.ttf') format('truetype');
+  src: url('/fonts/KakaoSmallSans-Regular.otf') format('opentype');
   font-weight: 500;
   font-style: normal;
   font-display: swap;
@@ -69,8 +63,7 @@
 
 @font-face {
   font-family: 'esamanru';
-  src: url('/fonts/카카오작은글씨/웹폰트/woff2/KakaoSmallSans-Bold.woff2') format('woff2'),
-       url('/fonts/KakaoSmallSans-Bold.ttf') format('truetype');
+  src: url('/fonts/KakaoSmallSans-Bold.otf') format('opentype');
   font-weight: 700;
   font-style: normal;
   font-display: swap;
@@ -78,8 +71,7 @@
 
 @font-face {
   font-family: 'esamanru';
-  src: url('/fonts/카카오작은글씨/웹폰트/woff2/KakaoSmallSans-Bold.woff2') format('woff2'),
-       url('/fonts/KakaoSmallSans-Bold.ttf') format('truetype');
+  src: url('/fonts/KakaoSmallSans-Bold.otf') format('opentype');
   font-weight: 800;
   font-style: normal;
   font-display: swap;
@@ -87,8 +79,7 @@
 
 @font-face {
   font-family: 'esamanru-light';
-  src: url('/fonts/카카오작은글씨/웹폰트/woff2/KakaoSmallSans-Light.woff2') format('woff2'),
-       url('/fonts/KakaoSmallSans-Light.ttf') format('truetype');
+  src: url('/fonts/KakaoSmallSans-Light.otf') format('opentype');
   font-weight: 300;
   font-style: normal;
   font-display: swap;
@@ -164,6 +155,7 @@ a {
     opacity: 0;
     transform: translateY(10px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -175,6 +167,7 @@ a {
     opacity: 0;
     transform: scale(0.95);
   }
+
   to {
     opacity: 1;
     transform: scale(1);
@@ -185,6 +178,7 @@ a {
   0% {
     background-position: -1000px 0;
   }
+
   100% {
     background-position: 1000px 0;
   }
@@ -245,10 +239,11 @@ a {
 
 /* 카카오맵 축척/저작권 모바일에서 숨기기 */
 @media (max-width: 767px) {
+
   /* 축척 컨트롤 숨기기 */
   .map_copyright,
   div[class*="copyright"],
-  div[style*="position: absolute"][style*="bottom"] > span,
+  div[style*="position: absolute"][style*="bottom"]>span,
   .kakaomap_scale,
   div[style*="position: absolute; left: 5px; bottom: 5px"],
   div[style*="kakao.com"] {

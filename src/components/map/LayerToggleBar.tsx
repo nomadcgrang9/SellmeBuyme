@@ -30,10 +30,14 @@ interface LayerToggleBarProps {
   showJobLayer: boolean;
   /** 구직자 레이어 표시 여부 */
   showSeekerLayer: boolean;
+  /** 교원연수 강사 레이어 표시 여부 */
+  showInstructorLayer: boolean;
   /** 공고 레이어 토글 */
   onJobLayerToggle: () => void;
   /** 구직자 레이어 토글 */
   onSeekerLayerToggle: () => void;
+  /** 교원연수 강사 레이어 토글 */
+  onInstructorLayerToggle: () => void;
   /** 구직등록 버튼 클릭 */
   onRegisterClick: () => void;
   /** 공고등록 버튼 클릭 */
@@ -66,8 +70,10 @@ const glassStyle = {
 export default function LayerToggleBar({
   showJobLayer,
   showSeekerLayer,
+  showInstructorLayer,
   onJobLayerToggle,
   onSeekerLayerToggle,
+  onInstructorLayerToggle,
   onRegisterClick,
   onJobPostClick,
   onFavoritesClick,
@@ -190,10 +196,45 @@ export default function LayerToggleBar({
         )}
       </button>
 
+      {/* 구분선 (얇은) */}
+      <div className="h-px bg-gray-100 mx-2" />
+
+      {/* 4. 교원연수 강사만 보기 토글 (2줄) */}
+      <button
+        onClick={onInstructorLayerToggle}
+        className={`
+          relative flex flex-col items-center justify-center gap-0.5 py-2.5 px-2
+          transition-all duration-200 text-xs font-medium
+          ${showInstructorLayer
+            ? 'bg-pink-50 text-pink-700'
+            : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+          }
+        `}
+        aria-label={`교원연수 강사만 보기 ${showInstructorLayer ? '켜짐' : '꺼짐'}`}
+        title="교원연수 강사 마커 표시/숨김"
+      >
+        <PresentationGraph size={18} />
+        <span>교원연수</span>
+        <span>강사만 보기</span>
+        {showInstructorLayer && (
+          <span
+            className="absolute top-1 right-1 flex items-center justify-center rounded-full"
+            style={{
+              width: '14px',
+              height: '14px',
+              backgroundColor: '#F9A8D4', // 핑크 테마 컬러
+              boxShadow: '0 1px 3px rgba(0,0,0,0.15)',
+            }}
+          >
+            <Check size={9} strokeWidth={3} color="#FFFFFF" />
+          </span>
+        )}
+      </button>
+
       {/* 구분선 (두꺼운) */}
       <div className="h-px bg-gray-200" />
 
-      {/* 4. 구직등록 버튼 - 호버시 연한 회색 */}
+      {/* 5. 구직등록 버튼 - 호버시 연한 회색 */}
       <button
         onClick={onRegisterClick}
         className="flex flex-col items-center justify-center gap-0.5 py-2.5 px-2 transition-all duration-200 text-xs font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-100"

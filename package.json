@@ -27,6 +27,7 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@hookform/resolvers": "^5.2.2",
     "@react-spring/web": "^9.7.5",
+    "@solar-icons/react": "^1.0.1",
     "@supabase/supabase-js": "^2.39.0",
     "@tabler/icons-react": "^3.0.0",
     "clsx": "^2.1.0",
