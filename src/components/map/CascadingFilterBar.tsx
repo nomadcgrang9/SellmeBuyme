@@ -6,7 +6,7 @@
  */
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { ChevronLeft, X, Search } from 'lucide-react';
+import { ChevronLeft, X, Search, Check } from 'lucide-react';
 import {
   type CascadingFilter,
   type PrimaryCategory,
@@ -112,9 +112,14 @@ export default function CascadingFilterBar({
     }
   };
 
-  // 1차 카테고리 선택
+  // 1차 카테고리 선택 (토글 지원)
   const handlePrimaryClick = (key: PrimaryCategory) => {
-    onFilterChange({ primary: key, secondary: null, tertiary: null });
+    if (filter.primary === key) {
+      // 이미 선택된 상태면 해제
+      onFilterChange({ primary: null, secondary: null, tertiary: null });
+    } else {
+      onFilterChange({ primary: key, secondary: null, tertiary: null });
+    }
   };
 
   // 2차 옵션 선택
@@ -143,6 +148,7 @@ export default function CascadingFilterBar({
   const renderPrimaryLevel = () => (
     <>
       {PRIMARY_CATEGORIES.map(({ key, label }) => {
+        const isSelected = filter.primary === key;
         const isHovered = hoveredItem === key;
         const colors = PRIMARY_COLORS[key];
         const hasColoredBg = COLORED_CATEGORIES.includes(key);
@@ -153,7 +159,7 @@ export default function CascadingFilterBar({
             onClick={() => handlePrimaryClick(key)}
             onMouseEnter={() => setHoveredItem(key)}
             onMouseLeave={() => setHoveredItem(null)}
-            className="px-3 py-1.5 text-sm font-medium transition-all duration-200 whitespace-nowrap rounded-lg"
+            className="relative px-3 py-1.5 text-sm font-medium transition-all duration-200 whitespace-nowrap rounded-lg"
             style={{
               // 색상 배경 카테고리: 기본=흰글씨+진한배경, hover=어두운글씨+밝은배경
               // 무색 카테고리: 기존처럼 hover 시만 색상
@@ -166,6 +172,22 @@ export default function CascadingFilterBar({
             }}
           >
             {label}
+            {/* 선택 뱃지: 우측 상단 노란색 체크 아이콘 */}
+            {isSelected && (
+              <span
+                className="absolute flex items-center justify-center rounded-full"
+                style={{
+                  top: '-5px',
+                  right: '-5px',
+                  width: '16px',
+                  height: '16px',
+                  backgroundColor: '#FFC107',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+                }}
+              >
+                <Check size={10} strokeWidth={3} color="#FFFFFF" />
+              </span>
+            )}
           </button>
         );
       })}
