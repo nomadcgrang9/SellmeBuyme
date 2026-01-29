@@ -23,6 +23,7 @@
  */
 
 import { MapPin, User, Plus, Check, FileText, Star, MessageCircle } from 'lucide-react';
+import PresentationGraph from '@solar-icons/react/csr/business/PresentationGraph';
 
 interface LayerToggleBarProps {
   /** 공고 레이어 표시 여부 */
@@ -41,6 +42,8 @@ interface LayerToggleBarProps {
   onFavoritesClick?: () => void;
   /** 채팅 버튼 클릭 */
   onChatClick?: () => void;
+  /** 교원연수 강사등록 버튼 클릭 */
+  onInstructorRegisterClick?: () => void;
   /** 로그인 버튼 클릭 */
   onLoginClick: () => void;
   /** 로그인 여부 */
@@ -69,6 +72,7 @@ export default function LayerToggleBar({
   onJobPostClick,
   onFavoritesClick,
   onChatClick,
+  onInstructorRegisterClick,
   onLoginClick,
   isLoggedIn = false,
   userProfileImage,
@@ -217,7 +221,22 @@ export default function LayerToggleBar({
       {/* 구분선 (얇은) */}
       <div className="h-px bg-gray-100 mx-2" />
 
-      {/* 6. 즐겨찾기 버튼 - 호버시 연한 회색 */}
+      {/* 6. 교원연수 강사등록 버튼 */}
+      <button
+        onClick={onInstructorRegisterClick}
+        className="flex flex-col items-center justify-center gap-0.5 py-2.5 px-2 transition-all duration-200 text-xs font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+        aria-label="교원연수 강사등록"
+        title="현직교사도 가능합니다. 다양한 분야의 연수에 교직원과 학부모 대상 강사인력풀로 등록해드립니다"
+      >
+        <PresentationGraph size={18} />
+        <span className="leading-tight text-center">교원연수</span>
+        <span className="leading-tight text-center">강사등록</span>
+      </button>
+
+      {/* 구분선 (얇은) */}
+      <div className="h-px bg-gray-100 mx-2" />
+
+      {/* 7. 즐겨찾기 버튼 - 호버시 연한 회색 */}
       <button
         onClick={onFavoritesClick}
         className="flex flex-col items-center justify-center gap-0.5 py-2.5 px-2 transition-all duration-200 text-xs font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-100"

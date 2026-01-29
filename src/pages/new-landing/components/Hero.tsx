@@ -38,6 +38,7 @@ import LocationPermissionModal from '@/components/mobile/LocationPermissionModal
 import DirectionsUnifiedSheet from '@/components/mobile/DirectionsUnifiedSheet';
 import MobileRegisterNav from '@/components/mobile/MobileRegisterNav';
 import ComingSoonModal from '@/components/common/ComingSoonModal';
+import InstructorInfoModal from '@/components/mobile/InstructorInfoModal';
 
 // 간단한 debounce 유틸리티
 function debounce<T extends (...args: any[]) => void>(fn: T, delay: number): T & { cancel: () => void } {
@@ -138,6 +139,9 @@ export const Hero: React.FC = () => {
   // 구현 예정(Coming Soon) 모달 상태
   const [comingSoonFeature, setComingSoonFeature] = useState('');
   const [isComingSoonOpen, setIsComingSoonOpen] = useState(false);
+
+  // 교원연수 강사등록 안내 모달 상태
+  const [isInstructorModalOpen, setIsInstructorModalOpen] = useState(false);
 
   // ★ 로그인 성공 후 pendingAction 처리 (등록 플로우 이어가기)
   useEffect(() => {
@@ -1944,6 +1948,9 @@ export const Hero: React.FC = () => {
             setComingSoonFeature('채팅');
             setIsComingSoonOpen(true);
           }}
+          onInstructorRegisterClick={() => {
+            setIsInstructorModalOpen(true);
+          }}
           onLoginClick={() => {
             if (user) {
               // 로그인 상태: 프로필 모달 열기
@@ -1965,6 +1972,12 @@ export const Hero: React.FC = () => {
         isOpen={isComingSoonOpen}
         onClose={() => setIsComingSoonOpen(false)}
         title={comingSoonFeature}
+      />
+
+      {/* 교원연수 강사등록 안내 모달 */}
+      <InstructorInfoModal
+        isOpen={isInstructorModalOpen}
+        onClose={() => setIsInstructorModalOpen(false)}
       />
 
       {/* 마커 팝업 */}
