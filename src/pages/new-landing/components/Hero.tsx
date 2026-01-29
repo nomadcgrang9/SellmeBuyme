@@ -11,18 +11,21 @@ import HeroCard from './HeroCard';
 import { DirectionsPanel } from '@/components/directions/DirectionsPanel';
 import TeacherMarkerModal from '@/components/map/TeacherMarkerModal';
 import ProgramMarkerModal from '@/components/map/ProgramMarkerModal';
+import JobPostingModal from '@/components/job/JobPostingModal';
 import FullScreenLocationPicker from '@/components/map/FullScreenLocationPicker';
 import CascadingFilterBar from '@/components/map/CascadingFilterBar';
+import LayerToggleBar from '@/components/map/LayerToggleBar';
 import { type CascadingFilter, matchesCascadingFilter } from '@/lib/utils/jobClassifier';
 import MarkerPopup from '@/components/map/MarkerPopup';
 import AuthModal from '@/components/auth/AuthModal';
 import ProfileButton from '@/components/auth/ProfileButton';
+import ProfileModal from '@/components/auth/ProfileModal';
 import EmptyState from '@/components/common/EmptyState';
 import { ListSkeleton } from '@/components/common/CardSkeleton';
 import { BetaBadge } from '@/components/common/BetaBadge';
 import { WelcomeModal } from '@/components/survey/WelcomeModal';
 import { SurveyTracker } from '@/lib/utils/surveyTracking';
-import { getSchoolLevelFromJob, generateSchoolLevelMarker, MARKER_SIZE, URGENT_MARKER_SIZE, SCHOOL_LEVEL_MARKER_COLORS } from '@/lib/constants/markerColors';
+import { getSchoolLevelFromJob, generateSchoolLevelMarker, MARKER_SIZE, URGENT_MARKER_SIZE, SCHOOL_LEVEL_MARKER_COLORS, generateTeacherMarkerSVG, TEACHER_MARKER_SIZE } from '@/lib/constants/markerColors';
 import { formatLocationDisplay } from '@/lib/constants/regionHierarchy';
 
 // 모바일 전용 컴포넌트
@@ -56,8 +59,10 @@ declare global {
   }
 }
 import { useAuthStore } from '@/stores/authStore';
+import { useToastStore } from '@/stores/toastStore';
 import { fetchTeacherMarkers, fetchProgramMarkers } from '@/lib/supabase/markers';
-import { type MarkerLayer, type TeacherMarker, type ProgramMarker, MARKER_COLORS } from '@/types/markers';
+import { deleteJobPosting } from '@/lib/supabase/jobPostings';
+import { type MarkerLayer, type TeacherMarker, type ProgramMarker, MARKER_COLORS, getTeacherMarkerColor } from '@/types/markers';
 
 export const Hero: React.FC = () => {
   // 캐스케이딩 필터 상태 (1차/2차/3차)
@@ -70,7 +75,7 @@ export const Hero: React.FC = () => {
   // 선택된 공고 (상세 패널용)
   const [selectedJob, setSelectedJob] = useState<JobPostingCard | null>(null);
   const setSelectedJobRef = useRef(setSelectedJob);
-  const setShowMobileDetailRef = useRef<(show: boolean) => void>(() => {});
+  const setShowMobileDetailRef = useRef<(show: boolean) => void>(() => { });
 
   // selectedJob 변경 감지 디버깅 + 전역 변수 동기화 (마커 토글용)
   useEffect(() => {
@@ -101,15 +106,48 @@ export const Hero: React.FC = () => {
 
   // 마커 등록 관련 상태
   const { user, status: authStatus } = useAuthStore();
+  const { showToast } = useToastStore();
+
+  // 공고 수정용 상태
+  const [editJobData, setEditJobData] = useState<JobPostingCard | null>(null);
+
+  // 레이어 표시 상태 (공고/구직자)
+  // 둘 다 false = 모든 마커 표시 (기본 상태)
+  const [showJobLayer, setShowJobLayer] = useState(false);
+  const [showSeekerLayer, setShowSeekerLayer] = useState(false);
   const [isTeacherModalOpen, setIsTeacherModalOpen] = useState(false);
   const [isProgramModalOpen, setIsProgramModalOpen] = useState(false);
+  const [isJobPostingModalOpen, setIsJobPostingModalOpen] = useState(false);
   const [isLocationPickerOpen, setIsLocationPickerOpen] = useState(false);
-  const [locationPickerType, setLocationPickerType] = useState<'teacher' | 'program'>('teacher');
+  const [locationPickerType, setLocationPickerType] = useState<'teacher' | 'program' | 'jobPosting'>('teacher');
   const [pendingMarkerCoords, setPendingMarkerCoords] = useState<Coordinates | null>(null);
-  const [pendingMarkerType, setPendingMarkerType] = useState<'teacher' | 'program' | null>(null);
+  const [pendingMarkerAddress, setPendingMarkerAddress] = useState<string>('');
+  const [pendingMarkerType, setPendingMarkerType] = useState<'teacher' | 'program' | 'jobPosting' | null>(null);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authModalInitialTab, setAuthModalInitialTab] = useState<'login' | 'signup'>('login');
+
+  // 로그인 후 이어갈 액션 (구직등록/공고등록 플로우 연속성)
+  const [pendingAction, setPendingAction] = useState<'register' | 'jobPost' | null>(null);
+
+  // 프로필 모달 상태
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+
+  // ★ 로그인 성공 후 pendingAction 처리 (등록 플로우 이어가기)
+  useEffect(() => {
+    if (user && pendingAction && !isAuthModalOpen) {
+      // 로그인 완료 + 대기 액션 있음 + 모달 닫힘
+      if (pendingAction === 'register') {
+        setPendingAction(null);
+        setLocationPickerType('teacher');
+        setIsLocationPickerOpen(true);
+      } else if (pendingAction === 'jobPost') {
+        setPendingAction(null);
+        setLocationPickerType('jobPosting');
+        setIsLocationPickerOpen(true);
+      }
+    }
+  }, [user, pendingAction, isAuthModalOpen]);
 
   // 설문 Welcome 모달 상태
   const [isWelcomeModalOpen, setIsWelcomeModalOpen] = useState(false);
@@ -160,7 +198,7 @@ export const Hero: React.FC = () => {
     // 좌표 유효성 검증 (0,0 또는 NaN 체크)
     const isValidCoord = (lat: number, lng: number) => {
       return lat !== 0 && lng !== 0 && !isNaN(lat) && !isNaN(lng) &&
-             lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
+        lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
     };
 
     if (!isValidCoord(startLocation.lat, startLocation.lng)) {
@@ -253,8 +291,8 @@ export const Hero: React.FC = () => {
 
     // 교통수단별 색상
     const strokeColor = directionsResult.type === 'car' ? '#3366FF' :
-                       directionsResult.type === 'transit' ? '#00AA00' :
-                       '#FF6600';
+      directionsResult.type === 'transit' ? '#00AA00' :
+        '#FF6600';
 
     // 폴리라인 생성
     const polyline = new window.kakao.maps.Polyline({
@@ -354,6 +392,37 @@ export const Hero: React.FC = () => {
   const [programMarkers, setProgramMarkers] = useState<ProgramMarker[]>([]);
   const teacherMapMarkersRef = useRef<any[]>([]);
   const programMapMarkersRef = useRef<any[]>([]);
+
+  // ★ showJobLayer/showSeekerLayer ↔ activeLayers 동기화
+  // 둘 다 false면 모든 마커 표시 (기본 상태)
+  useEffect(() => {
+    setActiveLayers(prev => {
+      // 둘 다 미선택 = 필터 없음 = 모든 마커 표시
+      if (!showJobLayer && !showSeekerLayer) {
+        // program은 기존 상태 유지
+        const hasProgram = prev.includes('program');
+        return hasProgram ? ['job', 'teacher', 'program'] : ['job', 'teacher'];
+      }
+
+      let newLayers = [...prev];
+
+      // 공고 레이어
+      if (showJobLayer && !newLayers.includes('job')) {
+        newLayers.push('job');
+      } else if (!showJobLayer) {
+        newLayers = newLayers.filter(l => l !== 'job');
+      }
+
+      // 구직자 레이어 (teacher)
+      if (showSeekerLayer && !newLayers.includes('teacher')) {
+        newLayers.push('teacher');
+      } else if (!showSeekerLayer) {
+        newLayers = newLayers.filter(l => l !== 'teacher');
+      }
+
+      return newLayers;
+    });
+  }, [showJobLayer, showSeekerLayer]);
 
   // ★ 길찾기 모드 토글 (공고 마커 숨김/복원)
   useEffect(() => {
@@ -869,7 +938,7 @@ export const Hero: React.FC = () => {
     }
   }, [isLoaded, loadMarkerData]);
 
-  // 구직교사 마커 지도에 표시
+  // 구직교사 마커 지도에 표시 (필터링 + 카테고리별 색상 적용)
   useEffect(() => {
     if (!isLoaded || !mapInstanceRef.current || !activeLayers.includes('teacher')) {
       // 레이어 비활성화 시 마커 제거
@@ -884,13 +953,49 @@ export const Hero: React.FC = () => {
 
     const map = mapInstanceRef.current;
 
-    teacherMarkers.forEach(marker => {
+    // ★ 필터링 적용 - cascadingFilter.primary가 있으면 해당 카테고리만 표시
+    const filteredTeacherMarkers = teacherMarkers.filter(marker => {
+      // 필터가 없으면 모두 표시
+      if (!cascadingFilter.primary) return true;
+
+      // primary_category가 필터와 일치하는지 확인
+      if (marker.primary_category === cascadingFilter.primary) return true;
+
+      // 하위 호환: school_levels로도 매칭 시도
+      // 필터 카테고리에 따른 학교급 매핑
+      const categoryToSchoolLevels: Record<string, string[]> = {
+        '유치원': ['유치원'],
+        '초등담임': ['초등'],
+        '교과과목': ['중등', '고등'],
+        '비교과': ['중등', '고등'],
+        '특수교육': ['특수'],
+        '방과후/돌봄': ['초등', '중등', '고등'],
+        '행정·교육지원': ['유치원', '초등', '중등', '고등', '특수'],
+      };
+
+      const expectedSchoolLevels = categoryToSchoolLevels[cascadingFilter.primary];
+      if (!expectedSchoolLevels) return false;
+
+      // school_levels 배열에서 매칭 확인
+      if (marker.school_levels && marker.school_levels.length > 0) {
+        return marker.school_levels.some(level =>
+          expectedSchoolLevels.includes(level)
+        );
+      }
+
+      return false;
+    });
+
+    filteredTeacherMarkers.forEach(marker => {
       const position = new window.kakao.maps.LatLng(marker.latitude, marker.longitude);
 
-      // 커스텀 마커 이미지 (빨간색 원)
-      const markerSize = new window.kakao.maps.Size(16, 16);
+      // ★ 카테고리별 마커 색상 적용
+      const markerColor = getTeacherMarkerColor(marker.primary_category);
+
+      // 커스텀 마커 이미지 (원형 + 사람 아이콘)
+      const markerSize = new window.kakao.maps.Size(TEACHER_MARKER_SIZE.width, TEACHER_MARKER_SIZE.height);
       const markerImage = new window.kakao.maps.MarkerImage(
-        `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><circle cx="8" cy="8" r="7" fill="${MARKER_COLORS.teacher}" stroke="white" stroke-width="2"/></svg>`)}`,
+        `data:image/svg+xml,${encodeURIComponent(generateTeacherMarkerSVG(markerColor))}`,
         markerSize
       );
 
@@ -920,7 +1025,7 @@ export const Hero: React.FC = () => {
       teacherMapMarkersRef.current.forEach(m => m.setMap(null));
       teacherMapMarkersRef.current = [];
     };
-  }, [isLoaded, teacherMarkers, activeLayers]);
+  }, [isLoaded, teacherMarkers, activeLayers, cascadingFilter.primary]);
 
   // 프로그램 마커 지도에 표시
   useEffect(() => {
@@ -1064,6 +1169,34 @@ export const Hero: React.FC = () => {
       polylineRef.current = null;
     }
   }, []);
+
+  // 공고 수정 핸들러
+  const handleJobEdit = useCallback((job: JobPostingCard) => {
+    console.log('[Hero] 공고 수정:', job.id);
+    // 위치 정보 설정
+    if (job.latitude && job.longitude) {
+      setPendingMarkerCoords({ lat: job.latitude, lng: job.longitude });
+    }
+    setPendingMarkerAddress(job.location || '');
+    setEditJobData(job);
+    setIsJobPostingModalOpen(true);
+    setSelectedJob(null);
+  }, []);
+
+  // 공고 삭제 핸들러
+  const handleJobDelete = useCallback(async (job: JobPostingCard) => {
+    console.log('[Hero] 공고 삭제:', job.id);
+    try {
+      await deleteJobPosting(job.id);
+      showToast('공고가 삭제되었습니다.', 'success');
+      // 목록에서 제거
+      setJobPostings(prev => prev.filter(j => j.id !== job.id));
+      setSelectedJob(null);
+    } catch (err: any) {
+      console.error('[Hero] 공고 삭제 실패:', err);
+      showToast('공고 삭제 실패: ' + (err?.message || '알 수 없는 오류'), 'error');
+    }
+  }, [showToast]);
 
   // 경로 결과 받아서 지도에 Polyline 표시
   const handleRouteFound = useCallback((result: DirectionsResult) => {
@@ -1449,18 +1582,34 @@ export const Hero: React.FC = () => {
       console.log(`[Hero] 마커 생성 시작: ${filteredJobPostings.length}개 공고`);
       const startTime = Date.now();
 
-      // 1단계: 캐시 히트 즉시 처리 (딜레이 없음)
+      // 1단계: DB에 좌표가 이미 있는 공고 (user_posted 등)
+      const jobsWithCoords: JobPostingCard[] = [];
+      // 2단계: 캐시 히트 (키워드로 좌표 캐시된 경우)
       const cachedJobs: JobPostingCard[] = [];
+      // 3단계: 좌표 없고 캐시도 없는 경우 (키워드 검색 필요)
       const uncachedJobs: JobPostingCard[] = [];
 
       filteredJobPostings.forEach(job => {
-        const keyword = job.organization || job.location;
-        if (keyword && cache.has(keyword)) {
-          cachedJobs.push(job);
+        // DB에 좌표가 이미 있으면 우선 사용 (user_posted 공고 등)
+        if (job.latitude && job.longitude) {
+          jobsWithCoords.push(job);
         } else {
-          uncachedJobs.push(job);
+          const keyword = job.organization || job.location;
+          if (keyword && cache.has(keyword)) {
+            cachedJobs.push(job);
+          } else {
+            uncachedJobs.push(job);
+          }
         }
       });
+
+      // DB 좌표가 있는 공고 즉시 마커 생성
+      jobsWithCoords.forEach(job => {
+        if (cancelled) return;
+        createMarker({ lat: job.latitude!, lng: job.longitude! }, job);
+      });
+
+      console.log(`[Hero] DB 좌표 사용: ${jobsWithCoords.length}개 즉시 처리`);
 
       // 캐시된 공고 즉시 마커 생성
       cachedJobs.forEach(job => {
@@ -1471,8 +1620,8 @@ export const Hero: React.FC = () => {
 
       console.log(`[Hero] 캐시 히트: ${cachedJobs.length}개 즉시 처리`);
 
-      // 2단계: 캐시 미스 병렬 배치 처리
-      let successCount = cachedJobs.length;
+      // 3단계: 캐시 미스 병렬 배치 처리
+      let successCount = jobsWithCoords.length + cachedJobs.length;
       let failedCount = 0;
 
       for (let i = 0; i < uncachedJobs.length; i += BATCH_SIZE) {
@@ -1630,8 +1779,17 @@ export const Hero: React.FC = () => {
       {/* 로그인/회원가입 모달 */}
       <AuthModal
         isOpen={isAuthModalOpen}
-        onClose={() => setIsAuthModalOpen(false)}
+        onClose={() => {
+          setIsAuthModalOpen(false);
+          // pendingAction은 useEffect에서 처리 (user 상태 변경 감지)
+        }}
         initialTab={authModalInitialTab}
+      />
+
+      {/* 프로필 모달 */}
+      <ProfileModal
+        isOpen={isProfileModalOpen}
+        onClose={() => setIsProfileModalOpen(false)}
       />
 
       {/* 베타 설문 Welcome 모달 */}
@@ -1646,21 +1804,18 @@ export const Hero: React.FC = () => {
         onClose={() => {
           setIsTeacherModalOpen(false);
           setPendingMarkerCoords(null);
+          setPendingMarkerAddress('');
         }}
         onSuccess={() => {
           loadMarkerData();
           console.log('구직 마커 등록 성공');
         }}
         initialCoords={pendingMarkerType === 'teacher' ? pendingMarkerCoords : null}
-        onRequestMapClick={(callback) => {
+        initialAddress={pendingMarkerType === 'teacher' ? pendingMarkerAddress : null}
+        onRequestLocationChange={() => {
           setIsTeacherModalOpen(false);
-          setPendingMarkerType('teacher');
-          setMapClickMode(true);
-          mapClickCallbackRef.current = (coords) => {
-            setPendingMarkerCoords(coords);
-            setIsTeacherModalOpen(true);
-            callback(coords);
-          };
+          setLocationPickerType('teacher');
+          setIsLocationPickerOpen(true);
         }}
       />
 
@@ -1688,20 +1843,48 @@ export const Hero: React.FC = () => {
         }}
       />
 
+      {/* 공고 등록/수정 모달 */}
+      <JobPostingModal
+        isOpen={isJobPostingModalOpen}
+        onClose={() => {
+          setIsJobPostingModalOpen(false);
+          setPendingMarkerCoords(null);
+          setPendingMarkerAddress('');
+          setEditJobData(null); // 수정 모드 초기화
+        }}
+        onSuccess={() => {
+          // 로드된 지역 초기화하여 다음 로드 시 새 데이터 가져오기
+          loadedRegionsRef.current.clear();
+          setEditJobData(null); // 수정 모드 초기화
+          console.log(editJobData ? '공고 수정 성공' : '공고 등록 성공');
+        }}
+        initialCoords={editJobData ? pendingMarkerCoords : (pendingMarkerType === 'jobPosting' ? pendingMarkerCoords : null)}
+        initialAddress={editJobData ? pendingMarkerAddress : (pendingMarkerType === 'jobPosting' ? pendingMarkerAddress : null)}
+        onRequestLocationChange={() => {
+          setIsJobPostingModalOpen(false);
+          setLocationPickerType('jobPosting');
+          setIsLocationPickerOpen(true);
+        }}
+        editData={editJobData}
+      />
+
       {/* 전체화면 위치 선택기 */}
       <FullScreenLocationPicker
         isOpen={isLocationPickerOpen}
         onClose={() => setIsLocationPickerOpen(false)}
         markerType={locationPickerType}
-        onConfirm={(coords) => {
+        onConfirm={(coords, address) => {
           setIsLocationPickerOpen(false);
           setPendingMarkerCoords(coords);
+          setPendingMarkerAddress(address);
           // 모달이 참조하는 타입 설정
           setPendingMarkerType(locationPickerType);
 
           // 해당 모달 열기
           if (locationPickerType === 'teacher') {
             setIsTeacherModalOpen(true);
+          } else if (locationPickerType === 'jobPosting') {
+            setIsJobPostingModalOpen(true);
           } else {
             setIsProgramModalOpen(true);
           }
@@ -1716,22 +1899,51 @@ export const Hero: React.FC = () => {
         />
       </div>
 
-      {/* 우측 상단: 로그인 또는 프로필 버튼 - PC만 */}
+      {/* 우측 상단: 레이어 토글 + 구직등록 + 로그인 통합 바 - PC만 */}
       <div className="hidden md:block absolute top-4 right-4 z-20">
-        {user ? (
-          <ProfileButton />
-        ) : (
-          <button
-            onClick={() => {
+        <LayerToggleBar
+          showJobLayer={showJobLayer}
+          showSeekerLayer={showSeekerLayer}
+          onJobLayerToggle={() => setShowJobLayer(prev => !prev)}
+          onSeekerLayerToggle={() => setShowSeekerLayer(prev => !prev)}
+          onRegisterClick={() => {
+            if (!user) {
+              // 로그인 필요 - 로그인 후 등록 플로우 이어가기
+              setPendingAction('register');
               setAuthModalInitialTab('login');
               setIsAuthModalOpen(true);
-            }}
-            className="px-4 py-2.5 text-sm font-medium text-gray-600 bg-white/95 backdrop-blur-sm border border-gray-200 rounded-full hover:bg-white hover:text-gray-900 hover:shadow-md transition-all active:scale-95"
-            style={{ boxShadow: '0 4px 12px rgba(0, 0, 0, 0.08)' }}
-          >
-            로그인
-          </button>
-        )}
+              return;
+            }
+            // 구직 등록 - 위치 선택 모달 열기
+            setLocationPickerType('teacher');
+            setIsLocationPickerOpen(true);
+          }}
+          onJobPostClick={() => {
+            if (!user) {
+              // 로그인 필요 - 로그인 후 공고등록 플로우 이어가기
+              setPendingAction('jobPost');
+              setAuthModalInitialTab('login');
+              setIsAuthModalOpen(true);
+              return;
+            }
+            // 공고 등록 - 위치 선택 모달 열기
+            setLocationPickerType('jobPosting');
+            setIsLocationPickerOpen(true);
+          }}
+          onLoginClick={() => {
+            if (user) {
+              // 로그인 상태: 프로필 모달 열기
+              setIsProfileModalOpen(true);
+            } else {
+              // 비로그인 상태: 로그인 모달 열기
+              setAuthModalInitialTab('login');
+              setIsAuthModalOpen(true);
+            }
+          }}
+          isLoggedIn={!!user}
+          userProfileImage={null}
+          userName={user?.email?.split('@')[0] || null}
+        />
       </div>
 
       {/* 마커 팝업 */}
@@ -1741,6 +1953,11 @@ export const Hero: React.FC = () => {
           marker={selectedMarker.marker}
           position={selectedMarker.position}
           onClose={() => setSelectedMarker(null)}
+          onDelete={() => {
+            // 삭제 완료 후 - 마커 목록 리로드
+            setSelectedMarker(null);
+            loadMarkerData();
+          }}
         />
       )}
 
@@ -1993,6 +2210,9 @@ export const Hero: React.FC = () => {
               isOpen={!!selectedJob}
               onClose={() => setSelectedJob(null)}
               onDirectionsClick={handleDirectionsClick}
+              currentUserId={user?.id}
+              onEdit={handleJobEdit}
+              onDelete={handleJobDelete}
             />
           </div>
         )}
@@ -2127,52 +2347,52 @@ export const Hero: React.FC = () => {
 
       {/* 모바일 바텀시트 (공고 목록) - 길찾기 시트 열려있으면 숨김 */}
       {!showDirectionsSheet && (
-      <div className="md:hidden">
-        <MobileBottomSheet
-          height={bottomSheetHeight}
-          onHeightChange={setBottomSheetHeight}
-          jobCount={filteredJobPostings.length}
-          isLoading={isJobsLoading}
-        >
-          <div className="space-y-3 pb-20">
-            {filteredJobPostings.map((job) => (
-              <MobileJobCard
-                key={job.id}
-                job={job}
-                isSelected={selectedJob?.id === job.id}
-                onClick={() => {
-                  setSelectedJob(job);
-                  setShowMobileDetail(true);
-                  // 지도에서 해당 마커 위치로 이동
-                  const keyword = job.organization || job.location;
-                  if (keyword && coordsCacheRef.current.has(keyword)) {
-                    const coords = coordsCacheRef.current.get(keyword)!;
-                    if (mapInstanceRef.current) {
-                      mapInstanceRef.current.panTo(
-                        new window.kakao.maps.LatLng(coords.lat, coords.lng)
-                      );
+        <div className="md:hidden">
+          <MobileBottomSheet
+            height={bottomSheetHeight}
+            onHeightChange={setBottomSheetHeight}
+            jobCount={filteredJobPostings.length}
+            isLoading={isJobsLoading}
+          >
+            <div className="space-y-3 pb-20">
+              {filteredJobPostings.map((job) => (
+                <MobileJobCard
+                  key={job.id}
+                  job={job}
+                  isSelected={selectedJob?.id === job.id}
+                  onClick={() => {
+                    setSelectedJob(job);
+                    setShowMobileDetail(true);
+                    // 지도에서 해당 마커 위치로 이동
+                    const keyword = job.organization || job.location;
+                    if (keyword && coordsCacheRef.current.has(keyword)) {
+                      const coords = coordsCacheRef.current.get(keyword)!;
+                      if (mapInstanceRef.current) {
+                        mapInstanceRef.current.panTo(
+                          new window.kakao.maps.LatLng(coords.lat, coords.lng)
+                        );
+                      }
                     }
-                  }
-                }}
-                onDetailClick={() => {
-                  setSelectedJob(job);
-                  setShowMobileDetail(true);
-                }}
-                onDirectionsClick={() => handleDirectionsClick(job)}
-              />
-            ))}
+                  }}
+                  onDetailClick={() => {
+                    setSelectedJob(job);
+                    setShowMobileDetail(true);
+                  }}
+                  onDirectionsClick={() => handleDirectionsClick(job)}
+                />
+              ))}
 
-            {!isJobsLoading && filteredJobPostings.length === 0 && (
-              <div className="text-center py-12 text-gray-500">
-                <svg className="w-12 h-12 mx-auto mb-3 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <p>검색 결과가 없습니다</p>
-              </div>
-            )}
-          </div>
-        </MobileBottomSheet>
-      </div>
+              {!isJobsLoading && filteredJobPostings.length === 0 && (
+                <div className="text-center py-12 text-gray-500">
+                  <svg className="w-12 h-12 mx-auto mb-3 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <p>검색 결과가 없습니다</p>
+                </div>
+              )}
+            </div>
+          </MobileBottomSheet>
+        </div>
       )}
 
       {/* 모바일 상세보기 모달 */}

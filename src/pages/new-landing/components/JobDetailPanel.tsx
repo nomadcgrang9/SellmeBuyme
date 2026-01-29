@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import type { JobPostingCard } from '@/types';
 import { formatLocationDisplay } from '@/lib/constants/regionHierarchy';
 
@@ -7,6 +7,9 @@ interface JobDetailPanelProps {
   isOpen: boolean;
   onClose: () => void;
   onDirectionsClick?: (job: JobPostingCard) => void;
+  currentUserId?: string | null;
+  onEdit?: (job: JobPostingCard) => void;
+  onDelete?: (job: JobPostingCard) => void;
 }
 
 export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
@@ -14,11 +17,29 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
   isOpen,
   onClose,
   onDirectionsClick,
+  currentUserId,
+  onEdit,
+  onDelete,
 }) => {
+  const [isDeleting, setIsDeleting] = useState(false);
+
   if (!isOpen || !job) return null;
 
   const isUrgent = job.daysLeft !== undefined && job.daysLeft <= 3;
   const isNearDeadline = job.daysLeft !== undefined && job.daysLeft <= 7;
+
+  // 작성자 본인인지 확인 (user_posted 공고만 수정/삭제 가능)
+  const isOwner = currentUserId && job.user_id === currentUserId && job.source === 'user_posted';
+
+  const handleDelete = async () => {
+    if (!window.confirm('정말 이 공고를 삭제하시겠습니까?')) return;
+    setIsDeleting(true);
+    try {
+      await onDelete?.(job);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   return (
     <div className="w-[260px] bg-white/95 backdrop-blur-sm rounded-xl border border-gray-200 shadow-lg overflow-hidden flex flex-col max-h-[calc(100vh-80px)]">
@@ -26,9 +47,35 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
       <div className="px-4 py-3 border-b border-gray-100 flex-shrink-0">
         <div className="flex items-center justify-between">
           <h4 className="font-bold text-gray-800 text-sm">상세 정보</h4>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
+            {/* 작성자 본인만 수정/삭제 버튼 표시 */}
+            {isOwner && (
+              <>
+                <button
+                  onClick={() => onEdit?.(job)}
+                  className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                  aria-label="수정"
+                  title="수정"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                </button>
+                <button
+                  onClick={handleDelete}
+                  disabled={isDeleting}
+                  className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors disabled:opacity-50"
+                  aria-label="삭제"
+                  title="삭제"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                </button>
+              </>
+            )}
             {job.daysLeft !== undefined && job.daysLeft <= 5 && (
-              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ml-1 ${
                 job.daysLeft === 0
                   ? 'bg-red-500 text-white'
                   : job.daysLeft <= 3
@@ -168,7 +215,7 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
         )}
       </div>
 
-      {/* 하단 버튼 - 2등분 (길찾기: 검정, 원문링크: 파랑) */}
+      {/* 하단 버튼 - source에 따라 분기 (크롤링: 원문링크, 직접등록: 첨부파일) */}
       <div className="p-4 border-t border-gray-100 flex-shrink-0">
         <div className="flex gap-2">
           {/* 길찾기 버튼 */}
@@ -181,19 +228,36 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
             </svg>
             길찾기
           </button>
-          {/* 원문 링크 버튼 */}
-          {job.source_url && (
-            <a
-              href={job.source_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 text-sm font-medium text-white bg-[#3B82F6] hover:bg-[#2563EB] rounded-lg transition-colors"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-              </svg>
-              원문 링크
-            </a>
+          {/* source에 따라 원문링크 또는 첨부파일 버튼 */}
+          {job.source === 'user_posted' ? (
+            // 직접등록 공고 - 첨부파일 다운로드
+            job.attachment_url ? (
+              <a
+                href={job.attachment_url}
+                download
+                className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 text-sm font-medium text-white bg-[#3B82F6] hover:bg-[#2563EB] rounded-lg transition-colors"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                첨부파일
+              </a>
+            ) : null
+          ) : (
+            // 크롤링 공고 - 원문링크
+            job.source_url && (
+              <a
+                href={job.source_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 text-sm font-medium text-white bg-[#3B82F6] hover:bg-[#2563EB] rounded-lg transition-colors"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+                원문 링크
+              </a>
+            )
           )}
         </div>
       </div>

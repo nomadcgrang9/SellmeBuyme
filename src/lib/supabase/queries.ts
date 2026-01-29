@@ -2633,7 +2633,8 @@ export async function fetchJobsByBoardRegion(
   // crawl_board_id 또는 crawl_source_id (레거시) 모두 검색
   const boardIdConditions = boardIds.map(id => `crawl_board_id.eq.${id},crawl_source_id.eq.${id}`).join(',');
 
-  const { data: jobs, error: jobsError } = await supabase
+  // 크롤링 공고 조회
+  const crawledJobsPromise = supabase
     .from('job_postings')
     .select('*')
     .or(boardIdConditions)
@@ -2641,14 +2642,46 @@ export async function fetchJobsByBoardRegion(
     .order('created_at', { ascending: false })
     .limit(limit);
 
-  console.log(`[fetchJobsByBoardRegion] Jobs found:`, jobs?.length ?? 0);
+  // user_posted 공고 조회 (location 필드로 지역 필터링)
+  const locationConditions = keywords.map(kw => `location.ilike.%${kw}%`).join(',');
+  const userPostedJobsPromise = supabase
+    .from('job_postings')
+    .select('*')
+    .eq('source', 'user_posted')
+    .or(locationConditions)
+    .or(`deadline.is.null,deadline.gte.${todayIso}`)
+    .order('created_at', { ascending: false })
+    .limit(50);
 
-  if (jobsError) {
-    console.error('[fetchJobsByBoardRegion] Jobs query error:', jobsError);
-    return [];
+  // 병렬 실행
+  const [crawledResult, userPostedResult] = await Promise.all([
+    crawledJobsPromise,
+    userPostedJobsPromise
+  ]);
+
+  if (crawledResult.error) {
+    console.error('[fetchJobsByBoardRegion] Crawled jobs query error:', crawledResult.error);
+  }
+  if (userPostedResult.error) {
+    console.error('[fetchJobsByBoardRegion] User posted jobs query error:', userPostedResult.error);
   }
 
-  if (!jobs || jobs.length === 0) {
+  const crawledJobs = crawledResult.data || [];
+  const userPostedJobs = userPostedResult.data || [];
+
+  console.log(`[fetchJobsByBoardRegion] Crawled jobs: ${crawledJobs.length}, User posted jobs: ${userPostedJobs.length}`);
+
+  // 합치고 중복 제거
+  const allJobs = [...crawledJobs, ...userPostedJobs];
+  const uniqueJobs = Array.from(new Map(allJobs.map(j => [j.id, j])).values());
+
+  // 최신순 정렬 후 limit 적용
+  uniqueJobs.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  const jobs = uniqueJobs.slice(0, limit);
+
+  console.log(`[fetchJobsByBoardRegion] Total unique jobs: ${jobs.length}`);
+
+  if (jobs.length === 0) {
     console.warn('[fetchJobsByBoardRegion] No jobs found for these boards');
     return [];
   }
