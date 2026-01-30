@@ -14,7 +14,8 @@ import {
     EXPERIENCE_OPTIONS,
     REGION_OPTIONS,
     type PrimaryCategory,
-    type TeacherMarkerInput
+    type TeacherMarkerInput,
+    type TeacherMarker
 } from '@/types/markers';
 import { createTeacherMarker, uploadMarkerImage } from '@/lib/supabase/markers';
 import { useAuthStore } from '@/stores/authStore';
@@ -23,7 +24,7 @@ import { useToastStore } from '@/stores/toastStore';
 interface TeacherMarkerModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onSuccess: () => void;
+    onSuccess: (newMarker?: TeacherMarker) => void; // 새로 생성된 마커 데이터 전달
     initialCoords?: { lat: number; lng: number } | null;
     initialAddress?: string | null;
     onRequestLocationChange?: () => void;
@@ -66,6 +67,7 @@ export default function TeacherMarkerModal({
 
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [isDragging, setIsDragging] = useState(false);
 
     // 초기값 설정
     useEffect(() => {
@@ -133,12 +135,50 @@ export default function TeacherMarkerModal({
     const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
-            setProfileImage(file);
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                setProfileImagePreview(reader.result as string);
-            };
-            reader.readAsDataURL(file);
+            processImageFile(file);
+        }
+    };
+
+    // 이미지 파일 처리 (공통)
+    const processImageFile = (file: File) => {
+        if (!file.type.startsWith('image/')) {
+            setError('이미지 파일만 업로드 가능합니다.');
+            return;
+        }
+        setProfileImage(file);
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            setProfileImagePreview(reader.result as string);
+        };
+        reader.readAsDataURL(file);
+    };
+
+    // 드래그 앤 드롭 핸들러
+    const handleDragOver = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+    };
+
+    const handleDragEnter = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragging(true);
+    };
+
+    const handleDragLeave = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragging(false);
+    };
+
+    const handleDrop = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragging(false);
+
+        const files = e.dataTransfer.files;
+        if (files && files.length > 0) {
+            processImageFile(files[0]);
         }
     };
 
@@ -206,9 +246,10 @@ export default function TeacherMarkerModal({
                 privacy_agreed: privacyAgreed
             };
 
-            await createTeacherMarker(input);
+            const newMarker = await createTeacherMarker(input);
             showToast('구직 마커가 등록되었습니다!', 'success');
-            onSuccess();
+            // 낙관적 업데이트를 위해 새로 생성된 마커 데이터 전달
+            onSuccess(newMarker);
             handleClose();
         } catch (err: any) {
             console.error('마커 등록 실패:', err);
@@ -588,7 +629,13 @@ export default function TeacherMarkerModal({
                                         className="hidden"
                                     />
                                     {profileImagePreview ? (
-                                        <div className="relative w-20 h-20">
+                                        <div
+                                            className="relative w-20 h-20"
+                                            onDragOver={handleDragOver}
+                                            onDragEnter={handleDragEnter}
+                                            onDragLeave={handleDragLeave}
+                                            onDrop={handleDrop}
+                                        >
                                             <img
                                                 src={profileImagePreview}
                                                 alt="프로필 미리보기"
@@ -611,12 +658,20 @@ export default function TeacherMarkerModal({
                                         <button
                                             type="button"
                                             onClick={() => fileInputRef.current?.click()}
-                                            className="w-20 h-20 border-2 border-dashed border-gray-300 rounded-lg text-gray-400 hover:border-gray-400 hover:text-gray-500 transition-colors flex flex-col items-center justify-center gap-1"
+                                            onDragOver={handleDragOver}
+                                            onDragEnter={handleDragEnter}
+                                            onDragLeave={handleDragLeave}
+                                            onDrop={handleDrop}
+                                            className={`w-20 h-20 border-2 border-dashed rounded-lg transition-colors flex flex-col items-center justify-center gap-1 ${
+                                                isDragging
+                                                    ? 'border-sky-500 bg-sky-50 text-sky-500'
+                                                    : 'border-gray-300 text-gray-400 hover:border-gray-400 hover:text-gray-500'
+                                            }`}
                                         >
                                             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                             </svg>
-                                            <span className="text-xs">업로드</span>
+                                            <span className="text-xs">{isDragging ? '놓기' : '업로드'}</span>
                                         </button>
                                     )}
                                 </div>

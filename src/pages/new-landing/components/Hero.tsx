@@ -1921,8 +1921,23 @@ export const Hero: React.FC = () => {
           setPendingMarkerCoords(null);
           setPendingMarkerAddress('');
         }}
-        onSuccess={() => {
-          loadMarkerData();
+        onSuccess={(newMarker) => {
+          // 방안 2: 낙관적 업데이트 - 새로 등록된 마커를 즉시 state에 추가
+          if (newMarker) {
+            console.log('[Hero] 낙관적 업데이트 - 새 구직 마커 추가:', newMarker.id);
+            setTeacherMarkers(prev => [newMarker, ...prev]);
+
+            // 지도를 새 마커 위치로 이동
+            if (newMarker.latitude && newMarker.longitude && mapInstanceRef.current) {
+              const newCenter = new window.kakao.maps.LatLng(newMarker.latitude, newMarker.longitude);
+              mapInstanceRef.current.setCenter(newCenter);
+              mapInstanceRef.current.setLevel(5);
+              console.log('[Hero] 지도 중심 이동:', newMarker.latitude, newMarker.longitude);
+            }
+          } else {
+            // 폴백: 마커 데이터가 없으면 기존처럼 전체 리로드
+            loadMarkerData();
+          }
           console.log('구직 마커 등록 성공');
         }}
         initialCoords={pendingMarkerType === 'teacher' ? pendingMarkerCoords : null}
@@ -1967,10 +1982,25 @@ export const Hero: React.FC = () => {
           setPendingMarkerAddress('');
           setEditJobData(null); // 수정 모드 초기화
         }}
-        onSuccess={() => {
+        onSuccess={(newJob) => {
           // 로드된 지역 초기화하여 다음 로드 시 새 데이터 가져오기
           loadedRegionsRef.current.clear();
           setEditJobData(null); // 수정 모드 초기화
+
+          // 방안 2: 낙관적 업데이트 - 새로 등록된 공고를 즉시 state에 추가
+          if (newJob && !editJobData) {
+            console.log('[Hero] 낙관적 업데이트 - 새 공고 추가:', newJob.id);
+            setJobPostings(prev => [newJob, ...prev]);
+
+            // 지도를 새 공고 위치로 이동
+            if (newJob.latitude && newJob.longitude && mapInstanceRef.current) {
+              const newCenter = new window.kakao.maps.LatLng(newJob.latitude, newJob.longitude);
+              mapInstanceRef.current.setCenter(newCenter);
+              mapInstanceRef.current.setLevel(5); // 적당한 줌 레벨
+              console.log('[Hero] 지도 중심 이동:', newJob.latitude, newJob.longitude);
+            }
+          }
+
           console.log(editJobData ? '공고 수정 성공' : '공고 등록 성공');
         }}
         initialCoords={editJobData ? pendingMarkerCoords : (pendingMarkerType === 'jobPosting' ? pendingMarkerCoords : null)}
@@ -2113,9 +2143,24 @@ export const Hero: React.FC = () => {
       <InstructorMarkerModal
         isOpen={isInstructorRegisterModalOpen}
         onClose={() => setIsInstructorRegisterModalOpen(false)}
-        onSuccess={() => {
-          // 등록 성공 시 마커 리로드
-          loadMarkerData();
+        onSuccess={(newMarker) => {
+          // 방안 2: 낙관적 업데이트 - 새로 등록된 마커를 즉시 state에 추가
+          if (newMarker) {
+            console.log('[Hero] 낙관적 업데이트 - 새 교원연수 강사 마커 추가:', newMarker.id);
+            setInstructorMarkers(prev => [newMarker, ...prev]);
+
+            // 지도를 새 마커 위치로 이동
+            if (newMarker.latitude && newMarker.longitude && mapInstanceRef.current) {
+              const newCenter = new window.kakao.maps.LatLng(newMarker.latitude, newMarker.longitude);
+              mapInstanceRef.current.setCenter(newCenter);
+              mapInstanceRef.current.setLevel(5);
+              console.log('[Hero] 지도 중심 이동:', newMarker.latitude, newMarker.longitude);
+            }
+          } else {
+            // 폴백: 마커 데이터가 없으면 기존처럼 전체 리로드
+            loadMarkerData();
+          }
+          console.log('교원연수 강사 마커 등록 성공');
         }}
         initialCoords={pendingMarkerType === 'instructor' ? pendingMarkerCoords : null}
         initialAddress={pendingMarkerType === 'instructor' ? pendingMarkerAddress : null}

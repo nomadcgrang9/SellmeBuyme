@@ -499,3 +499,159 @@ export async function deleteMarkerImage(imageUrl: string): Promise<void> {
         throw error;
     }
 }
+
+// ============================================================================
+// 마커 좋아요 (Likes)
+// ============================================================================
+
+export interface MarkerLike {
+    id: string;
+    marker_type: 'teacher' | 'instructor';
+    marker_id: string;
+    user_fingerprint: string;
+    created_at: string;
+}
+
+/**
+ * 마커 좋아요 수 조회
+ */
+export async function fetchMarkerLikeCount(
+    markerType: 'teacher' | 'instructor',
+    markerId: string
+): Promise<number> {
+    const { count, error } = await supabase
+        .from('marker_likes')
+        .select('*', { count: 'exact', head: true })
+        .eq('marker_type', markerType)
+        .eq('marker_id', markerId);
+
+    if (error) {
+        console.error('fetchMarkerLikeCount error:', error);
+        return 0;
+    }
+
+    return count || 0;
+}
+
+/**
+ * 사용자가 좋아요 했는지 확인
+ */
+export async function checkUserLiked(
+    markerType: 'teacher' | 'instructor',
+    markerId: string,
+    fingerprint: string
+): Promise<boolean> {
+    const { data, error } = await supabase
+        .from('marker_likes')
+        .select('id')
+        .eq('marker_type', markerType)
+        .eq('marker_id', markerId)
+        .eq('user_fingerprint', fingerprint)
+        .maybeSingle();
+
+    if (error) {
+        console.error('checkUserLiked error:', error);
+        return false;
+    }
+
+    return !!data;
+}
+
+/**
+ * 마커 좋아요 토글
+ */
+export async function toggleMarkerLike(
+    markerType: 'teacher' | 'instructor',
+    markerId: string,
+    fingerprint: string
+): Promise<{ liked: boolean; count: number }> {
+    // 이미 좋아요 했는지 확인
+    const { data: existing } = await supabase
+        .from('marker_likes')
+        .select('id')
+        .eq('marker_type', markerType)
+        .eq('marker_id', markerId)
+        .eq('user_fingerprint', fingerprint)
+        .maybeSingle();
+
+    if (existing) {
+        // 좋아요 취소
+        await supabase
+            .from('marker_likes')
+            .delete()
+            .eq('id', existing.id);
+
+        const count = await fetchMarkerLikeCount(markerType, markerId);
+        return { liked: false, count };
+    } else {
+        // 좋아요 추가
+        await supabase
+            .from('marker_likes')
+            .insert({
+                marker_type: markerType,
+                marker_id: markerId,
+                user_fingerprint: fingerprint
+            });
+
+        const count = await fetchMarkerLikeCount(markerType, markerId);
+        return { liked: true, count };
+    }
+}
+
+// ============================================================================
+// 교원연수 강사 후기 (Instructor Comments)
+// ============================================================================
+
+export interface InstructorComment {
+    id: string;
+    instructor_id: string;
+    author_name: string;
+    content: string;
+    created_at: string;
+}
+
+export interface InstructorCommentInput {
+    instructor_id: string;
+    author_name?: string;
+    content: string;
+}
+
+/**
+ * 강사 후기 목록 조회
+ */
+export async function fetchInstructorComments(instructorId: string): Promise<InstructorComment[]> {
+    const { data, error } = await supabase
+        .from('instructor_comments')
+        .select('*')
+        .eq('instructor_id', instructorId)
+        .order('created_at', { ascending: false });
+
+    if (error) {
+        console.error('fetchInstructorComments error:', error);
+        throw error;
+    }
+
+    return data || [];
+}
+
+/**
+ * 강사 후기 작성
+ */
+export async function createInstructorComment(input: InstructorCommentInput): Promise<InstructorComment> {
+    const { data, error } = await supabase
+        .from('instructor_comments')
+        .insert({
+            instructor_id: input.instructor_id,
+            author_name: input.author_name || '익명',
+            content: input.content
+        })
+        .select()
+        .single();
+
+    if (error) {
+        console.error('createInstructorComment error:', error);
+        throw error;
+    }
+
+    return data;
+}

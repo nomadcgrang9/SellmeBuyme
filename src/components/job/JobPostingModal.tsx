@@ -28,7 +28,7 @@ const SCHOOL_LEVEL_OPTIONS = [
 interface JobPostingModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (newJob?: JobPostingCard) => void; // 새로 생성된 공고 데이터 전달
   initialCoords?: { lat: number; lng: number } | null;
   initialAddress?: string | null;
   onRequestLocationChange?: () => void;
@@ -243,7 +243,7 @@ export default function JobPostingModal({
         showToast('공고가 수정되었습니다.', 'success');
       } else {
         // 등록 모드
-        await createJobPosting({
+        const newJob = await createJobPosting({
           user_id: user.id,
           organization: organization.trim(),
           title: title.trim(),
@@ -262,6 +262,30 @@ export default function JobPostingModal({
           source: 'user_posted'
         });
         showToast('공고가 등록되었습니다.', 'success');
+        // JobPosting을 JobPostingCard 형식으로 변환하여 낙관적 업데이트에 전달
+        const jobCard: JobPostingCard = {
+          id: newJob.id,
+          type: 'job',
+          isUrgent: newJob.is_urgent,
+          organization: newJob.organization || '',
+          title: newJob.title,
+          tags: [primaryCategory, ...(subCategories || [])].filter(Boolean),
+          location: newJob.location || address,
+          compensation: '', // 사용자 등록 공고는 compensation 정보 없음
+          deadline: newJob.deadline || '',
+          work_period: newJob.work_period || undefined,
+          contact: newJob.contact_phone || undefined,
+          detail_content: newJob.content || undefined,
+          attachment_url: newJob.attachment_url || undefined,
+          latitude: newJob.latitude,
+          longitude: newJob.longitude,
+          school_level: newJob.school_level,
+          source: newJob.source,
+          user_id: newJob.user_id,
+        };
+        onSuccess(jobCard);
+        handleClose();
+        return;
       }
       onSuccess();
       handleClose();

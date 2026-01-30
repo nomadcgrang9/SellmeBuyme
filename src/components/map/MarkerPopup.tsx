@@ -2,14 +2,37 @@
 // Anti-Vibe Design 원칙 적용
 // 작성일: 2026-01-12
 // 수정: 2026-01-29 - 수정/삭제 기능, Gmail 연동 추가
+// 수정: 2026-01-30 - 프로필 이미지, 좋아요, instructor 후기 추가
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Heart, User } from 'lucide-react';
 import { MARKER_COLORS, getTeacherMarkerColor, type TeacherMarker, type ProgramMarker, type MarkerComment } from '@/types/markers';
 import { type InstructorMarker, INSTRUCTOR_MARKER_COLORS } from '@/types/instructorMarkers';
-import { fetchMarkerComments, createMarkerComment, deleteTeacherMarker } from '@/lib/supabase/markers';
+import {
+    fetchMarkerComments,
+    createMarkerComment,
+    deleteTeacherMarker,
+    fetchMarkerLikeCount,
+    checkUserLiked,
+    toggleMarkerLike,
+    fetchInstructorComments,
+    createInstructorComment,
+    type InstructorComment
+} from '@/lib/supabase/markers';
 import { deleteInstructorMarker } from '@/lib/supabase/instructorMarkers';
 import { useAuthStore } from '@/stores/authStore';
+
+// 브라우저 fingerprint 생성 (localStorage 기반)
+function getUserFingerprint(): string {
+    const key = 'sellmebuyme_fingerprint';
+    let fingerprint = localStorage.getItem(key);
+    if (!fingerprint) {
+        fingerprint = crypto.randomUUID();
+        localStorage.setItem(key, fingerprint);
+    }
+    return fingerprint;
+}
 
 interface MarkerPopupProps {
     type: 'teacher' | 'program' | 'instructor';
@@ -23,6 +46,7 @@ interface MarkerPopupProps {
 export default function MarkerPopup({ type, marker, position, onClose, onEdit, onDelete }: MarkerPopupProps) {
     const [showComments, setShowComments] = useState(false);
     const [comments, setComments] = useState<MarkerComment[]>([]);
+    const [instructorComments, setInstructorComments] = useState<InstructorComment[]>([]);
     const [loadingComments, setLoadingComments] = useState(false);
     const [isAddingComment, setIsAddingComment] = useState(false);
     const [newCommentAuthor, setNewCommentAuthor] = useState('');
@@ -31,14 +55,66 @@ export default function MarkerPopup({ type, marker, position, onClose, onEdit, o
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
 
+    // 좋아요 관련 state
+    const [likeCount, setLikeCount] = useState(0);
+    const [isLiked, setIsLiked] = useState(false);
+    const [isLikeLoading, setIsLikeLoading] = useState(false);
+
     // 현재 로그인 유저 확인
     const currentUser = useAuthStore((state) => state.user);
     const isOwner = (type === 'teacher' && currentUser?.id === (marker as TeacherMarker).user_id) ||
-                    (type === 'instructor' && currentUser?.id === (marker as InstructorMarker).user_id);
+        (type === 'instructor' && currentUser?.id === (marker as InstructorMarker).user_id);
 
     // ★ 타입별 색상 적용
     const MAIN_BLUE = '#3B82F6';
     const color = type === 'instructor' ? INSTRUCTOR_MARKER_COLORS.base : MAIN_BLUE;
+
+    // 프로필 이미지 URL 가져오기 (teacher, instructor만)
+    const profileImageUrl = type === 'teacher'
+        ? (marker as TeacherMarker).profile_image_url
+        : type === 'instructor'
+            ? (marker as InstructorMarker).profile_image_url
+            : null;
+
+    // 좋아요 데이터 로드 (teacher, instructor만)
+    useEffect(() => {
+        if (type === 'program') return;
+
+        const loadLikeData = async () => {
+            const fingerprint = getUserFingerprint();
+            const markerType = type as 'teacher' | 'instructor';
+
+            try {
+                const [count, liked] = await Promise.all([
+                    fetchMarkerLikeCount(markerType, marker.id),
+                    checkUserLiked(markerType, marker.id, fingerprint)
+                ]);
+                setLikeCount(count);
+                setIsLiked(liked);
+            } catch (err) {
+                console.error('좋아요 데이터 로드 실패:', err);
+            }
+        };
+
+        loadLikeData();
+    }, [type, marker.id]);
+
+    // 좋아요 토글
+    const handleLike = useCallback(async () => {
+        if (type === 'program' || isLikeLoading) return;
+
+        setIsLikeLoading(true);
+        try {
+            const fingerprint = getUserFingerprint();
+            const result = await toggleMarkerLike(type as 'teacher' | 'instructor', marker.id, fingerprint);
+            setIsLiked(result.liked);
+            setLikeCount(result.count);
+        } catch (err) {
+            console.error('좋아요 토글 실패:', err);
+        } finally {
+            setIsLikeLoading(false);
+        }
+    }, [type, marker.id, isLikeLoading]);
 
     // Gmail로 메일 보내기
     const handleOpenGmail = (email: string, nickname: string) => {
@@ -80,13 +156,17 @@ export default function MarkerPopup({ type, marker, position, onClose, onEdit, o
     };
 
 
-    // 코멘트 로드 (instructor 타입은 지원하지 않음)
+    // 코멘트 로드 (모든 타입 지원)
     const loadComments = async () => {
-        if (type === 'instructor') return;
         setLoadingComments(true);
         try {
-            const data = await fetchMarkerComments(type as 'teacher' | 'program', marker.id);
-            setComments(data);
+            if (type === 'instructor') {
+                const data = await fetchInstructorComments(marker.id);
+                setInstructorComments(data);
+            } else {
+                const data = await fetchMarkerComments(type as 'teacher' | 'program', marker.id);
+                setComments(data);
+            }
         } catch (err) {
             console.error('코멘트 로드 실패:', err);
         } finally {
@@ -102,18 +182,26 @@ export default function MarkerPopup({ type, marker, position, onClose, onEdit, o
         setShowComments(!showComments);
     };
 
-    // 코멘트 제출 (instructor 타입은 지원하지 않음)
+    // 코멘트 제출 (모든 타입 지원)
     const handleSubmitComment = async () => {
-        if (!newCommentContent.trim() || type === 'instructor') return;
+        if (!newCommentContent.trim()) return;
 
         setSubmittingComment(true);
         try {
-            await createMarkerComment({
-                marker_type: type as 'teacher' | 'program',
-                marker_id: marker.id,
-                author_name: newCommentAuthor.trim() || undefined,
-                content: newCommentContent.trim()
-            });
+            if (type === 'instructor') {
+                await createInstructorComment({
+                    instructor_id: marker.id,
+                    author_name: newCommentAuthor.trim() || undefined,
+                    content: newCommentContent.trim()
+                });
+            } else {
+                await createMarkerComment({
+                    marker_type: type as 'teacher' | 'program',
+                    marker_id: marker.id,
+                    author_name: newCommentAuthor.trim() || undefined,
+                    content: newCommentContent.trim()
+                });
+            }
             setNewCommentAuthor('');
             setNewCommentContent('');
             setIsAddingComment(false);
@@ -125,11 +213,21 @@ export default function MarkerPopup({ type, marker, position, onClose, onEdit, o
         }
     };
 
+    // 현재 코멘트 수
+    const commentCount = type === 'instructor' ? instructorComments.length : comments.length;
+
     // 팝업 위치 계산 (화면 밖으로 나가지 않도록)
     const popupStyle = {
         left: Math.min(position.x, window.innerWidth - 320),
         top: Math.min(position.y, window.innerHeight - 400)
     };
+
+    const [imageLoaded, setImageLoaded] = useState(false);
+
+    // 팝업이 닫히거나 마커가 바뀌면 이미지 로딩 상태 초기화
+    useEffect(() => {
+        setImageLoaded(false);
+    }, [marker.id]);
 
     return (
         <AnimatePresence>
@@ -199,19 +297,67 @@ export default function MarkerPopup({ type, marker, position, onClose, onEdit, o
 
                 {/* 본문 */}
                 <div className="p-4 space-y-3 max-h-64 overflow-y-auto">
+                    {/* 프로필 이미지 (teacher, instructor) */}
+                    {(type === 'teacher' || type === 'instructor') && (
+                        <div className="flex items-start gap-3 mb-3">
+                            {profileImageUrl ? (
+                                <div className="relative w-12 h-12 flex-shrink-0">
+                                    {/* 스켈레톤 로더 */}
+                                    {!imageLoaded && (
+                                        <div className="absolute inset-0 bg-gray-200 animate-pulse rounded-full" />
+                                    )}
+                                    {/* 실제 이미지 */}
+                                    <img
+                                        src={profileImageUrl}
+                                        alt="프로필"
+                                        onLoad={() => setImageLoaded(true)}
+                                        className={`w-12 h-12 rounded-full object-cover border border-gray-200 transition-opacity duration-300 ${imageLoaded ? 'opacity-100' : 'opacity-0'
+                                            }`}
+                                    />
+                                </div>
+                            ) : (
+                                <div
+                                    className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0"
+                                    style={{ backgroundColor: `${color}15` }}
+                                >
+                                    <User size={20} style={{ color }} />
+                                </div>
+                            )}
+                            <div className="flex-1 min-w-0">
+                                {type === 'teacher' ? (
+                                    <>
+                                        {(marker as TeacherMarker).subjects && (marker as TeacherMarker).subjects!.length > 0 && (
+                                            <div className="flex flex-wrap gap-1 mb-1">
+                                                {(marker as TeacherMarker).subjects!.slice(0, 3).map((s, i) => (
+                                                    <span key={i} className="text-xs px-2 py-0.5 bg-gray-100 text-gray-700 rounded-full">{s}</span>
+                                                ))}
+                                            </div>
+                                        )}
+                                        {(marker as TeacherMarker).experience_years && (
+                                            <span className="text-xs text-gray-500">{(marker as TeacherMarker).experience_years}</span>
+                                        )}
+                                    </>
+                                ) : (
+                                    <>
+                                        {(marker as InstructorMarker).specialties && (marker as InstructorMarker).specialties.length > 0 && (
+                                            <div className="flex flex-wrap gap-1 mb-1">
+                                                {(marker as InstructorMarker).specialties.slice(0, 3).map((s, i) => (
+                                                    <span key={i} className="text-xs px-2 py-0.5 bg-pink-50 text-pink-700 rounded-full">{s}</span>
+                                                ))}
+                                            </div>
+                                        )}
+                                        {(marker as InstructorMarker).experience_years && (
+                                            <span className="text-xs text-gray-500">{(marker as InstructorMarker).experience_years}</span>
+                                        )}
+                                    </>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
                     {type === 'teacher' ? (
                         // 구직 교사 마커 내용
                         <>
-                            {(marker as TeacherMarker).subjects && (marker as TeacherMarker).subjects!.length > 0 && (
-                                <div className="flex items-start gap-2">
-                                    <span className="text-xs text-gray-500 w-12 flex-shrink-0">과목</span>
-                                    <div className="flex flex-wrap gap-1">
-                                        {(marker as TeacherMarker).subjects!.map((s, i) => (
-                                            <span key={i} className="text-xs px-2 py-0.5 bg-gray-100 text-gray-700 rounded-full">{s}</span>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
                             {(marker as TeacherMarker).school_levels && (marker as TeacherMarker).school_levels!.length > 0 && (
                                 <div className="flex items-start gap-2">
                                     <span className="text-xs text-gray-500 w-12 flex-shrink-0">학교급</span>
@@ -220,12 +366,6 @@ export default function MarkerPopup({ type, marker, position, onClose, onEdit, o
                                             <span key={i} className="text-xs px-2 py-0.5 bg-gray-100 text-gray-700 rounded-full">{l}</span>
                                         ))}
                                     </div>
-                                </div>
-                            )}
-                            {(marker as TeacherMarker).experience_years && (
-                                <div className="flex items-center gap-2">
-                                    <span className="text-xs text-gray-500 w-12 flex-shrink-0">경력</span>
-                                    <span className="text-xs text-gray-700">{(marker as TeacherMarker).experience_years}</span>
                                 </div>
                             )}
                             {(marker as TeacherMarker).introduction && (
@@ -239,16 +379,6 @@ export default function MarkerPopup({ type, marker, position, onClose, onEdit, o
                     ) : type === 'instructor' ? (
                         // 교원연수 강사 마커 내용
                         <>
-                            {(marker as InstructorMarker).specialties && (marker as InstructorMarker).specialties.length > 0 && (
-                                <div className="flex items-start gap-2">
-                                    <span className="text-xs text-gray-500 w-14 flex-shrink-0">전문분야</span>
-                                    <div className="flex flex-wrap gap-1">
-                                        {(marker as InstructorMarker).specialties.map((s, i) => (
-                                            <span key={i} className="text-xs px-2 py-0.5 bg-pink-50 text-pink-700 rounded-full">{s}</span>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
                             {(marker as InstructorMarker).target_audience && (marker as InstructorMarker).target_audience.length > 0 && (
                                 <div className="flex items-start gap-2">
                                     <span className="text-xs text-gray-500 w-14 flex-shrink-0">연수대상</span>
@@ -267,12 +397,6 @@ export default function MarkerPopup({ type, marker, position, onClose, onEdit, o
                                             <span key={i} className="text-xs px-2 py-0.5 bg-gray-100 text-gray-700 rounded-full">{r}</span>
                                         ))}
                                     </div>
-                                </div>
-                            )}
-                            {(marker as InstructorMarker).experience_years && (
-                                <div className="flex items-center gap-2">
-                                    <span className="text-xs text-gray-500 w-14 flex-shrink-0">경력</span>
-                                    <span className="text-xs text-gray-700">{(marker as InstructorMarker).experience_years}</span>
                                 </div>
                             )}
                             {(marker as InstructorMarker).activity_history && (
@@ -377,21 +501,58 @@ export default function MarkerPopup({ type, marker, position, onClose, onEdit, o
                     </div>
                 </div>
 
-                {/* 후기 섹션 (instructor 타입은 지원하지 않음) */}
-                {type !== 'instructor' && (
-                <div className="border-t border-gray-100">
-                    <button
-                        onClick={toggleComments}
-                        className="w-full px-4 py-2.5 flex items-center justify-between text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors"
-                    >
-                        <span>후기 {comments.length > 0 ? `(${comments.length})` : ''}</span>
-                        <svg
-                            className={`w-4 h-4 transition-transform ${showComments ? 'rotate-180' : ''}`}
-                            fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                {/* 좋아요 + 후기 토글 바 (teacher, instructor만) */}
+                {type !== 'program' && (
+                    <div className="flex items-center justify-between px-4 py-2 border-t border-gray-100">
+                        {/* 좋아요 */}
+                        <button
+                            onClick={handleLike}
+                            disabled={isLikeLoading}
+                            className="flex items-center gap-1.5 text-sm disabled:opacity-50 transition-colors"
                         >
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
-                    </button>
+                            <Heart
+                                size={16}
+                                fill={isLiked ? '#EF4444' : 'none'}
+                                className={isLiked ? 'text-red-500' : 'text-gray-400'}
+                            />
+                            <span className={isLiked ? 'text-red-500 font-medium' : 'text-gray-500'}>
+                                {likeCount}
+                            </span>
+                        </button>
+
+                        {/* 후기 토글 */}
+                        <button
+                            onClick={toggleComments}
+                            className="flex items-center gap-1.5 text-xs font-medium text-gray-600 hover:text-gray-800 transition-colors"
+                        >
+                            <span>후기 {commentCount > 0 ? `(${commentCount})` : ''}</span>
+                            <svg
+                                className={`w-4 h-4 transition-transform ${showComments ? 'rotate-180' : ''}`}
+                                fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                            >
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </button>
+                    </div>
+                )}
+
+                {/* 후기 섹션 (모든 타입 지원) */}
+                <div className="border-t border-gray-100">
+                    {/* program 타입은 후기 토글 버튼을 여기에 */}
+                    {type === 'program' && (
+                        <button
+                            onClick={toggleComments}
+                            className="w-full px-4 py-2.5 flex items-center justify-between text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+                        >
+                            <span>후기 {commentCount > 0 ? `(${commentCount})` : ''}</span>
+                            <svg
+                                className={`w-4 h-4 transition-transform ${showComments ? 'rotate-180' : ''}`}
+                                fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                            >
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </button>
+                    )}
 
                     <AnimatePresence>
                         {showComments && (
@@ -404,21 +565,37 @@ export default function MarkerPopup({ type, marker, position, onClose, onEdit, o
                                 <div className="px-4 pb-3 space-y-2">
                                     {loadingComments ? (
                                         <div className="py-3 text-center text-xs text-gray-400">불러오는 중...</div>
-                                    ) : comments.length === 0 ? (
+                                    ) : commentCount === 0 ? (
                                         <div className="py-3 text-center text-xs text-gray-400">아직 후기가 없습니다</div>
                                     ) : (
                                         <div className="max-h-32 overflow-y-auto space-y-2">
-                                            {comments.map((comment) => (
-                                                <div key={comment.id} className="p-2 bg-gray-50 rounded-lg">
-                                                    <div className="flex items-center justify-between mb-1">
-                                                        <span className="text-xs font-medium text-gray-700">{comment.author_name}</span>
-                                                        <span className="text-[10px] text-gray-400">
-                                                            {new Date(comment.created_at).toLocaleDateString('ko-KR')}
-                                                        </span>
+                                            {type === 'instructor' ? (
+                                                // instructor 후기
+                                                instructorComments.map((comment) => (
+                                                    <div key={comment.id} className="p-2 bg-gray-50 rounded-lg">
+                                                        <div className="flex items-center justify-between mb-1">
+                                                            <span className="text-xs font-medium text-gray-700">{comment.author_name}</span>
+                                                            <span className="text-[10px] text-gray-400">
+                                                                {new Date(comment.created_at).toLocaleDateString('ko-KR')}
+                                                            </span>
+                                                        </div>
+                                                        <p className="text-xs text-gray-600">{comment.content}</p>
                                                     </div>
-                                                    <p className="text-xs text-gray-600">{comment.content}</p>
-                                                </div>
-                                            ))}
+                                                ))
+                                            ) : (
+                                                // teacher, program 후기
+                                                comments.map((comment) => (
+                                                    <div key={comment.id} className="p-2 bg-gray-50 rounded-lg">
+                                                        <div className="flex items-center justify-between mb-1">
+                                                            <span className="text-xs font-medium text-gray-700">{comment.author_name}</span>
+                                                            <span className="text-[10px] text-gray-400">
+                                                                {new Date(comment.created_at).toLocaleDateString('ko-KR')}
+                                                            </span>
+                                                        </div>
+                                                        <p className="text-xs text-gray-600">{comment.content}</p>
+                                                    </div>
+                                                ))
+                                            )}
                                         </div>
                                     )}
 
@@ -469,7 +646,6 @@ export default function MarkerPopup({ type, marker, position, onClose, onEdit, o
                         )}
                     </AnimatePresence>
                 </div>
-                )}
             </motion.div>
 
             {/* 삭제 확인 모달 */}
