@@ -150,10 +150,12 @@ export async function crawlNttPattern(page, config) {
       const debugInfo = await page.evaluate(() => {
         const tables = document.querySelectorAll('table');
         const links = document.querySelectorAll('a[data-id], a.nttInfoBtn');
+        // document.body가 null일 수 있으므로 안전하게 처리
+        const bodyText = document.body ? document.body.innerText : '';
         return {
           tableCount: tables.length,
           linkCount: links.length,
-          bodyPreview: document.body.innerText.substring(0, 500)
+          bodyPreview: bodyText ? bodyText.substring(0, 500) : '(body empty or null)'
         };
       });
       console.log('디버그 정보:', debugInfo);
