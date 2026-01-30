@@ -112,6 +112,10 @@ else if (pathname.match(/^\/chat\/.+/)) {
 else if (pathname.startsWith('/chat')) {
   rootComponent = <MobileChat />
 }
+// Early Access 경로 (구직등록/강사등록 사전 개방)
+else if (pathname === '/earlyteacher2026') {
+  rootComponent = <NewLanding />
+}
 // 기존 App 접근 경로 (레거시)
 else if (pathname.startsWith('/legacy') || pathname.startsWith('/old')) {
   rootComponent = <App />

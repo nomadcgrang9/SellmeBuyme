@@ -22,6 +22,7 @@ interface UseFilteredIdeasResult {
   refetch: () => Promise<void>;
   createNewIdea: (data: {
     authorName: string;
+    title: string;
     content: string;
     category: IdeaCategory;
     images: File[];
@@ -29,6 +30,7 @@ interface UseFilteredIdeasResult {
   }) => Promise<void>;
   updateIdeaItem: (id: string, data: {
     authorName: string;
+    title: string;
     content: string;
     category: IdeaCategory;
     images: File[];
@@ -80,6 +82,7 @@ export function useFilteredIdeas(): UseFilteredIdeasResult {
 
   const createNewIdea = async (data: {
     authorName: string;
+    title: string;
     content: string;
     category: IdeaCategory;
     images: File[];
@@ -101,7 +104,7 @@ export function useFilteredIdeas(): UseFilteredIdeasResult {
 
       // 아이디어 생성
       const newIdea = await createIdea({
-        title: '', // 제목 없음
+        title: data.title,
         content: data.content,
         category: data.category,
         images: imageUrls,
@@ -119,6 +122,7 @@ export function useFilteredIdeas(): UseFilteredIdeasResult {
 
   const updateIdeaItem = async (id: string, data: {
     authorName: string;
+    title: string;
     content: string;
     category: IdeaCategory;
     images: File[];
@@ -142,6 +146,7 @@ export function useFilteredIdeas(): UseFilteredIdeasResult {
 
       // 아이디어 업데이트
       const updatedIdea = await updateIdea(id, {
+        title: data.title,
         content: data.content,
         category: data.category,
         images: [...existingImages, ...newImageUrls],

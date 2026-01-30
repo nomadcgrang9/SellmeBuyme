@@ -14,14 +14,13 @@ export interface CascadingFilter {
   tertiary: string | null;
 }
 
-// 1차 카테고리 목록
+// 1차 카테고리 목록 (교원연수는 레이어 토글로 제어하므로 필터바에서 제외)
 export const PRIMARY_CATEGORIES: { key: PrimaryCategory; label: string; mobileLabel: string }[] = [
   { key: '유치원', label: '유치원', mobileLabel: '유' },
   { key: '초등담임', label: '초등담임', mobileLabel: '초담' },
   { key: '교과과목', label: '교과과목', mobileLabel: '교과' },
   { key: '비교과', label: '비교과', mobileLabel: '비교과' },
   { key: '특수', label: '특수', mobileLabel: '특수' },
-  { key: '교원연수', label: '교원연수', mobileLabel: '연수' },
   { key: '방과후/돌봄', label: '방과후/돌봄', mobileLabel: '방과후/돌봄' },
   { key: '행정·교육지원', label: '행정·교육지원', mobileLabel: '행정' },
   { key: '기타', label: '기타', mobileLabel: '기타' },

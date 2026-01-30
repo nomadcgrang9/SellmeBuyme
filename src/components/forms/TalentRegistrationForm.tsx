@@ -5,6 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { talentRegistrationSchema, type TalentRegistrationFormData } from '@/lib/validation/formSchemas';
 import FormLayout from './FormLayout';
 import RegionSelector from './RegionSelector';
+import RegionSearchInput, { type RegionData } from './RegionSearchInput';
 import SpecialtySelector from './SpecialtySelector';
 import { useState } from 'react';
 
@@ -28,6 +29,7 @@ export default function TalentRegistrationForm({ onClose, onSubmit, mode = 'crea
   } = useForm<TalentRegistrationFormData>({
     resolver: zodResolver(talentRegistrationSchema),
     defaultValues: {
+      markerLocation: initialData?.markerLocation ?? undefined,
       name: initialData?.name ?? '',
       specialty: {
         contractTeacher: {
@@ -63,6 +65,7 @@ export default function TalentRegistrationForm({ onClose, onSubmit, mode = 'crea
   const specialty = watch('specialty');
   const location = watch('location');
   const experience = watch('experience');
+  const markerLocation = watch('markerLocation');
 
   const handleFormSubmit = async (data: TalentRegistrationFormData) => {
     setIsSubmitting(true);
@@ -89,6 +92,18 @@ export default function TalentRegistrationForm({ onClose, onSubmit, mode = 'crea
       onSubmit={handleSubmit(handleFormSubmit)}
       isSubmitting={isSubmitting}
     >
+      {/* 위치 선택 (전체 너비) */}
+      <div className="mb-4">
+        <label className="text-[14px] font-semibold text-gray-700 block mb-1">
+          위치 <span className="text-red-500">*</span>
+        </label>
+        <RegionSearchInput
+          value={markerLocation as RegionData | null}
+          onChange={(region) => setValue('markerLocation', region ?? undefined)}
+          error={errors.markerLocation?.regionName?.message as string}
+        />
+      </div>
+
       {/* 3단 컬럼 그리드 */}
       <div className="grid grid-cols-3 gap-x-2 gap-y-1">
 

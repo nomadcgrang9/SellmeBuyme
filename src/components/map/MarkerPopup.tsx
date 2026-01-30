@@ -34,6 +34,9 @@ function getUserFingerprint(): string {
     return fingerprint;
 }
 
+// Super Admin 이메일 목록 (모든 마커 삭제 가능)
+const SUPER_ADMIN_EMAILS = ['l30417305@gmail.com'];
+
 interface MarkerPopupProps {
     type: 'teacher' | 'program' | 'instructor';
     marker: TeacherMarker | ProgramMarker | InstructorMarker;
@@ -62,8 +65,10 @@ export default function MarkerPopup({ type, marker, position, onClose, onEdit, o
 
     // 현재 로그인 유저 확인
     const currentUser = useAuthStore((state) => state.user);
+    const isSuperAdmin = currentUser?.email && SUPER_ADMIN_EMAILS.includes(currentUser.email);
     const isOwner = (type === 'teacher' && currentUser?.id === (marker as TeacherMarker).user_id) ||
         (type === 'instructor' && currentUser?.id === (marker as InstructorMarker).user_id);
+    const canDelete = isOwner || isSuperAdmin;
 
     // ★ 타입별 색상 적용
     const MAIN_BLUE = '#3B82F6';
@@ -124,11 +129,11 @@ export default function MarkerPopup({ type, marker, position, onClose, onEdit, o
 
     // 마커 삭제 핸들러
     const handleDelete = async () => {
-        if (!isOwner) return;
+        if (!canDelete) return;
 
         // 디버그: currentUser 확인
         console.log('[handleDelete] currentUser:', currentUser);
-        console.log('[handleDelete] currentUser.id:', currentUser?.id);
+        console.log('[handleDelete] isSuperAdmin:', isSuperAdmin);
         console.log('[handleDelete] marker.id:', marker.id);
         console.log('[handleDelete] type:', type);
 
@@ -139,10 +144,13 @@ export default function MarkerPopup({ type, marker, position, onClose, onEdit, o
 
         setIsDeleting(true);
         try {
+            // Super Admin은 user_id 체크 없이 삭제 가능
+            const userIdForDelete = isSuperAdmin ? undefined : currentUser.id;
+
             if (type === 'teacher') {
-                await deleteTeacherMarker(marker.id, currentUser.id);
+                await deleteTeacherMarker(marker.id, userIdForDelete);
             } else if (type === 'instructor') {
-                await deleteInstructorMarker(marker.id, currentUser.id);
+                await deleteInstructorMarker(marker.id, userIdForDelete);
             }
             onDelete?.();
             onClose();
@@ -272,8 +280,8 @@ export default function MarkerPopup({ type, marker, position, onClose, onEdit, o
                         </span>
                     </div>
                     <div className="flex items-center gap-1">
-                        {/* 삭제 버튼만 - 본인 마커인 경우만 표시 (수정 버튼 삭제) */}
-                        {isOwner && (
+                        {/* 삭제 버튼 - 본인 마커 또는 Super Admin만 표시 */}
+                        {canDelete && (
                             <button
                                 onClick={() => setShowDeleteConfirm(true)}
                                 className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"

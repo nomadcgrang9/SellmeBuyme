@@ -11,7 +11,7 @@ import { ProjectDetailModal } from '@/components/developer/ProjectDetailModal';
 import { CollapsibleSection } from '@/components/developer/CollapsibleSection';
 import FilterButton from '@/components/developer/FilterButton';
 import PaginationDots from '@/components/developer/PaginationDots';
-import IdeaCard from '@/components/developer/IdeaCard';
+import IdeaList from '@/components/developer/IdeaList';
 import BoardSubmissionCard from '@/components/developer/BoardSubmissionCard';
 import ProjectCard from '@/components/developer/ProjectCard';
 import ProjectFormModal from '@/components/developer/ProjectFormModal';
@@ -305,49 +305,22 @@ export default function DeveloperPage() {
             title="아이디어 살펴보기"
             icon={<Lightbulb className="w-5 h-5" />}
             defaultOpen={false}
-            filterButton={
-              <FilterButton
-                options={[
-                  { value: 'all', label: '전체' },
-                  { value: 'feature', label: '💡 새기능' },
-                  { value: 'bug', label: '🐛 버그' },
-                  { value: 'design', label: '🎨 디자인' },
-                  { value: 'other', label: '📌 기타' },
-                ]}
-                value={ideaFilter}
-                onChange={(v) => setIdeaFilter(v as any)}
-              />
-            }
           >
             <div className="p-4 space-y-4">
-
-              {/* 아이디어 카드 리스트 */}
-              {ideasLoading ? (
-                <div className="text-center py-8 text-gray-500">로딩 중...</div>
-              ) : ideasError ? (
-                <div className="text-center py-8 text-red-500">
-                  아이디어를 불러올 수 없습니다
-                </div>
-              ) : ideas.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  아이디어가 없습니다
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {ideas.map((idea) => (
-                    <IdeaCard
-                      key={idea.id}
-                      idea={idea}
-                      onEdit={() => {
-                        setEditingIdea(idea);
-                        setShowIdeaForm(true);
-                      }}
-                      onDelete={() => deleteIdeaItem(idea.id)}
-                      onToggleTodo={(todoId) => toggleIdeaTodo(idea.id, todoId)}
-                    />
-                  ))}
-                </div>
-              )}
+              {/* 검색 + 필터 + 카드 리스트 통합 컴포넌트 */}
+              <IdeaList
+                ideas={ideas}
+                loading={ideasLoading}
+                error={ideasError}
+                filter={ideaFilter}
+                onFilterChange={setIdeaFilter}
+                onEdit={(idea) => {
+                  setEditingIdea(idea);
+                  setShowIdeaForm(true);
+                }}
+                onDelete={(id) => deleteIdeaItem(id)}
+                onToggleTodo={(ideaId, todoId) => toggleIdeaTodo(ideaId, todoId)}
+              />
 
               {/* 페이지네이션 */}
               <PaginationDots

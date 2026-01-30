@@ -126,14 +126,19 @@ export default function IdeaCard({
       <div className="p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1 min-w-0">
-            {/* 카테고리 배지 */}
-            <div className="mb-2">
-              <CategoryBadge category={idea.category} />
+            {/* 카테고리 배지 + 제목 */}
+            <div className="flex items-center gap-2 mb-2">
+              <CategoryBadge category={idea.category} showIcon={false} />
+              {idea.title && (
+                <h3 className="text-base font-semibold text-gray-800 line-clamp-1">
+                  {idea.title}
+                </h3>
+              )}
             </div>
 
-            {/* 내용 미리보기 (접힌 상태) */}
+            {/* 내용 미리보기 (접힌 상태) - 제목이 있으면 1줄, 없으면 2줄 */}
             {!isExpanded && (
-              <p className="text-sm text-gray-700 line-clamp-2 break-words">
+              <p className={`text-sm text-gray-600 break-words ${idea.title ? 'line-clamp-1' : 'line-clamp-2'}`}>
                 {linkifyText(idea.content)}
               </p>
             )}

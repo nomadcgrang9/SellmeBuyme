@@ -124,3 +124,72 @@ function getCityFromCoordinates(lat: number, lng: number): KakaoAddress {
   // 매칭 실패 시 빈 값 반환
   return { city: '', district: '' };
 }
+
+// ========================================
+// 주소 → 좌표 변환 (Forward Geocoding)
+// ========================================
+
+declare global {
+  interface Window {
+    kakao: any;
+  }
+}
+
+interface Coordinates {
+  lat: number;
+  lng: number;
+}
+
+/**
+ * 주소를 좌표로 변환 (Geocoding)
+ * 랜덤 오프셋을 적용하여 정확한 위치 노출 방지 (개인정보 보호)
+ *
+ * @param address - 전체 주소 문자열 (예: "경기도 용인시 기흥구")
+ * @param offsetMeters - 랜덤 오프셋 범위 (미터 단위, 기본값: 500m)
+ * @returns Promise<Coordinates> - 랜덤 오프셋이 적용된 좌표
+ */
+export async function getRandomizedCoordsFromAddress(
+  address: string,
+  offsetMeters: number = 500
+): Promise<Coordinates> {
+  return new Promise((resolve, reject) => {
+    if (!window.kakao?.maps?.services) {
+      reject(new Error('Kakao Maps API가 로드되지 않았습니다.'));
+      return;
+    }
+
+    const geocoder = new window.kakao.maps.services.Geocoder();
+    geocoder.addressSearch(address, (result: any[], status: any) => {
+      if (status === window.kakao.maps.services.Status.OK && result.length > 0) {
+        const { x, y } = result[0];
+
+        // 미터를 위도/경도 오프셋으로 변환 (대략적 계산)
+        // 위도 1도 ≈ 111km, 경도 1도 ≈ 88km (한국 기준)
+        const latOffset = offsetMeters / 111000;
+        const lngOffset = offsetMeters / 88000;
+
+        // 랜덤 오프셋 생성 (-1 ~ 1 범위)
+        const randomLat = (Math.random() - 0.5) * 2 * latOffset;
+        const randomLng = (Math.random() - 0.5) * 2 * lngOffset;
+
+        resolve({
+          lat: parseFloat(y) + randomLat,
+          lng: parseFloat(x) + randomLng
+        });
+      } else {
+        reject(new Error('주소를 찾을 수 없습니다.'));
+      }
+    });
+  });
+}
+
+/**
+ * 좌표가 유효한 한국 영역 범위 내인지 확인
+ * (한국 영역 대략적 범위: 33°~43° N, 124°~132° E)
+ */
+export function isValidKoreaCoords(coords: Coordinates): boolean {
+  return (
+    coords.lat >= 33 && coords.lat <= 43 &&
+    coords.lng >= 124 && coords.lng <= 132
+  );
+}

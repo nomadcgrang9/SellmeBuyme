@@ -3,7 +3,7 @@
 // 작성일: 2026-01-29
 // 수정: 색상 통일(스카이블루), 위치 선택 추가
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   INSTRUCTOR_SPECIALTIES,
@@ -21,6 +21,8 @@ import {
 } from '@/lib/supabase/instructorMarkers';
 import { useAuthStore } from '@/stores/authStore';
 import { useToastStore } from '@/stores/toastStore';
+import RegionSearchInput, { type RegionData } from '@/components/forms/RegionSearchInput';
+import { getRandomizedCoordsFromAddress } from '@/lib/utils/geocoding';
 
 interface InstructorMarkerModalProps {
   isOpen: boolean;
@@ -44,8 +46,7 @@ export default function InstructorMarkerModal({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // 위치 정보
-  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
-  const [address, setAddress] = useState<string>('');
+  const [regionData, setRegionData] = useState<RegionData | null>(null);
 
   // 기본 정보
   const [displayName, setDisplayName] = useState(generateRandomNickname());
@@ -78,11 +79,10 @@ export default function InstructorMarkerModal({
   // 초기값 설정
   useEffect(() => {
     if (isOpen) {
-      setCoords(initialCoords || null);
-      setAddress(initialAddress || '');
+      setRegionData(null);
       setEmail(user?.email || '');
     }
-  }, [isOpen, initialCoords, initialAddress, user?.email]);
+  }, [isOpen, user?.email]);
 
   // 닉네임 재생성
   const regenerateNickname = () => {
@@ -167,17 +167,10 @@ export default function InstructorMarkerModal({
     }
   };
 
-  // 위치 변경 요청
-  const handleLocationChange = useCallback(() => {
-    if (onRequestLocationChange) {
-      onRequestLocationChange();
-    }
-  }, [onRequestLocationChange]);
-
   // 제출
   const handleSubmit = async () => {
     // 유효성 검사
-    if (!coords) {
+    if (!regionData) {
       setError('위치를 선택해주세요.');
       return;
     }
@@ -221,6 +214,9 @@ export default function InstructorMarkerModal({
         profileImageUrl = await uploadInstructorProfileImage(profileImage, user.id);
       }
 
+      // 지역 주소 기반 랜덤 좌표 생성 (±500m 오프셋 적용)
+      const coords = await getRandomizedCoordsFromAddress(regionData.fullAddress);
+
       const input: InstructorMarkerInput = {
         user_id: user.id,
         latitude: coords.lat,
@@ -254,8 +250,7 @@ export default function InstructorMarkerModal({
 
   // 모달 닫기 시 상태 초기화
   const handleClose = () => {
-    setCoords(null);
-    setAddress('');
+    setRegionData(null);
     setDisplayName(generateRandomNickname());
     setEmail(user?.email || '');
     setSpecialties([]);
@@ -274,7 +269,7 @@ export default function InstructorMarkerModal({
 
   // 폼 유효성 체크
   const isFormValid =
-    coords &&
+    regionData &&
     displayName.trim() &&
     email.trim() &&
     specialties.length > 0 &&
@@ -338,24 +333,10 @@ export default function InstructorMarkerModal({
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                   희망 활동 위치 <span className="text-red-500">*</span>
                 </label>
-                <div className="flex items-center justify-between p-3 bg-gray-50 border border-gray-200 rounded-lg">
-                  <div className="flex items-center gap-2 text-sm text-gray-700">
-                    <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
-                    <span className="truncate max-w-[250px]">
-                      {address || '위치를 선택해주세요'}
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleLocationChange}
-                    className="text-xs text-sky-600 hover:text-sky-700 font-medium whitespace-nowrap"
-                  >
-                    변경
-                  </button>
-                </div>
+                <RegionSearchInput
+                  value={regionData}
+                  onChange={setRegionData}
+                />
               </section>
 
               {/* ========== 기본 정보 ========== */}

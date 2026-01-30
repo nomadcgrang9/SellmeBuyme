@@ -3,7 +3,7 @@
 // Anti-Vibe Design 원칙 적용
 // 작성일: 2026-01-29
 
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     generateRandomNickname,
@@ -20,6 +20,8 @@ import {
 import { createTeacherMarker, uploadMarkerImage } from '@/lib/supabase/markers';
 import { useAuthStore } from '@/stores/authStore';
 import { useToastStore } from '@/stores/toastStore';
+import RegionSearchInput, { type RegionData } from '@/components/forms/RegionSearchInput';
+import { getRandomizedCoordsFromAddress } from '@/lib/utils/geocoding';
 
 interface TeacherMarkerModalProps {
     isOpen: boolean;
@@ -43,8 +45,7 @@ export default function TeacherMarkerModal({
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     // 폼 상태
-    const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
-    const [address, setAddress] = useState<string>('');
+    const [regionData, setRegionData] = useState<RegionData | null>(null);
     const [nickname, setNickname] = useState(generateRandomNickname());
     const [email, setEmail] = useState('');
 
@@ -72,11 +73,10 @@ export default function TeacherMarkerModal({
     // 초기값 설정
     useEffect(() => {
         if (isOpen) {
-            setCoords(initialCoords || null);
-            setAddress(initialAddress || '');
+            setRegionData(null);
             setEmail(user?.email || '');
         }
-    }, [isOpen, initialCoords, initialAddress, user?.email]);
+    }, [isOpen, user?.email]);
 
     // 닉네임 재생성
     const regenerateNickname = () => {
@@ -182,17 +182,10 @@ export default function TeacherMarkerModal({
         }
     };
 
-    // 위치 변경 요청
-    const handleLocationChange = useCallback(() => {
-        if (onRequestLocationChange) {
-            onRequestLocationChange();
-        }
-    }, [onRequestLocationChange]);
-
     // 제출
     const handleSubmit = async () => {
         // 유효성 검사
-        if (!coords) {
+        if (!regionData) {
             setError('위치를 선택해주세요.');
             return;
         }
@@ -229,6 +222,9 @@ export default function TeacherMarkerModal({
                 profileImageUrl = await uploadMarkerImage(profileImage, 'teacher', tempId);
             }
 
+            // 지역 주소 기반 랜덤 좌표 생성 (±500m 오프셋 적용)
+            const coords = await getRandomizedCoordsFromAddress(regionData.fullAddress);
+
             const input: TeacherMarkerInput = {
                 user_id: user.id,
                 latitude: coords.lat,
@@ -263,8 +259,7 @@ export default function TeacherMarkerModal({
 
     // 모달 닫기 시 상태 초기화
     const handleClose = () => {
-        setCoords(null);
-        setAddress('');
+        setRegionData(null);
         setNickname(generateRandomNickname());
         setEmail(user?.email || '');
         setPrimaryCategory(null);
@@ -353,24 +348,10 @@ export default function TeacherMarkerModal({
                                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                                     희망 활동 위치 <span className="text-red-500">*</span>
                                 </label>
-                                <div className="flex items-center justify-between p-3 bg-gray-50 border border-gray-200 rounded-lg">
-                                    <div className="flex items-center gap-2 text-sm text-gray-700">
-                                        <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                                        </svg>
-                                        <span className="truncate max-w-[250px]">
-                                            {address || '위치를 선택해주세요'}
-                                        </span>
-                                    </div>
-                                    <button
-                                        type="button"
-                                        onClick={handleLocationChange}
-                                        className="text-xs text-sky-600 hover:text-sky-700 font-medium whitespace-nowrap"
-                                    >
-                                        변경
-                                    </button>
-                                </div>
+                                <RegionSearchInput
+                                    value={regionData}
+                                    onChange={setRegionData}
+                                />
                             </section>
 
                             {/* ========== 기본 정보 ========== */}
@@ -711,7 +692,7 @@ export default function TeacherMarkerModal({
                             <button
                                 type="button"
                                 onClick={handleSubmit}
-                                disabled={isSubmitting || !coords || !primaryCategory || !privacyAgreed}
+                                disabled={isSubmitting || !regionData || !primaryCategory || !privacyAgreed}
                                 className="w-full py-3 text-sm font-semibold text-white rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed bg-sky-500 hover:bg-sky-600"
                                 style={{
                                     boxShadow: '0 4px 14px rgba(14, 165, 233, 0.4)'

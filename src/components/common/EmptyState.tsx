@@ -1,6 +1,6 @@
 import { ReactNode } from 'react';
 import { motion } from 'framer-motion';
-import { IconSearch, IconMapPin, IconFilter, IconRefresh } from '@tabler/icons-react';
+import { IconSearch, IconMapPin, IconFilter, IconRefresh, IconClipboard } from '@tabler/icons-react';
 
 interface EmptyStateAction {
   label: string;
@@ -35,20 +35,12 @@ function SearchIllustration() {
       <motion.div
         initial={{ scale: 0.8, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        transition={{ duration: 0.5 }}
+        transition={{ duration: 0.4 }}
         className="absolute inset-0 flex items-center justify-center"
       >
-        <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-100 to-blue-50 flex items-center justify-center">
-          <IconSearch size={36} className="text-blue-400" stroke={1.5} />
+        <div className="w-20 h-20 rounded-full bg-gray-50 border border-gray-100 flex items-center justify-center">
+          <IconSearch size={32} className="text-gray-400" stroke={1.5} />
         </div>
-      </motion.div>
-      <motion.div
-        initial={{ scale: 0, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        transition={{ delay: 0.3, duration: 0.3 }}
-        className="absolute -right-1 -bottom-1 w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center"
-      >
-        <span className="text-lg">🔍</span>
       </motion.div>
     </div>
   );
@@ -60,20 +52,12 @@ function FilterIllustration() {
       <motion.div
         initial={{ scale: 0.8, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        transition={{ duration: 0.5 }}
+        transition={{ duration: 0.4 }}
         className="absolute inset-0 flex items-center justify-center"
       >
-        <div className="w-20 h-20 rounded-full bg-gradient-to-br from-purple-100 to-purple-50 flex items-center justify-center">
-          <IconFilter size={36} className="text-purple-400" stroke={1.5} />
+        <div className="w-20 h-20 rounded-full bg-gray-50 border border-gray-100 flex items-center justify-center">
+          <IconFilter size={32} className="text-gray-400" stroke={1.5} />
         </div>
-      </motion.div>
-      <motion.div
-        initial={{ scale: 0, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        transition={{ delay: 0.3, duration: 0.3 }}
-        className="absolute -right-1 -bottom-1 w-8 h-8 rounded-full bg-green-100 flex items-center justify-center"
-      >
-        <span className="text-lg">✨</span>
       </motion.div>
     </div>
   );
@@ -85,20 +69,12 @@ function LocationIllustration() {
       <motion.div
         initial={{ scale: 0.8, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        transition={{ duration: 0.5 }}
+        transition={{ duration: 0.4 }}
         className="absolute inset-0 flex items-center justify-center"
       >
-        <div className="w-20 h-20 rounded-full bg-gradient-to-br from-green-100 to-green-50 flex items-center justify-center">
-          <IconMapPin size={36} className="text-green-400" stroke={1.5} />
+        <div className="w-20 h-20 rounded-full bg-gray-50 border border-gray-100 flex items-center justify-center">
+          <IconMapPin size={32} className="text-gray-400" stroke={1.5} />
         </div>
-      </motion.div>
-      <motion.div
-        initial={{ scale: 0, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        transition={{ delay: 0.3, duration: 0.3 }}
-        className="absolute -right-1 -bottom-1 w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center"
-      >
-        <span className="text-lg">📍</span>
       </motion.div>
     </div>
   );
@@ -110,11 +86,11 @@ function DefaultIllustration() {
       <motion.div
         initial={{ scale: 0.8, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        transition={{ duration: 0.5 }}
+        transition={{ duration: 0.4 }}
         className="absolute inset-0 flex items-center justify-center"
       >
-        <div className="w-20 h-20 rounded-full bg-gradient-to-br from-gray-100 to-gray-50 flex items-center justify-center">
-          <span className="text-4xl">📋</span>
+        <div className="w-20 h-20 rounded-full bg-gray-50 border border-gray-100 flex items-center justify-center">
+          <IconClipboard size={32} className="text-gray-400" stroke={1.5} />
         </div>
       </motion.div>
     </div>

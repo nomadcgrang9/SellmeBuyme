@@ -87,6 +87,13 @@ export type JobPostingFormData = z.infer<typeof jobPostingSchema>;
 // ========================================
 
 export const talentRegistrationSchema = z.object({
+  // 마커 위치 (구/읍/면 단위)
+  markerLocation: z.object({
+    regionCode: z.string(),
+    regionName: z.string().min(1, '지역을 선택해주세요'),
+    fullAddress: z.string(),
+  }).optional(),
+
   // 기본 정보
   name: z.string().min(1, '이름을 입력해주세요'),
 

@@ -15,6 +15,7 @@ interface IdeaFormProps {
   onClose: () => void;
   onSubmit: (data: {
     authorName: string;
+    title: string;
     content: string;
     category: IdeaCategory;
     images: File[];
@@ -25,6 +26,7 @@ interface IdeaFormProps {
 
 export default function IdeaForm({ onClose, onSubmit, editingIdea }: IdeaFormProps) {
   const [authorName, setAuthorName] = useState('');
+  const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [category, setCategory] = useState<IdeaCategory>('feature');
   const [images, setImages] = useState<File[]>([]);
@@ -38,6 +40,7 @@ export default function IdeaForm({ onClose, onSubmit, editingIdea }: IdeaFormPro
   useEffect(() => {
     if (editingIdea) {
       setAuthorName(editingIdea.authorName);
+      setTitle(editingIdea.title || '');
       setContent(editingIdea.content);
       setCategory(editingIdea.category);
       setExistingImages(editingIdea.images || []);
@@ -52,6 +55,7 @@ export default function IdeaForm({ onClose, onSubmit, editingIdea }: IdeaFormPro
     } else {
       // 폼 초기화
       setAuthorName('');
+      setTitle('');
       setContent('');
       setCategory('feature');
       setImages([]);
@@ -102,6 +106,18 @@ export default function IdeaForm({ onClose, onSubmit, editingIdea }: IdeaFormPro
       alert('작성자를 입력해주세요');
       return;
     }
+    if (!title.trim()) {
+      alert('제목을 입력해주세요');
+      return;
+    }
+    if (title.trim().length < 2) {
+      alert('제목은 2자 이상 입력해주세요');
+      return;
+    }
+    if (title.trim().length > 100) {
+      alert('제목은 100자 이하로 입력해주세요');
+      return;
+    }
     if (!content.trim()) {
       alert('내용을 입력해주세요');
       return;
@@ -110,7 +126,7 @@ export default function IdeaForm({ onClose, onSubmit, editingIdea }: IdeaFormPro
     // 빈 Todo 항목 필터링
     const validTodos: IdeaTodo[] = todos
       .filter((t) => t.content.trim())
-      .map((t, index) => ({
+      .map((t) => ({
         id: t.id,
         content: t.content.trim(),
         isCompleted: t.isCompleted,
@@ -119,7 +135,7 @@ export default function IdeaForm({ onClose, onSubmit, editingIdea }: IdeaFormPro
 
     setIsSubmitting(true);
     try {
-      await onSubmit({ authorName, content, category, images, todos: validTodos });
+      await onSubmit({ authorName, title: title.trim(), content, category, images, todos: validTodos });
       onClose();
     } catch (error) {
       console.error('Failed to submit idea:', error);
@@ -191,6 +207,23 @@ export default function IdeaForm({ onClose, onSubmit, editingIdea }: IdeaFormPro
                 </button>
               ))}
             </div>
+          </div>
+
+          {/* 제목 */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              제목 <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="아이디어 제목을 입력하세요 (2~100자)"
+              maxLength={100}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#a8c5e0] focus:border-transparent"
+              required
+            />
+            <p className="mt-1 text-xs text-gray-500 text-right">{title.length}/100</p>
           </div>
 
           {/* 내용 */}

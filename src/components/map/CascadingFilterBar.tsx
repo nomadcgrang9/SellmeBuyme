@@ -26,9 +26,9 @@ const AFTERSCHOOL_CATEGORY_CHIPS = [
   '돌봄',   // 돌봄, 늘봄, 에듀케어 등 (43.3%)
 ];
 
-// 색상 배경을 적용할 카테고리 (마커 색상과 연동)
+// 색상 배경을 적용할 카테고리 (마커 색상과 연동, 교원연수는 레이어 토글로 제어)
 const COLORED_CATEGORIES: PrimaryCategory[] = [
-  '유치원', '초등담임', '교과과목', '비교과', '특수', '교원연수'
+  '유치원', '초등담임', '교과과목', '비교과', '특수'
 ];
 
 // 교원연수 대표 분야 5개 칩
@@ -43,6 +43,8 @@ const INSTRUCTOR_CATEGORY_CHIPS = [
 interface CascadingFilterBarProps {
   filter: CascadingFilter;
   onFilterChange: (filter: CascadingFilter) => void;
+  /** 상단 좌측 모서리만 직각 (탭 형태 연결 시 사용) */
+  noTopLeftRadius?: boolean;
 }
 
 const glassStyle = {
@@ -56,6 +58,7 @@ const glassStyle = {
 export default function CascadingFilterBar({
   filter,
   onFilterChange,
+  noTopLeftRadius = false,
 }: CascadingFilterBarProps) {
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -462,10 +465,28 @@ export default function CascadingFilterBar({
     );
   };
 
+  // noTopLeftRadius일 때: 상단 좌측만 직각 + 상단 border 제거 (탭과 한 덩어리로 연결)
+  const computedStyle = noTopLeftRadius
+    ? {
+        ...glassStyle,
+        borderTopLeftRadius: 0,
+        borderTopRightRadius: '16px',
+        borderBottomLeftRadius: '16px',
+        borderBottomRightRadius: '16px',
+        border: 'none',
+        borderLeft: '1px solid rgba(255,255,255,0.1)',
+        borderRight: '1px solid rgba(255,255,255,0.1)',
+        borderBottom: '1px solid rgba(255,255,255,0.1)',
+        // 상단 border 없음 - 레이어 토글과 한 덩어리
+      }
+    : glassStyle;
+
   return (
     <div
-      className="flex items-center gap-1 px-3 py-2 rounded-2xl max-w-[calc(100vw-32px)] overflow-x-auto scrollbar-hide transition-all duration-300"
-      style={glassStyle}
+      className={`flex items-center gap-1 px-3 py-2 max-w-[calc(100vw-32px)] overflow-x-auto scrollbar-hide transition-all duration-300 ${
+        noTopLeftRadius ? '' : 'rounded-2xl'
+      }`}
+      style={computedStyle}
     >
       {/* 현재 단계에 맞는 UI 렌더링 */}
       {currentLevel === 'primary' && renderPrimaryLevel()}

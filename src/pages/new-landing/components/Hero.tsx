@@ -7,13 +7,15 @@ import type { JobPostingCard } from '@/types';
 import type { Coordinates, DirectionsResult, TransportType } from '@/types/directions';
 import { getDirections } from '@/lib/api/directions';
 import { JobDetailPanel } from './JobDetailPanel';
+import { TeacherDetailPanel } from './TeacherDetailPanel';
+import { InstructorDetailPanel } from './InstructorDetailPanel';
 import HeroCard from './HeroCard';
 import { DirectionsPanel } from '@/components/directions/DirectionsPanel';
 import TeacherMarkerModal from '@/components/map/TeacherMarkerModal';
 import ProgramMarkerModal from '@/components/map/ProgramMarkerModal';
 import JobPostingModal from '@/components/job/JobPostingModal';
 import FullScreenLocationPicker from '@/components/map/FullScreenLocationPicker';
-import CascadingFilterBar from '@/components/map/CascadingFilterBar';
+import CascadingFilterBarWithLayerToggle from '@/components/map/CascadingFilterBarWithLayerToggle';
 import LayerToggleBar from '@/components/map/LayerToggleBar';
 import { type CascadingFilter, matchesCascadingFilter } from '@/lib/utils/jobClassifier';
 import MarkerPopup from '@/components/map/MarkerPopup';
@@ -69,8 +71,11 @@ import { fetchInstructorMarkers } from '@/lib/supabase/instructorMarkers';
 import { deleteJobPosting } from '@/lib/supabase/jobPostings';
 import { type MarkerLayer, type TeacherMarker, type ProgramMarker, MARKER_COLORS, getTeacherMarkerColor } from '@/types/markers';
 import { type InstructorMarker, INSTRUCTOR_MARKER_COLORS } from '@/types/instructorMarkers';
+import { useEarlyAccess } from '@/hooks/useEarlyAccess';
 
 export const Hero: React.FC = () => {
+  // Early Access 권한 확인
+  const { hasEarlyAccess } = useEarlyAccess();
   // 캐스케이딩 필터 상태 (1차/2차/3차)
   const [cascadingFilter, setCascadingFilter] = useState<CascadingFilter>({
     primary: null,
@@ -81,6 +86,10 @@ export const Hero: React.FC = () => {
   // 선택된 공고 (상세 패널용)
   const [selectedJob, setSelectedJob] = useState<JobPostingCard | null>(null);
   const setSelectedJobRef = useRef(setSelectedJob);
+
+  // 선택된 구직자/강사 (상세 패널용)
+  const [selectedTeacher, setSelectedTeacher] = useState<TeacherMarker | null>(null);
+  const [selectedInstructor, setSelectedInstructor] = useState<InstructorMarker | null>(null);
   const setShowMobileDetailRef = useRef<(show: boolean) => void>(() => { });
 
   // selectedJob 변경 감지 디버깅 + 전역 변수 동기화 (마커 토글용)
@@ -117,10 +126,11 @@ export const Hero: React.FC = () => {
   // 공고 수정용 상태
   const [editJobData, setEditJobData] = useState<JobPostingCard | null>(null);
 
-  // 레이어 표시 상태 (공고/구직자)
-  // 둘 다 false = 모든 마커 표시 (기본 상태)
+  // 레이어 표시 상태 (공고/구직자/교원연수강사)
+  // 모두 false = 모든 마커 표시 (기본 상태)
   const [showJobLayer, setShowJobLayer] = useState(false);
   const [showSeekerLayer, setShowSeekerLayer] = useState(false);
+  const [showInstructorLayer, setShowInstructorLayer] = useState(false);
   const [isTeacherModalOpen, setIsTeacherModalOpen] = useState(false);
   const [isProgramModalOpen, setIsProgramModalOpen] = useState(false);
   const [isJobPostingModalOpen, setIsJobPostingModalOpen] = useState(false);
@@ -148,22 +158,24 @@ export const Hero: React.FC = () => {
   // 교원연수 강사등록 실제 모달 상태
   const [isInstructorRegisterModalOpen, setIsInstructorRegisterModalOpen] = useState(false);
 
+  // 좌측 패널: 통합 목록 (탭 분리 없음 - 지도와 1:1 동기화)
+
   // ★ 로그인 성공 후 pendingAction 처리 (등록 플로우 이어가기)
   useEffect(() => {
     if (user && pendingAction && !isAuthModalOpen) {
       // 로그인 완료 + 대기 액션 있음 + 모달 닫힘
       if (pendingAction === 'register') {
         setPendingAction(null);
-        setLocationPickerType('teacher');
-        setIsLocationPickerOpen(true);
+        // 구직등록: LocationPicker 스킵, 바로 모달 열기 (위치는 모달 내에서 선택)
+        setIsTeacherModalOpen(true);
       } else if (pendingAction === 'jobPost') {
         setPendingAction(null);
         setLocationPickerType('jobPosting');
         setIsLocationPickerOpen(true);
       } else if (pendingAction === 'instructor') {
         setPendingAction(null);
-        setLocationPickerType('instructor');
-        setIsLocationPickerOpen(true);
+        // 강사등록: LocationPicker 스킵, 바로 모달 열기 (위치는 모달 내에서 선택)
+        setIsInstructorRegisterModalOpen(true);
       }
     }
   }, [user, pendingAction, isAuthModalOpen]);
@@ -414,36 +426,44 @@ export const Hero: React.FC = () => {
   const programMapMarkersRef = useRef<any[]>([]);
   const instructorMapMarkersRef = useRef<any[]>([]);
 
-  // ★ showJobLayer/showSeekerLayer ↔ activeLayers 동기화
-  // 둘 다 false면 모든 마커 표시 (기본 상태)
+  // ★ showJobLayer/showSeekerLayer/showInstructorLayer ↔ activeLayers 동기화
+  // 모두 false면 모든 마커 표시 (기본 상태)
+  // 하나라도 true면 선택된 레이어만 표시
   useEffect(() => {
-    setActiveLayers(prev => {
-      // 둘 다 미선택 = 필터 없음 = 모든 마커 표시
-      if (!showJobLayer && !showSeekerLayer) {
-        // program은 기존 상태 유지
-        const hasProgram = prev.includes('program');
-        return hasProgram ? ['job', 'teacher', 'program'] : ['job', 'teacher'];
+    setActiveLayers(() => {
+      // 모두 미선택 = 필터 없음 = 모든 마커 표시 (instructor 제외 - 별도 관리)
+      if (!showJobLayer && !showSeekerLayer && !showInstructorLayer) {
+        return ['job', 'teacher', 'program'];
       }
 
-      let newLayers = [...prev];
+      const newLayers: MarkerLayer[] = [];
 
       // 공고 레이어
-      if (showJobLayer && !newLayers.includes('job')) {
+      if (showJobLayer) {
         newLayers.push('job');
-      } else if (!showJobLayer) {
-        newLayers = newLayers.filter(l => l !== 'job');
       }
 
       // 구직자 레이어 (teacher)
-      if (showSeekerLayer && !newLayers.includes('teacher')) {
+      if (showSeekerLayer) {
         newLayers.push('teacher');
-      } else if (!showSeekerLayer) {
-        newLayers = newLayers.filter(l => l !== 'teacher');
+      }
+
+      // program은 기본 포함 (showJobLayer 선택 시)
+      if (showJobLayer) {
+        newLayers.push('program');
       }
 
       return newLayers;
     });
-  }, [showJobLayer, showSeekerLayer]);
+  }, [showJobLayer, showSeekerLayer, showInstructorLayer]);
+
+  // ★ 모든 레이어 토글이 OFF가 되면 필터 초기화 (기본 상태 복원)
+  useEffect(() => {
+    if (!showJobLayer && !showSeekerLayer && !showInstructorLayer) {
+      // 모든 토글 OFF → 필터 초기화하여 기본 카테고리 UI 복원
+      setCascadingFilter({ primary: null, secondary: null, tertiary: null });
+    }
+  }, [showJobLayer, showSeekerLayer, showInstructorLayer]);
 
   // ★ 길찾기 모드 토글 (공고 마커 숨김/복원)
   useEffect(() => {
@@ -557,6 +577,12 @@ export const Hero: React.FC = () => {
   // 공고ID → 실제 마커 좌표 매핑 (카드 클릭 시 정확한 위치로 이동)
   const jobMarkerCoordsRef = useRef<Map<string, { lat: number; lng: number }>>(new Map());
 
+  // 구직자ID → 실제 마커 좌표 매핑 (카드 클릭 시 정확한 위치로 이동)
+  const teacherMarkerCoordsRef = useRef<Map<string, { lat: number; lng: number }>>(new Map());
+
+  // 강사ID → 실제 마커 좌표 매핑 (카드 클릭 시 정확한 위치로 이동)
+  const instructorMarkerCoordsRef = useRef<Map<string, { lat: number; lng: number }>>(new Map());
+
   // 마커 클릭 직후 지도 클릭 무시 플래그
   const ignoreMapClickRef = useRef(false);
 
@@ -589,8 +615,11 @@ export const Hero: React.FC = () => {
     // 먼저 중복 제거
     let filtered = deduplicateJobs(jobPostings);
 
-    // 캐스케이딩 필터 적용 (데스크톱 + 모바일 통합)
-    if (cascadingFilter.primary) {
+    // ★ 레이어 토글이 활성화되어 있으면 cascadingFilter 무시 (토글로 레이어 제어)
+    const anyLayerToggleActive = showJobLayer || showSeekerLayer || showInstructorLayer;
+
+    // 캐스케이딩 필터 적용 (레이어 토글 비활성 상태에서만)
+    if (cascadingFilter.primary && !anyLayerToggleActive) {
       filtered = filtered.filter(job => matchesCascadingFilter(job, cascadingFilter));
     }
 
@@ -666,7 +695,69 @@ export const Hero: React.FC = () => {
 
     return filtered;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [jobPostings, cascadingFilter, activeLocationFilter, deduplicateJobs, viewportBounds, coordsCacheVersion, selectedJob]);
+  }, [jobPostings, cascadingFilter, activeLocationFilter, deduplicateJobs, viewportBounds, coordsCacheVersion, selectedJob, showJobLayer, showSeekerLayer, showInstructorLayer]);
+
+  // ★ 통합 목록: 지도에 보이는 모든 마커 (공고 + 구직자 + 강사)
+  // 지도와 1:1 실시간 동기화 - 탭 분리 없이 하나의 목록으로 표시
+  type UnifiedItem =
+    | { type: 'job'; data: JobPostingCard }
+    | { type: 'teacher'; data: TeacherMarker }
+    | { type: 'instructor'; data: InstructorMarker };
+
+  const unifiedVisibleItems = useMemo<UnifiedItem[]>(() => {
+    const items: UnifiedItem[] = [];
+
+    // 토글 상태 확인: 모두 false면 기본 상태 (전체 표시)
+    const anyToggleActive = showJobLayer || showSeekerLayer || showInstructorLayer;
+
+    // 뷰포트 내 좌표 체크 헬퍼
+    const isInViewport = (lat: number, lng: number): boolean => {
+      if (!viewportBounds) return true; // bounds 없으면 일단 표시
+      return lat >= viewportBounds.sw.lat && lat <= viewportBounds.ne.lat &&
+        lng >= viewportBounds.sw.lng && lng <= viewportBounds.ne.lng;
+    };
+
+    // 1. 공고 (이미 filteredJobPostings에서 viewportBounds 필터링 완료)
+    // 기본 상태(토글 없음) 또는 공고만 보기 토글 시 표시
+    const shouldShowJobs = !anyToggleActive || showJobLayer;
+    if (shouldShowJobs && activeLayers.includes('job')) {
+      filteredJobPostings.forEach(job => {
+        items.push({ type: 'job', data: job });
+      });
+    }
+
+    // 2. 구직자 (뷰포트 필터링 적용)
+    // 기본 상태(토글 없음) 또는 구직자만 보기 토글 시 표시
+    const shouldShowTeachers = !anyToggleActive || showSeekerLayer;
+    if (shouldShowTeachers && activeLayers.includes('teacher')) {
+      teacherMarkers.forEach(marker => {
+        if (marker.latitude != null && marker.longitude != null &&
+            isInViewport(marker.latitude, marker.longitude)) {
+          items.push({ type: 'teacher', data: marker });
+        }
+      });
+    }
+
+    // 3. 교원연수 강사 (뷰포트 필터링 적용)
+    // 기본 상태(토글 없음) 또는 교원연수강사만 보기 토글 시 표시
+    const shouldShowInstructors = !anyToggleActive || showInstructorLayer;
+    if (shouldShowInstructors) {
+      instructorMarkers.forEach(marker => {
+        if (marker.latitude != null && marker.longitude != null &&
+            isInViewport(marker.latitude, marker.longitude)) {
+          items.push({ type: 'instructor', data: marker });
+        }
+      });
+    }
+
+    console.log('[Hero] 통합 목록:', items.length, '개 (공고:',
+      items.filter(i => i.type === 'job').length,
+      ', 구직자:', items.filter(i => i.type === 'teacher').length,
+      ', 강사:', items.filter(i => i.type === 'instructor').length,
+      ') anyToggleActive:', anyToggleActive);
+
+    return items;
+  }, [filteredJobPostings, teacherMarkers, instructorMarkers, viewportBounds, activeLayers, showJobLayer, showSeekerLayer, showInstructorLayer]);
 
   // 인증 상태 초기화
   const { initialize: initializeAuth } = useAuthStore();
@@ -976,10 +1067,20 @@ export const Hero: React.FC = () => {
 
     const map = mapInstanceRef.current;
 
-    // ★ 필터링 적용 - cascadingFilter.primary가 있으면 해당 카테고리만 표시
+    // ★ 필터링 적용
+    // - 레이어 토글이 하나라도 켜져 있으면 필터 무시 (토글로 레이어 제어)
+    // - 모든 토글이 꺼진 상태(기본)에서만 cascadingFilter 적용
+    const anyLayerToggleActive = showJobLayer || showSeekerLayer || showInstructorLayer;
+
     const filteredTeacherMarkers = teacherMarkers.filter(marker => {
+      // 레이어 토글이 활성화되어 있으면 필터 무시하고 모두 표시
+      if (anyLayerToggleActive) return true;
+
       // 필터가 없으면 모두 표시
       if (!cascadingFilter.primary) return true;
+
+      // 교원연수 필터는 구직자 마커와 무관 (별도 레이어)
+      if (cascadingFilter.primary === '교원연수') return true;
 
       // primary_category가 필터와 일치하는지 확인
       if (marker.primary_category === cascadingFilter.primary) return true;
@@ -1009,8 +1110,14 @@ export const Hero: React.FC = () => {
       return false;
     });
 
+    // 구직자 마커 좌표 캐시 초기화
+    teacherMarkerCoordsRef.current.clear();
+
     filteredTeacherMarkers.forEach(marker => {
       const position = new window.kakao.maps.LatLng(marker.latitude, marker.longitude);
+
+      // 좌표 저장 (카드 클릭 시 정확한 위치로 이동)
+      teacherMarkerCoordsRef.current.set(marker.id, { lat: marker.latitude, lng: marker.longitude });
 
       // ★ 카테고리별 마커 색상 적용
       const markerColor = getTeacherMarkerColor(marker.primary_category);
@@ -1048,7 +1155,7 @@ export const Hero: React.FC = () => {
       teacherMapMarkersRef.current.forEach(m => m.setMap(null));
       teacherMapMarkersRef.current = [];
     };
-  }, [isLoaded, teacherMarkers, activeLayers, cascadingFilter.primary]);
+  }, [isLoaded, teacherMarkers, activeLayers, cascadingFilter.primary, showJobLayer, showSeekerLayer, showInstructorLayer]);
 
   // 프로그램 마커 지도에 표시
   useEffect(() => {
@@ -1104,15 +1211,19 @@ export const Hero: React.FC = () => {
   }, [isLoaded, programMarkers, activeLayers]);
 
   // 교원연수 강사 마커 지도에 표시
-  // - 필터 없음: 모두 표시
-  // - 필터 '교원연수': 모두 표시 (2차 필터 적용)
-  // - 다른 필터: 표시 안함
+  // 교원연수강사 마커 표시 조건:
+  // - showInstructorLayer가 true일 때
+  // - 또는 모든 레이어 토글이 false일 때 (기본 상태) + cascadingFilter가 '교원연수'일 때
   useEffect(() => {
+    const anyLayerActive = showJobLayer || showSeekerLayer || showInstructorLayer;
+
     console.log('[Hero] 교원연수 마커 useEffect 실행:', {
       isLoaded,
       mapReady: !!mapInstanceRef.current,
       filter: cascadingFilter.primary,
-      markerCount: instructorMarkers.length
+      markerCount: instructorMarkers.length,
+      showInstructorLayer,
+      anyLayerActive
     });
 
     // 지도 미로드 시 마커 제거
@@ -1122,8 +1233,14 @@ export const Hero: React.FC = () => {
       return;
     }
 
-    // 다른 카테고리 필터 선택 시 (유치원, 초등담임 등) 마커 숨김
-    if (cascadingFilter.primary && cascadingFilter.primary !== '교원연수') {
+    // 교원연수강사 마커 표시 조건 체크
+    // 1. 교원연수 토글이 ON이면 무조건 표시
+    // 2. 모든 토글이 OFF면 기본 상태이므로 모든 마커 표시 (교원연수 포함)
+    const shouldShowInstructors =
+      showInstructorLayer || // 교원연수강사만 보기 토글 ON
+      !anyLayerActive; // 모든 토글 OFF = 기본 상태 = 모든 마커 표시
+
+    if (!shouldShowInstructors) {
       instructorMapMarkersRef.current.forEach(m => m.setMap(null));
       instructorMapMarkersRef.current = [];
       return;
@@ -1146,6 +1263,9 @@ export const Hero: React.FC = () => {
       );
     });
 
+    // 강사 마커 좌표 캐시 초기화
+    instructorMarkerCoordsRef.current.clear();
+
     filteredInstructors.forEach((marker) => {
       // 마커에 저장된 실제 좌표 사용 (lat/lng 마이그레이션 적용 후)
       const lat = marker.latitude;
@@ -1156,6 +1276,9 @@ export const Hero: React.FC = () => {
         console.warn('[Hero] 교원연수 마커 좌표 없음:', marker.id);
         return;
       }
+
+      // 좌표 저장 (카드 클릭 시 정확한 위치로 이동)
+      instructorMarkerCoordsRef.current.set(marker.id, { lat, lng });
 
       const position = new window.kakao.maps.LatLng(lat, lng);
 
@@ -1193,7 +1316,7 @@ export const Hero: React.FC = () => {
       instructorMapMarkersRef.current.forEach(m => m.setMap(null));
       instructorMapMarkersRef.current = [];
     };
-  }, [isLoaded, instructorMarkers, cascadingFilter.primary, cascadingFilter.secondary]);
+  }, [isLoaded, instructorMarkers, cascadingFilter.primary, cascadingFilter.secondary, showJobLayer, showSeekerLayer, showInstructorLayer]);
 
   // 사용자 위치 기반 공고 데이터 가져오기
   useEffect(() => {
@@ -1374,6 +1497,11 @@ export const Hero: React.FC = () => {
       setSelectedJob(null);
       return;
     }
+
+    // 다른 패널 닫기 + 공고 패널 열기
+    setSelectedTeacher(null);
+    setSelectedInstructor(null);
+    setSelectedMarker(null);
     setSelectedJob(job);
 
     if (!mapInstanceRef.current) return;
@@ -1940,13 +2068,9 @@ export const Hero: React.FC = () => {
           }
           console.log('구직 마커 등록 성공');
         }}
-        initialCoords={pendingMarkerType === 'teacher' ? pendingMarkerCoords : null}
-        initialAddress={pendingMarkerType === 'teacher' ? pendingMarkerAddress : null}
-        onRequestLocationChange={() => {
-          setIsTeacherModalOpen(false);
-          setLocationPickerType('teacher');
-          setIsLocationPickerOpen(true);
-        }}
+        initialCoords={null}
+        initialAddress={null}
+        onRequestLocationChange={undefined}
       />
 
       {/* 프로그램 마커 등록 모달 */}
@@ -2038,11 +2162,32 @@ export const Hero: React.FC = () => {
         }}
       />
 
-      {/* 하단: 캐스케이딩 필터 바 (데스크톱 전용, 우측 배치) */}
+      {/* 하단 우측: 통합 필터 바 (레이어 토글 + 필터 바 붙어있는 형태) */}
       <div className="hidden md:block absolute bottom-4 right-4 z-20">
-        <CascadingFilterBar
+        <CascadingFilterBarWithLayerToggle
           filter={cascadingFilter}
           onFilterChange={setCascadingFilter}
+          showJobLayer={showJobLayer}
+          showSeekerLayer={showSeekerLayer}
+          showInstructorLayer={showInstructorLayer}
+          onJobLayerToggle={() => setShowJobLayer(prev => !prev)}
+          onSeekerLayerToggle={() => setShowSeekerLayer(prev => !prev)}
+          onInstructorLayerToggle={() => {
+            setShowInstructorLayer(prev => {
+              const newValue = !prev;
+              if (newValue) {
+                // 교원연수강사만 보기 ON → 필터도 교원연수로 자동 전환
+                setCascadingFilter({ primary: '교원연수', secondary: null, tertiary: null });
+              } else {
+                // 교원연수강사만 보기 OFF → 다른 토글도 모두 OFF면 필터 초기화
+                // (showJobLayer, showSeekerLayer는 현재 값 기준)
+                if (!showJobLayer && !showSeekerLayer) {
+                  setCascadingFilter({ primary: null, secondary: null, tertiary: null });
+                }
+              }
+              return newValue;
+            });
+          }}
         />
       </div>
 
@@ -2051,20 +2196,17 @@ export const Hero: React.FC = () => {
         <LayerToggleBar
           showJobLayer={showJobLayer}
           showSeekerLayer={showSeekerLayer}
-          showInstructorLayer={cascadingFilter.primary === '교원연수'}
+          showInstructorLayer={showInstructorLayer}
           onJobLayerToggle={() => setShowJobLayer(prev => !prev)}
           onSeekerLayerToggle={() => setShowSeekerLayer(prev => !prev)}
-          onInstructorLayerToggle={() => {
-            // 필터바의 교원연수 선택과 동기화
-            if (cascadingFilter.primary === '교원연수') {
-              // 이미 교원연수 선택됨 → 필터 해제
-              setCascadingFilter({ primary: null, secondary: null, tertiary: null });
-            } else {
-              // 교원연수 선택 → 필터바에서 교원연수 클릭한 것과 동일한 효과
-              setCascadingFilter({ primary: '교원연수', secondary: null, tertiary: null });
-            }
-          }}
+          onInstructorLayerToggle={() => setShowInstructorLayer(prev => !prev)}
           onRegisterClick={() => {
+            // Early Access 체크: 일반 접속 시 ComingSoonModal 표시
+            if (!hasEarlyAccess) {
+              setComingSoonFeature('구직등록');
+              setIsComingSoonOpen(true);
+              return;
+            }
             if (!user) {
               // 로그인 필요 - 로그인 후 등록 플로우 이어가기
               setPendingAction('register');
@@ -2072,9 +2214,8 @@ export const Hero: React.FC = () => {
               setIsAuthModalOpen(true);
               return;
             }
-            // 구직 등록 - 위치 선택 모달 열기
-            setLocationPickerType('teacher');
-            setIsLocationPickerOpen(true);
+            // 구직 등록 - LocationPicker 스킵, 바로 모달 열기 (위치는 모달 내에서 선택)
+            setIsTeacherModalOpen(true);
           }}
           onJobPostClick={() => {
             if (!user) {
@@ -2097,6 +2238,12 @@ export const Hero: React.FC = () => {
             setIsComingSoonOpen(true);
           }}
           onInstructorRegisterClick={() => {
+            // Early Access 체크: 일반 접속 시 ComingSoonModal 표시
+            if (!hasEarlyAccess) {
+              setComingSoonFeature('교원연수 강사등록');
+              setIsComingSoonOpen(true);
+              return;
+            }
             setIsInstructorModalOpen(true);
           }}
           onLoginClick={() => {
@@ -2132,9 +2279,8 @@ export const Hero: React.FC = () => {
             setPendingAction('instructor');
             setIsAuthModalOpen(true);
           } else {
-            // 로그인 됨 → 위치 선택부터 시작 (다른 등록과 동일한 플로우)
-            setLocationPickerType('instructor');
-            setIsLocationPickerOpen(true);
+            // 로그인 됨 → LocationPicker 스킵, 바로 모달 열기 (위치는 모달 내에서 선택)
+            setIsInstructorRegisterModalOpen(true);
           }
         }}
       />
@@ -2162,13 +2308,9 @@ export const Hero: React.FC = () => {
           }
           console.log('교원연수 강사 마커 등록 성공');
         }}
-        initialCoords={pendingMarkerType === 'instructor' ? pendingMarkerCoords : null}
-        initialAddress={pendingMarkerType === 'instructor' ? pendingMarkerAddress : null}
-        onRequestLocationChange={() => {
-          setIsInstructorRegisterModalOpen(false);
-          setLocationPickerType('instructor');
-          setIsLocationPickerOpen(true);
-        }}
+        initialCoords={null}
+        initialAddress={null}
+        onRequestLocationChange={undefined}
       />
 
       {/* 마커 팝업 */}
@@ -2279,151 +2421,314 @@ export const Hero: React.FC = () => {
           {/* 히어로 카드 - 브랜딩 영역 (캐러셀) */}
           <HeroCard />
 
-          {/* 공고 목록 헤더 - 항상 표시 */}
-          <div
-            className="px-3 py-2.5 border-b border-gray-100 flex-shrink-0 cursor-pointer hover:bg-gray-50 transition-colors"
-            onClick={() => setIsJobListCollapsed(!isJobListCollapsed)}
-          >
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-semibold text-gray-700">공고 목록</span>
+          {/* 통합 목록 헤더 - 지도와 1:1 동기화 (탭 분리 없음) */}
+          <div className="flex-shrink-0 border-b border-gray-200">
+            <div className="flex items-center justify-between px-4 py-2.5">
               <div className="flex items-center gap-2">
-                <span className="text-xs font-medium text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
-                  {activeLayers.includes('job') ? filteredJobPostings.length : 0}개
+                <span className="text-sm font-medium text-gray-800">목록</span>
+                <span className="text-xs text-blue-600 font-medium">
+                  {unifiedVisibleItems.length}
                 </span>
-                <div
-                  className="p-1.5 rounded-lg border border-blue-200 bg-blue-50 text-blue-600"
-                  aria-label={isJobListCollapsed ? '목록 펼치기' : '목록 접기'}
-                >
-                  {isJobListCollapsed ? (
-                    <ChevronDown size={18} strokeWidth={2.5} />
-                  ) : (
-                    <ChevronUp size={18} strokeWidth={2.5} />
-                  )}
-                </div>
               </div>
+              {/* 접기/펼치기 버튼 */}
+              <button
+                onClick={() => setIsJobListCollapsed(!isJobListCollapsed)}
+                className="p-1 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                aria-label={isJobListCollapsed ? '목록 펼치기' : '목록 접기'}
+              >
+                {isJobListCollapsed ? (
+                  <ChevronDown size={16} strokeWidth={2} />
+                ) : (
+                  <ChevronUp size={16} strokeWidth={2} />
+                )}
+              </button>
             </div>
           </div>
 
-          {/* 공고 카드 목록 (job 레이어 활성화 시만 표시) - 모바일에서는 3개만 표시 */}
-          {activeLayers.includes('job') && (
-            <div
-              className={`overflow-y-auto transition-all duration-300 ease-in-out ${isJobListCollapsed ? 'max-h-0 opacity-0' : 'max-h-[420px] md:max-h-none md:flex-1 opacity-100'
-                }`}
-              style={{ minHeight: isJobListCollapsed ? 0 : undefined }}
-            >
-              {isJobsLoading ? (
-                <ListSkeleton count={5} />
-              ) : filteredJobPostings.length === 0 ? (
-                <EmptyState
-                  type="filter"
-                  title="조건에 맞는 공고가 없어요"
-                  description="필터를 조정하거나 다른 지역을 선택해 보세요"
-                  size="sm"
-                />
-              ) : (
-                <div className="divide-y divide-gray-100" ref={jobListContainerRef}>
-                  {filteredJobPostings.map((job) => (
-                    <div
-                      key={job.id}
-                      data-job-id={job.id}
-                      className={`group relative p-4 cursor-pointer transition-all border-l-4 border-l-transparent ${selectedJob?.id === job.id
-                        ? 'bg-blue-50 !border-l-[#5B6EF7]'
-                        : 'hover:bg-gray-50'
-                        }`}
-                      onClick={() => handleCardClick(job)}
-                    >
-                      {/* 기관명 + D-day (카드와 동일한 색상 시스템) */}
-                      <div className="flex items-center justify-between mb-1.5">
-                        <span className="text-xs text-gray-500 truncate flex-1">
-                          {job.organization || '기관 정보 없음'}
-                        </span>
-                        {job.daysLeft !== undefined && job.daysLeft <= 5 && (
-                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ml-1.5 ${job.daysLeft === 0
-                            ? 'bg-red-500 text-white'
-                            : job.daysLeft <= 3
-                              ? 'bg-red-100 text-red-700'
-                              : 'bg-orange-100 text-orange-700'
-                            }`}>
-                            {job.daysLeft === 0 ? 'D-Day' : `D-${job.daysLeft}`}
-                          </span>
-                        )}
-                      </div>
-
-                      {/* 제목 + 태그 병기 */}
-                      <h5 className="text-sm font-semibold text-gray-800 leading-snug line-clamp-2 mb-2">
-                        {job.title}
-                        {job.tags && job.tags.length > 0 && (
-                          <span className="font-normal text-gray-500">
-                            {' '}({job.tags.slice(0, 2).join(', ')}{job.tags.length > 2 ? ' 외' : ''})
-                          </span>
-                        )}
-                      </h5>
-
-                      {/* 상세 정보: 위치, 보수, 마감일 */}
-                      <div className="space-y-1 text-xs text-gray-600">
-                        {job.location && (
-                          <div className="flex items-center gap-1.5">
-                            <svg className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                            </svg>
-                            <span className="truncate">{formatLocationDisplay(job.location)}</span>
-                          </div>
-                        )}
-                        {job.compensation && (
-                          <div className="flex items-center gap-1.5">
-                            <svg className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                            <span className="truncate">{job.compensation}</span>
-                          </div>
-                        )}
-                        {job.deadline && (
-                          <div className="flex items-center gap-1.5">
-                            <svg className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                            </svg>
-                            <span>{(() => {
-                              // 마감일에서 요일 계산 (예: "01.12" -> "01.12(일)")
-                              const deadlineStr = job.deadline.replace(/^~\s*/, '').trim();
-                              const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
-                              // MM.DD 또는 YYYY.MM.DD 형식 파싱
-                              const parts = deadlineStr.split('.');
-                              if (parts.length >= 2) {
-                                const year = parts.length === 3 ? parseInt(parts[0]) : new Date().getFullYear();
-                                const month = parseInt(parts.length === 3 ? parts[1] : parts[0]) - 1;
-                                const day = parseInt(parts.length === 3 ? parts[2] : parts[1]);
-                                const date = new Date(year, month, day);
-                                if (!isNaN(date.getTime())) {
-                                  const dayOfWeek = dayNames[date.getDay()];
-                                  return `${deadlineStr}(${dayOfWeek})`;
-                                }
-                              }
-                              return deadlineStr;
-                            })()}</span>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* 호버 시 길찾기 버튼 - 테마 컬러 사용 */}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDirectionsClick(job);
-                        }}
-                        className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 px-2.5 py-1.5 bg-gray-700 hover:bg-gray-800 text-white text-xs font-semibold rounded-lg shadow-md flex items-center gap-1"
+          {/* ★ 통합 목록 - 지도와 1:1 동기화 (공고 + 구직자 + 강사 혼합) */}
+          <div
+            className={`overflow-y-auto transition-all duration-300 ease-in-out ${isJobListCollapsed ? 'max-h-0 opacity-0' : 'max-h-[420px] md:max-h-none md:flex-1 opacity-100'
+              }`}
+            style={{ minHeight: isJobListCollapsed ? 0 : undefined }}
+          >
+            {isJobsLoading ? (
+              <ListSkeleton count={5} />
+            ) : unifiedVisibleItems.length === 0 ? (
+              <EmptyState
+                type="filter"
+                title="현재 지도에 마커가 없어요"
+                description="지도를 이동하거나 필터를 조정해 보세요"
+                size="sm"
+              />
+            ) : (
+              <div className="divide-y divide-gray-100" ref={jobListContainerRef}>
+                {unifiedVisibleItems.map((item) => {
+                  // 공고 카드
+                  if (item.type === 'job') {
+                    const job = item.data;
+                    return (
+                      <div
+                        key={`job-${job.id}`}
+                        data-job-id={job.id}
+                        className={`group relative p-4 cursor-pointer transition-all border-l-4 border-l-transparent ${selectedJob?.id === job.id
+                          ? 'bg-blue-50 !border-l-[#5B6EF7]'
+                          : 'hover:bg-gray-50'
+                          }`}
+                        onClick={() => handleCardClick(job)}
                       >
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
-                        </svg>
-                        길찾기
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
+                        {/* 기관명 + D-day */}
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="text-xs text-gray-500 truncate flex-1">
+                            {job.organization || '기관 정보 없음'}
+                          </span>
+                          {job.daysLeft !== undefined && job.daysLeft <= 5 && (
+                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ml-1.5 ${job.daysLeft === 0
+                              ? 'bg-red-500 text-white'
+                              : job.daysLeft <= 3
+                                ? 'bg-red-100 text-red-700'
+                                : 'bg-orange-100 text-orange-700'
+                              }`}>
+                              {job.daysLeft === 0 ? 'D-Day' : `D-${job.daysLeft}`}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* 제목 + 태그 */}
+                        <h5 className="text-sm font-semibold text-gray-800 leading-snug line-clamp-2 mb-2">
+                          {job.title}
+                          {job.tags && job.tags.length > 0 && (
+                            <span className="font-normal text-gray-500">
+                              {' '}({job.tags.slice(0, 2).join(', ')}{job.tags.length > 2 ? ' 외' : ''})
+                            </span>
+                          )}
+                        </h5>
+
+                        {/* 상세 정보 */}
+                        <div className="space-y-1 text-xs text-gray-600">
+                          {job.location && (
+                            <div className="flex items-center gap-1.5">
+                              <svg className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                              </svg>
+                              <span className="truncate">{formatLocationDisplay(job.location)}</span>
+                            </div>
+                          )}
+                          {job.compensation && (
+                            <div className="flex items-center gap-1.5">
+                              <svg className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              <span className="truncate">{job.compensation}</span>
+                            </div>
+                          )}
+                          {job.deadline && (
+                            <div className="flex items-center gap-1.5">
+                              <svg className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                              </svg>
+                              <span>{(() => {
+                                const deadlineStr = job.deadline.replace(/^~\s*/, '').trim();
+                                const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
+                                const parts = deadlineStr.split('.');
+                                if (parts.length >= 2) {
+                                  const year = parts.length === 3 ? parseInt(parts[0]) : new Date().getFullYear();
+                                  const month = parseInt(parts.length === 3 ? parts[1] : parts[0]) - 1;
+                                  const day = parseInt(parts.length === 3 ? parts[2] : parts[1]);
+                                  const date = new Date(year, month, day);
+                                  if (!isNaN(date.getTime())) {
+                                    return `${deadlineStr}(${dayNames[date.getDay()]})`;
+                                  }
+                                }
+                                return deadlineStr;
+                              })()}</span>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* 호버 시 길찾기 버튼 */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDirectionsClick(job);
+                          }}
+                          className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 px-2.5 py-1.5 bg-gray-700 hover:bg-gray-800 text-white text-xs font-semibold rounded-lg shadow-md flex items-center gap-1"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                          </svg>
+                          길찾기
+                        </button>
+                      </div>
+                    );
+                  }
+
+                  // 구직자 카드
+                  if (item.type === 'teacher') {
+                    const marker = item.data;
+                    return (
+                      <div
+                        key={`teacher-${marker.id}`}
+                        className="group relative p-3 cursor-pointer transition-all hover:bg-gray-50 border-l-4 border-l-transparent"
+                        onClick={() => {
+                          // 토글: 이미 선택된 구직자면 선택 해제
+                          if (selectedTeacher?.id === marker.id) {
+                            setSelectedTeacher(null);
+                            return;
+                          }
+
+                          // 다른 패널 닫기 + 구직자 패널 열기
+                          setSelectedJob(null);
+                          setSelectedInstructor(null);
+                          setSelectedMarker(null);
+                          setSelectedTeacher(marker);
+
+                          // 지도 이동 (공고와 동일한 패턴: setCenter 사용)
+                          const markerCoords = teacherMarkerCoordsRef.current.get(marker.id);
+                          if (markerCoords) {
+                            moveMapToCoords(markerCoords.lat, markerCoords.lng);
+                          } else if (marker.latitude && marker.longitude) {
+                            moveMapToCoords(marker.latitude, marker.longitude);
+                          }
+                        }}
+                      >
+                        <div className="flex items-start gap-3">
+                          {/* 프로필 이미지 */}
+                          <div
+                            className="w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center text-white text-sm font-medium"
+                            style={{ backgroundColor: getTeacherMarkerColor(marker.primary_category) }}
+                          >
+                            {marker.profile_image_url ? (
+                              <img src={marker.profile_image_url} alt="" className="w-full h-full rounded-full object-cover" />
+                            ) : (
+                              marker.nickname?.charAt(0) || 'T'
+                            )}
+                          </div>
+
+                          {/* 정보 */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-sm font-medium text-gray-800 truncate">
+                                {marker.nickname || '익명'}
+                              </span>
+                              {marker.primary_category && (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded text-gray-600 border border-gray-200">
+                                  {marker.primary_category}
+                                </span>
+                              )}
+                            </div>
+
+                            {marker.subjects && marker.subjects.length > 0 && (
+                              <div className="flex flex-wrap gap-1 mb-1">
+                                {marker.subjects.slice(0, 3).map((subject, idx) => (
+                                  <span key={idx} className="text-[10px] text-gray-500">
+                                    {subject}{idx < Math.min(marker.subjects!.length, 3) - 1 ? ',' : ''}
+                                  </span>
+                                ))}
+                                {marker.subjects.length > 3 && (
+                                  <span className="text-[10px] text-gray-400">+{marker.subjects.length - 3}</span>
+                                )}
+                              </div>
+                            )}
+
+                            <div className="text-xs text-gray-500">
+                              {marker.experience_years && <span>경력 {marker.experience_years}</span>}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  // 교원연수 강사 카드
+                  if (item.type === 'instructor') {
+                    const marker = item.data;
+                    return (
+                      <div
+                        key={`instructor-${marker.id}`}
+                        className="group relative p-3 cursor-pointer transition-all hover:bg-pink-50/50 border-l-4 border-l-transparent"
+                        onClick={() => {
+                          // 토글: 이미 선택된 강사면 선택 해제
+                          if (selectedInstructor?.id === marker.id) {
+                            setSelectedInstructor(null);
+                            return;
+                          }
+
+                          // 다른 패널 닫기 + 강사 패널 열기
+                          setSelectedJob(null);
+                          setSelectedTeacher(null);
+                          setSelectedMarker(null);
+                          setSelectedInstructor(marker);
+
+                          // 지도 이동 (공고와 동일한 패턴: setCenter 사용)
+                          const markerCoords = instructorMarkerCoordsRef.current.get(marker.id);
+                          if (markerCoords) {
+                            moveMapToCoords(markerCoords.lat, markerCoords.lng);
+                          } else if (marker.latitude && marker.longitude) {
+                            moveMapToCoords(marker.latitude, marker.longitude);
+                          }
+                        }}
+                      >
+                        <div className="flex items-start gap-3">
+                          {/* 프로필 이미지 - 핑크 테마 */}
+                          <div
+                            className="w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center text-white text-sm font-medium"
+                            style={{ backgroundColor: INSTRUCTOR_MARKER_COLORS.base }}
+                          >
+                            {marker.profile_image_url ? (
+                              <img src={marker.profile_image_url} alt="" className="w-full h-full rounded-full object-cover" />
+                            ) : (
+                              marker.display_name?.charAt(0) || 'I'
+                            )}
+                          </div>
+
+                          {/* 정보 */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-sm font-medium text-gray-800 truncate">
+                                {marker.display_name || '익명'}
+                              </span>
+                              <span className="text-[10px] px-1.5 py-0.5 rounded border"
+                                style={{
+                                  color: INSTRUCTOR_MARKER_COLORS.text,
+                                  borderColor: INSTRUCTOR_MARKER_COLORS.base,
+                                  backgroundColor: INSTRUCTOR_MARKER_COLORS.light
+                                }}
+                              >
+                                연수강사
+                              </span>
+                            </div>
+
+                            {marker.specialties && marker.specialties.length > 0 && (
+                              <div className="flex flex-wrap gap-1 mb-1">
+                                {marker.specialties.slice(0, 2).map((specialty, idx) => (
+                                  <span key={idx} className="text-[10px] text-gray-500">
+                                    {specialty}{idx < Math.min(marker.specialties!.length, 2) - 1 ? ',' : ''}
+                                  </span>
+                                ))}
+                                {marker.specialties.length > 2 && (
+                                  <span className="text-[10px] text-gray-400">+{marker.specialties.length - 2}</span>
+                                )}
+                              </div>
+                            )}
+
+                            {marker.available_regions && marker.available_regions.length > 0 && (
+                              <div className="text-xs text-gray-500">
+                                {marker.available_regions.slice(0, 2).join(', ')}
+                                {marker.available_regions.length > 2 && ` 외 ${marker.available_regions.length - 2}곳`}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  return null;
+                })}
+              </div>
+            )}
+          </div>
 
         </div>
 
@@ -2438,6 +2743,48 @@ export const Hero: React.FC = () => {
               currentUserId={user?.id}
               onEdit={handleJobEdit}
               onDelete={handleJobDelete}
+            />
+          </div>
+        )}
+
+        {/* 구직자 상세 패널 - 카드 목록 옆에 배치 (flex 아이템) */}
+        {selectedTeacher && (
+          <div data-panel="teacher-detail">
+            <TeacherDetailPanel
+              teacher={selectedTeacher}
+              isOpen={!!selectedTeacher}
+              onClose={() => setSelectedTeacher(null)}
+              onEmailClick={(email) => {
+                window.location.href = `mailto:${email}`;
+              }}
+              onDirectionsClick={(teacher) => {
+                // 길찾기 기능 (추후 구현)
+                if (teacher.latitude && teacher.longitude) {
+                  const kakaoMapUrl = `https://map.kakao.com/link/to/${encodeURIComponent(teacher.nickname || '구직자 위치')},${teacher.latitude},${teacher.longitude}`;
+                  window.open(kakaoMapUrl, '_blank');
+                }
+              }}
+            />
+          </div>
+        )}
+
+        {/* 강사 상세 패널 - 카드 목록 옆에 배치 (flex 아이템) */}
+        {selectedInstructor && (
+          <div data-panel="instructor-detail">
+            <InstructorDetailPanel
+              instructor={selectedInstructor}
+              isOpen={!!selectedInstructor}
+              onClose={() => setSelectedInstructor(null)}
+              onEmailClick={(email) => {
+                window.location.href = `mailto:${email}`;
+              }}
+              onDirectionsClick={(instructor) => {
+                // 길찾기 기능 (추후 구현)
+                if (instructor.latitude && instructor.longitude) {
+                  const kakaoMapUrl = `https://map.kakao.com/link/to/${encodeURIComponent(instructor.display_name || '강사 위치')},${instructor.latitude},${instructor.longitude}`;
+                  window.open(kakaoMapUrl, '_blank');
+                }
+              }}
             />
           </div>
         )}
@@ -2740,14 +3087,20 @@ export const Hero: React.FC = () => {
         onJobLayerToggle={() => setShowJobLayer(prev => !prev)}
         onSeekerLayerToggle={() => setShowSeekerLayer(prev => !prev)}
         onJobSeekerRegister={() => {
+          // Early Access 체크: 일반 접속 시 ComingSoonModal 표시
+          if (!hasEarlyAccess) {
+            setComingSoonFeature('구직등록');
+            setIsComingSoonOpen(true);
+            return;
+          }
           if (!user) {
             setPendingAction('register');
             setAuthModalInitialTab('login');
             setIsAuthModalOpen(true);
             return;
           }
-          setLocationPickerType('teacher');
-          setIsLocationPickerOpen(true);
+          // 구직 등록 - LocationPicker 스킵, 바로 모달 열기 (위치는 모달 내에서 선택)
+          setIsTeacherModalOpen(true);
         }}
         onJobPostRegister={() => {
           if (!user) {
@@ -2760,6 +3113,12 @@ export const Hero: React.FC = () => {
           setIsLocationPickerOpen(true);
         }}
         onInstructorRegister={() => {
+          // Early Access 체크: 일반 접속 시 ComingSoonModal 표시
+          if (!hasEarlyAccess) {
+            setComingSoonFeature('교원연수 강사등록');
+            setIsComingSoonOpen(true);
+            return;
+          }
           setIsInstructorModalOpen(true);
         }}
         onBookmarkClick={() => {
