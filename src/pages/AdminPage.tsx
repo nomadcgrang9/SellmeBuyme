@@ -9,6 +9,7 @@ import BoardSubmissionList from '@/components/admin/BoardSubmissionList';
 import BoardApprovalModal from '@/components/admin/BoardApprovalModal';
 import DashboardOverview from '@/components/admin/dashboard/DashboardOverview';
 import AdminUserManagement from '@/components/admin/AdminUserManagement';
+import ContentManagement from '@/components/admin/ContentManagement';
 import { CollapsibleSection } from '@/components/developer/CollapsibleSection';
 import type { CrawlBoard, CreateCrawlBoardInput } from '@/types';
 import { createCrawlBoard, updateCrawlBoard } from '@/lib/supabase/queries';
@@ -246,6 +247,8 @@ export default function AdminPageWithHamburger() {
         );
       case 'users':
         return <AdminUserManagement />;
+      case 'content':
+        return <ContentManagement />;
       default:
         return (
           <div className="flex h-full flex-col items-center justify-center rounded-lg border border-dashed border-slate-300 bg-white p-10 text-center text-sm text-slate-500">

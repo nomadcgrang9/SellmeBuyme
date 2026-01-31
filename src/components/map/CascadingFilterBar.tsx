@@ -351,6 +351,9 @@ export default function CascadingFilterBar({
     );
   };
 
+  // 유치원, 비교과는 2층이 짧아서 1층 너비에 맞춤 필요
+  const needsWidthMatch = filter.primary === '유치원' || filter.primary === '비교과';
+
   // 2차 필터 렌더링 (1차 선택 후)
   const renderSecondaryLevel = () => {
     // 방과후/돌봄은 검색 UI로 대체
@@ -402,6 +405,9 @@ export default function CascadingFilterBar({
             </button>
           );
         })}
+
+        {/* 유치원, 비교과: 1층 너비에 맞추기 위한 여백 */}
+        {needsWidthMatch && <div className="flex-1" />}
       </>
     );
   };
@@ -468,44 +474,32 @@ export default function CascadingFilterBar({
   // noTopLeftRadius일 때: 상단 좌측만 직각 + 상단 border 제거 (탭과 한 덩어리로 연결)
   const computedStyle = noTopLeftRadius
     ? {
-        ...glassStyle,
-        borderTopLeftRadius: 0,
-        borderTopRightRadius: '16px',
-        borderBottomLeftRadius: '16px',
-        borderBottomRightRadius: '16px',
-        border: 'none',
-        borderLeft: '1px solid rgba(255,255,255,0.1)',
-        borderRight: '1px solid rgba(255,255,255,0.1)',
-        borderBottom: '1px solid rgba(255,255,255,0.1)',
-        // 상단 border 없음 - 레이어 토글과 한 덩어리
-      }
+      ...glassStyle,
+      borderTopLeftRadius: 0,
+      borderTopRightRadius: '16px',
+      borderBottomLeftRadius: '16px',
+      borderBottomRightRadius: '16px',
+      border: 'none',
+      borderLeft: '1px solid rgba(255,255,255,0.1)',
+      borderRight: '1px solid rgba(255,255,255,0.1)',
+      borderBottom: '1px solid rgba(255,255,255,0.1)',
+      // 상단 border 없음 - 레이어 토글과 한 덩어리
+    }
     : glassStyle;
+
+  // 유치원/비교과 2층일 때 1층 너비 유지를 위한 min-width
+  const barMinWidth = needsWidthMatch && currentLevel === 'secondary' ? '520px' : undefined;
 
   return (
     <div
-      className={`flex items-center gap-1 px-3 py-2 max-w-[calc(100vw-32px)] overflow-x-auto scrollbar-hide transition-all duration-300 ${
-        noTopLeftRadius ? '' : 'rounded-2xl'
-      }`}
-      style={computedStyle}
+      className={`flex items-center gap-1 px-3 py-2 max-w-[calc(100vw-32px)] overflow-x-auto scrollbar-hide transition-all duration-300 ${noTopLeftRadius ? '' : 'rounded-2xl'
+        }`}
+      style={{ ...computedStyle, minWidth: barMinWidth }}
     >
       {/* 현재 단계에 맞는 UI 렌더링 */}
       {currentLevel === 'primary' && renderPrimaryLevel()}
       {currentLevel === 'secondary' && renderSecondaryLevel()}
       {currentLevel === 'tertiary' && renderTertiaryLevel()}
-
-      {/* 필터 초기화 (필터가 활성화된 경우만) */}
-      {filter.primary && (
-        <>
-          <div className="w-px h-5 bg-gray-500 mx-1 flex-shrink-0" />
-          <button
-            onClick={handleReset}
-            className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-red-500/20 rounded-lg transition-colors flex-shrink-0"
-            title="필터 초기화"
-          >
-            <X size={14} />
-          </button>
-        </>
-      )}
     </div>
   );
 }
