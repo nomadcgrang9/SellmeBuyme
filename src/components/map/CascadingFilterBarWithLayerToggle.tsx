@@ -76,7 +76,7 @@ export default function CascadingFilterBarWithLayerToggle({
   };
 
   return (
-    <div className="flex flex-col items-start">
+    <div className="flex flex-col">
       {/* 상단: 레이어 토글 (w-fit, 좌측 정렬, 상단만 둥근 모서리, 하단 border 없음) */}
       <div
         className="flex items-center gap-1 px-3 py-1.5 w-fit"

@@ -351,9 +351,6 @@ export default function CascadingFilterBar({
     );
   };
 
-  // 유치원, 비교과는 2층이 짧아서 1층 너비에 맞춤 필요
-  const needsWidthMatch = filter.primary === '유치원' || filter.primary === '비교과';
-
   // 2차 필터 렌더링 (1차 선택 후)
   const renderSecondaryLevel = () => {
     // 방과후/돌봄은 검색 UI로 대체
@@ -406,8 +403,6 @@ export default function CascadingFilterBar({
           );
         })}
 
-        {/* 유치원, 비교과: 1층 너비에 맞추기 위한 여백 */}
-        {needsWidthMatch && <div className="flex-1" />}
       </>
     );
   };
@@ -471,12 +466,16 @@ export default function CascadingFilterBar({
     );
   };
 
-  // noTopLeftRadius일 때: 상단 좌측만 직각 + 상단 border 제거 (탭과 한 덩어리로 연결)
+  // 유치원/비교과 2층(secondary)일 때만 우측 상단 직각 처리 (1층보다 짧아서 연결 필요)
+  const needsSquareTopRight = noTopLeftRadius && currentLevel === 'secondary' &&
+    (filter.primary === '유치원' || filter.primary === '비교과');
+
+  // noTopLeftRadius일 때: 상단 좌측 직각 + 상단 border 제거 (탭과 한 덩어리로 연결)
   const computedStyle = noTopLeftRadius
     ? {
       ...glassStyle,
       borderTopLeftRadius: 0,
-      borderTopRightRadius: '16px',
+      borderTopRightRadius: needsSquareTopRight ? 0 : '16px',  // 유치원/비교과 2층만 직각
       borderBottomLeftRadius: '16px',
       borderBottomRightRadius: '16px',
       border: 'none',
@@ -487,14 +486,11 @@ export default function CascadingFilterBar({
     }
     : glassStyle;
 
-  // 유치원/비교과 2층일 때 1층 너비 유지를 위한 min-width
-  const barMinWidth = needsWidthMatch && currentLevel === 'secondary' ? '520px' : undefined;
-
   return (
     <div
-      className={`flex items-center gap-1 px-3 py-2 max-w-[calc(100vw-32px)] overflow-x-auto scrollbar-hide transition-all duration-300 ${noTopLeftRadius ? '' : 'rounded-2xl'
+      className={`w-full flex items-center gap-1 px-3 py-2 max-w-[calc(100vw-32px)] overflow-x-auto scrollbar-hide transition-all duration-300 ${noTopLeftRadius ? '' : 'rounded-2xl'
         }`}
-      style={{ ...computedStyle, minWidth: barMinWidth }}
+      style={computedStyle}
     >
       {/* 현재 단계에 맞는 UI 렌더링 */}
       {currentLevel === 'primary' && renderPrimaryLevel()}
