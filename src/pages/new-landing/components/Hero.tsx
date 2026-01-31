@@ -42,6 +42,7 @@ import MobileRegisterNav from '@/components/mobile/MobileRegisterNav';
 import ComingSoonModal from '@/components/common/ComingSoonModal';
 import InstructorInfoModal from '@/components/mobile/InstructorInfoModal';
 import InstructorMarkerModal from '@/components/map/InstructorMarkerModal';
+import FloatingLocationButton from '@/components/map/FloatingLocationButton';
 
 // 간단한 debounce 유틸리티
 function debounce<T extends (...args: any[]) => void>(fn: T, delay: number): T & { cancel: () => void } {
@@ -2191,8 +2192,8 @@ export const Hero: React.FC = () => {
         />
       </div>
 
-      {/* 우측 상단: 레이어 토글 + 구직등록 + 로그인 통합 바 - PC만 */}
-      <div className="hidden md:block absolute top-4 right-4 z-20">
+      {/* 우측 상단: 사이드패널 + 현재위치 버튼 - PC만 */}
+      <div className="hidden md:flex flex-col items-center gap-2 absolute top-4 right-4 z-20">
         <LayerToggleBar
           showJobLayer={showJobLayer}
           showSeekerLayer={showSeekerLayer}
@@ -2260,6 +2261,8 @@ export const Hero: React.FC = () => {
           userProfileImage={null}
           userName={user?.email?.split('@')[0] || null}
         />
+        {/* 현재위치 버튼 - 사이드패널 바로 아래 */}
+        <FloatingLocationButton mapInstance={mapInstanceRef.current} />
       </div>
 
       {/* 구현 예정 모달 */}

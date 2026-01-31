@@ -1,130 +1,107 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { supabase } from '@/lib/supabase/client';
 import { ensureAuthInitialized } from '@/stores/authStore';
 import { createMinimalProfile } from '@/lib/supabase/profiles';
+import Restart from '@solar-icons/react/csr/arrows/Restart';
 
 export default function AuthCallbackPage() {
-  const [status, setStatus] = useState<'pending' | 'error'>('pending');
-  const [message, setMessage] = useState('소셜 계정을 확인하고 있어요. 잠시만 기다려 주세요.');
-
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const hash = window.location.hash.startsWith('#') ? window.location.hash.slice(1) : window.location.hash;
     const hashParams = new URLSearchParams(hash);
 
     const error = params.get('error') ?? hashParams.get('error');
-    const errorDescription = params.get('error_description') ?? hashParams.get('error_description');
     const code = params.get('code');
 
     async function completeAuth() {
+      // 에러 파라미터가 있으면 홈으로 리다이렉트 (에러 화면 안 보여줌)
       if (error) {
-        setStatus('error');
-        setMessage(decodeURIComponent(errorDescription ?? error));
+        console.error('OAuth 에러:', error);
+        window.location.replace('/');
         return;
       }
 
       try {
+        // 1. 먼저 기존 세션 확인
+        const { data: sessionData } = await supabase.auth.getSession();
+
+        if (sessionData?.session) {
+          // 이미 로그인 되어있으면 바로 홈으로
+          await ensureAuthInitialized();
+          window.location.replace('/');
+          return;
+        }
+
+        // 2. code가 있으면 세션 교환
         if (code) {
           const decodedCode = decodeURIComponent(code);
           const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(decodedCode);
 
           if (exchangeError) {
-            setStatus('error');
-            setMessage(exchangeError.message);
+            console.error('세션 교환 실패:', exchangeError.message);
+            window.location.replace('/');
             return;
           }
         } else {
+          // 3. hash에서 토큰 확인
           const accessToken = hashParams.get('access_token');
           const refreshToken = hashParams.get('refresh_token');
 
-          if (!accessToken || !refreshToken) {
-            setStatus('error');
-            setMessage('로그인 토큰이 전달되지 않았습니다. 다시 시도해 주세요.');
+          if (accessToken && refreshToken) {
+            const { error: setError } = await supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken
+            });
+
+            if (setError) {
+              console.error('세션 설정 실패:', setError.message);
+              window.location.replace('/');
+              return;
+            }
+          } else {
+            // 토큰도 없고 세션도 없으면 그냥 홈으로
+            window.location.replace('/');
             return;
           }
+        }
 
-          const { error: setError } = await supabase.auth.setSession({
-            access_token: accessToken,
-            refresh_token: refreshToken
-          });
+        // 4. 사용자 정보 확인 및 프로필 생성
+        const { data: userData } = await supabase.auth.getUser();
 
-          if (setError) {
-            setStatus('error');
-            setMessage(setError.message);
-            return;
+        if (userData?.user) {
+          const userId = userData.user.id;
+          const userEmail = userData.user.email;
+
+          if (userEmail) {
+            await createMinimalProfile(userId, userEmail);
           }
         }
 
-        const { data: userData, error: userError } = await supabase.auth.getUser();
-
-        if (userError || !userData?.user) {
-          console.error('로그인 사용자 정보를 불러오지 못했습니다:', userError?.message);
-          setStatus('error');
-          setMessage('로그인한 사용자 정보를 확인할 수 없습니다. 다시 시도해 주세요.');
-          return;
-        }
-
-        const userId = userData.user.id;
-        const userEmail = userData.user.email;
-
-        // 이메일을 user_profiles에 저장 (최소 프로필 생성)
-        if (userEmail) {
-          const { error: profileError } = await createMinimalProfile(userId, userEmail);
-          if (profileError) {
-            console.error('프로필 생성 실패:', profileError.message);
-            // 프로필 생성 실패해도 로그인은 진행
-          }
-        }
-
-        // 프로필 설정 모달 강제 열기 제거 (사용자가 원할 때 마이페이지에서 설정)
         sessionStorage.removeItem('profileSetupPending');
-
         await ensureAuthInitialized();
 
         const cleanUrl = window.location.origin + window.location.pathname;
         window.history.replaceState({}, document.title, cleanUrl);
 
         window.location.replace('/');
-      } catch (exchangeUnknownError) {
-        console.error('OAuth 세션 처리 실패:', exchangeUnknownError);
-        setStatus('error');
-        setMessage('로그인에 실패했습니다. 다시 시도해 주세요.');
+      } catch (err) {
+        console.error('OAuth 처리 실패:', err);
+        window.location.replace('/');
       }
     }
 
     void completeAuth();
   }, []);
 
-  const isPending = status === 'pending';
-  const isError = status === 'error';
-
+  // 로딩 화면만 표시 (에러 화면 없음)
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="w-full max-w-sm mx-auto rounded-2xl bg-white p-8 shadow-md text-center font-esamanru">
         <div className="flex flex-col items-center gap-4">
-          <div className={`h-12 w-12 rounded-full flex items-center justify-center ${isError ? 'bg-red-100 text-red-500' : 'bg-[#e8f2fb] text-[#4b83c6]'
-            }`}>
-            {isPending ? (
-              <span className="animate-spin text-2xl">⏳</span>
-            ) : (
-              <span className="text-2xl">⚠️</span>
-            )}
+          <div className="h-12 w-12 rounded-full flex items-center justify-center border border-gray-200 text-[#3B82F6]">
+            <Restart size={24} className="animate-spin" />
           </div>
-
-          <div className="space-y-2">
-            <h1 className="text-lg font-extrabold text-gray-900">소셜 로그인 처리 중</h1>
-            <p className="text-sm text-gray-600 leading-relaxed">{message}</p>
-          </div>
-
-          {isError && (
-            <button
-              type="button"
-              onClick={() => window.location.replace('/')}
-              className="px-4 py-2 text-sm font-semibold text-white bg-[#7aa3cc] rounded-md hover:bg-[#6b95be] transition-colors"
-            >
-              홈으로 돌아가기
-            </button>
-          )}
+          <p className="text-base font-medium text-gray-700">로그인 중...</p>
         </div>
       </div>
     </div>
