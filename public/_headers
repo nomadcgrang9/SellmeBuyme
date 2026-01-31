@@ -1,0 +1,11 @@
+# Cloudflare Pages Headers
+# HTML 파일 캐시 비활성화 (항상 최신 버전 제공)
+/*.html
+  Cache-Control: no-cache, no-store, must-revalidate
+
+/index.html
+  Cache-Control: no-cache, no-store, must-revalidate
+
+# JS/CSS 파일은 해시가 포함되어 있으므로 장기 캐싱 허용
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
