@@ -2887,47 +2887,21 @@ function buildTokenGroups(tokens: string[]): TokenGroup[] {
     return [];
   }
 
+  // 동의어 매핑 (학교급만 유지 - 나머지는 단순 문자열 포함으로 검색)
+  // 주의: 각 학교급은 해당 급만 매칭되어야 함 (중등 ≠ 고등)
   const synonymMap: Record<string, string[]> = {
-    // 학교급
-    '중등': ['중학교', '고등학교'],
-    '고등': ['고등학교'],
-    '초등': ['초등학교'],
-    '유치원': ['유아'],
-    '특수': ['특수학교'],
-
-    // 과목 (부분 매칭 지원)
-    '일본': ['일본어', '일본인'],
-    '중국': ['중국어', '중국인'],
-    '영어': ['영어교육', '영어회화', '영어과'],
-    '수학': ['수학교육', '수학과'],
-    '과학': ['과학교육', '과학과'],
-    '체육': ['체육교육', '체육과'],
-    '음악': ['음악교육', '음악과'],
-    '미술': ['미술교육', '미술과'],
-
-    // 지역 (부분 매칭 지원)
-    '화성': ['화성시', '화성교육지원청'],
-    '수원': ['수원시', '수원교육지원청'],
-    '성남': ['성남시', '성남교육지원청'],
-    '고양': ['고양시', '고양교육지원청'],
-    '용인': ['용인시', '용인교육지원청'],
-    '부천': ['부천시', '부천교육지원청'],
-    '안산': ['안산시', '안산교육지원청'],
-    '남양주': ['남양주시', '남양주교육지원청'],
-    '평택': ['평택시', '평택교육지원청'],
-    '의정부': ['의정부시', '의정부교육지원청'],
-
-    // 역할/직무
-    '자원봉사': ['자원봉사자', '자원봉사활동'],
-    '교사': ['교원', '교육자'],
-    '강사': ['교강사', '외부강사']
+    // 학교급 (약어 → 정식명칭)
+    '중등': ['중학교'],           // 중등 = 중학교만
+    '고등': ['고등학교'],         // 고등 = 고등학교만
+    '초등': ['초등학교'],         // 초등 = 초등학교만
+    '유치원': ['유아', '어린이집'], // 유아교육기관
   };
 
   return tokens.map((token) => {
     const variants = new Set<string>();
     variants.add(token);
 
-    // 1. synonymMap에서 동의어 추가
+    // 학교급 동의어만 추가 (나머지는 단순 includes 매칭)
     const synonyms = synonymMap[token];
     if (Array.isArray(synonyms)) {
       synonyms.forEach((synonym) => {
@@ -2938,20 +2912,8 @@ function buildTokenGroups(tokens: string[]): TokenGroup[] {
       });
     }
 
-    // 2. 광역시도 키워드인 경우 하위 시군구 모두 추가
-    // 예: "경기" → ["경기", "경기도", "수원", "성남", ...]
-    if (PROVINCE_NAMES.includes(token)) {
-      const cities = PROVINCE_TO_CITIES[token];
-      if (cities) {
-        // 광역시도 + "도/시" 변형 추가
-        variants.add(`${token}도`);  // 경기 → 경기도
-        variants.add(`${token}시`);  // 부산 → 부산시
-        // 모든 하위 시군구 추가
-        cities.forEach((city) => {
-          variants.add(city);
-        });
-      }
-    }
+    // 지역 확장 제거 - 단순히 검색어가 포함되면 매칭됨
+    // 예: '광주' 검색 → location에 '광주'가 포함된 모든 공고 (경기 광주시, 광주광역시 모두)
 
     return Array.from(variants);
   });
@@ -3518,88 +3480,11 @@ async function executeJobSearch({
 }: JobSearchArgs): Promise<SearchResponse> {
   const trimmedQuery = searchQuery.trim();
 
-  // 광역시도 키워드가 포함되어 있는지 확인
-  // 광역시도 키워드(경기, 서울 등)가 있으면 하위 도시로 확장해야 하므로 PGroonga 대신 ILIKE 사용
+  // 검색어 토큰 분리
   const baseTokens = trimmedQuery.split(/\s+/).filter(t => t.length > 0);
-  const containsProvinceKeyword = baseTokens.some(token => PROVINCE_NAMES.includes(token));
 
-  // PGroonga 검색 사용 (텍스트 검색이 있을 때, 단 광역시도 키워드가 없을 때만)
-  if (trimmedQuery.length > 0 && !containsProvinceKeyword) {
-    try {
-      // PGroonga RPC 함수 호출
-      const { data: pgroongaData, error: pgroongaError } = await supabase
-        .rpc('search_jobs_pgroonga', { search_text: trimmedQuery });
-
-      if (!pgroongaError && pgroongaData) {
-        // PGroonga 검색 성공 - 필터 적용
-        let filteredData = pgroongaData;
-
-        // 지역 필터 (하나라도 포함되면 매칭)
-        // 지원 형식: "경기" (광역시도 전체), "경기-성남시" (특정 시군구), "의정부" (기존 형식)
-        if (filters.region.length > 0) {
-          filteredData = filteredData.filter((job: any) => {
-            const location = job.location?.toLowerCase() || '';
-            return filters.region.some((r) => {
-              if (r.includes('-')) {
-                // {province}-{city} 형식 (예: "경기-성남시")
-                const city = r.split('-').slice(1).join('-');
-                return location.includes(city.toLowerCase());
-              } else if (PROVINCE_NAMES.includes(r)) {
-                // 광역시도 전체 검색 (예: "경기", "서울")
-                const allLocations = [r, ...(PROVINCE_TO_CITIES[r] || [])];
-                return allLocations.some(loc => location.includes(loc.toLowerCase()));
-              } else {
-                // 기존 형식 (특정 지역명)
-                return location.includes(r.toLowerCase());
-              }
-            });
-          });
-        }
-
-        // 카테고리 필터 (하나라도 포함되면 매칭)
-        if (filters.category.length > 0) {
-          filteredData = filteredData.filter((job: any) =>
-            filters.category.some((c) => job.tags?.includes(c))
-          );
-        }
-
-        // job_type 필터
-        if (jobType) {
-          filteredData = filteredData.filter((job: any) => job.job_type === jobType);
-        }
-
-        // 마감일 필터
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        filteredData = filteredData.filter((job: any) => {
-          if (!job.deadline) return true;
-          const deadline = new Date(job.deadline);
-          return deadline >= today;
-        });
-
-        // 정렬 적용
-        const sortedData = applySortToData(filteredData, filters.sort, tokens, trimmedQuery);
-
-        // 페이지네이션
-        const from = Math.max(offset ?? DEFAULT_OFFSET, 0);
-        const to = from + Math.max(limit ?? DEFAULT_LIMIT, 1);
-        const paginatedData = sortedData.slice(from, to);
-
-        return {
-          cards: paginatedData.map(mapJobPostingToCard),
-          totalCount: filteredData.length,
-          pagination: { limit, offset: from }
-        };
-      }
-
-      // PGroonga 실패 시 아래 fallback으로 계속
-      console.warn('PGroonga 검색 실패, fallback 사용:', pgroongaError);
-    } catch (err) {
-      console.warn('PGroonga 검색 오류, fallback 사용:', err);
-    }
-  }
-
-  // Fallback: 기존 방식 (PGroonga 실패 시 또는 검색어 없을 때)
+  // 단순 ILIKE 검색 사용 (PGroonga 비활성화 - 검색 정확도 문제로 인해)
+  // 사용자 요청: "검색할 때 해당 문자가 있으면 검색되게 하면 깔끔한거 아니야?"
   let query = supabase
     .from('job_postings')
     .select('*, application_period', { count: 'exact' });
@@ -3612,28 +3497,13 @@ async function executeJobSearch({
     if (baseTokens.length > 0) {
       // 각 토큰에 대해 OR 조건 생성 후, 토큰 간에는 AND로 연결
       for (const token of baseTokens) {
-        // 광역시도 키워드인 경우 크롤보드 ID로 필터링 (동일 이름 하위 지역 중복 방지)
-        if (isProvinceWideSearch(token)) {
-          const crawlBoardIds = getCrawlBoardIdsForProvince(token);
-          if (crawlBoardIds && crawlBoardIds.length > 0) {
-            // 크롤보드 ID로 필터링 (서울 검색 시 서울 크롤보드의 공고만)
-            const crawlBoardConditions = crawlBoardIds.map(id => `crawl_board_id.eq.${id}`);
-            query = query.or(crawlBoardConditions.join(','));
-          } else {
-            // 크롤보드 ID 매핑이 없으면 기존 방식 (location + organization)
-            const allLocations = expandProvinceToAllCities(token);
-            const locationConditions = allLocations.map(loc => `location.ilike.%${loc}%`);
-            const orgCondition = `organization.ilike.%${token}%`;
-            query = query.or([...locationConditions, orgCondition].join(','));
-          }
-        } else {
-          const pattern = buildIlikePattern(token);
-          // school_level 컬럼도 검색 대상에 추가하여 "초등", "중등" 등 학교급 검색 지원
-          const tokenOrConditions = ['title', 'organization', 'location', 'subject', 'school_level'].map(
-            (column) => `${column}.ilike.${pattern}`
-          );
-          query = query.or(tokenOrConditions.join(','));
-        }
+        // 단순 문자열 검색 - 해당 문자가 포함되면 매칭
+        // 예: "광주" 검색 → 경기 광주시, 광주광역시 모두 포함
+        const pattern = buildIlikePattern(token);
+        const tokenOrConditions = ['title', 'organization', 'location', 'subject', 'school_level'].map(
+          (column) => `${column}.ilike.${pattern}`
+        );
+        query = query.or(tokenOrConditions.join(','));
       }
     }
   }

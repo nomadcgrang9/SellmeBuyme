@@ -1,9 +1,10 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, RotateCcw, ChevronDown, ChevronUp } from 'lucide-react';
+import { X, RotateCcw, ChevronDown, ChevronUp, AlertCircle } from 'lucide-react';
 import { useState } from 'react';
 import { useSearchStore } from '@/stores/searchStore';
 import { REGION_OPTIONS_HIERARCHICAL } from '@/lib/constants/filters';
 import { RECOMMENDED_KEYWORDS } from '@/lib/utils/searchHistory';
+import { shouldShowConflictWarning, getRegionDisplayInfo } from '@/lib/utils/regionUtils';
 
 interface FilterSidebarProps {
     isOpen: boolean;
@@ -203,24 +204,33 @@ export default function FilterSidebar({ isOpen, onClose }: FilterSidebarProps) {
                                                         전체
                                                     </button>
                                                     {/* 개별 시군구 버튼 */}
-                                                    {REGION_OPTIONS_HIERARCHICAL.find(r => r.name === expandedRegion)?.subregions?.map((subregion) => (
-                                                        <button
-                                                            key={subregion}
-                                                            onClick={() => handleSubregionClick(expandedRegion, subregion)}
-                                                            disabled={isProvinceAllSelected(expandedRegion)}
-                                                            className={`
-                                                                px-2.5 py-1 rounded-full text-xs font-medium transition-all duration-200 border
-                                                                ${isProvinceAllSelected(expandedRegion)
-                                                                    ? 'bg-blue-50 border-blue-100 text-blue-400 cursor-not-allowed'
-                                                                    : isSubregionSelected(expandedRegion, subregion)
-                                                                        ? 'bg-[#5aa0eb] border-[#5aa0eb] text-white shadow-sm'
-                                                                        : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-100'
-                                                                }
-                                                            `}
-                                                        >
-                                                            {subregion}
-                                                        </button>
-                                                    ))}
+                                                    {REGION_OPTIONS_HIERARCHICAL.find(r => r.name === expandedRegion)?.subregions?.map((subregion) => {
+                                                        const displayInfo = getRegionDisplayInfo(subregion, expandedRegion);
+                                                        const showWarning = shouldShowConflictWarning(subregion);
+
+                                                        return (
+                                                            <button
+                                                                key={subregion}
+                                                                onClick={() => handleSubregionClick(expandedRegion, subregion)}
+                                                                disabled={isProvinceAllSelected(expandedRegion)}
+                                                                title={displayInfo.tooltip || undefined}
+                                                                className={`
+                                                                    px-2.5 py-1 rounded-full text-xs font-medium transition-all duration-200 border flex items-center gap-1
+                                                                    ${isProvinceAllSelected(expandedRegion)
+                                                                        ? 'bg-blue-50 border-blue-100 text-blue-400 cursor-not-allowed'
+                                                                        : isSubregionSelected(expandedRegion, subregion)
+                                                                            ? 'bg-[#5aa0eb] border-[#5aa0eb] text-white shadow-sm'
+                                                                            : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-100'
+                                                                    }
+                                                                `}
+                                                            >
+                                                                {subregion}
+                                                                {showWarning && (
+                                                                    <AlertCircle className="w-3 h-3 text-amber-500" />
+                                                                )}
+                                                            </button>
+                                                        );
+                                                    })}
                                                 </div>
                                             </div>
                                         </motion.div>

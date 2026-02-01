@@ -208,6 +208,117 @@ export function generateClusterMarker(count: number, dominantLevel?: SchoolLevel
 }
 
 /**
+ * 직방 스타일 클러스터 마커 크기 상수 (5단계)
+ * 줌 아웃 시 잘 보이도록 크기 증가
+ */
+export const ZIGBANG_CLUSTER_SIZE = {
+  xs: 56,      // count 1-9
+  small: 68,   // count 10-49
+  medium: 82,  // count 50-99
+  large: 98,   // count 100-499
+  xl: 118,     // count 500+
+} as const;
+
+/**
+ * 공고 수에 따른 클러스터 마커 크기 및 스타일 계산
+ */
+function getClusterStyle(count: number): { size: number; fontSize: number; strokeWidth: number } {
+  if (count >= 500) {
+    return { size: ZIGBANG_CLUSTER_SIZE.xl, fontSize: 18, strokeWidth: 4 };
+  } else if (count >= 100) {
+    return { size: ZIGBANG_CLUSTER_SIZE.large, fontSize: 16, strokeWidth: 3.5 };
+  } else if (count >= 50) {
+    return { size: ZIGBANG_CLUSTER_SIZE.medium, fontSize: 15, strokeWidth: 3 };
+  } else if (count >= 10) {
+    return { size: ZIGBANG_CLUSTER_SIZE.small, fontSize: 14, strokeWidth: 2.5 };
+  } else {
+    return { size: ZIGBANG_CLUSTER_SIZE.xs, fontSize: 13, strokeWidth: 2 };
+  }
+}
+
+/**
+ * 클러스터 레벨별 색상
+ * - 광역자치단체 (province): 주황색 계열 - 넓은 영역을 따뜻하게 표현
+ * - 기초자치단체 (city): 청록색 계열 - 세부 지역을 구분
+ */
+export const CLUSTER_LEVEL_COLORS = {
+  province: {
+    gradientStart: '#FB923C',  // orange-400
+    gradientEnd: '#EA580C',    // orange-600
+    shadow: '#EA580C',
+    text: '#374151',           // gray-700
+  },
+  city: {
+    gradientStart: '#38BDF8',  // sky-400
+    gradientEnd: '#0284C7',    // sky-600
+    shadow: '#0284C7',
+    text: '#1E3A5F',           // dark blue
+  },
+} as const;
+
+export type ClusterLevelType = keyof typeof CLUSTER_LEVEL_COLORS;
+
+/**
+ * 직방 스타일 지역 클러스터 마커 생성
+ * 줌 아웃 시 지역별로 공고 수를 표시하는 원형 마커
+ * 5단계 크기 구분: 1-9, 10-49, 50-99, 100-499, 500+
+ * @param count 해당 지역의 공고 개수
+ * @param regionName 지역명 (optional, 표시용)
+ * @param level 클러스터 레벨 ('province': 광역자치단체, 'city': 기초자치단체)
+ */
+export function generateZigbangClusterMarker(
+  count: number,
+  regionName?: string,
+  level: ClusterLevelType = 'province'
+): string {
+  const { size, fontSize, strokeWidth } = getClusterStyle(count);
+  const halfSize = size / 2;
+  const colors = CLUSTER_LEVEL_COLORS[level];
+
+  // 지역명 표시 여부 (선택적, 크기가 충분할 때만)
+  const showRegionName = regionName && regionName.length <= 4 && size >= ZIGBANG_CLUSTER_SIZE.small;
+  const regionFontSize = 10;
+  const totalHeight = showRegionName ? size + 16 : size;
+
+  // 고유 ID 생성 (SVG 내부 참조용)
+  const uniqueId = `zb-${level}-${count}-${Date.now()}`;
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${totalHeight}" viewBox="0 0 ${size} ${totalHeight}">
+  <defs>
+    <linearGradient id="grad-${uniqueId}" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:${colors.gradientStart}"/>
+      <stop offset="100%" style="stop-color:${colors.gradientEnd}"/>
+    </linearGradient>
+    <filter id="shadow-${uniqueId}" x="-40%" y="-40%" width="180%" height="180%">
+      <feDropShadow dx="0" dy="2" stdDeviation="${Math.max(3, size / 15)}" flood-color="${colors.shadow}" flood-opacity="0.4"/>
+    </filter>
+  </defs>
+  <!-- 메인 원형 -->
+  <circle cx="${halfSize}" cy="${halfSize}" r="${halfSize - strokeWidth}"
+          fill="url(#grad-${uniqueId})"
+          stroke="white"
+          stroke-width="${strokeWidth}"
+          filter="url(#shadow-${uniqueId})"/>
+  <!-- 공고 개수 텍스트 -->
+  <text x="${halfSize}" y="${halfSize + fontSize / 3}"
+        text-anchor="middle"
+        font-size="${fontSize}"
+        font-weight="bold"
+        fill="white"
+        font-family="system-ui, -apple-system, sans-serif">${count.toLocaleString()}</text>
+  ${showRegionName ? `
+  <!-- 지역명 -->
+  <text x="${halfSize}" y="${size + 12}"
+        text-anchor="middle"
+        font-size="${regionFontSize}"
+        font-weight="600"
+        fill="${colors.text}"
+        font-family="system-ui, -apple-system, sans-serif">${regionName}</text>
+  ` : ''}
+</svg>`;
+}
+
+/**
  * 구직자 마커 크기 상수
  */
 export const TEACHER_MARKER_SIZE = {

@@ -17,6 +17,7 @@ import CascadingFilterBar from '@/components/map/CascadingFilterBar';
 import LayerToggleBar from '@/components/map/LayerToggleBar';
 import { type CascadingFilter, matchesCascadingFilter } from '@/lib/utils/jobClassifier';
 import MarkerPopup from '@/components/map/MarkerPopup';
+import { useAutoScaleMap } from '@/hooks/useAutoScaleMap';
 import AuthModal from '@/components/auth/AuthModal';
 import ProfileButton from '@/components/auth/ProfileButton';
 import ProfileModal from '@/components/auth/ProfileModal';
@@ -504,6 +505,9 @@ export const Hero: React.FC = () => {
     ne: { lat: number; lng: number };
   } | null>(null);
 
+  // 지도 상태 (자동 스케일업용)
+  const [mapState, setMapState] = useState({ zoom: 5, center: { lat: 37.5665, lng: 126.978 } });
+
   // 마커 팝업 상태
   const [selectedMarker, setSelectedMarker] = useState<{
     type: 'teacher' | 'program' | 'instructor';
@@ -551,6 +555,9 @@ export const Hero: React.FC = () => {
   const mapMarkersRef = useRef<any[]>([]);
   const coordsCacheRef = useRef<Map<string, { lat: number; lng: number }>>(new Map());
 
+  // 카카오맵 MarkerClusterer ref (좌표 기반 동적 클러스터링)
+  const markerClustererRef = useRef<any>(null);
+
   // 마커-공고 매핑 (마커 클릭 시 상세 패널 열기용)
   const markerJobMapRef = useRef<Map<any, JobPostingCard>>(new Map());
 
@@ -595,27 +602,20 @@ export const Hero: React.FC = () => {
     }
 
     // 주소 검색 키워드 필터
+    // 단순 문자열 검색: 검색어가 포함되면 매칭
+    // 예: "광주" 검색 → 경기 광주시, 광주광역시 모두 포함
     if (activeLocationFilter) {
-      const provinceKeywords = ['서울', '세종', '인천', '대전', '광주', '대구', '울산', '부산', '경기', '강원', '충북', '충남', '전북', '전남', '경북', '경남', '제주'];
-      const searchKeywords = activeLocationFilter
-        .replace(/특별시|광역시|특별자치시|특별자치도|도|시|구|군/g, ' ')
-        .split(/\s+/)
-        .filter(k => k.length >= 2);
+      const searchKeyword = activeLocationFilter.trim().toLowerCase();
 
-      const isProvinceOnlySearch = searchKeywords.length === 1 &&
-        provinceKeywords.some(p => p === searchKeywords[0]);
-
-      if (searchKeywords.length > 0 && !isProvinceOnlySearch) {
-        const specificKeyword = searchKeywords[searchKeywords.length - 1].toLowerCase();
-
+      if (searchKeyword.length > 0) {
         filtered = filtered.filter(job => {
           const org = (job.organization || '').toLowerCase();
           const loc = (job.location || '').toLowerCase();
           const title = (job.title || '').toLowerCase();
 
-          return org.includes(specificKeyword) ||
-            loc.includes(specificKeyword) ||
-            title.includes(specificKeyword);
+          return org.includes(searchKeyword) ||
+            loc.includes(searchKeyword) ||
+            title.includes(searchKeyword);
         });
       }
     }
@@ -668,6 +668,74 @@ export const Hero: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [jobPostings, cascadingFilter, activeLocationFilter, deduplicateJobs, viewportBounds, coordsCacheVersion, selectedJob]);
 
+  // 뷰포트 무관 전체 필터링 카운트 (자동 스케일업 판단용)
+  // viewportBounds를 무시하고 전체 jobPostings에서 필터만 적용한 수
+  const totalFilteredCount = useMemo(() => {
+    let filtered = deduplicateJobs(jobPostings);
+    if (cascadingFilter.primary) {
+      filtered = filtered.filter(job => matchesCascadingFilter(job, cascadingFilter));
+    }
+    console.log('[Hero] 전체 필터링 카운트 (뷰포트 무관):', filtered.length, '필터:', cascadingFilter.primary, cascadingFilter.secondary);
+    return filtered.length;
+  }, [jobPostings, cascadingFilter, deduplicateJobs]);
+
+  // 지도 상태 변경 콜백 (자동 스케일업용)
+  const handleMapStateChange = useCallback((zoom: number, center: { lat: number; lng: number }) => {
+    if (!mapInstanceRef.current || !window.kakao) return;
+    mapInstanceRef.current.setLevel(zoom);
+    mapInstanceRef.current.setCenter(new window.kakao.maps.LatLng(center.lat, center.lng));
+    setMapState({ zoom, center });
+  }, []);
+
+  // 자동 스케일업 훅
+  const {
+    checkAndExpand,
+    restoreOriginalPosition,
+    isExpanded,
+    canRestore,
+    resetExpansionState,
+  } = useAutoScaleMap({
+    currentMapState: mapState,
+    viewportFilteredCount: filteredJobPostings.length,  // 현재 뷰포트 내 보이는 공고 수
+    totalFilteredCount: totalFilteredCount,  // 전체 공고 중 필터 매칭 수
+    primaryCategory: cascadingFilter.primary,
+    secondaryCategory: cascadingFilter.secondary,
+    onMapStateChange: handleMapStateChange,
+    onShowToast: showToast,
+  });
+
+  // 필터 변경 시 자동 스케일업 체크
+  useEffect(() => {
+    // 필터가 비어있으면 확장 상태 리셋
+    if (!cascadingFilter.primary && !cascadingFilter.secondary) {
+      resetExpansionState();
+      return;
+    }
+
+    // 약간의 딜레이 후 체크 (필터링 결과 업데이트 대기)
+    const timer = setTimeout(() => {
+      checkAndExpand();
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [cascadingFilter.primary, cascadingFilter.secondary, checkAndExpand, resetExpansionState]);
+
+  // 필터링 결과가 부족하면 추가 확장 (뷰포트 내 결과 기준)
+  useEffect(() => {
+    // 필터가 활성화되어 있고, 확장 중이고, 뷰포트 내 결과가 여전히 부족하면
+    if (
+      (cascadingFilter.primary || cascadingFilter.secondary) &&
+      isExpanded &&
+      filteredJobPostings.length < 3
+    ) {
+      console.log('[Hero] 뷰포트 내 결과 부족으로 추가 확장 시도:', filteredJobPostings.length, '개 (전체:', totalFilteredCount, '개)');
+      const timer = setTimeout(() => {
+        checkAndExpand();
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [filteredJobPostings.length, totalFilteredCount, cascadingFilter, isExpanded, checkAndExpand]);
+
   // 인증 상태 초기화
   const { initialize: initializeAuth } = useAuthStore();
   useEffect(() => {
@@ -680,42 +748,61 @@ export const Hero: React.FC = () => {
   }, [loadKakaoMaps]);
 
   // 사용자 현재 위치 획득 (초기 로드 시)
+  // 항상 Geolocation 먼저 시도 → 실패 시 캐시 폴백
   useEffect(() => {
     // 이미 위치가 설정되어 있으면 스킵
     if (userLocation) return;
 
-    // 캐시된 위치 확인 (24시간 유효)
-    const cachedLocation = localStorage.getItem('userLocation');
-    if (cachedLocation) {
+    // 캐시된 위치를 폴백으로 사용하기 위해 미리 파싱
+    const getCachedLocation = (): { lat: number; lng: number } | null => {
       try {
-        const { lat, lng, timestamp } = JSON.parse(cachedLocation);
-        const isValid = Date.now() - timestamp < 24 * 60 * 60 * 1000;
-        if (isValid && lat && lng) {
-          console.log('[Hero] 캐시된 사용자 위치 사용:', lat, lng);
-          setUserLocation({ lat, lng });
-          return;
+        const cached = localStorage.getItem('userLocation');
+        if (cached) {
+          const { lat, lng, timestamp } = JSON.parse(cached);
+          // 캐시 유효기간: 1시간 (이전 24시간에서 단축)
+          const isValid = Date.now() - timestamp < 60 * 60 * 1000;
+          if (isValid && lat && lng) {
+            return { lat, lng };
+          }
         }
       } catch (e) {
         // 캐시 파싱 실패 시 무시
       }
-    }
+      return null;
+    };
 
-    // Geolocation API로 현재 위치 획득
+    // Geolocation API로 현재 위치 획득 (항상 먼저 시도)
     if (navigator.geolocation) {
+      console.log('[Hero] 🔍 Geolocation API 호출 시작...');
       navigator.geolocation.getCurrentPosition(
         (position) => {
           const { latitude: lat, longitude: lng } = position.coords;
-          console.log('[Hero] 사용자 현재 위치 획득:', lat, lng);
+          console.log('[Hero] ✅ 현재 위치 획득 성공:', lat, lng);
           setUserLocation({ lat, lng });
-          // 위치 캐시
+          // 위치 캐시 업데이트
           localStorage.setItem('userLocation', JSON.stringify({ lat, lng, timestamp: Date.now() }));
         },
         (error) => {
-          console.log('[Hero] 위치 획득 실패, 기본 위치(서울) 사용:', error.message);
-          // 위치 획득 실패 시 기본 위치 사용 (아무것도 안함 - defaultLocation 사용)
+          console.log('[Hero] ⚠️ 위치 획득 실패:', error.message);
+          // 실패 시 캐시된 위치로 폴백
+          const cached = getCachedLocation();
+          if (cached) {
+            console.log('[Hero] 📍 캐시된 위치로 폴백:', cached.lat, cached.lng);
+            setUserLocation(cached);
+          } else {
+            console.log('[Hero] 📍 캐시 없음, 기본 위치(서울) 사용');
+            // 기본 위치는 defaultLocation이 처리
+          }
         },
-        { enableHighAccuracy: false, timeout: 5000, maximumAge: 600000 }
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
       );
+    } else {
+      // Geolocation 미지원 브라우저
+      console.log('[Hero] ⚠️ Geolocation API 미지원');
+      const cached = getCachedLocation();
+      if (cached) {
+        setUserLocation(cached);
+      }
     }
   }, [userLocation]);
 
@@ -775,6 +862,79 @@ export const Hero: React.FC = () => {
 
     const map = new window.kakao.maps.Map(mapContainerRef.current, mapOption);
     mapInstanceRef.current = map;
+
+    // ★ MarkerClusterer 초기화 (좌표 기반 동적 클러스터링)
+    // 직방 스타일: 줌 레벨에 따라 자동으로 마커 그룹화
+    // minLevel: 카카오맵 레벨은 1(가장 확대)~14(가장 축소), 이 값 이상에서 클러스터링 동작
+    const clusterer = new window.kakao.maps.MarkerClusterer({
+      map: map,
+      averageCenter: true,  // 클러스터 중심을 마커들의 평균 위치로
+      minLevel: 8,          // 클러스터 적용 최소 줌 레벨 (8 이상에서 클러스터링, 7 이하에서 개별 마커)
+      disableClickZoom: false, // 클러스터 클릭 시 줌인
+      gridSize: 80,         // 클러스터 그리드 크기 (px)
+      minClusterSize: 1,    // ★ 단독 마커도 클러스터 스타일로 표시 (1개부터 클러스터)
+      calculator: [10, 50, 100, 500], // 클러스터 단계 구분
+      styles: [
+        // 단계별 클러스터 스타일 (직방 스타일 주황색 원형)
+        { // 2-9개
+          width: '56px', height: '56px',
+          background: 'linear-gradient(135deg, #FB923C 0%, #EA580C 100%)',
+          borderRadius: '50%',
+          color: '#fff',
+          textAlign: 'center',
+          fontWeight: 'bold',
+          fontSize: '14px',
+          lineHeight: '56px',
+          boxShadow: '0 4px 12px rgba(234, 88, 12, 0.4)',
+        },
+        { // 10-49개
+          width: '68px', height: '68px',
+          background: 'linear-gradient(135deg, #FB923C 0%, #EA580C 100%)',
+          borderRadius: '50%',
+          color: '#fff',
+          textAlign: 'center',
+          fontWeight: 'bold',
+          fontSize: '15px',
+          lineHeight: '68px',
+          boxShadow: '0 4px 14px rgba(234, 88, 12, 0.45)',
+        },
+        { // 50-99개
+          width: '82px', height: '82px',
+          background: 'linear-gradient(135deg, #FB923C 0%, #EA580C 100%)',
+          borderRadius: '50%',
+          color: '#fff',
+          textAlign: 'center',
+          fontWeight: 'bold',
+          fontSize: '16px',
+          lineHeight: '82px',
+          boxShadow: '0 4px 16px rgba(234, 88, 12, 0.5)',
+        },
+        { // 100-499개
+          width: '98px', height: '98px',
+          background: 'linear-gradient(135deg, #FB923C 0%, #EA580C 100%)',
+          borderRadius: '50%',
+          color: '#fff',
+          textAlign: 'center',
+          fontWeight: 'bold',
+          fontSize: '18px',
+          lineHeight: '98px',
+          boxShadow: '0 4px 18px rgba(234, 88, 12, 0.55)',
+        },
+        { // 500개 이상
+          width: '118px', height: '118px',
+          background: 'linear-gradient(135deg, #FB923C 0%, #EA580C 100%)',
+          borderRadius: '50%',
+          color: '#fff',
+          textAlign: 'center',
+          fontWeight: 'bold',
+          fontSize: '20px',
+          lineHeight: '118px',
+          boxShadow: '0 6px 20px rgba(234, 88, 12, 0.6)',
+        },
+      ],
+    });
+    markerClustererRef.current = clusterer;
+    console.log('[Hero] MarkerClusterer 초기화 완료');
 
     // ★ 줌 컨트롤 완전히 제거 (모든 환경에서 표시 안 함)
     // 이유: 사용자 요청으로 인해 줌 컨트롤을 어떤 환경에서도 표시하지 않음
@@ -850,9 +1010,21 @@ export const Hero: React.FC = () => {
     });
 
     // 줌 레벨 변경 시 뷰포트 내 지역 로드 + bounds 업데이트
+    // MarkerClusterer가 자동으로 클러스터링을 처리함
     window.kakao.maps.event.addListener(map, 'zoom_changed', () => {
-      console.log('[Hero] 줌 레벨 변경, 현재 레벨:', map.getLevel());
+      const level = map.getLevel();
+      console.log('[Hero] 줌 레벨 변경, 현재 레벨:', level);
       debouncedLoadRegions();
+    });
+
+    // 지도 idle 이벤트에서 mapState 동기화 (자동 스케일업용)
+    window.kakao.maps.event.addListener(map, 'idle', () => {
+      const level = map.getLevel();
+      const center = map.getCenter();
+      setMapState({
+        zoom: level,
+        center: { lat: center.getLat(), lng: center.getLng() },
+      });
     });
 
     // 초기 로드: 현재 뷰포트(사용자 위치 기반) 지역 로드
@@ -1507,10 +1679,10 @@ export const Hero: React.FC = () => {
         { offset: new window.kakao.maps.Point(offsetX, offsetY) }
       );
 
-      // ★ 길찾기 모드일 때는 마커를 지도에 추가하지 않음
+      // ★ MarkerClusterer 사용: 마커를 직접 지도에 추가하지 않음 (clusterer가 관리)
+      // 길찾기 모드일 때는 마커 생성 자체를 스킵 (아래에서 처리)
       const marker = new window.kakao.maps.Marker({
         position: position,
-        map: showDirectionsSheetRef.current ? null : map,
         image: markerImage,
         clickable: true,
       });
@@ -1766,6 +1938,12 @@ export const Hero: React.FC = () => {
       if (uncachedJobs.length > 0) {
         setCoordsCacheVersion(v => v + 1);
       }
+
+      // ★ MarkerClusterer에 마커 일괄 추가 (길찾기 모드가 아닐 때만)
+      if (markerClustererRef.current && !showDirectionsSheetRef.current) {
+        markerClustererRef.current.addMarkers(mapMarkersRef.current);
+        console.log('[Hero] MarkerClusterer에 마커 추가 완료:', mapMarkersRef.current.length, '개');
+      }
     };
 
     processBatches();
@@ -1773,12 +1951,19 @@ export const Hero: React.FC = () => {
     return () => {
       cancelled = true;
       if (currentInfowindow) currentInfowindow.close();
+      // MarkerClusterer에서 마커 제거
+      if (markerClustererRef.current) {
+        markerClustererRef.current.clear();
+      }
       mapMarkersRef.current.forEach(marker => marker.setMap(null));
       mapMarkersRef.current = [];
       markerJobMapRef.current.clear();
       // selectJobFromMarker는 삭제하지 않음 (한 번 정의하면 계속 사용)
     };
   }, [isLoaded, filteredJobPostings, activeLayers]);
+
+  // ★ MarkerClusterer가 자동으로 줌 레벨에 따라 클러스터링을 처리함
+  // 더 이상 수동 클러스터 모드 전환이 필요 없음
 
   return (
     <section className="h-full w-full relative">
@@ -1850,6 +2035,19 @@ export const Hero: React.FC = () => {
 
 
 
+
+      {/* 자동 스케일업 후 "원래 위치로" 버튼 */}
+      {canRestore && (
+        <button
+          onClick={restoreOriginalPosition}
+          className="absolute bottom-20 right-4 z-10 px-3 py-2 bg-white rounded-lg shadow-md text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2 border border-gray-200 md:bottom-6"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+          </svg>
+          원래 위치로
+        </button>
+      )}
 
       {/* 로그인 필요 알림 - Anti-Vibe 미니멀 모노크롬 */}
       {showLoginPrompt && (

@@ -388,5 +388,108 @@
     "isLocalGovernment": false,
     "active": true,
     "note": "별도 크롤러 사용 (gyeongnam.js) - 전체 공고 (종료예정 필터 제거)"
+  },
+  "seoul-public-worker": {
+    "name": "서울교육청 공무직 채용",
+    "baseUrl": "https://www.sen.go.kr/sen/user/bbs/BD_selectBbsList.do?q_bbsSn=1092",
+    "detailUrlTemplate": "https://www.sen.go.kr/sen/user/bbs/BD_selectBbs.do?q_bbsSn=1092&q_bbsDocNo=",
+    "parserType": "custom",
+    "region": "서울",
+    "metropolitanRegion": "서울",
+    "isLocalGovernment": false,
+    "active": false,
+    "jobType": "공무직",
+    "note": "서울교육청 공무직 채용공고 (q_bbsSn=1092) - 구현 필요"
+  },
+  "seoul-admin": {
+    "name": "서울교육청 교육행정직 채용",
+    "baseUrl": "https://www.sen.go.kr/sen/user/bbs/BD_selectBbsList.do?q_bbsSn=1093",
+    "detailUrlTemplate": "https://www.sen.go.kr/sen/user/bbs/BD_selectBbs.do?q_bbsSn=1093&q_bbsDocNo=",
+    "parserType": "custom",
+    "region": "서울",
+    "metropolitanRegion": "서울",
+    "isLocalGovernment": false,
+    "active": false,
+    "jobType": "교육행정",
+    "note": "서울교육청 교육행정직 채용공고 (q_bbsSn=1093) - 연 1-2회 공개채용"
+  },
+  "incheon-public-worker": {
+    "name": "인천교육청 공무직 채용",
+    "baseUrl": "https://www.ice.go.kr/ice/na/ntt/selectNttList.do?mi=10997&bbsId=1779",
+    "detailUrlTemplate": "https://www.ice.go.kr/ice/na/ntt/selectNttInfo.do?mi=10997&bbsId=1779&nttSn=",
+    "parserType": "ntt",
+    "selectors": {
+      "listContainer": "table tbody",
+      "rows": "table tbody tr",
+      "title": "a.nttInfoBtn, a[data-id], td.ta_l a, td:nth-child(5) a",
+      "date": "td:nth-child(1)",
+      "link": "a.nttInfoBtn, a[data-id]",
+      "attachment": ".file-list a, .atch-file-list a"
+    },
+    "region": "인천",
+    "metropolitanRegion": "인천",
+    "isLocalGovernment": false,
+    "active": false,
+    "jobType": "공무직",
+    "note": "인천교육청 공무직 채용공고 (bbsId=1779) - NTT 패턴 사용"
+  },
+  "incheon-admin": {
+    "name": "인천교육청 교육행정직 채용",
+    "baseUrl": "https://www.ice.go.kr/ice/na/ntt/selectNttList.do?mi=10997&bbsAllTy=exam",
+    "detailUrlTemplate": "https://www.ice.go.kr/ice/na/ntt/selectNttInfo.do?mi=10997&nttSn=",
+    "parserType": "ntt",
+    "selectors": {
+      "listContainer": "table tbody",
+      "rows": "table tbody tr",
+      "title": "a.nttInfoBtn, a[data-id], td.ta_l a",
+      "date": "td:nth-child(1)",
+      "link": "a.nttInfoBtn, a[data-id]"
+    },
+    "region": "인천",
+    "metropolitanRegion": "인천",
+    "isLocalGovernment": false,
+    "active": false,
+    "jobType": "교육행정",
+    "note": "인천교육청 교육행정직 채용공고 (bbsAllTy=exam) - 연 1-2회"
+  },
+  "gyeonggi-public-worker": {
+    "name": "경기도교육청 공무직 채용",
+    "baseUrl": "https://www.goe.go.kr/recruit/ad/func/pb/hnfpPbancList.do?mi=10502",
+    "listEndpoint": "https://www.goe.go.kr/recruit/ad/func/pb/hnfpPbancList.do",
+    "detailEndpoint": "https://www.goe.go.kr/recruit/ad/func/pb/hnfpPbancInfoView.do",
+    "parserType": "post",
+    "formData": {
+      "mi": "10502",
+      "pbancSn": "",
+      "currPage": "1",
+      "srchEcptDl": "N",
+      "srchTodayPb": "N",
+      "srchLgnNm": "",
+      "srchOcptNm": "교육공무직원",
+      "srchOcptCd": "030",
+      "pageIndex": "10",
+      "orderbyType": "reg",
+      "searchType": "sj",
+      "searchValue": "",
+      "btchDlYn": "",
+      "cndNo": "",
+      "srchSchlSe": ""
+    },
+    "region": "경기",
+    "isLocalGovernment": false,
+    "active": false,
+    "jobType": "공무직",
+    "note": "경기도교육청 공무직 채용 (srchOcptCd=030) - POST 패턴 사용"
+  },
+  "gyeonggi-admin": {
+    "name": "경기도교육청 교육행정직 채용",
+    "baseUrl": "https://www.goe.go.kr/goe/na/ntt/selectNttList.do?mi=7050&bbsId=2584",
+    "detailUrlTemplate": "https://www.goe.go.kr/goe/na/ntt/selectNttInfo.do?mi=7050&bbsId=2584&nttSn=",
+    "parserType": "ntt",
+    "region": "경기",
+    "isLocalGovernment": false,
+    "active": false,
+    "jobType": "교육행정",
+    "note": "경기도교육청 교육행정직 채용공고 (bbsId=2584) - 연 1-2회"
   }
 }
