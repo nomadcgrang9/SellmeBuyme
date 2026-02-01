@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  
+  <!-- 메인 페이지 (최우선) -->
+  <url>
+    <loc>https://학교일자리.com/</loc>
+    <lastmod>2026-01-31</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+  </url>
+  
+  <!-- 채용공고 목록 -->
+  <url>
+    <loc>https://학교일자리.com/jobs</loc>
+    <lastmod>2026-01-31</lastmod>
+    <changefreq>hourly</changefreq>
+    <priority>0.9</priority>
+  </url>
+  
+  <!-- 지도 검색 -->
+  <url>
+    <loc>https://학교일자리.com/map</loc>
+    <lastmod>2026-01-31</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+  
+  <!-- 북마크 -->
+  <url>
+    <loc>https://학교일자리.com/bookmarks</loc>
+    <lastmod>2026-01-31</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  
+  <!-- 소개 페이지 -->
+  <url>
+    <loc>https://학교일자리.com/about</loc>
+    <lastmod>2026-01-31</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  
+  <!-- 로그인 -->
+  <url>
+    <loc>https://학교일자리.com/login</loc>
+    <lastmod>2026-01-31</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.3</priority>
+  </url>
+  
+  <!-- 회원가입 -->
+  <url>
+    <loc>https://학교일자리.com/signup</loc>
+    <lastmod>2026-01-31</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.3</priority>
+  </url>
+
+  <!-- 
+    TODO: 나중에 추가할 페이지들
+    - 블로그/공지사항 페이지
+    - 지역별 채용 페이지 (서울, 경기, 부산 등)
+    - FAQ 페이지
+  -->
+  
+</urlset>

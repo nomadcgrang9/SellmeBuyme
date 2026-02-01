@@ -1,0 +1,14 @@
+# 학교일자리.com - 검색엔진 크롤링 허용 설정
+
+# 모든 검색엔진 허용
+User-agent: *
+Allow: /
+
+# 크롤링 제외할 경로 (관리자 페이지 등)
+Disallow: /admin/
+Disallow: /api/
+Disallow: /_redirects
+Disallow: /_headers
+
+# Sitemap 위치 (배포 후 실제 도메인으로 변경 필요)
+Sitemap: https://학교일자리.com/sitemap.xml

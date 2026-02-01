@@ -5,15 +5,54 @@
   <meta charset="UTF-8" />
   <link rel="icon" type="image/png" href="/picture/favicon.png" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>학교일을 찾는 가장 빠르고 편한 방법 | 학교일자리</title>
+  <title>학교일자리 - 교육청 구인구직 | 학교 채용정보 플랫폼</title>
+
+  <!-- SEO Meta Tags -->
+  <meta name="description"
+    content="학교일자리는 전국 교육청, 초중고 학교의 구인구직 정보를 한눈에 볼 수 있는 채용 플랫폼입니다. 학교일, 교육청 채용, 학교 구인구직 정보를 실시간으로 확인하세요." />
+  <meta name="keywords" content="학교일자리, 학교일, 학교 구인구직, 교육청 구인구직, 교육청 채용, 학교 채용, 교육공무직, 학교 채용공고, 교육청 채용공고, 학교 일자리" />
+  <meta name="author" content="학교일자리" />
+  <meta name="robots" content="index, follow" />
+  <link rel="canonical" href="https://학교일자리.com/" />
+
+  <!-- Open Graph (페이스북, 카카오톡 공유) -->
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="학교일자리" />
+  <meta property="og:title" content="학교일자리 - 교육청 구인구직 | 학교 채용정보 플랫폼" />
+  <meta property="og:description" content="전국 교육청, 학교의 구인구직 정보를 실시간으로 확인하세요. 학교일을 찾는 가장 빠르고 편한 방법!" />
+  <meta property="og:url" content="https://학교일자리.com/" />
+  <meta property="og:image" content="https://학교일자리.com/logo.png" />
+  <meta property="og:locale" content="ko_KR" />
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="학교일자리 - 교육청 구인구직 | 학교 채용정보 플랫폼" />
+  <meta name="twitter:description" content="전국 교육청, 학교의 구인구직 정보를 실시간으로 확인하세요." />
+  <meta name="twitter:image" content="https://학교일자리.com/logo.png" />
+
+  <!-- 구조화된 데이터 (JSON-LD) - 구글 검색 결과 강화 -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": "학교일자리",
+    "alternateName": "학교일",
+    "url": "https://학교일자리.com",
+    "description": "전국 교육청, 학교의 구인구직 정보를 제공하는 채용 플랫폼",
+    "potentialAction": {
+      "@type": "SearchAction",
+      "target": "https://학교일자리.com/jobs?search={search_term_string}",
+      "query-input": "required name=search_term_string"
+    }
+  }
+  </script>
 
   <!-- PWA Manifest (기본: 메인 서비스, /note에서는 JS로 동적 변경) -->
   <link rel="manifest" href="/manifest.webmanifest" id="pwa-manifest" />
 
   <!-- PWA Meta Tags -->
   <meta name="theme-color" content="#4a90d9" />
-  <meta name="build-version" content="20260131-v2" />
-  <meta name="description" content="전국 교육청, 학교 교육공무직 채용공고를 한눈에. 학교일자리에서 쉽고 빠르게 찾아보세요." />
+  <meta name="build-version" content="20260201-seo" />
 
   <!-- iOS Safari PWA Support -->
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -23,12 +62,12 @@
 
   <!-- PWA beforeinstallprompt 조기 캐치 (React 로드 전) -->
   <script>
-    (function() {
+    (function () {
       // 전역 변수로 이벤트 저장
       window.__PWA_DEFERRED_PROMPT__ = null;
       window.__PWA_PROMPT_CAPTURED__ = false;
 
-      window.addEventListener('beforeinstallprompt', function(e) {
+      window.addEventListener('beforeinstallprompt', function (e) {
         // 브라우저 기본 설치 배너 차단
         e.preventDefault();
         // 전역에 저장
@@ -37,7 +76,7 @@
         console.log('✅ [Early] beforeinstallprompt 캐치 성공');
       });
 
-      window.addEventListener('appinstalled', function() {
+      window.addEventListener('appinstalled', function () {
         window.__PWA_DEFERRED_PROMPT__ = null;
         console.log('✅ [Early] PWA 설치 완료');
       });
@@ -48,13 +87,13 @@
 <body>
   <!-- PWA Reset Script: ?reset-pwa=true 파라미터로 캐시 초기화 -->
   <script>
-    (function() {
+    (function () {
       const params = new URLSearchParams(window.location.search);
       if (params.get('reset-pwa') === 'true') {
         console.log('🔄 PWA Reset 시작...');
 
         // 로딩 표시
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
           var root = document.getElementById('root');
           if (root) root.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;flex-direction:column;gap:16px;"><p style="font-size:18px;">PWA 초기화 중...</p><p style="color:#666;font-size:14px;">잠시만 기다려주세요</p></div>';
         });
@@ -64,8 +103,8 @@
         // 1. Service Worker 언레지스터 (완료 대기)
         if ('serviceWorker' in navigator) {
           tasks.push(
-            navigator.serviceWorker.getRegistrations().then(function(registrations) {
-              return Promise.all(registrations.map(function(registration) {
+            navigator.serviceWorker.getRegistrations().then(function (registrations) {
+              return Promise.all(registrations.map(function (registration) {
                 console.log('✅ Service Worker 해제:', registration.scope);
                 return registration.unregister();
               }));
@@ -76,8 +115,8 @@
         // 2. 캐시 삭제 (완료 대기)
         if ('caches' in window) {
           tasks.push(
-            caches.keys().then(function(cacheNames) {
-              return Promise.all(cacheNames.map(function(cacheName) {
+            caches.keys().then(function (cacheNames) {
+              return Promise.all(cacheNames.map(function (cacheName) {
                 console.log('✅ 캐시 삭제:', cacheName);
                 return caches.delete(cacheName);
               }));
@@ -86,7 +125,7 @@
         }
 
         // 3. localStorage/sessionStorage 클리어 (PWA 관련)
-        ['main_pwa_visited', 'main_pwa_dismissed', 'devnote_pwa_visited', 'devnote_pwa_dismissed', 'pwa_install_prompted'].forEach(function(key) {
+        ['main_pwa_visited', 'main_pwa_dismissed', 'devnote_pwa_visited', 'devnote_pwa_dismissed', 'pwa_install_prompted'].forEach(function (key) {
           localStorage.removeItem(key);
           sessionStorage.removeItem(key);
           sessionStorage.removeItem(key + '_session');
@@ -94,16 +133,16 @@
         console.log('✅ PWA 방문 기록 초기화');
 
         // 4. 모든 비동기 작업 완료 후 리다이렉트
-        Promise.all(tasks).then(function() {
+        Promise.all(tasks).then(function () {
           console.log('✅ 모든 PWA 초기화 완료');
           params.delete('reset-pwa');
           var newUrl = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
           console.log('🔄 리다이렉트:', newUrl);
           // 약간의 딜레이 후 리다이렉트 (브라우저가 변경사항 반영하도록)
-          setTimeout(function() {
+          setTimeout(function () {
             window.location.replace(newUrl);
           }, 300);
-        }).catch(function(err) {
+        }).catch(function (err) {
           console.error('❌ PWA 초기화 오류:', err);
           // 오류가 있어도 리다이렉트
           params.delete('reset-pwa');
