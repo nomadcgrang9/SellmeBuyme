@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronUp, ChevronDown, ChevronLeft, ChevronRight, User, MessageCircle, Star } from 'lucide-react';
 import { useKakaoMaps } from '@/hooks/useKakaoMaps';
 import { fetchJobsByBoardRegion } from '@/lib/supabase/queries';
+import { getGeocacheBatch, saveGeocache } from '@/lib/supabase/geocache';
 import type { JobPostingCard } from '@/types';
 import type { Coordinates, DirectionsResult, TransportType } from '@/types/directions';
 import { getDirections } from '@/lib/api/directions';
@@ -1839,6 +1840,8 @@ export const Hero: React.FC = () => {
       if (coords) {
         cache.set(keyword, coords);
         createMarker(coords, job);
+        // Supabase geocache에도 저장 (비동기, 실패해도 무시)
+        saveGeocache(keyword, coords.lat, coords.lng).catch(() => {});
         return true;
       }
 
@@ -1890,27 +1893,56 @@ export const Hero: React.FC = () => {
 
       console.log(`[Hero] 캐시 히트: ${cachedJobs.length}개 즉시 처리`);
 
-      // 3단계: 캐시 미스 병렬 배치 처리
-      if (uncachedJobs.length > 0) {
-        console.log(`[Hero] API 검색 필요: ${uncachedJobs.length}개 공고 (rate limit 주의)`);
-      }
+      // 3단계: Supabase geocache에서 먼저 조회
       let successCount = jobsWithCoords.length + cachedJobs.length;
       let failedCount = 0;
 
-      for (let i = 0; i < uncachedJobs.length; i += BATCH_SIZE) {
-        if (cancelled) break;
+      if (uncachedJobs.length > 0) {
+        // geocache에서 일괄 조회
+        const organizationsToLookup = [...new Set(
+          uncachedJobs.map(job => job.organization || job.location).filter(Boolean)
+        )] as string[];
 
-        const batch = uncachedJobs.slice(i, i + BATCH_SIZE);
-        const results = await Promise.all(batch.map(job => processJob(job)));
+        console.log(`[Hero] Supabase geocache 조회: ${organizationsToLookup.length}개 학교`);
+        const geocacheResults = await getGeocacheBatch(organizationsToLookup);
 
-        results.forEach(success => {
-          if (success) successCount++;
-          else failedCount++;
+        // geocache 히트된 공고 처리
+        const stillUncachedJobs: JobPostingCard[] = [];
+        uncachedJobs.forEach(job => {
+          if (cancelled) return;
+          const keyword = job.organization || job.location;
+          if (keyword && geocacheResults.has(keyword)) {
+            const coords = geocacheResults.get(keyword)!;
+            cache.set(keyword, coords);  // localStorage 캐시에도 저장
+            createMarker(coords, job);
+            successCount++;
+          } else {
+            stillUncachedJobs.push(job);
+          }
         });
 
-        // 배치 간 딜레이 (API rate limit 방지)
-        if (i + BATCH_SIZE < uncachedJobs.length) {
-          await new Promise(resolve => setTimeout(resolve, BATCH_DELAY_MS));
+        console.log(`[Hero] Geocache 히트: ${uncachedJobs.length - stillUncachedJobs.length}개`);
+
+        // 4단계: geocache에도 없는 경우만 Kakao API 호출
+        if (stillUncachedJobs.length > 0) {
+          console.log(`[Hero] Kakao API 검색 필요: ${stillUncachedJobs.length}개 공고`);
+        }
+
+        for (let i = 0; i < stillUncachedJobs.length; i += BATCH_SIZE) {
+          if (cancelled) break;
+
+          const batch = stillUncachedJobs.slice(i, i + BATCH_SIZE);
+          const results = await Promise.all(batch.map(job => processJob(job)));
+
+          results.forEach(success => {
+            if (success) successCount++;
+            else failedCount++;
+          });
+
+          // 배치 간 딜레이 (API rate limit 방지)
+          if (i + BATCH_SIZE < stillUncachedJobs.length) {
+            await new Promise(resolve => setTimeout(resolve, BATCH_DELAY_MS));
+          }
         }
       }
 

@@ -4,7 +4,7 @@
  */
 
 // 🚨 점검 모드 ON/OFF - 여기서 제어
-export const MAINTENANCE_MODE = true;
+export const MAINTENANCE_MODE = false;  // 테스트를 위해 잠시 해제
 
 export default function MaintenancePage() {
   return (
