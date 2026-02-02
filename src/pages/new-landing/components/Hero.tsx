@@ -1571,19 +1571,31 @@ export const Hero: React.FC = () => {
     let cancelled = false;
     let currentInfowindow: any = null;
 
-    // sessionStorage에서 캐시 복원
+    // localStorage에서 캐시 복원 (30일 만료)
+    const CACHE_KEY = 'jobCoordsCache_v2';
+    const CACHE_EXPIRY_DAYS = 30;
     let cacheRestored = false;
     try {
-      const savedCache = sessionStorage.getItem('jobCoordsCache');
+      const savedCache = localStorage.getItem(CACHE_KEY);
       if (savedCache) {
         const parsed = JSON.parse(savedCache);
-        const beforeSize = cache.size;
-        Object.entries(parsed).forEach(([k, v]) => {
-          if (!cache.has(k)) cache.set(k, v as { lat: number; lng: number });
-        });
-        cacheRestored = cache.size > beforeSize;
-        if (cacheRestored) {
-          console.log(`[Hero] 캐시 복원: ${cache.size - beforeSize}개 좌표`);
+        const now = Date.now();
+        const expiryMs = CACHE_EXPIRY_DAYS * 24 * 60 * 60 * 1000;
+
+        // 캐시 만료 확인
+        if (parsed.timestamp && (now - parsed.timestamp) < expiryMs) {
+          const beforeSize = cache.size;
+          Object.entries(parsed.data || {}).forEach(([k, v]) => {
+            if (!cache.has(k)) cache.set(k, v as { lat: number; lng: number });
+          });
+          cacheRestored = cache.size > beforeSize;
+          if (cacheRestored) {
+            console.log(`[Hero] 캐시 복원: ${cache.size - beforeSize}개 좌표 (localStorage)`);
+          }
+        } else {
+          // 만료된 캐시 삭제
+          localStorage.removeItem(CACHE_KEY);
+          console.log('[Hero] 만료된 캐시 삭제');
         }
       }
     } catch (e) {
@@ -1766,24 +1778,37 @@ export const Hero: React.FC = () => {
     (window as any).__currentFilteredJobPostings = filteredJobPostings;
     console.log('[Hero] __currentFilteredJobPostings 업데이트:', filteredJobPostings.length, '개');
 
-    // 캐시 저장 함수
+    // 캐시 저장 함수 (localStorage with timestamp)
     const saveCache = () => {
       try {
         const cacheObj: Record<string, { lat: number; lng: number }> = {};
         cache.forEach((v, k) => { cacheObj[k] = v; });
-        sessionStorage.setItem('jobCoordsCache', JSON.stringify(cacheObj));
+        localStorage.setItem(CACHE_KEY, JSON.stringify({
+          data: cacheObj,
+          timestamp: Date.now()
+        }));
+        console.log(`[Hero] 캐시 저장: ${cache.size}개 좌표 (localStorage)`);
       } catch (e) {
         console.warn('[Hero] 캐시 저장 실패:', e);
       }
     };
 
-    // 키워드 검색 Promise 래퍼
+    // 키워드 검색 Promise 래퍼 (with error logging)
+    let apiErrorCount = 0;
     const searchKeyword = (keyword: string): Promise<{ lat: number; lng: number } | null> => {
       return new Promise((resolve) => {
         places.keywordSearch(keyword, (result: any[], status: string) => {
           if (status === window.kakao.maps.services.Status.OK && result.length > 0) {
             resolve({ lat: parseFloat(result[0].y), lng: parseFloat(result[0].x) });
           } else {
+            // API 에러 로깅 (첫 5회만)
+            if (apiErrorCount < 5) {
+              console.warn(`[Hero] Places API 실패 (${keyword}): ${status}`);
+              apiErrorCount++;
+              if (apiErrorCount === 5) {
+                console.warn('[Hero] API 에러 로깅 중단 (할당량 초과 가능성)');
+              }
+            }
             resolve(null);
           }
         });
@@ -1820,8 +1845,9 @@ export const Hero: React.FC = () => {
       return false;
     };
 
-    // 병렬 배치 처리
-    const BATCH_SIZE = 10;
+    // 병렬 배치 처리 (rate limit 방지를 위해 배치 크기 축소)
+    const BATCH_SIZE = 5;
+    const BATCH_DELAY_MS = 100;
     const processBatches = async () => {
       console.log(`[Hero] 마커 생성 시작: ${filteredJobPostings.length}개 공고`);
       const startTime = Date.now();
@@ -1865,6 +1891,9 @@ export const Hero: React.FC = () => {
       console.log(`[Hero] 캐시 히트: ${cachedJobs.length}개 즉시 처리`);
 
       // 3단계: 캐시 미스 병렬 배치 처리
+      if (uncachedJobs.length > 0) {
+        console.log(`[Hero] API 검색 필요: ${uncachedJobs.length}개 공고 (rate limit 주의)`);
+      }
       let successCount = jobsWithCoords.length + cachedJobs.length;
       let failedCount = 0;
 
@@ -1879,9 +1908,9 @@ export const Hero: React.FC = () => {
           else failedCount++;
         });
 
-        // 배치 간 짧은 딜레이 (API rate limit 방지)
+        // 배치 간 딜레이 (API rate limit 방지)
         if (i + BATCH_SIZE < uncachedJobs.length) {
-          await new Promise(resolve => setTimeout(resolve, 50));
+          await new Promise(resolve => setTimeout(resolve, BATCH_DELAY_MS));
         }
       }
 

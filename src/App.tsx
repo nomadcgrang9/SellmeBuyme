@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { User } from 'lucide-react';
+import MaintenancePage, { MAINTENANCE_MODE } from '@/components/MaintenancePage';
 import Header from '@/components/layout/Header';
 import AIRecommendations from '@/components/ai/AIRecommendations';
 import AIInsightBox from '@/components/ai/AIInsightBox';
@@ -156,6 +157,11 @@ function sortCardsByLocation(
 }
 
 export default function App() {
+  // 🚨 점검 모드: MaintenancePage.tsx에서 MAINTENANCE_MODE를 false로 변경하면 해제
+  if (MAINTENANCE_MODE) {
+    return <MaintenancePage />;
+  }
+
   // Zustand selector 최적화: 개별 구독으로 불필요한 re-render 방지
   const searchQuery = useSearchStore((s) => s.searchQuery);
   const filters = useSearchStore((s) => s.filters);
