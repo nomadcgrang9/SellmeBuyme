@@ -4,7 +4,7 @@
  */
 
 // 🚨 점검 모드 ON/OFF - 여기서 제어
-export const MAINTENANCE_MODE = false;  // 테스트를 위해 잠시 해제
+export const MAINTENANCE_MODE = true;  // 마커 문제 해결 중
 
 export default function MaintenancePage() {
   return (
