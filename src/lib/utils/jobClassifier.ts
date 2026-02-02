@@ -368,6 +368,38 @@ export function classifyJob(job: JobLike): PrimaryCategory {
 export function matchesCascadingFilter(job: JobLike, filter: CascadingFilter): boolean {
   if (!filter.primary) return true;
 
+  const tl = (job.title || '').toLowerCase();
+  const sl = (job.school_level || '').toLowerCase();
+  const org = (job.organization || '').toLowerCase();
+  const combined = `${sl} ${org} ${job.title || ''}`.toLowerCase();
+  // 태그 배열을 소문자로 변환
+  const tagsLower = (job.tags || []).map(t => t.toLowerCase());
+
+  // 🔴 교과과목 특별 처리: category 체크 없이, 과목 태그 기반 필터링
+  // 초등 영어전담도, 중등 영어도 모두 "교과과목 > 영어"에서 표시
+  if (filter.primary === '교과과목') {
+    if (filter.secondary) {
+      // 과목 지정됨 → 해당 과목 태그 있는 모든 공고 (학교급 무관)
+      if (!matchesSubject(tl, tagsLower, filter.secondary)) return false;
+      // tertiary (학교급) 필터
+      if (filter.tertiary) {
+        return matchesSchoolLevel(combined, filter.tertiary);
+      }
+      return true;
+    } else {
+      // 과목 미지정 → 과목 태그가 있는 모든 공고
+      const allSubjectKeywords = [
+        '국어', '문학', '영어', '수학', '과학', '물리', '화학', '생물', '지구과학', '생명과학',
+        '사회', '역사', '지리', '윤리', '경제', '정치', '체육', '음악', '미술',
+        '기술', '가정', '정보', '컴퓨터', '코딩', '도덕', '일본어', '중국어', '한문'
+      ];
+      const hasSubject = allSubjectKeywords.some(kw =>
+        tl.includes(kw) || tagsLower.some(tag => tag.includes(kw))
+      );
+      return hasSubject;
+    }
+  }
+
   const category = classifyJob(job);
 
   // 다중 선택 지원: primary OR additionalPrimary
@@ -381,13 +413,6 @@ export function matchesCascadingFilter(job: JobLike, filter: CascadingFilter): b
 
   if (!filter.secondary) return true;
 
-  const tl = (job.title || '').toLowerCase();
-  const sl = (job.school_level || '').toLowerCase();
-  const org = (job.organization || '').toLowerCase();
-  const combined = `${sl} ${org} ${job.title || ''}`.toLowerCase();
-  // 태그 배열을 소문자로 변환
-  const tagsLower = (job.tags || []).map(t => t.toLowerCase());
-
   switch (filter.primary) {
     case '유치원':
       if (filter.secondary === '유치원담임') {
@@ -397,13 +422,6 @@ export function matchesCascadingFilter(job: JobLike, filter: CascadingFilter): b
         return tl.includes('방과후') || tl.includes('특성화') || tl.includes('돌봄') || tl.includes('늘봄') || tl.includes('강사');
       }
       break;
-
-    case '교과과목':
-      if (!matchesSubject(tl, tagsLower, filter.secondary)) return false;
-      if (filter.tertiary) {
-        return matchesSchoolLevel(combined, filter.tertiary);
-      }
-      return true;
 
     case '비교과':
       return matchesBigyogwa(tl, tagsLower, filter.secondary);

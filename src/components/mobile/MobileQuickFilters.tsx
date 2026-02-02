@@ -164,58 +164,31 @@ const MobileQuickFilters: React.FC<MobileQuickFiltersProps> = ({
     }
   };
 
-  // 1차 필터 렌더링 (2줄 그리드)
+  // 1차 필터 렌더링 (단일 flex-wrap - 화면 크기에 맞게 자동 배치)
   // 2차 옵션이 없는 카테고리(초등담임, 특수, 기타)는 선택 시 색상 반전
   const renderPrimaryLevel = () => (
-    <div className="flex flex-col gap-1.5">
-      {/* 1줄: 유치원, 초등담임, 초등전담, 교과과목, 비교과, 특수 */}
-      <div className="flex items-center gap-1.5 flex-wrap">
-        {PRIMARY_CATEGORIES.slice(0, 6).map(({ key, label }) => {
-          const colors = PRIMARY_COLORS[key];
-          const hasSecondary = !!SECONDARY_OPTIONS[key];
-          // 다중 선택: primary 또는 additionalPrimary에 포함되면 선택 상태
-          const isSelected = (filter.primary === key || filter.additionalPrimary === key) && !hasSecondary;
+    <div className="flex items-center gap-1.5 flex-wrap">
+      {PRIMARY_CATEGORIES.map(({ key, label }) => {
+        const colors = PRIMARY_COLORS[key];
+        const hasSecondary = !!SECONDARY_OPTIONS[key];
+        // 다중 선택: primary 또는 additionalPrimary에 포함되면 선택 상태
+        const isSelected = (filter.primary === key || filter.additionalPrimary === key) && !hasSecondary;
 
-          return (
-            <button
-              key={key}
-              onClick={() => handlePrimaryClick(key)}
-              className="flex-shrink-0 px-2.5 py-1.5 rounded-full text-xs font-medium border-2 transition-all duration-200 active:scale-95"
-              style={{
-                borderColor: colors.base + '60',
-                backgroundColor: isSelected ? colors.base : 'white',
-                color: isSelected ? 'white' : colors.text,
-              }}
-            >
-              {label}
-            </button>
-          );
-        })}
-      </div>
-      {/* 2줄: 교원연수, 방과후/돌봄, 행정·교육지원, 기타 */}
-      <div className="flex items-center gap-1.5 flex-wrap">
-        {PRIMARY_CATEGORIES.slice(6).map(({ key, label }) => {
-          const colors = PRIMARY_COLORS[key];
-          const hasSecondary = !!SECONDARY_OPTIONS[key];
-          // 다중 선택: primary 또는 additionalPrimary에 포함되면 선택 상태
-          const isSelected = (filter.primary === key || filter.additionalPrimary === key) && !hasSecondary;
-
-          return (
-            <button
-              key={key}
-              onClick={() => handlePrimaryClick(key)}
-              className="flex-shrink-0 px-2.5 py-1.5 rounded-full text-xs font-medium border-2 transition-all duration-200 active:scale-95"
-              style={{
-                borderColor: colors.base + '60',
-                backgroundColor: isSelected ? colors.base : 'white',
-                color: isSelected ? 'white' : colors.text,
-              }}
-            >
-              {label}
-            </button>
-          );
-        })}
-      </div>
+        return (
+          <button
+            key={key}
+            onClick={() => handlePrimaryClick(key)}
+            className="flex-shrink-0 px-2.5 py-1.5 rounded-full text-xs font-medium border-2 transition-all duration-200 active:scale-95"
+            style={{
+              borderColor: colors.base + '60',
+              backgroundColor: isSelected ? colors.base : 'white',
+              color: isSelected ? 'white' : colors.text,
+            }}
+          >
+            {label}
+          </button>
+        );
+      })}
     </div>
   );
 
