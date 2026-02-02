@@ -53,34 +53,3 @@ jobs:
             echo "응답: $BODY"
             exit 1
           fi
-
-      - name: Purge Cloudflare Cache
-        if: success()
-        env:
-          CF_ZONE_ID: ${{ secrets.CF_ZONE_ID }}
-          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
-        run: |
-          if [ -z "$CF_ZONE_ID" ] || [ -z "$CF_API_TOKEN" ]; then
-            echo "⚠️ Cloudflare secrets 미설정 - 캐시 퍼지 건너뜀"
-            echo "설정 방법: GitHub Repo → Settings → Secrets → CF_ZONE_ID, CF_API_TOKEN 추가"
-            exit 0
-          fi
-
-          echo "🧹 Cloudflare 캐시 퍼지 중..."
-          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
-            "https://api.cloudflare.com/client/v4/zones/$CF_ZONE_ID/purge_cache" \
-            -H "Authorization: Bearer $CF_API_TOKEN" \
-            -H "Content-Type: application/json" \
-            --data '{"purge_everything":true}')
-
-          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
-          BODY=$(echo "$RESPONSE" | head -n-1)
-
-          if [ "$HTTP_CODE" -eq 200 ]; then
-            echo "✅ Cloudflare 캐시 퍼지 완료! 사용자들이 즉시 새 버전을 볼 수 있습니다."
-          else
-            echo "⚠️ 캐시 퍼지 실패 (HTTP $HTTP_CODE)"
-            echo "응답: $BODY"
-            # 캐시 퍼지 실패해도 배포는 성공이므로 exit 0
-            exit 0
-          fi
