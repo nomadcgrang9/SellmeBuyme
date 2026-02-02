@@ -25,6 +25,11 @@ const AFTERSCHOOL_CATEGORY_CHIPS = [
   '돌봄',
 ];
 
+// 초등 카테고리 (다중 선택 가능)
+function isElementaryCategory(key: PrimaryCategory): boolean {
+  return key === '초등담임' || key === '초등전담';
+}
+
 interface MobileQuickFiltersProps {
   filter: CascadingFilter;
   onFilterChange: (filter: CascadingFilter) => void;
@@ -100,9 +105,38 @@ const MobileQuickFilters: React.FC<MobileQuickFiltersProps> = ({
     }
   };
 
-  // 1차 카테고리 선택
+  // 1차 카테고리 선택 (초등 다중 선택 지원)
   const handlePrimaryClick = (key: PrimaryCategory) => {
-    onFilterChange({ primary: key, secondary: null, tertiary: null });
+    const currentPrimary = filter.primary;
+    const currentAdditional = filter.additionalPrimary;
+
+    // 초등 카테고리 간 다중 선택 처리
+    if (isElementaryCategory(key)) {
+      if (currentPrimary === key) {
+        // 이미 선택된 초등 카테고리 클릭 → 해제
+        if (currentAdditional && isElementaryCategory(currentAdditional)) {
+          onFilterChange({ primary: currentAdditional, additionalPrimary: undefined, secondary: null, tertiary: null });
+        } else {
+          onFilterChange({ primary: null, additionalPrimary: undefined, secondary: null, tertiary: null });
+        }
+      } else if (currentAdditional === key) {
+        // additionalPrimary 해제
+        onFilterChange({ ...filter, additionalPrimary: undefined });
+      } else if (currentPrimary && isElementaryCategory(currentPrimary)) {
+        // 다른 초등 카테고리 추가 선택
+        onFilterChange({ ...filter, additionalPrimary: key, secondary: null, tertiary: null });
+      } else {
+        // 일반 선택
+        onFilterChange({ primary: key, additionalPrimary: undefined, secondary: null, tertiary: null });
+      }
+    } else {
+      // 비-초등 카테고리
+      if (currentPrimary === key) {
+        onFilterChange({ primary: null, additionalPrimary: undefined, secondary: null, tertiary: null });
+      } else {
+        onFilterChange({ primary: key, additionalPrimary: undefined, secondary: null, tertiary: null });
+      }
+    }
   };
 
   // 2차 옵션 선택
@@ -134,24 +168,18 @@ const MobileQuickFilters: React.FC<MobileQuickFiltersProps> = ({
   // 2차 옵션이 없는 카테고리(초등담임, 특수, 기타)는 선택 시 색상 반전
   const renderPrimaryLevel = () => (
     <div className="flex flex-col gap-1.5">
-      {/* 1줄: 유치원, 초등담임, 교과과목, 비교과, 특수 */}
+      {/* 1줄: 유치원, 초등담임, 초등전담, 교과과목, 비교과, 특수 */}
       <div className="flex items-center gap-1.5 flex-wrap">
-        {PRIMARY_CATEGORIES.slice(0, 5).map(({ key, label }) => {
+        {PRIMARY_CATEGORIES.slice(0, 6).map(({ key, label }) => {
           const colors = PRIMARY_COLORS[key];
           const hasSecondary = !!SECONDARY_OPTIONS[key];
-          const isSelected = filter.primary === key && !hasSecondary;
+          // 다중 선택: primary 또는 additionalPrimary에 포함되면 선택 상태
+          const isSelected = (filter.primary === key || filter.additionalPrimary === key) && !hasSecondary;
 
           return (
             <button
               key={key}
-              onClick={() => {
-                // 2차 옵션이 없는 카테고리는 토글 방식
-                if (!hasSecondary && filter.primary === key) {
-                  onFilterChange({ primary: null, secondary: null, tertiary: null });
-                } else {
-                  handlePrimaryClick(key);
-                }
-              }}
+              onClick={() => handlePrimaryClick(key)}
               className="flex-shrink-0 px-2.5 py-1.5 rounded-full text-xs font-medium border-2 transition-all duration-200 active:scale-95"
               style={{
                 borderColor: colors.base + '60',
@@ -166,22 +194,16 @@ const MobileQuickFilters: React.FC<MobileQuickFiltersProps> = ({
       </div>
       {/* 2줄: 교원연수, 방과후/돌봄, 행정·교육지원, 기타 */}
       <div className="flex items-center gap-1.5 flex-wrap">
-        {PRIMARY_CATEGORIES.slice(5).map(({ key, label }) => {
+        {PRIMARY_CATEGORIES.slice(6).map(({ key, label }) => {
           const colors = PRIMARY_COLORS[key];
           const hasSecondary = !!SECONDARY_OPTIONS[key];
-          const isSelected = filter.primary === key && !hasSecondary;
+          // 다중 선택: primary 또는 additionalPrimary에 포함되면 선택 상태
+          const isSelected = (filter.primary === key || filter.additionalPrimary === key) && !hasSecondary;
 
           return (
             <button
               key={key}
-              onClick={() => {
-                // 2차 옵션이 없는 카테고리는 토글 방식
-                if (!hasSecondary && filter.primary === key) {
-                  onFilterChange({ primary: null, secondary: null, tertiary: null });
-                } else {
-                  handlePrimaryClick(key);
-                }
-              }}
+              onClick={() => handlePrimaryClick(key)}
               className="flex-shrink-0 px-2.5 py-1.5 rounded-full text-xs font-medium border-2 transition-all duration-200 active:scale-95"
               style={{
                 borderColor: colors.base + '60',

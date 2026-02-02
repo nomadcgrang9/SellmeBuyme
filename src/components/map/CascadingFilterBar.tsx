@@ -28,8 +28,13 @@ const AFTERSCHOOL_CATEGORY_CHIPS = [
 
 // 색상 배경을 적용할 카테고리 (마커 색상과 연동, 교원연수는 레이어 토글로 제어)
 const COLORED_CATEGORIES: PrimaryCategory[] = [
-  '유치원', '초등담임', '교과과목', '비교과', '특수'
+  '유치원', '초등담임', '초등전담', '교과과목', '비교과', '특수'
 ];
+
+// 초등 카테고리 (다중 선택 가능)
+function isElementaryCategory(key: PrimaryCategory): boolean {
+  return key === '초등담임' || key === '초등전담';
+}
 
 // 교원연수 대표 분야 5개 칩
 const INSTRUCTOR_CATEGORY_CHIPS = [
@@ -125,13 +130,38 @@ export default function CascadingFilterBar({
     }
   };
 
-  // 1차 카테고리 선택 (토글 지원)
+  // 1차 카테고리 선택 (토글 지원 + 초등 다중 선택)
   const handlePrimaryClick = (key: PrimaryCategory) => {
-    if (filter.primary === key) {
-      // 이미 선택된 상태면 해제
-      onFilterChange({ primary: null, secondary: null, tertiary: null });
+    const currentPrimary = filter.primary;
+    const currentAdditional = filter.additionalPrimary;
+
+    // 초등 카테고리 간 다중 선택 처리
+    if (isElementaryCategory(key)) {
+      if (currentPrimary === key) {
+        // 이미 선택된 초등 카테고리 클릭 → 해제
+        if (currentAdditional && isElementaryCategory(currentAdditional)) {
+          // additionalPrimary가 있으면 그걸 primary로 승격
+          onFilterChange({ primary: currentAdditional, additionalPrimary: undefined, secondary: null, tertiary: null });
+        } else {
+          onFilterChange({ primary: null, additionalPrimary: undefined, secondary: null, tertiary: null });
+        }
+      } else if (currentAdditional === key) {
+        // additionalPrimary 해제
+        onFilterChange({ ...filter, additionalPrimary: undefined });
+      } else if (currentPrimary && isElementaryCategory(currentPrimary)) {
+        // 다른 초등 카테고리 추가 선택 (둘 다 선택)
+        onFilterChange({ ...filter, additionalPrimary: key, secondary: null, tertiary: null });
+      } else {
+        // 일반 선택 (초등 카테고리 처음 선택)
+        onFilterChange({ primary: key, additionalPrimary: undefined, secondary: null, tertiary: null });
+      }
     } else {
-      onFilterChange({ primary: key, secondary: null, tertiary: null });
+      // 비-초등 카테고리: 기존 단일 선택 로직
+      if (currentPrimary === key) {
+        onFilterChange({ primary: null, additionalPrimary: undefined, secondary: null, tertiary: null });
+      } else {
+        onFilterChange({ primary: key, additionalPrimary: undefined, secondary: null, tertiary: null });
+      }
     }
   };
 
@@ -151,7 +181,7 @@ export default function CascadingFilterBar({
 
   // 전체 초기화
   const handleReset = () => {
-    onFilterChange({ primary: null, secondary: null, tertiary: null });
+    onFilterChange({ primary: null, additionalPrimary: undefined, secondary: null, tertiary: null });
   };
 
   // 현재 선택된 카테고리 색상
@@ -161,7 +191,8 @@ export default function CascadingFilterBar({
   const renderPrimaryLevel = () => (
     <>
       {PRIMARY_CATEGORIES.map(({ key, label }) => {
-        const isSelected = filter.primary === key;
+        // 다중 선택: primary 또는 additionalPrimary에 포함되면 선택 상태
+        const isSelected = filter.primary === key || filter.additionalPrimary === key;
         const isHovered = hoveredItem === key;
         const colors = PRIMARY_COLORS[key];
         const hasColoredBg = COLORED_CATEGORIES.includes(key);

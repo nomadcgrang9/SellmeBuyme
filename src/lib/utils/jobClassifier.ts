@@ -5,11 +5,12 @@
  */
 
 export type PrimaryCategory =
-  | '유치원' | '초등담임' | '교과과목' | '비교과'
+  | '유치원' | '초등담임' | '초등전담' | '교과과목' | '비교과'
   | '특수' | '교원연수' | '방과후/돌봄' | '행정·교육지원' | '기타';
 
 export interface CascadingFilter {
   primary: PrimaryCategory | null;
+  additionalPrimary?: PrimaryCategory | null;  // 다중 선택용 (초등담임+초등전담)
   secondary: string | null;
   tertiary: string | null;
 }
@@ -18,6 +19,7 @@ export interface CascadingFilter {
 export const PRIMARY_CATEGORIES: { key: PrimaryCategory; label: string; mobileLabel: string }[] = [
   { key: '유치원', label: '유치원', mobileLabel: '유' },
   { key: '초등담임', label: '초등담임', mobileLabel: '초담' },
+  { key: '초등전담', label: '초등전담', mobileLabel: '초전' },
   { key: '교과과목', label: '교과과목', mobileLabel: '교과' },
   { key: '비교과', label: '비교과', mobileLabel: '비교과' },
   { key: '특수', label: '특수', mobileLabel: '특수' },
@@ -107,6 +109,7 @@ export const TERTIARY_OPTIONS = [
 export const PRIMARY_COLORS: Record<PrimaryCategory, { base: string; light: string; text: string }> = {
   '유치원': { base: '#8D6E63', light: '#EFEBE9', text: '#3E2723' },
   '초등담임': { base: '#4CAF50', light: '#E8F5E9', text: '#1B5E20' },
+  '초등전담': { base: '#66BB6A', light: '#C8E6C9', text: '#2E7D32' },  // 초등담임과 비슷한 녹색 계열
   '교과과목': { base: '#2196F3', light: '#E3F2FD', text: '#0D47A1' },
   '비교과': { base: '#009688', light: '#E0F2F1', text: '#004D40' },
   '특수': { base: '#FF9800', light: '#FFF3E0', text: '#E65100' },
@@ -137,8 +140,10 @@ export function classifyJob(job: JobLike): PrimaryCategory {
   const tagsLower = (job.tags || []).map(t => t.toLowerCase()).join(' ');
 
   // 교사/교원 여부 판별 (여러 우선순위에서 사용)
+  // "기간제근로자"는 조리사/운전원 등이므로 제외
   const isTeacherRole = tl.includes('교사') || tl.includes('교원') ||
-    tl.includes('기간제') || tl.includes('계약제');
+    (tl.includes('기간제') && !tl.includes('근로자')) ||
+    (tl.includes('계약제') && !tl.includes('근로자'));
 
   // ============================================
   // P0: 직무 키워드 최우선 처리 (학교 종류 무관)
@@ -150,9 +155,10 @@ export function classifyJob(job: JobLike): PrimaryCategory {
   }
 
   // P0.2: 행정·교육지원 키워드 (특수학교의 행정직도 포함)
+  // title 또는 tags에서 체크
   const adminJobKeywords = ['시설', '미화', '운영직', '경비', '조리', '당직', '청소',
-    '보조원', '실무사', '급식', '배식', '청원경찰'];
-  if (adminJobKeywords.some(kw => tl.includes(kw))) {
+    '보조원', '실무사', '급식', '배식', '청원경찰', '운전'];
+  if (adminJobKeywords.some(kw => tl.includes(kw) || tagsLower.includes(kw))) {
     return '행정·교육지원';
   }
 
@@ -226,7 +232,15 @@ export function classifyJob(job: JobLike): PrimaryCategory {
   const isElementary = combined.includes('초등') || org.endsWith('초');
   if (isElementary) {
     // 교과전담 과목 키워드 (담임이 아닌 전담교사)
-    const subjectKeywords = ['과학', '영어', '체육', '음악', '미술', '국어', '수학', '도덕'];
+    const subjectKeywords = [
+      // 기본 과목
+      '과학', '영어', '체육', '음악', '미술', '국어', '수학', '도덕',
+      // 세부 과목 (중등 과목이지만 초등 전담에도 태그로 사용될 수 있음)
+      '물리', '화학', '생물', '지구과학',
+      '사회', '역사', '지리',
+      // 기타 전담 과목
+      '컴퓨터', '정보', '코딩', '실과'
+    ];
     const isSubjectOnly = subjectKeywords.some(subj =>
       tagsLower.includes(subj) || tl.includes(subj)
     );
@@ -234,9 +248,9 @@ export function classifyJob(job: JobLike): PrimaryCategory {
     const hasElemTeacher = tagsLower.includes('초등교사') || tagsLower.includes('초등교원');
     const isGyogwaJeondam = tagsLower.includes('교과전담') || tl.includes('교과전담') || tl.includes('전담교사');
 
-    // 0. 교과전담 명시 → 바로 교과과목 (담임보다 우선)
+    // 0. 교과전담 명시 → 바로 초등전담 (담임보다 우선)
     if (isGyogwaJeondam && !hasDamim) {
-      return '교과과목';
+      return '초등전담';
     }
 
     // 1. 방과후/돌봄 (키워드 확장)
@@ -254,10 +268,11 @@ export function classifyJob(job: JobLike): PrimaryCategory {
     }
 
     // 2. 행정·교육지원 (키워드 확장)
+    // 단, "보조교사"는 교사 역할이므로 "보조인력"으로 더 구체적으로 체크
     if (
       tl.includes('실무') || tl.includes('공무직') || tl.includes('봉사') ||
       tl.includes('지킴이') || tl.includes('튜터') || tl.includes('협력강사') ||
-      tl.includes('안전') || tl.includes('보조') || tl.includes('영양사') || tl.includes('배움터') ||
+      tl.includes('안전') || (tl.includes('보조') && !isTeacherRole) || tl.includes('영양사') || tl.includes('배움터') ||
       // 추가: 전담사, 당직, 시설, 미화, 경비 등
       tl.includes('전담사') || tl.includes('당직') ||
       tl.includes('미화') || tl.includes('경비') ||
@@ -273,19 +288,40 @@ export function classifyJob(job: JobLike): PrimaryCategory {
       return '초등담임';
     }
 
+    // 3.5. 자격증 불필요 직무: 보조교사, 협력교사 → 행정·교육지원
+    const isNonLicenseRole = tl.includes('보조교사') || tl.includes('협력교사') || tl.includes('협력강사');
+    if (isNonLicenseRole) {
+      return '행정·교육지원';
+    }
+
+    // 3.6. 시간강사: 자격증 필요하지만 담임 아님 → 초등전담
+    if (tl.includes('시간강사')) {
+      return '초등전담';
+    }
+
     // 4. 기간제/계약제 교사/교원 체크 (담임 or 교과전담 구분)
     const isGiganje = (tl.includes('기간제') || tl.includes('계약제')) &&
       (tl.includes('교사') || tl.includes('교원'));
     if (isGiganje) {
-      // 특정 과목만 있고 담임 없으면 → 교과과목으로 분류
+      // 특정 과목만 있고 담임 없으면 → 초등전담으로 분류
       if (isSubjectOnly && !hasDamim) {
-        return '교과과목';  // 초등 교과전담은 교과과목으로
+        return '초등전담';  // 초등 교과전담
       }
-      // 그 외 기간제/계약제 교원은 초등담임
+      // 그 외 기간제/계약제 교원은 초등담임 (기본값!)
       return '초등담임';
     }
 
-    // 5. 그 외는 기타
+    // 5. 교사/교원 명시 (기간제/계약제 아니어도)
+    // 보조교사, 협력교사는 이미 위에서 처리됨
+    if (isTeacherRole) {
+      // 과목 태그만 있으면 초등전담
+      if (isSubjectOnly && !hasDamim) {
+        return '초등전담';
+      }
+      return '초등담임';  // 기본값 담임
+    }
+
+    // 6. 그 외는 기타
     return '기타';
   }
 
@@ -333,7 +369,15 @@ export function matchesCascadingFilter(job: JobLike, filter: CascadingFilter): b
   if (!filter.primary) return true;
 
   const category = classifyJob(job);
-  if (category !== filter.primary) return false;
+
+  // 다중 선택 지원: primary OR additionalPrimary
+  if (filter.additionalPrimary) {
+    if (category !== filter.primary && category !== filter.additionalPrimary) {
+      return false;
+    }
+  } else {
+    if (category !== filter.primary) return false;
+  }
 
   if (!filter.secondary) return true;
 
