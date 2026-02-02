@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import axios from 'axios';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -8,11 +9,286 @@ const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
 // SERVICE_ROLE_KEY를 우선 사용 (RLS 우회), 없으면 ANON_KEY 폴백
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
 
+// Kakao API 키 (지오코딩용)
+const kakaoRestApiKey = process.env.KAKAO_REST_API_KEY || process.env.VITE_KAKAO_REST_API_KEY;
+
+// Naver API 키 (지오코딩 fallback용)
+const naverClientId = process.env.NAVER_CLIENT_ID;
+const naverClientSecret = process.env.NAVER_CLIENT_SECRET;
+
 if (!supabaseUrl || !supabaseKey) {
   throw new Error('Supabase credentials not found in .env file. Required: SUPABASE_URL (or VITE_SUPABASE_URL) and SUPABASE_SERVICE_ROLE_KEY');
 }
 
 export const supabase = createClient(supabaseUrl, supabaseKey);
+
+// ============================================
+// Geocache 관련 함수 (크롤링 시 좌표 자동 저장)
+// ============================================
+
+/**
+ * geocache에서 기관명으로 좌표 조회
+ * @param {string} organization - 학교/기관명
+ * @returns {Promise<{lat: number, lng: number} | null>}
+ */
+export async function getGeocache(organization) {
+  if (!organization) return null;
+
+  try {
+    const { data, error } = await supabase
+      .from('geocache')
+      .select('latitude, longitude')
+      .eq('organization', organization)
+      .single();
+
+    if (error || !data) {
+      return null;
+    }
+
+    return {
+      lat: parseFloat(data.latitude),
+      lng: parseFloat(data.longitude)
+    };
+  } catch (e) {
+    console.warn(`[geocache] 조회 실패: ${organization}`, e.message);
+    return null;
+  }
+}
+
+/**
+ * geocache에 좌표 저장
+ * @param {string} organization - 학교/기관명
+ * @param {number} lat - 위도
+ * @param {number} lng - 경도
+ * @param {string} source - 출처 (kakao, neis 등)
+ * @returns {Promise<boolean>}
+ */
+export async function saveGeocache(organization, lat, lng, source = 'kakao') {
+  if (!organization || !lat || !lng) return false;
+
+  try {
+    const { error } = await supabase
+      .from('geocache')
+      .upsert({
+        organization,
+        latitude: lat,
+        longitude: lng,
+        source,
+        updated_at: new Date().toISOString()
+      }, {
+        onConflict: 'organization',
+        ignoreDuplicates: true
+      });
+
+    if (error) {
+      // UNIQUE 충돌은 무시 (이미 저장된 경우)
+      if (error.code === '23505') {
+        return true;
+      }
+      console.warn(`[geocache] 저장 실패: ${organization}`, error.message);
+      return false;
+    }
+
+    console.log(`📍 [geocache] 저장 완료: ${organization}`);
+    return true;
+  } catch (e) {
+    console.warn(`[geocache] 저장 에러: ${organization}`, e.message);
+    return false;
+  }
+}
+
+/**
+ * Kakao Places API로 기관명 → 좌표 변환
+ * @param {string} keyword - 검색 키워드 (학교명)
+ * @returns {Promise<{lat: number, lng: number} | null>}
+ */
+export async function kakaoGeocode(keyword) {
+  if (!keyword) return null;
+
+  if (!kakaoRestApiKey) {
+    console.warn('[geocache] KAKAO_REST_API_KEY 미설정 - 지오코딩 건너뜀');
+    return null;
+  }
+
+  try {
+    const url = `https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(keyword)}`;
+    const response = await axios.get(url, {
+      headers: {
+        'Authorization': `KakaoAK ${kakaoRestApiKey}`
+      }
+    });
+
+    const data = response.data;
+
+    if (data.documents && data.documents.length > 0) {
+      const place = data.documents[0];
+      return {
+        lat: parseFloat(place.y),
+        lng: parseFloat(place.x)
+      };
+    }
+
+    return null;
+  } catch (e) {
+    console.warn(`[geocache] Kakao API 에러: ${keyword}`, e.message);
+    return null;
+  }
+}
+
+/**
+ * Naver Local Search API로 기관명 → 좌표 변환 (Kakao fallback)
+ * @param {string} keyword - 검색 키워드 (학교명)
+ * @returns {Promise<{lat: number, lng: number} | null>}
+ */
+export async function naverGeocode(keyword) {
+  if (!keyword) return null;
+
+  if (!naverClientId || !naverClientSecret) {
+    console.warn('[geocache] NAVER API 키 미설정 - 네이버 지오코딩 건너뜀');
+    return null;
+  }
+
+  try {
+    const url = `https://openapi.naver.com/v1/search/local.json?query=${encodeURIComponent(keyword)}&display=1`;
+    const response = await axios.get(url, {
+      headers: {
+        'X-Naver-Client-Id': naverClientId,
+        'X-Naver-Client-Secret': naverClientSecret
+      }
+    });
+
+    const data = response.data;
+
+    if (data.items && data.items.length > 0) {
+      const place = data.items[0];
+      // Naver API는 KATECH 좌표계 사용 - WGS84로 변환 필요
+      // mapx, mapy는 정수형 좌표 (예: 1270312345 → 127.0312345)
+      const lng = parseInt(place.mapx) / 10000000;
+      const lat = parseInt(place.mapy) / 10000000;
+
+      if (lat && lng && lat > 33 && lat < 43 && lng > 124 && lng < 132) {
+        return { lat, lng };
+      }
+    }
+
+    return null;
+  } catch (e) {
+    console.warn(`[geocache] Naver API 에러: ${keyword}`, e.message);
+    return null;
+  }
+}
+
+/**
+ * 병설유치원에서 부모학교명 추출
+ * "OO초등학교병설유치원" → "OO초등학교"
+ * @param {string} organization - 기관명
+ * @returns {string | null}
+ */
+function extractParentSchool(organization) {
+  if (!organization) return null;
+
+  // 병설유치원 패턴
+  const patterns = [
+    /^(.+(?:초등학교|초))병설유치원$/,
+    /^(.+(?:초등학교|초))\s*병설\s*유치원$/,
+  ];
+
+  for (const pattern of patterns) {
+    const match = organization.match(pattern);
+    if (match) {
+      let parent = match[1];
+      // "OO초" → "OO초등학교"로 정규화
+      if (parent.endsWith('초') && !parent.endsWith('초등학교')) {
+        parent = parent.slice(0, -1) + '초등학교';
+      }
+      return parent;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * 긴 교육지원청 이름 축약
+ * "2026학년도 전북특별자치도정읍교육지원청 학교업무지원센터" → "정읍교육지원청"
+ * @param {string} organization - 기관명
+ * @returns {string}
+ */
+function shortenOrganization(organization) {
+  if (!organization) return organization;
+
+  // 교육지원청 패턴 추출
+  const eduOfficeMatch = organization.match(/([가-힣]{2,4}교육지원청)/);
+  if (eduOfficeMatch) {
+    return eduOfficeMatch[1];
+  }
+
+  // 특수학교 패턴 (긴 이름에서 핵심만)
+  const specialSchoolMatch = organization.match(/([가-힣]+(?:학교|유치원))$/);
+  if (specialSchoolMatch && specialSchoolMatch[1].length < organization.length) {
+    return specialSchoolMatch[1];
+  }
+
+  return organization;
+}
+
+/**
+ * 기관명으로 좌표 조회 (다단계 fallback 체인)
+ * 순서: geocache → 병설유치원 매핑 → Kakao API → Naver API → 축약명 재시도
+ * @param {string} organization - 학교/기관명
+ * @param {number} depth - 재귀 깊이 (무한루프 방지)
+ * @returns {Promise<{lat: number, lng: number} | null>}
+ */
+export async function getOrCreateGeocode(organization, depth = 0) {
+  if (!organization || depth > 2) return null;
+
+  // 1. geocache에서 먼저 조회
+  let coords = await getGeocache(organization);
+  if (coords) {
+    return coords;
+  }
+
+  // 2. 병설유치원이면 부모학교 좌표 사용
+  const parentSchool = extractParentSchool(organization);
+  if (parentSchool) {
+    coords = await getGeocache(parentSchool);
+    if (coords) {
+      console.log(`🏫 [geocache] 병설유치원 → 부모학교 매핑: ${organization} → ${parentSchool}`);
+      await saveGeocache(organization, coords.lat, coords.lng, 'school_mapping');
+      return coords;
+    }
+  }
+
+  // 3. Kakao API 시도
+  coords = await kakaoGeocode(organization);
+  if (coords) {
+    await saveGeocache(organization, coords.lat, coords.lng, 'kakao');
+    return coords;
+  }
+
+  // 4. Naver API fallback
+  coords = await naverGeocode(organization);
+  if (coords) {
+    console.log(`🗺️ [geocache] Naver fallback 성공: ${organization}`);
+    await saveGeocache(organization, coords.lat, coords.lng, 'naver');
+    return coords;
+  }
+
+  // 5. 이름이 길면 축약 후 재시도
+  const shortened = shortenOrganization(organization);
+  if (shortened !== organization && shortened.length >= 4) {
+    console.log(`🔄 [geocache] 축약명으로 재시도: ${organization} → ${shortened}`);
+    coords = await getOrCreateGeocode(shortened, depth + 1);
+    if (coords) {
+      // 원본 이름으로도 저장 (다음에 바로 찾을 수 있도록)
+      await saveGeocache(organization, coords.lat, coords.lng, 'abbrev');
+      return coords;
+    }
+  }
+
+  console.warn(`❌ [geocache] 지오코딩 완전 실패: ${organization}`);
+  return null;
+}
 
 /**
  * 지역명 정규화 함수
@@ -143,6 +419,91 @@ export function normalizeMetropolitanRegion(region) {
   return mappings[normalized] || normalized;
 }
 
+/**
+ * board 이름에서 region_display_name 자동 추출
+ * @param {string} boardName - 게시판 이름
+ * @returns {string | null}
+ */
+function extractRegionFromBoardName(boardName) {
+  if (!boardName) return null;
+
+  // 지역 패턴 매핑 (우선순위 순서)
+  const regionPatterns = [
+    // 광역시/특별시
+    { pattern: /서울/, region: '서울' },
+    { pattern: /부산/, region: '부산' },
+    { pattern: /대구/, region: '대구' },
+    { pattern: /인천/, region: '인천' },
+    { pattern: /대전/, region: '대전' },
+    { pattern: /울산/, region: '울산' },
+    { pattern: /세종/, region: '세종' },
+    // 광주는 경기도 광주시와 구분 필요
+    { pattern: /광주광역|광주시교육청/, region: '광주' },
+    // 도 단위
+    { pattern: /제주/, region: '제주' },
+    { pattern: /강원/, region: '강원' },
+    { pattern: /충청북|충북/, region: '충북' },
+    { pattern: /충청남|충남/, region: '충남' },
+    { pattern: /전라북|전북/, region: '전북' },
+    { pattern: /전라남|전남/, region: '전남' },
+    { pattern: /경상북|경북/, region: '경북' },
+    { pattern: /경상남|경남/, region: '경남' },
+    // 경기도 시군 (구체적인 것 먼저)
+    { pattern: /성남/, region: '경기' },
+    { pattern: /수원/, region: '경기' },
+    { pattern: /용인/, region: '경기' },
+    { pattern: /고양/, region: '경기' },
+    { pattern: /안양/, region: '경기' },
+    { pattern: /부천/, region: '경기' },
+    { pattern: /광명/, region: '경기' },
+    { pattern: /평택/, region: '경기' },
+    { pattern: /안산/, region: '경기' },
+    { pattern: /과천/, region: '경기' },
+    { pattern: /의왕/, region: '경기' },
+    { pattern: /군포/, region: '경기' },
+    { pattern: /시흥/, region: '경기' },
+    { pattern: /김포/, region: '경기' },
+    { pattern: /파주/, region: '경기' },
+    { pattern: /의정부/, region: '경기' },
+    { pattern: /동두천/, region: '경기' },
+    { pattern: /양주/, region: '경기' },
+    { pattern: /포천/, region: '경기' },
+    { pattern: /연천/, region: '경기' },
+    { pattern: /가평/, region: '경기' },
+    { pattern: /양평/, region: '경기' },
+    { pattern: /구리/, region: '경기' },
+    { pattern: /남양주/, region: '경기' },
+    { pattern: /하남/, region: '경기' },
+    { pattern: /이천/, region: '경기' },
+    { pattern: /여주/, region: '경기' },
+    { pattern: /안성/, region: '경기' },
+    { pattern: /오산/, region: '경기' },
+    { pattern: /화성/, region: '경기' },
+    { pattern: /광주하남|광주교육지원청/, region: '경기' }, // 경기도 광주시
+    { pattern: /경기/, region: '경기' },
+  ];
+
+  for (const { pattern, region } of regionPatterns) {
+    if (pattern.test(boardName)) {
+      return region;
+    }
+  }
+
+  // "XX교육청" 형태에서 지역 추출 시도
+  const eduMatch = boardName.match(/^([가-힣]+?)(?:특별자치도|광역시|특별시)?교육청/);
+  if (eduMatch) {
+    const prefix = eduMatch[1];
+    // 다시 매핑
+    for (const { pattern, region } of regionPatterns) {
+      if (pattern.test(prefix)) {
+        return region;
+      }
+    }
+  }
+
+  return null;
+}
+
 // 크롤링 소스 정보 조회 또는 생성
 export async function getOrCreateCrawlSource(config) {
   const { name, baseUrl, region, isLocalGovernment } = config;
@@ -150,7 +511,7 @@ export async function getOrCreateCrawlSource(config) {
   // 1. URL로 먼저 검색 (이미 등록된 URL인지 확인)
   let { data: board } = await supabase
     .from('crawl_boards')
-    .select('id, crawl_batch_size, region, is_local_government, name')
+    .select('id, crawl_batch_size, region, is_local_government, name, region_display_name')
     .eq('board_url', baseUrl)
     .maybeSingle();
 
@@ -158,13 +519,28 @@ export async function getOrCreateCrawlSource(config) {
   if (!board) {
     const { data: boardByName } = await supabase
       .from('crawl_boards')
-      .select('id, crawl_batch_size, region, is_local_government, name')
+      .select('id, crawl_batch_size, region, is_local_government, name, region_display_name')
       .eq('name', name)
       .maybeSingle();
     board = boardByName;
   }
 
   if (board) {
+    // 기존 board인데 region_display_name이 없으면 자동 설정
+    if (!board.region_display_name) {
+      const autoRegion = extractRegionFromBoardName(board.name);
+      if (autoRegion) {
+        console.log(`🔧 [board] region_display_name 자동 설정: ${board.name} → ${autoRegion}`);
+        await supabase
+          .from('crawl_boards')
+          .update({
+            region_display_name: autoRegion,
+            approved_at: new Date().toISOString()  // 자동 승인
+          })
+          .eq('id', board.id);
+      }
+    }
+
     console.log(`✅ 기존 게시판 사용: ${board.name} (ID: ${board.id})`);
     return {
       id: board.id,
@@ -174,17 +550,21 @@ export async function getOrCreateCrawlSource(config) {
     };
   }
 
-  // 없으면 새로 생성
-  console.log(`✨ 새 게시판 생성 중: ${name}`);
+  // 없으면 새로 생성 - region_display_name 자동 추출
+  const autoRegion = extractRegionFromBoardName(name);
+  console.log(`✨ 새 게시판 생성 중: ${name} (자동 지역: ${autoRegion || '미설정'})`);
+
   const { data: newBoard, error } = await supabase
     .from('crawl_boards')
     .insert({
       name: name,
       board_url: baseUrl,
       region: region || '기타',
+      region_display_name: autoRegion,  // 자동 설정!
       is_local_government: isLocalGovernment || false,
       crawl_batch_size: 10,
-      status: 'active'
+      status: 'active',
+      approved_at: autoRegion ? new Date().toISOString() : null  // 지역 있으면 자동 승인
     })
     .select()
     .single();
@@ -302,6 +682,14 @@ export async function saveJobPosting(jobData, crawlSourceId, hasContentImages = 
     }
 
     console.log(`♻️  기존 공고 업데이트: ${jobData.title}`);
+
+    // 🗺️ 업데이트 시에도 geocache 확인/저장 (비동기, 실패해도 무시)
+    if (jobData.organization) {
+      getOrCreateGeocode(jobData.organization).catch(e => {
+        console.warn(`[geocache] 백그라운드 지오코딩 실패: ${jobData.organization}`, e.message);
+      });
+    }
+
     return updated;
   }
 
@@ -317,6 +705,14 @@ export async function saveJobPosting(jobData, crawlSourceId, hasContentImages = 
   }
 
   console.log(`✅ 저장 완료: ${jobData.title}`);
+
+  // 🗺️ 신규 공고 저장 시 geocache에 좌표 미리 저장 (비동기, 실패해도 무시)
+  if (jobData.organization) {
+    getOrCreateGeocode(jobData.organization).catch(e => {
+      console.warn(`[geocache] 백그라운드 지오코딩 실패: ${jobData.organization}`, e.message);
+    });
+  }
+
   return data;
 }
 

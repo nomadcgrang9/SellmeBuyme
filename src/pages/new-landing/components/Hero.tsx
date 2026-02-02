@@ -734,7 +734,7 @@ export const Hero: React.FC = () => {
     if (shouldShowTeachers && activeLayers.includes('teacher')) {
       teacherMarkers.forEach(marker => {
         if (marker.latitude != null && marker.longitude != null &&
-            isInViewport(marker.latitude, marker.longitude)) {
+          isInViewport(marker.latitude, marker.longitude)) {
           items.push({ type: 'teacher', data: marker });
         }
       });
@@ -746,7 +746,7 @@ export const Hero: React.FC = () => {
     if (shouldShowInstructors) {
       instructorMarkers.forEach(marker => {
         if (marker.latitude != null && marker.longitude != null &&
-            isInViewport(marker.latitude, marker.longitude)) {
+          isInViewport(marker.latitude, marker.longitude)) {
           items.push({ type: 'instructor', data: marker });
         }
       });
@@ -1794,14 +1794,44 @@ export const Hero: React.FC = () => {
       }
     };
 
-    // 키워드 검색 Promise 래퍼 (with error logging)
+    // 실패한 키워드 추적 (무한 재시도 방지) - 세션 동안 유지
+    const failedKeywordsKey = '__failedGeoKeywords';
+    const getFailedKeywords = (): Set<string> => {
+      try {
+        const saved = sessionStorage.getItem(failedKeywordsKey);
+        return saved ? new Set(JSON.parse(saved)) : new Set();
+      } catch {
+        return new Set();
+      }
+    };
+    const saveFailedKeyword = (keyword: string) => {
+      try {
+        const failed = getFailedKeywords();
+        failed.add(keyword);
+        sessionStorage.setItem(failedKeywordsKey, JSON.stringify([...failed]));
+      } catch { }
+    };
+    const failedKeywords = getFailedKeywords();
+
+    // 새로 획득한 좌표 수 추적 (상태 업데이트 조건)
+    let newCoordsCount = 0;
+
+    // 키워드 검색 Promise 래퍼 (with error logging + failure tracking)
     let apiErrorCount = 0;
     const searchKeyword = (keyword: string): Promise<{ lat: number; lng: number } | null> => {
+      // 이미 실패한 키워드는 스킵
+      if (failedKeywords.has(keyword)) {
+        return Promise.resolve(null);
+      }
+
       return new Promise((resolve) => {
         places.keywordSearch(keyword, (result: any[], status: string) => {
           if (status === window.kakao.maps.services.Status.OK && result.length > 0) {
             resolve({ lat: parseFloat(result[0].y), lng: parseFloat(result[0].x) });
           } else {
+            // 실패한 키워드 저장 (429 에러 등)
+            saveFailedKeyword(keyword);
+
             // API 에러 로깅 (첫 5회만)
             if (apiErrorCount < 5) {
               console.warn(`[Hero] Places API 실패 (${keyword}): ${status}`);
@@ -1840,17 +1870,68 @@ export const Hero: React.FC = () => {
       if (coords) {
         cache.set(keyword, coords);
         createMarker(coords, job);
+        newCoordsCount++;  // 새 좌표 획득 카운트
         // Supabase geocache에도 저장 (비동기, 실패해도 무시)
-        saveGeocache(keyword, coords.lat, coords.lng).catch(() => {});
+        saveGeocache(keyword, coords.lat, coords.lng).catch(() => { });
         return true;
+      }
+
+      // 🔄 Fallback: 지역 중심 좌표 사용 (완전 실패 방지)
+      const region = extractRegionFromLocation(job.location);
+      if (region && REGION_CENTER_COORDS[region]) {
+        const center = REGION_CENTER_COORDS[region];
+        // 약간의 랜덤 오프셋으로 마커 겹침 방지
+        const fallbackCoords = {
+          lat: center.lat + (Math.random() - 0.5) * 0.03,
+          lng: center.lng + (Math.random() - 0.5) * 0.03,
+        };
+        createMarker(fallbackCoords, job);
+        console.log(`🔄 [Hero] 지역 중심 fallback: ${job.organization} → ${region}`);
+        return true;  // fallback이지만 마커는 표시됨
       }
 
       return false;
     };
 
+    // location에서 지역 추출 (processJob 내부에서 사용)
+    const extractRegionFromLocation = (location: string | null | undefined): string | null => {
+      if (!location) return null;
+      for (const region of Object.keys(REGION_CENTER_COORDS)) {
+        if (location.includes(region)) return region;
+      }
+      // 시/군 단위에서 도 추출
+      if (location.includes('성남') || location.includes('수원') || location.includes('용인') ||
+          location.includes('고양') || location.includes('안양') || location.includes('부천')) {
+        return '경기';
+      }
+      return null;
+    };
+
+    // 지역 중심 좌표 (geocache 실패 시 fallback용)
+    const REGION_CENTER_COORDS: Record<string, { lat: number; lng: number }> = {
+      '서울': { lat: 37.5665, lng: 126.9780 },
+      '부산': { lat: 35.1796, lng: 129.0756 },
+      '대구': { lat: 35.8714, lng: 128.6014 },
+      '인천': { lat: 37.4563, lng: 126.7052 },
+      '광주': { lat: 35.1595, lng: 126.8526 },
+      '대전': { lat: 36.3504, lng: 127.3845 },
+      '울산': { lat: 35.5384, lng: 129.3114 },
+      '세종': { lat: 36.4800, lng: 127.2890 },
+      '경기': { lat: 37.4138, lng: 127.5183 },
+      '강원': { lat: 37.8228, lng: 128.1555 },
+      '충북': { lat: 36.6357, lng: 127.4914 },
+      '충남': { lat: 36.5184, lng: 126.8000 },
+      '전북': { lat: 35.7175, lng: 127.1530 },
+      '전남': { lat: 34.8679, lng: 126.9910 },
+      '경북': { lat: 36.4919, lng: 128.8889 },
+      '경남': { lat: 35.4606, lng: 128.2132 },
+      '제주': { lat: 33.4996, lng: 126.5312 },
+    };
+
     // 병렬 배치 처리 (rate limit 방지를 위해 배치 크기 축소)
     const BATCH_SIZE = 5;
     const BATCH_DELAY_MS = 100;
+
     const processBatches = async () => {
       console.log(`[Hero] 마커 생성 시작: ${filteredJobPostings.length}개 공고`);
       const startTime = Date.now();
@@ -1907,17 +1988,19 @@ export const Hero: React.FC = () => {
         const geocacheResults = await getGeocacheBatch(organizationsToLookup);
 
         // geocache 히트된 공고 처리
+        // 주의: cancelled 체크는 마커 생성에만 적용 (stillUncachedJobs 채우기는 항상 수행)
         const stillUncachedJobs: JobPostingCard[] = [];
         uncachedJobs.forEach(job => {
-          if (cancelled) return;
           const keyword = job.organization || job.location;
           if (keyword && geocacheResults.has(keyword)) {
             const coords = geocacheResults.get(keyword)!;
             cache.set(keyword, coords);  // localStorage 캐시에도 저장
-            createMarker(coords, job);
-            successCount++;
+            if (!cancelled) {
+              createMarker(coords, job);
+              successCount++;
+            }
           } else {
-            stillUncachedJobs.push(job);
+            stillUncachedJobs.push(job);  // cancelled 여부와 상관없이 항상 추가
           }
         });
 
@@ -1929,8 +2012,6 @@ export const Hero: React.FC = () => {
         }
 
         for (let i = 0; i < stillUncachedJobs.length; i += BATCH_SIZE) {
-          if (cancelled) break;
-
           const batch = stillUncachedJobs.slice(i, i + BATCH_SIZE);
           const results = await Promise.all(batch.map(job => processJob(job)));
 
@@ -1938,6 +2019,12 @@ export const Hero: React.FC = () => {
             if (success) successCount++;
             else failedCount++;
           });
+
+          // 배치 완료 후 cancelled 체크 (중간에 중단하되, 현재 배치는 완료)
+          if (cancelled) {
+            console.log(`[Hero] 마커 생성 중단: ${i + BATCH_SIZE}/${stillUncachedJobs.length}개 처리 후 취소됨`);
+            break;
+          }
 
           // 배치 간 딜레이 (API rate limit 방지)
           if (i + BATCH_SIZE < stillUncachedJobs.length) {
@@ -1950,10 +2037,11 @@ export const Hero: React.FC = () => {
       saveCache();
 
       const elapsed = Date.now() - startTime;
-      console.log(`[Hero] 마커 생성 완료: 성공 ${successCount}개, 실패 ${failedCount}개 (${elapsed}ms)`);
+      console.log(`[Hero] 마커 생성 완료: 성공 ${successCount}개, 실패 ${failedCount}개, 새좌표 ${newCoordsCount}개 (${elapsed}ms)`);
 
-      // 좌표 캐시가 업데이트되었으므로 뷰포트 필터링 다시 트리거
-      if (uncachedJobs.length > 0) {
+      // ★ 핵심 수정: 실제로 새 좌표를 획득했을 때만 뷰포트 필터링 트리거
+      // (무한 루프 방지: 실패만 발생하면 상태 업데이트 안 함)
+      if (newCoordsCount > 0 && !cancelled) {
         setCoordsCacheVersion(v => v + 1);
       }
     };

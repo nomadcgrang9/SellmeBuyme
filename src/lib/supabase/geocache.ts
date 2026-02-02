@@ -50,20 +50,24 @@ export async function getGeocacheBatch(organizations: string[]): Promise<Map<str
 
   if (organizations.length === 0) return result;
 
-  // URL 길이 제한을 피하기 위해 50개씩 배치 처리
-  const BATCH_SIZE = 50;
+  // URL 길이 제한을 피하기 위해 20개씩 배치 처리 (한글 학교명이 길어서 URL 초과 방지)
+  const BATCH_SIZE = 20;
 
   try {
     for (let i = 0; i < organizations.length; i += BATCH_SIZE) {
       const batch = organizations.slice(i, i + BATCH_SIZE);
+
+      console.log(`[geocache] 배치 조회 시작: ${batch.length}개`, batch.slice(0, 3));
 
       const { data, error } = await supabase
         .from('geocache')
         .select('organization, latitude, longitude')
         .in('organization', batch);
 
+      console.log(`[geocache] 배치 응답:`, { error: error?.message, dataCount: data?.length, sample: data?.slice(0, 2) });
+
       if (error) {
-        console.warn('[geocache] 배치 조회 실패:', error.message);
+        console.warn('[geocache] 배치 조회 실패:', error.message, error);
         continue;  // 실패해도 다음 배치 계속
       }
 
