@@ -66,6 +66,18 @@ declare global {
     __currentSelectedJobId?: string | null;
   }
 }
+
+// 전국 17개 광역시도 (줌 레벨 13+ 전국 축척에서 전체 로드용)
+const ALL_PROVINCES = [
+  '서울', '경기', '인천', '강원',
+  '부산', '대구', '광주', '대전', '울산', '세종',
+  '충북', '충남',
+  '전북', '전남',
+  '경북', '경남',
+  '제주'
+];
+// 전국 축척 줌 레벨 기준 (Kakao Maps에서 13 이상이면 전국이 다 보임)
+const NATIONAL_ZOOM_LEVEL = 13;
 import { useAuthStore } from '@/stores/authStore';
 import { useToastStore } from '@/stores/toastStore';
 import { fetchTeacherMarkers, fetchProgramMarkers } from '@/lib/supabase/markers';
@@ -892,10 +904,24 @@ export const Hero: React.FC = () => {
       const bounds = map.getBounds();
       const sw = bounds.getSouthWest();
       const ne = bounds.getNorthEast();
-      const geocoder = new window.kakao.maps.services.Geocoder();
+      const currentZoomLevel = map.getLevel();
 
       // 뷰포트 bounds 업데이트
       updateViewportBounds();
+
+      // ★ 줌 레벨 13 이상 (전국 축척)이면 17개 전 지역 자동 로드
+      if (currentZoomLevel >= NATIONAL_ZOOM_LEVEL) {
+        console.log(`[Hero] 전국 축척 감지 (줌 레벨: ${currentZoomLevel}), 17개 전 지역 로드 시작`);
+        let isFirstRegion = true;
+        ALL_PROVINCES.forEach(regionName => {
+          loadJobPostings(regionName, isInitial && isFirstRegion);
+          isFirstRegion = false;
+        });
+        return;
+      }
+
+      // 줌 레벨이 낮으면 기존 5점 샘플링 방식 사용
+      const geocoder = new window.kakao.maps.services.Geocoder();
 
       // 뷰포트의 5개 지점 (네 모서리 + 중앙)에서 지역명 추출
       const points = [
@@ -1005,7 +1031,7 @@ export const Hero: React.FC = () => {
     try {
       setIsJobsLoading(true);
       console.log('[Hero] 공고 데이터 로드 시작, 지역:', regionName);
-      const jobs = await fetchJobsByBoardRegion(regionName, 250);
+      const jobs = await fetchJobsByBoardRegion(regionName, 10000);  // 제한 해제 (전체 공고 로드)
       console.log('[Hero] 공고 데이터 로드 완료:', jobs.length, '개');
 
       if (replace) {
