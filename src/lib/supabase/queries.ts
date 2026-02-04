@@ -2599,14 +2599,14 @@ export async function fetchJobsByBoardRegion(
     // 제외 키워드가 있으면 해당 키워드가 포함된 board 필터링
     const filteredBoards = excludeKeywords.length > 0
       ? boards.filter(board => {
-          const boardName = (board.name || '').toLowerCase();
-          const regionName = (board.region_display_name || '').toLowerCase();
-          // 제외 키워드 중 하나라도 포함되면 제외
-          return !excludeKeywords.some(excludeKw =>
-            boardName.includes(excludeKw.toLowerCase()) ||
-            regionName.includes(excludeKw.toLowerCase())
-          );
-        })
+        const boardName = (board.name || '').toLowerCase();
+        const regionName = (board.region_display_name || '').toLowerCase();
+        // 제외 키워드 중 하나라도 포함되면 제외
+        return !excludeKeywords.some(excludeKw =>
+          boardName.includes(excludeKw.toLowerCase()) ||
+          regionName.includes(excludeKw.toLowerCase())
+        );
+      })
       : boards;
 
     console.log(`[fetchJobsByBoardRegion] Found boards after filter:`, filteredBoards.length, filteredBoards.map(b => b.name));
@@ -3120,11 +3120,11 @@ function filterJobsByTokenGroups(jobs: any[], tokenGroups: TokenGroup[]): any[] 
           // 예: "양구군".startsWith("양구") → true
           // 예: "계양구".startsWith("양구") → false
           return location.startsWith(t) ||
-                 location.includes(` ${t}`) ||
-                 location === t ||
-                 // organization에서도 확인 (지역명이 기관명에 포함된 경우)
-                 organization.startsWith(t) ||
-                 organization.includes(` ${t}`);
+            location.includes(` ${t}`) ||
+            location === t ||
+            // organization에서도 확인 (지역명이 기관명에 포함된 경우)
+            organization.startsWith(t) ||
+            organization.includes(` ${t}`);
         })
       );
 
@@ -3204,7 +3204,7 @@ function filterTalentsByTokenGroups(talents: any[], tokenGroups: TokenGroup[]): 
           // 예: "경기"는 "경기도 수원시", "수원시" 모두와 매칭되어야 함
           if (provinceNamesLower.includes(t)) {
             return locations.some((loc: string) => loc.includes(t)) ||
-                   name.includes(t);
+              name.includes(t);
           }
 
           // 기초자치단체 키워드는 기존 단어 경계 체크 유지
@@ -3214,9 +3214,9 @@ function filterTalentsByTokenGroups(talents: any[], tokenGroups: TokenGroup[]): 
             loc.includes(` ${t}`) ||
             loc === t
           ) ||
-          // name에서도 확인 (지역명이 이름에 포함된 경우)
-          name.startsWith(t) ||
-          name.includes(` ${t}`);
+            // name에서도 확인 (지역명이 이름에 포함된 경우)
+            name.startsWith(t) ||
+            name.includes(` ${t}`);
         })
       );
 
@@ -3816,8 +3816,26 @@ async function executeJobSearch({
         levelConditions.push(`and(school_level.is.null,organization.ilike.*고등*)`);
         levelConditions.push(`and(school_level.is.null,organization.ilike.*고교*)`);
       } else if (level.includes('특수')) {
-        levelConditions.push(`school_level.ilike.*특수*`);
-        levelConditions.push(`and(school_level.is.null,organization.ilike.*특수*)`);
+        // 특수교육 필터: school_level="특수" 단독으로는 매칭하지 않음
+        // → 특수학교의 시설/운영직(조리, 운전, 미화 등)이 포함되는 것을 방지
+
+        // 1. tags에 특수교육 관련 키워드 (가장 신뢰도 높음)
+        levelConditions.push(`tags.cs.{특수}`);
+        levelConditions.push(`tags.cs.{특수교사}`);
+        levelConditions.push(`tags.cs.{특수교육}`);
+        levelConditions.push(`tags.cs.{특수학급}`);
+        levelConditions.push(`tags.cs.{중등특수}`);
+        levelConditions.push(`tags.cs.{초등특수}`);
+        levelConditions.push(`tags.cs.{초등 특수}`);
+        levelConditions.push(`tags.cs.{유아특수}`);
+
+        // 2. title에 특수교육 키워드 (특수운영직 제외)
+        levelConditions.push(`and(title.ilike.*특수교*,title.not.ilike.*특수운영직*)`);
+        levelConditions.push(`and(title.ilike.*특수학급*,title.not.ilike.*특수운영직*)`);
+        levelConditions.push(`and(title.ilike.*(특수)*,title.not.ilike.*특수운영직*)`);
+
+        // 3. subject가 "특수"
+        levelConditions.push(`subject.eq.특수`);
       }
     }
 
@@ -3825,11 +3843,27 @@ async function executeJobSearch({
   }
 
   // 과목 필터 (title + tags 기반 검색)
+  // v2: 오탐 방지를 위한 exclude 패턴 추가
   if (filters.subject.length > 0) {
     const subjectConditions: string[] = [];
+
+    // 과목별 제외 패턴 정의
+    const subjectExclusions: Record<string, string[]> = {
+      '수학': ['특수학교', '특수학급', '특수교육'],  // "특수학교"에 "수학" 포함 오탐 방지
+      '국어': ['중국어', '한국어'],  // "중국어"에 "국어" 포함 오탐 방지
+    };
+
     filters.subject.forEach((sub) => {
-      // title에서 과목명 검색 (부분 매칭)
-      subjectConditions.push(`title.ilike.*${sub}*`);
+      const exclusions = subjectExclusions[sub] || [];
+
+      if (exclusions.length > 0) {
+        // 제외 패턴이 있는 과목: AND 조건으로 제외
+        const excludeConds = exclusions.map(ex => `title.not.ilike.*${ex}*`).join(',');
+        subjectConditions.push(`and(title.ilike.*${sub}*,${excludeConds})`);
+      } else {
+        // 제외 패턴이 없는 과목: 기존 방식
+        subjectConditions.push(`title.ilike.*${sub}*`);
+      }
       // tags 배열에서 과목명 검색 (정확 매칭)
       subjectConditions.push(`tags.cs.{${sub}}`);
     });

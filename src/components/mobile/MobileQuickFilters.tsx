@@ -5,7 +5,7 @@
  */
 
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { ChevronLeft, X, Search } from 'lucide-react';
+import { ChevronLeft, X, Search, Check } from 'lucide-react';
 import {
   type CascadingFilter,
   type PrimaryCategory,
@@ -13,6 +13,9 @@ import {
   PRIMARY_COLORS,
   SECONDARY_OPTIONS,
   TERTIARY_OPTIONS,
+  SCIENCE_TERTIARY_OPTIONS,
+  FOREIGN_LANG_TERTIARY_OPTIONS,
+  SUBJECTS_WITH_SPECIAL_TERTIARY,
 } from '@/lib/utils/jobClassifier';
 
 // 방과후/돌봄 인기 키워드 칩 (데스크톱과 동일)
@@ -148,9 +151,28 @@ const MobileQuickFilters: React.FC<MobileQuickFiltersProps> = ({
     }
   };
 
-  // 3차 옵션 선택
+  // 3차 옵션 선택 (단일 선택)
   const handleTertiaryClick = (key: string | null) => {
     onFilterChange({ ...filter, tertiary: key });
+  };
+
+  // 과학/제2외국어 3단 필터용 중복 선택 토글
+  const handleMultiTertiaryToggle = (key: string) => {
+    const currentSelections = filter.tertiary ? filter.tertiary.split(',').filter(Boolean) : [];
+    const isSelected = currentSelections.includes(key);
+
+    let newSelections: string[];
+    if (isSelected) {
+      // 선택 해제
+      newSelections = currentSelections.filter(k => k !== key);
+    } else {
+      // 선택 추가
+      newSelections = [...currentSelections, key];
+    }
+
+    // 빈 배열이면 null, 아니면 쉼표로 연결
+    const newTertiary = newSelections.length > 0 ? newSelections.join(',') : null;
+    onFilterChange({ ...filter, tertiary: newTertiary });
   };
 
   const getAnimationStyle = (): React.CSSProperties => {
@@ -342,6 +364,101 @@ const MobileQuickFilters: React.FC<MobileQuickFiltersProps> = ({
 
     const secondaryLabel = secondaryOptions?.find(o => o.key === filter.secondary)?.label || '';
 
+    // 과학/제2외국어는 특수 3단 필터 사용 (중복 선택 가능)
+    const isSpecialTertiary = SUBJECTS_WITH_SPECIAL_TERTIARY.includes(filter.secondary as typeof SUBJECTS_WITH_SPECIAL_TERTIARY[number]);
+    const specialOptions = filter.secondary === '과학'
+      ? SCIENCE_TERTIARY_OPTIONS
+      : filter.secondary === '제2외국어'
+        ? FOREIGN_LANG_TERTIARY_OPTIONS
+        : null;
+
+    if (isSpecialTertiary && specialOptions) {
+      // 특수 3단 필터 (중복 선택 체크박스 - 칩 스타일)
+      const currentSelections = filter.tertiary ? filter.tertiary.split(',').filter(Boolean) : [];
+
+      return (
+        <div className="flex flex-col gap-2">
+          {/* 1줄: 뒤로가기 + 전체 + 학교급 */}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {/* 뒤로가기 버튼 */}
+            <button
+              onClick={handleBack}
+              className="flex items-center gap-0.5 flex-shrink-0 px-2 py-1.5 rounded-full text-xs font-medium transition-all active:scale-95"
+              style={{
+                backgroundColor: currentColors?.base,
+                color: 'white',
+              }}
+            >
+              <ChevronLeft size={14} />
+              {secondaryLabel}
+            </button>
+
+            {/* 전체 옵션 */}
+            <button
+              onClick={() => onFilterChange({ ...filter, tertiary: null })}
+              className="flex-shrink-0 px-2.5 py-1.5 rounded-full text-xs font-medium transition-all duration-200 active:scale-95"
+              style={{
+                backgroundColor: currentSelections.length === 0 ? currentColors?.light : '#F1F5F9',
+                color: currentSelections.length === 0 ? currentColors?.text : '#64748B',
+                border: currentSelections.length === 0 ? `1px solid ${currentColors?.base}40` : '1px solid transparent',
+              }}
+            >
+              전체
+            </button>
+
+            {/* 학교급 옵션 (초등/중등/고등) */}
+            {specialOptions
+              .filter(opt => opt.type === 'schoolLevel')
+              .map(({ key, label }) => {
+                const isSelected = currentSelections.includes(key);
+
+                return (
+                  <button
+                    key={key}
+                    onClick={() => handleMultiTertiaryToggle(key)}
+                    className="flex items-center gap-1 flex-shrink-0 px-2.5 py-1.5 rounded-full text-xs font-medium transition-all duration-200 active:scale-95"
+                    style={{
+                      backgroundColor: isSelected ? currentColors?.light : '#F1F5F9',
+                      color: isSelected ? currentColors?.text : '#64748B',
+                      border: isSelected ? `1px solid ${currentColors?.base}40` : '1px solid transparent',
+                    }}
+                  >
+                    {isSelected && <Check size={10} strokeWidth={3} />}
+                    {label}
+                  </button>
+                );
+              })}
+          </div>
+
+          {/* 2줄: 세부과목/언어 */}
+          <div className="flex items-center gap-1.5 flex-wrap pl-1">
+            {specialOptions
+              .filter(opt => opt.type !== 'schoolLevel')
+              .map(({ key, label }) => {
+                const isSelected = currentSelections.includes(key);
+
+                return (
+                  <button
+                    key={key}
+                    onClick={() => handleMultiTertiaryToggle(key)}
+                    className="flex items-center gap-1 flex-shrink-0 px-2.5 py-1.5 rounded-full text-xs font-medium transition-all duration-200 active:scale-95"
+                    style={{
+                      backgroundColor: isSelected ? currentColors?.light : '#F1F5F9',
+                      color: isSelected ? currentColors?.text : '#64748B',
+                      border: isSelected ? `1px solid ${currentColors?.base}40` : '1px solid transparent',
+                    }}
+                  >
+                    {isSelected && <Check size={10} strokeWidth={3} />}
+                    {label}
+                  </button>
+                );
+              })}
+          </div>
+        </div>
+      );
+    }
+
+    // 기본 3차 필터 (단일 선택)
     return (
       <div className="flex items-center gap-1.5 flex-wrap">
         {/* 뒤로가기 버튼 */}

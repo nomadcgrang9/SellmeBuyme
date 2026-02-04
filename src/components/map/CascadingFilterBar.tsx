@@ -14,6 +14,9 @@ import {
   PRIMARY_COLORS,
   SECONDARY_OPTIONS,
   TERTIARY_OPTIONS,
+  SCIENCE_TERTIARY_OPTIONS,
+  FOREIGN_LANG_TERTIARY_OPTIONS,
+  SUBJECTS_WITH_SPECIAL_TERTIARY,
 } from '@/lib/utils/jobClassifier';
 
 // 방과후/돌봄 카테고리 칩 (6개 그룹핑 - 분석 기반 최적화)
@@ -438,12 +441,131 @@ export default function CascadingFilterBar({
     );
   };
 
+  // 과학/제2외국어 특수 3단 필터용 중복 선택 토글
+  const handleMultiTertiaryToggle = (key: string) => {
+    const currentSelections = filter.tertiary ? filter.tertiary.split(',').filter(Boolean) : [];
+    const isSelected = currentSelections.includes(key);
+
+    let newSelections: string[];
+    if (isSelected) {
+      // 선택 해제
+      newSelections = currentSelections.filter(k => k !== key);
+    } else {
+      // 선택 추가
+      newSelections = [...currentSelections, key];
+    }
+
+    // 빈 배열이면 null, 아니면 쉼표로 연결
+    const newTertiary = newSelections.length > 0 ? newSelections.join(',') : null;
+    onFilterChange({ ...filter, tertiary: newTertiary });
+  };
+
   // 3차 필터 렌더링 (교과과목 → 과목 선택 후)
   const renderTertiaryLevel = () => {
     if (!filter.secondary) return null;
 
     const secondaryLabel = secondaryOptions?.find(o => o.key === filter.secondary)?.label || '';
 
+    // 과학/제2외국어는 특수 3단 필터 사용 (중복 선택 가능)
+    const isSpecialTertiary = SUBJECTS_WITH_SPECIAL_TERTIARY.includes(filter.secondary as typeof SUBJECTS_WITH_SPECIAL_TERTIARY[number]);
+    const specialOptions = filter.secondary === '과학'
+      ? SCIENCE_TERTIARY_OPTIONS
+      : filter.secondary === '제2외국어'
+        ? FOREIGN_LANG_TERTIARY_OPTIONS
+        : null;
+
+    if (isSpecialTertiary && specialOptions) {
+      // 특수 3단 필터 (중복 선택 체크박스)
+      const currentSelections = filter.tertiary ? filter.tertiary.split(',').filter(Boolean) : [];
+
+      return (
+        <>
+          {/* 뒤로가기 버튼 + 현재 과목 */}
+          <button
+            onClick={handleBack}
+            className="flex items-center gap-1 px-2 py-1.5 text-sm font-medium rounded-lg transition-colors hover:bg-white/10"
+            style={{ color: currentColors?.light || '#E2E8F0' }}
+          >
+            <ChevronLeft size={16} />
+            <span>{secondaryLabel}</span>
+          </button>
+
+          <div className="w-px h-5 bg-gray-500 mx-1" />
+
+          {/* 전체 옵션 (선택 해제) */}
+          <button
+            onClick={() => onFilterChange({ ...filter, tertiary: null })}
+            onMouseEnter={() => setHoveredItem('all')}
+            onMouseLeave={() => setHoveredItem(null)}
+            className="px-3 py-1.5 text-sm font-medium transition-all duration-200 whitespace-nowrap rounded-lg"
+            style={{
+              color: currentSelections.length === 0 ? currentColors?.text : hoveredItem === 'all' ? currentColors?.text : '#E2E8F0',
+              backgroundColor: currentSelections.length === 0 ? currentColors?.light : hoveredItem === 'all' ? `${currentColors?.light}80` : 'transparent',
+            }}
+          >
+            전체
+          </button>
+
+          {/* 학교급 그룹 */}
+          <div className="flex items-center gap-0.5">
+            {specialOptions
+              .filter(opt => opt.type === 'schoolLevel')
+              .map(({ key, label }) => {
+                const isSelected = currentSelections.includes(key);
+                const isHovered = hoveredItem === key;
+
+                return (
+                  <button
+                    key={key}
+                    onClick={() => handleMultiTertiaryToggle(key)}
+                    onMouseEnter={() => setHoveredItem(key)}
+                    onMouseLeave={() => setHoveredItem(null)}
+                    className="px-2 py-1 text-xs font-medium transition-all duration-200 whitespace-nowrap rounded-md flex items-center gap-1"
+                    style={{
+                      color: isSelected ? currentColors?.text : isHovered ? currentColors?.text : '#94A3B8',
+                      backgroundColor: isSelected ? currentColors?.light : isHovered ? `${currentColors?.light}60` : 'rgba(255,255,255,0.05)',
+                    }}
+                  >
+                    {isSelected && <Check size={10} strokeWidth={3} />}
+                    {label}
+                  </button>
+                );
+              })}
+          </div>
+
+          <div className="w-px h-4 bg-gray-600 mx-0.5" />
+
+          {/* 세부과목/언어 그룹 */}
+          <div className="flex items-center gap-0.5">
+            {specialOptions
+              .filter(opt => opt.type !== 'schoolLevel')
+              .map(({ key, label }) => {
+                const isSelected = currentSelections.includes(key);
+                const isHovered = hoveredItem === key;
+
+                return (
+                  <button
+                    key={key}
+                    onClick={() => handleMultiTertiaryToggle(key)}
+                    onMouseEnter={() => setHoveredItem(key)}
+                    onMouseLeave={() => setHoveredItem(null)}
+                    className="px-2 py-1 text-xs font-medium transition-all duration-200 whitespace-nowrap rounded-md flex items-center gap-1"
+                    style={{
+                      color: isSelected ? currentColors?.text : isHovered ? currentColors?.text : '#94A3B8',
+                      backgroundColor: isSelected ? currentColors?.light : isHovered ? `${currentColors?.light}60` : 'rgba(255,255,255,0.05)',
+                    }}
+                  >
+                    {isSelected && <Check size={10} strokeWidth={3} />}
+                    {label}
+                  </button>
+                );
+              })}
+          </div>
+        </>
+      );
+    }
+
+    // 기본 3단 필터 (단일 선택)
     return (
       <>
         {/* 뒤로가기 버튼 + 현재 과목 */}
@@ -497,16 +619,17 @@ export default function CascadingFilterBar({
     );
   };
 
-  // 유치원/비교과 2층(secondary)일 때만 우측 상단 직각 처리 (1층보다 짧아서 연결 필요)
-  const needsSquareTopRight = noTopLeftRadius && currentLevel === 'secondary' &&
-    (filter.primary === '유치원' || filter.primary === '비교과');
+  // 유치원/비교과 2층 또는 교과과목 3층(tertiary)일 때 우측 상단 직각 처리 (1층보다 짧아서 연결 필요)
+  const needsSquareTopRight = noTopLeftRadius &&
+    (currentLevel === 'secondary' || currentLevel === 'tertiary') &&
+    (filter.primary === '유치원' || filter.primary === '비교과' || filter.primary === '교과과목');
 
   // noTopLeftRadius일 때: 상단 좌측 직각 + 상단 border 제거 (탭과 한 덩어리로 연결)
   const computedStyle = noTopLeftRadius
     ? {
       ...glassStyle,
       borderTopLeftRadius: 0,
-      borderTopRightRadius: needsSquareTopRight ? 0 : '16px',  // 유치원/비교과 2층만 직각
+      borderTopRightRadius: needsSquareTopRight ? 0 : '16px',  // 유치원/비교과 2층 또는 교과과목 3층 직각
       borderBottomLeftRadius: '16px',
       borderBottomRightRadius: '16px',
       border: 'none',

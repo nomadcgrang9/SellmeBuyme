@@ -40,12 +40,12 @@ export const SECONDARY_OPTIONS: Partial<Record<PrimaryCategory, { key: string; l
     { key: '수학', label: '수학' },
     { key: '과학', label: '과학' },
     { key: '사회', label: '사회' },
+    { key: '역사', label: '역사' },  // 사회에서 분리
     { key: '체육', label: '체육' },
     { key: '음악', label: '음악' },
     { key: '미술', label: '미술' },
-    { key: '기술가정', label: '기술가정' },
-    { key: '정보', label: '정보' },
-    { key: '도덕', label: '도덕' },
+    { key: '기술가정', label: '기가·정보' },  // 정보 통합
+    { key: '도덕윤리', label: '도덕·윤리' },  // 윤리 포함으로 확장
     { key: '제2외국어', label: '제2외국어' },
   ],
   '비교과': [
@@ -98,12 +98,40 @@ export const SECONDARY_OPTIONS: Partial<Record<PrimaryCategory, { key: string; l
   ],
 };
 
-// 3차 필터 (교과과목 → 과목 선택 후 학교급)
+// 3차 필터 (교과과목 → 과목 선택 후 학교급) - 기본 옵션
 export const TERTIARY_OPTIONS = [
   { key: '초등학교', label: '초등학교' },
   { key: '중학교', label: '중학교' },
   { key: '고등학교', label: '고등학교' },
 ];
+
+// 과학 3단 필터 옵션 (학교급 + 세부과목 통합, 중복 선택 가능)
+export const SCIENCE_TERTIARY_OPTIONS = [
+  // 학교급
+  { key: '초등', label: '초등', type: 'schoolLevel' as const },
+  { key: '중등', label: '중등', type: 'schoolLevel' as const },
+  { key: '고등', label: '고등', type: 'schoolLevel' as const },
+  // 세부과목
+  { key: '물리', label: '물리', type: 'subject' as const },
+  { key: '화학', label: '화학', type: 'subject' as const },
+  { key: '생물', label: '생물', type: 'subject' as const },
+  { key: '지구과학', label: '지구과학', type: 'subject' as const },
+];
+
+// 제2외국어 3단 필터 옵션 (학교급 + 언어 통합, 중복 선택 가능)
+export const FOREIGN_LANG_TERTIARY_OPTIONS = [
+  // 학교급
+  { key: '초등', label: '초등', type: 'schoolLevel' as const },
+  { key: '중등', label: '중등', type: 'schoolLevel' as const },
+  { key: '고등', label: '고등', type: 'schoolLevel' as const },
+  // 언어
+  { key: '중국어', label: '중국어', type: 'language' as const },
+  { key: '일본어', label: '일본어', type: 'language' as const },
+  { key: '한문', label: '한문', type: 'language' as const },
+];
+
+// 특수 3단 필터 옵션이 필요한 과목 목록
+export const SUBJECTS_WITH_SPECIAL_TERTIARY = ['과학', '제2외국어'] as const;
 
 // 1차 카테고리 색상
 export const PRIMARY_COLORS: Record<PrimaryCategory, { base: string; light: string; text: string }> = {
@@ -381,17 +409,55 @@ export function matchesCascadingFilter(job: JobLike, filter: CascadingFilter): b
     if (filter.secondary) {
       // 과목 지정됨 → 해당 과목 태그 있는 모든 공고 (학교급 무관)
       if (!matchesSubject(tl, tagsLower, filter.secondary)) return false;
-      // tertiary (학교급) 필터
+
+      // tertiary 필터 (과학/제2외국어는 중복 선택 지원)
       if (filter.tertiary) {
+        const tertiarySelections = filter.tertiary.split(',').filter(Boolean);
+
+        // 과학/제2외국어 특수 처리
+        if (filter.secondary === '과학' || filter.secondary === '제2외국어') {
+          // 학교급 선택 분리
+          const schoolLevelSelections = tertiarySelections.filter(s =>
+            ['초등', '중등', '고등'].includes(s)
+          );
+          // 세부과목/언어 선택 분리
+          const detailSelections = tertiarySelections.filter(s =>
+            !['초등', '중등', '고등'].includes(s)
+          );
+
+          // 학교급 필터 (선택된 학교급 중 하나라도 매칭되면 OK)
+          if (schoolLevelSelections.length > 0) {
+            const matchesAnySchoolLevel = schoolLevelSelections.some(level =>
+              matchesSchoolLevelShort(combined, level)
+            );
+            if (!matchesAnySchoolLevel) return false;
+          }
+
+          // 세부과목 필터 (과학의 물리/화학 등, 제2외국어의 중국어/일본어 등)
+          if (detailSelections.length > 0) {
+            const matchesAnyDetail = detailSelections.some(detail =>
+              tl.includes(detail) || tagsLower.some(tag => tag.includes(detail))
+            );
+            if (!matchesAnyDetail) return false;
+          }
+
+          return true;
+        }
+
+        // 기본 학교급 필터 (단일 선택)
         return matchesSchoolLevel(combined, filter.tertiary);
       }
       return true;
     } else {
       // 과목 미지정 → 과목 태그가 있는 모든 공고
       const allSubjectKeywords = [
-        '국어', '문학', '영어', '수학', '과학', '물리', '화학', '생물', '지구과학', '생명과학',
-        '사회', '역사', '지리', '윤리', '경제', '정치', '체육', '음악', '미술',
-        '기술', '가정', '정보', '컴퓨터', '코딩', '도덕', '일본어', '중국어', '한문'
+        '국어', '문학', '영어', '수학', '과학', '물리', '화학', '생물', '지구과학', '생명과학', '통합과학',
+        '사회', '지리', '경제', '정치', '일반사회', '통합사회',  // 사회 계열
+        '역사', '한국사', '동아시아사', '세계사',  // 역사 계열 (분리)
+        '체육', '음악', '미술',
+        '기술', '가정', '실과', '정보', '컴퓨터', '코딩', 'sw', '기가',  // 기가·정보
+        '도덕', '윤리',  // 도덕·윤리
+        '일본어', '중국어', '한문', '프랑스어', '독일어', '스페인어', '제2외국어'  // 제2외국어
       ];
       const hasSubject = allSubjectKeywords.some(kw =>
         tl.includes(kw) || tagsLower.some(tag => tag.includes(kw))
@@ -437,36 +503,82 @@ export function matchesCascadingFilter(job: JobLike, filter: CascadingFilter): b
 }
 
 // 교과과목 과목 매칭 (title OR tags)
+// v9: 오탐 방지를 위한 exclude 패턴 추가
 function matchesSubject(titleLower: string, tagsLower: string[], subject: string): boolean {
-  const keywords: Record<string, string[]> = {
-    '국어': ['국어', '문학'],
-    '영어': ['영어', 'english'],
-    '수학': ['수학'],
-    '과학': ['과학', '물리', '화학', '생물', '지구과학', '생명과학', '통합과학'],
-    '사회': ['사회', '역사', '지리', '윤리', '경제', '정치'],
-    '체육': ['체육'],
-    '음악': ['음악'],
-    '미술': ['미술'],
-    '기술가정': ['기술', '가정', '기술가정', '실과'],
-    '정보': ['정보', '컴퓨터', 'sw', '코딩', '정보컴퓨터', '정보.컴퓨터'],
-    '도덕': ['도덕'],
-    '제2외국어': ['일본어', '중국어', '프랑스어', '독일어', '스페인어', '제2외국어', '한문'],
+  // 키워드 정의 (include: 포함 키워드, exclude: 제외 키워드)
+  const keywordConfig: Record<string, { include: string[]; exclude?: string[] }> = {
+    '국어': { include: ['국어', '문학'], exclude: ['중국어', '한국어'] },
+    '영어': { include: ['영어', 'english'] },
+    '수학': { include: ['수학'], exclude: ['특수학교', '특수학급', '특수교육'] },
+    '과학': { include: ['과학', '물리', '화학', '생물', '지구과학', '생명과학', '통합과학'] },
+    '사회': { include: ['사회', '지리', '경제', '정치', '일반사회', '통합사회'] },  // 역사, 윤리 분리
+    '역사': { include: ['역사', '한국사', '동아시아사', '세계사'] },
+    '체육': { include: ['체육'] },
+    '음악': { include: ['음악'] },
+    '미술': { include: ['미술'] },
+    '기술가정': { include: ['기술', '가정', '기술가정', '실과', '정보', '컴퓨터', 'sw', '코딩', '정보컴퓨터', '기가'] },
+    '도덕윤리': { include: ['도덕', '윤리', '도덕윤리'] },
+    '제2외국어': {
+      include: ['일본어', '중국어', '프랑스어', '독일어', '스페인어', '제2외국어', '한문'],
+      exclude: ['국어', '영어', '한국어']  // "중국어".includes("국어") 오탐 방지
+    },
   };
-  const kws = keywords[subject] || [subject.toLowerCase()];
+
+  // 기존 키 호환성 (도덕→도덕윤리)
+  const config = keywordConfig[subject] || keywordConfig[subject === '도덕' ? '도덕윤리' : subject];
+  if (!config) {
+    // 정의되지 않은 과목은 단순 포함 검색
+    const kw = subject.toLowerCase();
+    return titleLower.includes(kw) || tagsLower.some(tag => tag.includes(kw));
+  }
+
+  const { include: kws, exclude: excludeKws } = config;
+
+  // 제외 키워드 체크 (title 또는 tags에 제외 키워드가 포함되면 제외)
+  // v10 버그 수정: ex.includes(tag) 패턴 제거 (예: "중국어".includes("국어")=true 오탐 방지)
+  if (excludeKws && excludeKws.length > 0) {
+    const hasExcludeInTitle = excludeKws.some(ex => titleLower.includes(ex));
+    // 태그가 제외 키워드를 포함하는 경우만 체크 (tag.includes(ex))
+    // ex.includes(tag)는 오탐 유발: "중국어".includes("국어")=true → 국어 공고가 모두 제외됨
+    const hasExcludeInTags = tagsLower.some(tag => excludeKws.some(ex => tag.includes(ex)));
+
+    if (hasExcludeInTitle || hasExcludeInTags) {
+      return false;
+    }
+  }
+
   // title에서 매칭
   if (kws.some(kw => titleLower.includes(kw))) return true;
-  // tags에서 매칭 (태그가 키워드를 포함하거나, 키워드가 태그를 포함하는 경우)
+
+  // tags에서 매칭 (정확한 매칭 우선, 부분 매칭은 신중하게)
   return tagsLower.some(tag =>
-    kws.some(kw => tag.includes(kw) || kw.includes(tag))
+    kws.some(kw => {
+      // 정확히 일치하거나 태그에 키워드가 포함된 경우만
+      if (tag === kw) return true;
+      if (tag.includes(kw)) return true;
+      // kw.includes(tag)는 오탐 유발 → 제거
+      // 예: "중국어".includes("국어") = true 오탐
+      return false;
+    })
   );
 }
 
-// 학교급 매칭
+// 학교급 매칭 (전체 이름: 초등학교, 중학교, 고등학교)
 function matchesSchoolLevel(combinedLower: string, schoolLevel: string): boolean {
   switch (schoolLevel) {
     case '초등학교': return combinedLower.includes('초등');
     case '중학교': return combinedLower.includes('중학') || combinedLower.includes('중등');
     case '고등학교': return combinedLower.includes('고등') || combinedLower.includes('고교');
+    default: return true;
+  }
+}
+
+// 학교급 매칭 (짧은 이름: 초등, 중등, 고등 - 과학/제2외국어 3단 필터용)
+function matchesSchoolLevelShort(combinedLower: string, level: string): boolean {
+  switch (level) {
+    case '초등': return combinedLower.includes('초등');
+    case '중등': return combinedLower.includes('중학') || combinedLower.includes('중등');
+    case '고등': return combinedLower.includes('고등') || combinedLower.includes('고교');
     default: return true;
   }
 }
