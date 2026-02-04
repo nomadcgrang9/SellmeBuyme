@@ -92,8 +92,10 @@ jobs:
           # Microsoft 패키지 저장소 문제 우회: deps 없이 설치 후 필요한 deps만 수동 설치
           npx playwright install chromium
           # 필수 의존성만 설치 (Microsoft 저장소 불필요)
+          # Ubuntu 24.04에서 libasound2가 libasound2t64로 변경됨 - fallback 처리
           sudo apt-get update
-          sudo apt-get install -y libnss3 libnspr4 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 libasound2 libpango-1.0-0 libcairo2
+          sudo apt-get install -y libnss3 libnspr4 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 libpango-1.0-0 libcairo2
+          sudo apt-get install -y libasound2t64 || sudo apt-get install -y libasound2
 
       - name: Run crawler
         working-directory: crawler
@@ -184,8 +186,10 @@ jobs:
           # Microsoft 패키지 저장소 문제 우회: deps 없이 설치 후 필요한 deps만 수동 설치
           npx playwright install chromium
           # 필수 의존성만 설치 (Microsoft 저장소 불필요)
+          # Ubuntu 24.04에서 libasound2가 libasound2t64로 변경됨 - fallback 처리
           sudo apt-get update
-          sudo apt-get install -y libnss3 libnspr4 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 libasound2 libpango-1.0-0 libcairo2
+          sudo apt-get install -y libnss3 libnspr4 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 libpango-1.0-0 libcairo2
+          sudo apt-get install -y libasound2t64 || sudo apt-get install -y libasound2
 
       - name: Run crawler
         shell: bash
