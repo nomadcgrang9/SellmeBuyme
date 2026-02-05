@@ -41,7 +41,7 @@ export default function ComingSoonModal({ isOpen, onClose, title }: ComingSoonMo
                                 {title}
                             </h3>
                             <p className="text-gray-500 mb-6 font-medium">
-                                해당 기능은 2월 초 업데이트 예정입니다.<br />
+                                해당 기능은 업데이트 예정입니다.<br />
                                 조금만 기다려주세요!
                             </p>
                             <button

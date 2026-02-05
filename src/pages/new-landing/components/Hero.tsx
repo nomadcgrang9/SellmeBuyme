@@ -2394,6 +2394,12 @@ export const Hero: React.FC = () => {
             setIsTeacherModalOpen(true);
           }}
           onJobPostClick={() => {
+            // Early Access 체크: 일반 접속 시 ComingSoonModal 표시
+            if (!hasEarlyAccess) {
+              setComingSoonFeature('공고등록');
+              setIsComingSoonOpen(true);
+              return;
+            }
             if (!user) {
               // 로그인 필요 - 로그인 후 공고등록 플로우 이어가기
               setPendingAction('jobPost');
@@ -2423,6 +2429,12 @@ export const Hero: React.FC = () => {
             setIsInstructorModalOpen(true);
           }}
           onLoginClick={() => {
+            // Early Access 체크: 일반 접속 시 ComingSoonModal 표시
+            if (!hasEarlyAccess) {
+              setComingSoonFeature('로그인');
+              setIsComingSoonOpen(true);
+              return;
+            }
             if (user) {
               // 로그인 상태: 프로필 모달 열기
               setIsProfileModalOpen(true);
@@ -3281,6 +3293,12 @@ export const Hero: React.FC = () => {
           setIsTeacherModalOpen(true);
         }}
         onJobPostRegister={() => {
+          // Early Access 체크: 일반 접속 시 ComingSoonModal 표시
+          if (!hasEarlyAccess) {
+            setComingSoonFeature('공고등록');
+            setIsComingSoonOpen(true);
+            return;
+          }
           if (!user) {
             setPendingAction('jobPost');
             setAuthModalInitialTab('login');
