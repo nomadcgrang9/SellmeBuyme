@@ -62,6 +62,7 @@ on:
           - test
   schedule:
     - cron: '0 1 * * *'  # UTC 1 AM = Korea 10 AM
+    - cron: '0 5 * * *'  # UTC 5 AM = Korea 2 PM (14:00 KST) - 신규 추가
     - cron: '0 9 * * *'  # UTC 9 AM = Korea 6 PM
 
 jobs:

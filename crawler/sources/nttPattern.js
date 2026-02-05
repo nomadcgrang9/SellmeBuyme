@@ -24,10 +24,10 @@ export async function crawlNttPattern(page, config) {
 
   // 배치 반복 방식 설정 (서울/경기/인천과 동일하게 개선)
   const SAFETY = {
-    maxItems: 150,                // 절대 최대 수집 개수
+    maxItems: 200,                // 절대 최대 수집 개수 (150→200 증가)
     maxBatches: 15,               // 최대 배치 반복 횟수
-    batchDuplicateThreshold: 0.8, // 배치 내 중복률 80% 이상이면 종료
-    consecutiveDuplicateLimit: 10, // 연속 10개 중복 시 즉시 중단
+    batchDuplicateThreshold: 0.95, // 배치 내 중복률 95% 이상이면 종료 (0.8→0.95 완화)
+    consecutiveDuplicateLimit: 20, // 연속 20개 중복 시 즉시 중단 (10→20 완화)
   };
 
   const batchSize = config.crawlBatchSize || 10;
