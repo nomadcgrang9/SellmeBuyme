@@ -1,7 +1,7 @@
 export function BetaBadge() {
   // 환경 변수 또는 기본값 사용 (배포 환경에서도 작동)
   const isBeta = import.meta.env.VITE_IS_BETA === 'true' || import.meta.env.VITE_IS_BETA === undefined;
-  const endDate = import.meta.env.VITE_BETA_END_DATE || '2026-02-02';
+  const endDate = import.meta.env.VITE_BETA_END_DATE || null;
 
   // BETA 표시 조건 체크
   if (!isBeta) {
