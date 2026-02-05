@@ -96,10 +96,12 @@ export async function crawlNttPattern(page, config) {
             if (match) dataId = match[1];
           }
 
-          // href에서 nttSn 파라미터 추출 시도
+          // href에서 ID 파라미터 추출 시도 (config.idParam으로 커스텀 파라미터 지원)
           if (!dataId) {
             const href = titleLink.getAttribute('href') || '';
-            const match = href.match(/nttSn=(\d+)/);
+            const idParam = cfg.idParam || 'nttSn';
+            const regex = new RegExp(idParam + '=(\\w+)');
+            const match = href.match(regex);
             if (match) dataId = match[1];
           }
 

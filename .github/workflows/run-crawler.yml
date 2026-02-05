@@ -26,6 +26,13 @@ on:
           - gyeongbuk
           - gyeongnam
           - jeju
+          # 공무직/행정직 (6개)
+          - seoul-public-worker
+          - seoul-admin
+          - incheon-public-worker
+          - incheon-admin
+          - gyeonggi-public-worker
+          - gyeonggi-admin
           # 경기도 시/군 (18개)
           - seongnam
           - goyang
@@ -137,6 +144,13 @@ jobs:
           - gyeongbuk
           - gyeongnam
           - jeju
+          # 공무직/행정직 (6개)
+          - seoul-public-worker
+          - seoul-admin
+          - incheon-public-worker
+          - incheon-admin
+          - gyeonggi-public-worker
+          - gyeonggi-admin
           # 경기도 시/군 (18개)
           - seongnam
           - goyang

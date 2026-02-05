@@ -474,8 +474,8 @@ async function main() {
     const parserType = config.parserType || 'html';
 
     // 개별 크롤러가 있는 경우 우선 사용
-    if (targetSource === 'gyeonggi') {
-      logStep('crawler', '경기도교육청 크롤링 호출');
+    if (targetSource === 'gyeonggi' || targetSource === 'gyeonggi-public-worker') {
+      logStep('crawler', `${config.name} 크롤링 호출`);
       rawJobs = await crawlGyeonggi(page, config);
     } else if (targetSource === 'gyeongnam') {
       logStep('crawler', '경상남도교육청 크롤링 호출');
