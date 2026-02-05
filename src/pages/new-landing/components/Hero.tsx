@@ -86,6 +86,7 @@ import { deleteJobPosting } from '@/lib/supabase/jobPostings';
 import { type MarkerLayer, type TeacherMarker, type ProgramMarker, MARKER_COLORS, getTeacherMarkerColor } from '@/types/markers';
 import { type InstructorMarker, INSTRUCTOR_MARKER_COLORS } from '@/types/instructorMarkers';
 import { useEarlyAccess } from '@/hooks/useEarlyAccess';
+import { useAutoScaleMap } from '@/hooks/useAutoScaleMap';
 
 export const Hero: React.FC = () => {
   // Early Access 권한 확인
@@ -532,6 +533,19 @@ export const Hero: React.FC = () => {
   // 로드된 지역 추적 (복수 지역 동시 표시용)
   const loadedRegionsRef = useRef<Set<string>>(new Set());
 
+  // 현재 줌 레벨 추적 (auto-scale 훅용)
+  const [currentZoomLevel, setCurrentZoomLevel] = useState(5);
+  // 뷰포트 필터 전 공고 수 (auto-scale에서 전국 검색 판단용)
+  const totalFilteredCountRef = useRef(0);
+
+  // 자동 스케일업: 지도 줌/센터 변경 콜백
+  const handleAutoScaleMapChange = useCallback((zoom: number, center: { lat: number; lng: number }) => {
+    const map = mapInstanceRef.current;
+    if (!map || !window.kakao?.maps) return;
+    map.setLevel(zoom);
+    map.setCenter(new window.kakao.maps.LatLng(center.lat, center.lng));
+  }, []);
+
   // 현재 뷰포트 bounds (줌 인/아웃 시 목록 필터링용)
   const [viewportBounds, setViewportBounds] = useState<{
     sw: { lat: number; lng: number };
@@ -663,6 +677,9 @@ export const Hero: React.FC = () => {
       }
     }
 
+    // auto-scale용: 뷰포트 필터 전 공고 수 저장
+    totalFilteredCountRef.current = filtered.length;
+
     // 뷰포트 기반 필터링 (줌 인/아웃 시 현재 화면에 보이는 공고만 표시)
     if (viewportBounds) {
       const beforeCount = filtered.length;
@@ -710,6 +727,50 @@ export const Hero: React.FC = () => {
     return filtered;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [jobPostings, cascadingFilter, activeLocationFilter, deduplicateJobs, viewportBounds, coordsCacheVersion, selectedJob, showJobLayer, showSeekerLayer, showInstructorLayer]);
+
+  // ★ 자동 스케일업 훅 연동
+  const {
+    checkAndExpand,
+    restoreOriginalPosition,
+    isExpanded: isAutoScaleExpanded,
+    canRestore: canRestorePosition,
+    resetExpansionState,
+  } = useAutoScaleMap({
+    currentMapState: {
+      zoom: currentZoomLevel,
+      center: mapInstanceRef.current
+        ? { lat: mapInstanceRef.current.getCenter().getLat(), lng: mapInstanceRef.current.getCenter().getLng() }
+        : { lat: 37.5665, lng: 126.9780 },
+    },
+    viewportFilteredCount: filteredJobPostings.length,
+    totalFilteredCount: totalFilteredCountRef.current,
+    primaryCategory: cascadingFilter.primary,
+    secondaryCategory: cascadingFilter.secondary,
+    onMapStateChange: handleAutoScaleMapChange,
+    onShowToast: showToast,
+  });
+
+  // 필터 변경 후 뷰포트 결과 부족 시 자동 확장
+  useEffect(() => {
+    // 필터가 설정되어 있고 결과가 부족할 때만 동작
+    if (!cascadingFilter.primary) return;
+    if (filteredJobPostings.length >= 3) return;
+    // 공고 로딩 중이면 대기
+    if (isJobsLoading) return;
+
+    const timer = setTimeout(() => {
+      checkAndExpand();
+    }, 800); // 지도 이동/로딩 후 안정화 대기
+
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filteredJobPostings.length, cascadingFilter.primary, cascadingFilter.secondary, isJobsLoading]);
+
+  // 필터 변경 시 확장 상태 리셋
+  useEffect(() => {
+    resetExpansionState();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cascadingFilter.primary, cascadingFilter.secondary, cascadingFilter.tertiary]);
 
   // ★ 통합 목록: 지도에 보이는 모든 마커 (공고 + 구직자 + 강사)
   // 지도와 1:1 실시간 동기화 - 탭 분리 없이 하나의 목록으로 표시
@@ -970,7 +1031,9 @@ export const Hero: React.FC = () => {
 
     // 줌 레벨 변경 시 뷰포트 내 지역 로드 + bounds 업데이트
     window.kakao.maps.event.addListener(map, 'zoom_changed', () => {
-      console.log('[Hero] 줌 레벨 변경, 현재 레벨:', map.getLevel());
+      const level = map.getLevel();
+      console.log('[Hero] 줌 레벨 변경, 현재 레벨:', level);
+      setCurrentZoomLevel(level);
       debouncedLoadRegions();
     });
 
@@ -2450,6 +2513,15 @@ export const Hero: React.FC = () => {
         />
         {/* 현재위치 버튼 - 사이드패널 바로 아래 */}
         <FloatingLocationButton mapInstance={mapInstanceRef.current} />
+        {/* 자동 스케일업 후 원래 위치 복귀 버튼 */}
+        {canRestorePosition && (
+          <button
+            onClick={restoreOriginalPosition}
+            className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 bg-white/95 backdrop-blur-sm text-gray-700 px-4 py-2 rounded-full shadow-lg border border-gray-200 text-sm font-medium hover:bg-gray-50 transition-colors"
+          >
+            원래 위치로 돌아가기
+          </button>
+        )}
       </div>
 
       {/* 구현 예정 모달 */}
