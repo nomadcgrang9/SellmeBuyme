@@ -31,6 +31,7 @@ export interface JobPostingCard {
   school_level?: string | null;  // DB school_level 필드
   latitude?: number | null;  // 마커 좌표 (위도)
   longitude?: number | null;  // 마커 좌표 (경도)
+  metropolitan_region?: string | null;  // 광역자치단체 (예: "인천", "서울")
 }
 
 export interface JobPostingFormPayload {

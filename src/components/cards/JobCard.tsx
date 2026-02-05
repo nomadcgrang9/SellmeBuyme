@@ -179,7 +179,7 @@ function JobCard({ job, cardIndex = 0, onClick, onEditClick }: JobCardProps) {
             <div className="mt-3 space-y-1.5 text-sm text-gray-700">
               <div className="flex items-center gap-2 truncate">
                 <IconMapPin size={16} stroke={1.5} className="text-[#7aa3cc] flex-shrink-0" />
-                <span className="font-medium truncate">{formatLocationDisplay(job.location)}</span>
+                <span className="font-medium truncate">{formatLocationDisplay(job.location, job.metropolitan_region)}</span>
               </div>
               <div className="flex items-center gap-2 truncate">
                 <IconCoin size={16} stroke={1.5} className="text-[#7aa3cc] flex-shrink-0" />

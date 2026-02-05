@@ -4300,6 +4300,7 @@ export function mapJobPostingToCard(job: any): JobPostingCard {
     school_level: job.school_level ?? null,
     latitude: job.latitude ?? null,
     longitude: job.longitude ?? null,
+    metropolitan_region: (job.structured_content as any)?.metropolitan_region ?? null,
   };
 }
 

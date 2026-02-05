@@ -144,7 +144,7 @@ const MobileJobDetail: React.FC<MobileJobDetailProps> = ({ job, onClose, onDirec
                   </div>
                   <div>
                     <p className="text-xs text-gray-500 mb-0.5">위치</p>
-                    <p className="text-gray-900">{formatLocationDisplay(job.location)}</p>
+                    <p className="text-gray-900">{formatLocationDisplay(job.location, job.metropolitan_region)}</p>
                   </div>
                 </div>
               )}

@@ -45,7 +45,7 @@ export default function JobDetailModal({ job, isOpen, onClose, onEditClick }: Jo
     ? `${job.deadline}${job.daysLeft !== undefined ? ` (D-${job.daysLeft})` : ''}`
     : undefined;
   const deadline = formatText(rawDeadline);
-  const location = formatText(job.location ? formatLocationDisplay(job.location) : undefined);
+  const location = formatText(job.location ? formatLocationDisplay(job.location, job.metropolitan_region) : undefined);
   const compensation = formatText(job.compensation);
   const workPeriod = formatText(structured?.overview?.work_period || job.work_period);
   const applicationPeriod = formatText(structured?.overview?.application_period || job.application_period);

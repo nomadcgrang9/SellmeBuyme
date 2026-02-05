@@ -536,12 +536,22 @@ export const PROVINCE_FULL_OPTIONS = PROVINCE_NAMES.map(
 );
 
 /**
+ * 여러 광역시에 동일하게 존재하는 구 이름 (서구, 중구, 동구, 남구, 북구, 강서구)
+ * 이 구 이름들은 CITY_TO_PROVINCE 역매핑에서 제외하여 잘못된 매핑 방지
+ */
+export const AMBIGUOUS_DISTRICTS = new Set([
+  '서구', '중구', '동구', '남구', '북구', '강서구',
+]);
+
+/**
  * 역매핑: 기초자치단체 → 광역시도
  * 특정 기초자치단체가 어느 광역시도에 속하는지 찾을 때 사용
+ * 주의: 여러 도시에 존재하는 동명 구(AMBIGUOUS_DISTRICTS)는 제외됨
  */
 export const CITY_TO_PROVINCE: Record<string, string> = {};
 for (const [province, cities] of Object.entries(PROVINCE_TO_CITIES)) {
   for (const city of cities) {
+    if (AMBIGUOUS_DISTRICTS.has(city)) continue;
     CITY_TO_PROVINCE[city] = province;
   }
 }
@@ -779,20 +789,30 @@ function extractCityFromLocation(location: string): string {
  * 위치 문자열을 "광역 기초" 형식으로 변환
  *
  * @param location - 원본 위치 (예: "의정부", "중랑구", "경기 의정부시")
- * @returns 포맷된 위치 (예: "경기 의정부", "서울 중랑구")
+ * @param metropolitanRegion - DB에서 가져온 광역자치단체 (예: "인천", "서울")
+ *   동명 구(서구, 중구, 동구 등)가 여러 도시에 존재하므로 이 값이 있으면 우선 사용
+ * @returns 포맷된 위치 (예: "경기 의정부", "서울 중랑구", "인천 서구")
  *
  * @example
  * formatLocationDisplay("의정부") // "경기 의정부"
  * formatLocationDisplay("중랑구") // "서울 중랑구"
- * formatLocationDisplay("경기 의정부시") // "경기 의정부"
- * formatLocationDisplay("여수시") // "전남 여수"
- * formatLocationDisplay("청주") // "충북 청주"
+ * formatLocationDisplay("서구", "인천") // "인천 서구"
+ * formatLocationDisplay("서구") // "서구" (province 판별 불가 시 원본)
  */
-export function formatLocationDisplay(location: string): string {
+export function formatLocationDisplay(location: string, metropolitanRegion?: string | null): string {
   if (!location) return '';
 
-  // 1. 광역자치단체 추출
-  const province = getProvinceFromLocation(location);
+  // 1. 광역자치단체 추출 (metropolitanRegion 우선, 없으면 location에서 추론)
+  let province: string | null = null;
+
+  if (metropolitanRegion) {
+    // DB에 저장된 metropolitan_region 정규화 (풀네임→약칭)
+    province = PROVINCE_FULL_NAMES[metropolitanRegion] || metropolitanRegion;
+  }
+
+  if (!province) {
+    province = getProvinceFromLocation(location);
+  }
 
   // 2. 기초자치단체 추출 및 정리
   const city = extractCityFromLocation(location);
