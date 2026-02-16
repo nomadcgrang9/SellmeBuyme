@@ -101,6 +101,9 @@ export interface InstructorMarker {
   activity_history?: string | null;
   profile_image_url?: string | null;
   privacy_agreed: boolean;
+  // 전화번호 노출 제어
+  phone_number?: string | null;           // 연락처 (선택 입력)
+  phone_public?: boolean;                 // 전화번호 공개 허용 여부
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -123,6 +126,9 @@ export interface InstructorMarkerInput {
   activity_history?: string;
   profile_image_url?: string;
   privacy_agreed: boolean;
+  // 전화번호 노출 제어
+  phone_number?: string;                  // 연락처 (선택 입력)
+  phone_public?: boolean;                 // 전화번호 공개 허용 여부
 }
 
 // ============================================

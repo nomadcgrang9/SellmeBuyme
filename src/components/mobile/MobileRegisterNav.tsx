@@ -1,9 +1,9 @@
 /**
- * 모바일 하단 등록탭 네비게이션바
- * 6개 버튼: 공고보기, 구직자보기, 구직등록, 공고등록, 교원연수 강사등록, 즐겨찾기
+ * 모바일 하단 네비게이션바
+ * 5개 버튼: 공고보기, 구직자보기, 강사보기, 채팅, 즐겨찾기
  */
 
-import { MapPin, User, Plus, FileText, Star } from 'lucide-react';
+import { MapPin, User, Star, MessageCircle } from 'lucide-react';
 import PresentationGraph from '@solar-icons/react/csr/business/PresentationGraph';
 
 // 메인 컬러 (스카이블루)
@@ -14,30 +14,28 @@ interface MobileRegisterNavProps {
   showJobLayer: boolean;
   /** 구직자 레이어 표시 여부 */
   showSeekerLayer: boolean;
+  /** 강사 레이어 표시 여부 */
+  showInstructorLayer: boolean;
   /** 공고 레이어 토글 */
   onJobLayerToggle: () => void;
   /** 구직자 레이어 토글 */
   onSeekerLayerToggle: () => void;
-  /** 구직등록 버튼 클릭 */
-  onJobSeekerRegister: () => void;
-  /** 공고등록 버튼 클릭 */
-  onJobPostRegister: () => void;
-  /** 교원연수 강사등록 버튼 클릭 */
-  onInstructorRegister: () => void;
+  /** 강사 레이어 토글 */
+  onInstructorLayerToggle: () => void;
+  /** 채팅 버튼 클릭 */
+  onChatClick: () => void;
   /** 즐겨찾기 버튼 클릭 */
   onBookmarkClick: () => void;
-  /** 로그인 여부 */
-  isLoggedIn: boolean;
 }
 
 export default function MobileRegisterNav({
   showJobLayer,
   showSeekerLayer,
+  showInstructorLayer,
   onJobLayerToggle,
   onSeekerLayerToggle,
-  onJobSeekerRegister,
-  onJobPostRegister,
-  onInstructorRegister,
+  onInstructorLayerToggle,
+  onChatClick,
   onBookmarkClick,
 }: MobileRegisterNavProps) {
   return (
@@ -90,39 +88,35 @@ export default function MobileRegisterNav({
           </span>
         </button>
 
-        {/* 3. 구직등록 */}
+        {/* 3. 강사보기 토글 */}
         <button
-          onClick={onJobSeekerRegister}
+          onClick={onInstructorLayerToggle}
           className="flex flex-col items-center justify-center flex-1 h-full transition-colors"
-          aria-label="구직등록"
+          aria-label={`강사보기 ${showInstructorLayer ? '켜짐' : '꺼짐'}`}
         >
-          <Plus size={20} strokeWidth={2.5} className="text-gray-500" />
-          <span className="text-[10px] mt-0.5 font-medium text-gray-500">구직등록</span>
-        </button>
-
-        {/* 4. 공고등록 */}
-        <button
-          onClick={onJobPostRegister}
-          className="flex flex-col items-center justify-center flex-1 h-full transition-colors"
-          aria-label="공고등록"
-        >
-          <FileText size={20} strokeWidth={2} className="text-gray-500" />
-          <span className="text-[10px] mt-0.5 font-medium text-gray-500">공고등록</span>
-        </button>
-
-        {/* 5. 교원연수 강사등록 */}
-        <button
-          onClick={onInstructorRegister}
-          className="flex flex-col items-center justify-center flex-1 h-full transition-colors"
-          aria-label="교원연수 강사등록"
-        >
-          <PresentationGraph size={20} color="#6B7280" />
-          <span className="text-[9px] font-medium text-gray-500 leading-none text-center">
-            교원연수<br />강사등록
+          <PresentationGraph
+            size={20}
+            color={showInstructorLayer ? ACTIVE_COLOR : '#9CA3AF'}
+          />
+          <span
+            className="text-[10px] mt-0.5 font-medium"
+            style={{ color: showInstructorLayer ? ACTIVE_COLOR : '#9CA3AF' }}
+          >
+            강사보기
           </span>
         </button>
 
-        {/* 6. 즐겨찾기 */}
+        {/* 4. 채팅 */}
+        <button
+          onClick={onChatClick}
+          className="flex flex-col items-center justify-center flex-1 h-full transition-colors"
+          aria-label="채팅"
+        >
+          <MessageCircle size={20} strokeWidth={2} className="text-gray-400" />
+          <span className="text-[10px] mt-0.5 font-medium text-gray-400">채팅</span>
+        </button>
+
+        {/* 5. 즐겨찾기 */}
         <button
           onClick={onBookmarkClick}
           className="flex flex-col items-center justify-center flex-1 h-full transition-colors"

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronUp, ChevronDown, ChevronLeft, ChevronRight, User, MessageCircle, Star } from 'lucide-react';
+import { ChevronUp, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useKakaoMaps } from '@/hooks/useKakaoMaps';
 import { fetchJobsByBoardRegion } from '@/lib/supabase/queries';
 import { getGeocacheBatch, saveGeocache } from '@/lib/supabase/geocache';
@@ -87,8 +87,35 @@ import { type MarkerLayer, type TeacherMarker, type ProgramMarker, MARKER_COLORS
 import { type InstructorMarker, INSTRUCTOR_MARKER_COLORS } from '@/types/instructorMarkers';
 import { useEarlyAccess } from '@/hooks/useEarlyAccess';
 import { useAutoScaleMap } from '@/hooks/useAutoScaleMap';
+import TermsAgreementModal from '@/components/auth/TermsAgreementModal';
+import { fetchUserProfile } from '@/lib/supabase/profiles';
+
+// ============================================
+// 지역별 SEO 좌표 및 메타 정보
+// ============================================
+const REGION_SEO_DATA: Record<string, {
+  coords: { lat: number; lng: number };
+  zoom: number;
+  title: string;
+  description: string;
+}> = {
+  seoul: { coords: { lat: 37.5665, lng: 126.9780 }, zoom: 8, title: '서울시 교육청 채용공고', description: '서울시 학교, 교육청 채용정보를 실시간으로 확인하세요' },
+  gyeonggi: { coords: { lat: 37.4138, lng: 127.5183 }, zoom: 9, title: '경기도 교육청 채용공고', description: '경기도 내 학교, 교육청 채용정보를 실시간으로 확인하세요' },
+  incheon: { coords: { lat: 37.4563, lng: 126.7052 }, zoom: 10, title: '인천 교육청 채용공고', description: '인천광역시 학교, 교육청 채용정보를 실시간으로 확인하세요' },
+  hwaseong: { coords: { lat: 37.1996, lng: 126.8312 }, zoom: 11, title: '화성시 교육청 채용', description: '화성시 학교 채용정보를 실시간으로 확인하세요' },
+  suwon: { coords: { lat: 37.2636, lng: 127.0286 }, zoom: 11, title: '수원 교육청 채용공고', description: '수원시 학교, 교육청 채용정보를 실시간으로 확인하세요' },
+  yongin: { coords: { lat: 37.2411, lng: 127.1776 }, zoom: 11, title: '용인 교육청 채용공고', description: '용인시 학교 채용정보를 실시간으로 확인하세요' },
+  seongnam: { coords: { lat: 37.4201, lng: 127.1265 }, zoom: 11, title: '성남 교육청 채용공고', description: '성남시, 분당 학교 채용정보를 실시간으로 확인하세요' },
+  busan: { coords: { lat: 35.1796, lng: 129.0756 }, zoom: 10, title: '부산 교육청 채용공고', description: '부산광역시 학교, 교육청 채용정보를 실시간으로 확인하세요' },
+  bucheon: { coords: { lat: 37.5034, lng: 126.7660 }, zoom: 11, title: '부천 교육청 채용공고', description: '부천시 학교 채용정보를 실시간으로 확인하세요' },
+  goyang: { coords: { lat: 37.6564, lng: 126.8350 }, zoom: 11, title: '고양 교육청 채용공고', description: '고양시, 일산 학교 채용정보를 실시간으로 확인하세요' },
+};
 
 export const Hero: React.FC = () => {
+  // URL 파라미터 (지역 SEO용) - native URLSearchParams 사용
+  const searchParams = useMemo(() => new URLSearchParams(window.location.search), []);
+  const regionParam = searchParams.get('region');
+
   // Early Access 권한 확인
   const { hasEarlyAccess } = useEarlyAccess();
   // 캐스케이딩 필터 상태 (1차/2차/3차)
@@ -114,12 +141,12 @@ export const Hero: React.FC = () => {
     (window as any).__currentSelectedJobId = selectedJob?.id ?? null;
   }, [selectedJob]);
 
-  // Welcome 모달 최초 표시 체크
-  useEffect(() => {
-    if (SurveyTracker.shouldShowWelcome()) {
-      setIsWelcomeModalOpen(true);
-    }
-  }, []);
+  // Welcome 모달 최초 표시 체크 - 비활성화 (2026.02.16)
+  // useEffect(() => {
+  //   if (SurveyTracker.shouldShowWelcome()) {
+  //     setIsWelcomeModalOpen(true);
+  //   }
+  // }, []);
 
   // 길찾기 관련 상태
   const [directionsJob, setDirectionsJob] = useState<JobPostingCard | null>(null);
@@ -195,8 +222,52 @@ export const Hero: React.FC = () => {
     }
   }, [user, pendingAction, isAuthModalOpen]);
 
+
   // 설문 Welcome 모달 상태
   const [isWelcomeModalOpen, setIsWelcomeModalOpen] = useState(false);
+
+  // 약관동의 모달 상태
+  const [needsTermsAgreement, setNeedsTermsAgreement] = useState(false);
+
+  // 로그인 사용자 약관동의 여부 체크
+  useEffect(() => {
+    if (authStatus !== 'authenticated' || !user) {
+      return;
+    }
+
+    // 1. localStorage 영구 플래그 체크 (이미 동의한 사용자)
+    const localAgreed = localStorage.getItem(`termsAgreed_${user.id}`);
+    if (localAgreed === 'true') {
+      console.log('[Terms] localStorage에서 동의 확인 → 모달 표시 안 함');
+      return;
+    }
+
+    // 2. AuthCallback에서 세팅한 플래그 (신규 가입자)
+    const flagFromCallback = sessionStorage.getItem('needsTermsAgreement');
+    if (flagFromCallback === 'true') {
+      console.log('[Terms] sessionStorage 플래그 → 모달 표시');
+      setNeedsTermsAgreement(true);
+      return;
+    }
+
+    // 3. DB에서 약관동의 여부 확인
+    void fetchUserProfile(user.id).then(({ data, error }) => {
+      if (error) {
+        console.error('[Terms] 프로필 조회 실패:', error);
+        return;
+      }
+      console.log('[Terms] 프로필 조회 결과:', { data, agree_terms: data?.agree_terms });
+      // data가 null(프로필 없음)이거나 agree_terms가 false/null이면 모달 표시
+      if (!data || !data.agree_terms) {
+        console.log('[Terms] 약관동의 필요 → 모달 표시');
+        setNeedsTermsAgreement(true);
+      } else {
+        console.log('[Terms] 약관동의 완료 → 모달 표시 안 함');
+        // DB에 동의 기록이 있으면 localStorage에도 저장 (다음 로드 시 빠른 체크)
+        localStorage.setItem(`termsAgreed_${user.id}`, 'true');
+      }
+    });
+  }, [user, authStatus]);
 
   // ===== 모바일 전용 상태 =====
   const [showMobileDetail, setShowMobileDetail] = useState(false);
@@ -923,17 +994,42 @@ export const Hero: React.FC = () => {
 
   // 기본 위치 (서울)
   const defaultLocation = { lat: 37.5665, lng: 126.9780 };
-  const mapCenter = userLocation || defaultLocation;
+
+  // ★ region 파라미터가 있으면 해당 지역 좌표 사용, 없으면 사용자 위치 또는 기본값
+  const getInitialMapCenter = useCallback(() => {
+    if (regionParam) {
+      const regionData = REGION_SEO_DATA[regionParam.toLowerCase()];
+      if (regionData) {
+        console.log('[Hero] region 파라미터로 초기 중심점 설정:', regionParam, regionData.coords);
+        return regionData.coords;
+      }
+    }
+    return userLocation || defaultLocation;
+  }, [regionParam, userLocation]);
+
+  const getInitialZoomLevel = useCallback(() => {
+    if (regionParam) {
+      const regionData = REGION_SEO_DATA[regionParam.toLowerCase()];
+      if (regionData) {
+        return regionData.zoom;
+      }
+    }
+    return 5;
+  }, [regionParam]);
+
+  const mapCenter = getInitialMapCenter();
+  const initialZoomLevel = getInitialZoomLevel();
 
   // Initialize map
   useEffect(() => {
     if (!isLoaded || !mapContainerRef.current || mapInstanceRef.current) return;
 
+    console.log('[Hero] 지도 초기화 - 중심:', mapCenter, '줌 레벨:', initialZoomLevel);
     const center = new window.kakao.maps.LatLng(mapCenter.lat, mapCenter.lng);
 
     const mapOption = {
       center: center,
-      level: 5,
+      level: initialZoomLevel,
       draggable: true,
       scrollwheel: true,
       disableDoubleClickZoom: false,
@@ -1076,12 +1172,65 @@ export const Hero: React.FC = () => {
     };
   }, [isLoaded, mapClickMode]);
 
-  // 사용자 위치 변경 시 지도 중심 업데이트
+  // 사용자 위치 변경 시 지도 중심 업데이트 (단, URL region 파라미터가 없을 때만)
   useEffect(() => {
+    // ★ region 파라미터가 있으면 사용자 위치로 이동하지 않음
+    if (regionParam) {
+      console.log('[Hero] region 파라미터 있음, 사용자 위치 이동 스킵');
+      return;
+    }
     if (!mapInstanceRef.current || !userLocation) return;
     const newCenter = new window.kakao.maps.LatLng(userLocation.lat, userLocation.lng);
     mapInstanceRef.current.setCenter(newCenter);
-  }, [userLocation]);
+  }, [userLocation, regionParam]);
+
+  // ★ URL region 파라미터에 따른 지도 이동 + SEO 설정
+  useEffect(() => {
+    if (!regionParam) return;
+
+    const regionData = REGION_SEO_DATA[regionParam.toLowerCase()];
+    if (!regionData) {
+      console.log('[Hero] 알 수 없는 region 파라미터:', regionParam);
+      return;
+    }
+
+    // SEO: 페이지 타이틀 변경 (즉시 실행)
+    document.title = `${regionData.title} | 학교일자리`;
+
+    // SEO: 메타 description 변경
+    const metaDescription = document.querySelector('meta[name="description"]');
+    if (metaDescription) {
+      metaDescription.setAttribute('content', regionData.description);
+    }
+
+    // OG 태그도 업데이트
+    const ogTitle = document.querySelector('meta[property="og:title"]');
+    if (ogTitle) {
+      ogTitle.setAttribute('content', `${regionData.title} | 학교일자리`);
+    }
+
+    const ogDescription = document.querySelector('meta[property="og:description"]');
+    if (ogDescription) {
+      ogDescription.setAttribute('content', regionData.description);
+    }
+
+    // 지도 중심 이동 (지도가 준비될 때까지 retry)
+    const moveToRegion = () => {
+      if (!mapInstanceRef.current) {
+        console.log('[Hero] 지도 미준비, 500ms 후 재시도');
+        setTimeout(moveToRegion, 500);
+        return;
+      }
+
+      console.log('[Hero] 지역 파라미터로 지도 이동:', regionParam, regionData);
+      const newCenter = new window.kakao.maps.LatLng(regionData.coords.lat, regionData.coords.lng);
+      mapInstanceRef.current.setCenter(newCenter);
+      mapInstanceRef.current.setLevel(regionData.zoom);
+    };
+
+    // 약간의 지연 후 실행 (초기화 완료 대기)
+    setTimeout(moveToRegion, 200);
+  }, [regionParam]);
 
   // 공고 로드 함수 (복수 지역 누적 로드)
   const loadJobPostings = async (regionName: string, replace: boolean = false) => {
@@ -1990,7 +2139,7 @@ export const Hero: React.FC = () => {
       }
       // 시/군 단위에서 도 추출
       if (location.includes('성남') || location.includes('수원') || location.includes('용인') ||
-          location.includes('고양') || location.includes('안양') || location.includes('부천')) {
+        location.includes('고양') || location.includes('안양') || location.includes('부천')) {
         return '경기';
       }
       return null;
@@ -2279,6 +2428,15 @@ export const Hero: React.FC = () => {
         isOpen={isWelcomeModalOpen}
         onClose={() => setIsWelcomeModalOpen(false)}
       />
+
+      {/* 약관동의 모달 (신규 사용자) */}
+      {user && (
+        <TermsAgreementModal
+          isOpen={needsTermsAgreement}
+          userId={user.id}
+          onComplete={() => setNeedsTermsAgreement(false)}
+        />
+      )}
 
       {/* 구직 교사 마커 등록 모달 */}
       <TeacherMarkerModal
@@ -3131,65 +3289,106 @@ export const Hero: React.FC = () => {
         />
       </div>
 
-      {/* 모바일 설문참여 플로팅 버튼 (구글 폼 바로 이동) */}
-      <button
-        onClick={() => {
-          window.open('https://docs.google.com/forms/d/e/1FAIpQLSd1jifhzW0iV_2cH7GzJ_-AKO5c2vrprznj3uFi8UjlDIkIyw/viewform', '_blank');
-        }}
-        className="md:hidden absolute right-4 top-[200px] z-20 w-12 h-12 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 active:from-red-700 active:to-red-800 rounded-full shadow-lg flex flex-col items-center justify-center transition-all active:scale-95 text-white font-bold text-xs leading-tight"
-        aria-label="설문참여"
-      >
-        <span>설문</span>
-        <span>참여</span>
-      </button>
+      {/* 모바일 우측 사이드 버튼 그룹 (등록 3개 + 현재위치) */}
+      <div className="md:hidden absolute right-3 top-[180px] z-20 flex flex-col gap-2">
+        {/* 구직등록 버튼 */}
+        <button
+          onClick={() => {
+            if (!hasEarlyAccess) {
+              setComingSoonFeature('구직등록');
+              setIsComingSoonOpen(true);
+              return;
+            }
+            if (!user) {
+              setPendingAction('register');
+              setAuthModalInitialTab('login');
+              setIsAuthModalOpen(true);
+              return;
+            }
+            setIsTeacherModalOpen(true);
+          }}
+          className="w-12 h-12 bg-sky-500 hover:bg-sky-600 active:bg-sky-700 rounded-xl shadow-lg flex items-center justify-center transition-all active:scale-95 text-white"
+          aria-label="구직등록"
+        >
+          <span className="text-[11px] font-bold leading-tight text-center">구직<br/>등록</span>
+        </button>
 
-      {/* 모바일 현위치 버튼 */}
-      <button
-        onClick={() => {
-          if (!navigator.geolocation) return;
-          setIsLocating(true);
-          navigator.geolocation.getCurrentPosition(
-            (position) => {
-              const { latitude: lat, longitude: lng } = position.coords;
-              setUserLocation({ lat, lng });
-              if (mapInstanceRef.current) {
-                const newCenter = new window.kakao.maps.LatLng(lat, lng);
-                mapInstanceRef.current.setCenter(newCenter);
-                mapInstanceRef.current.setLevel(5);
-              }
-              setIsLocating(false);
-            },
-            (error) => {
-              console.error('위치 가져오기 실패:', error);
-              setIsLocating(false);
-            },
-            { enableHighAccuracy: true, timeout: 10000 }
-          );
-        }}
-        disabled={isLocating}
-        className="md:hidden absolute right-4 top-[264px] z-20 w-12 h-12 bg-white rounded-full shadow-lg flex items-center justify-center active:bg-gray-100 disabled:opacity-50"
-      >
-        {isLocating ? (
-          <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-        ) : (
-          <svg className="w-6 h-6 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-          </svg>
-        )}
-      </button>
+        {/* 공고등록 버튼 */}
+        <button
+          onClick={() => {
+            if (!hasEarlyAccess) {
+              setComingSoonFeature('공고등록');
+              setIsComingSoonOpen(true);
+              return;
+            }
+            if (!user) {
+              setPendingAction('jobPost');
+              setAuthModalInitialTab('login');
+              setIsAuthModalOpen(true);
+              return;
+            }
+            setLocationPickerType('jobPosting');
+            setIsLocationPickerOpen(true);
+          }}
+          className="w-12 h-12 bg-blue-500 hover:bg-blue-600 active:bg-blue-700 rounded-xl shadow-lg flex items-center justify-center transition-all active:scale-95 text-white"
+          aria-label="공고등록"
+        >
+          <span className="text-[11px] font-bold leading-tight text-center">공고<br/>등록</span>
+        </button>
 
-      {/* 모바일 채팅 플로팅 버튼 - 현재위치 바로 아래 */}
-      <button
-        onClick={() => {
-          setComingSoonFeature('채팅');
-          setIsComingSoonOpen(true);
-        }}
-        className="md:hidden absolute right-4 top-[328px] z-20 w-11 h-11 bg-white rounded-full shadow-lg flex items-center justify-center border border-gray-200 hover:bg-gray-50 transition-colors"
-        aria-label="채팅"
-      >
-        <MessageCircle size={22} strokeWidth={1.8} className="text-gray-500" />
-      </button>
+        {/* 강사등록 버튼 */}
+        <button
+          onClick={() => {
+            if (!hasEarlyAccess) {
+              setComingSoonFeature('교원연수 강사등록');
+              setIsComingSoonOpen(true);
+              return;
+            }
+            setIsInstructorModalOpen(true);
+          }}
+          className="w-12 h-12 bg-pink-500 hover:bg-pink-600 active:bg-pink-700 rounded-xl shadow-lg flex items-center justify-center transition-all active:scale-95 text-white"
+          aria-label="강사등록"
+        >
+          <span className="text-[11px] font-bold leading-tight text-center">강사<br/>등록</span>
+        </button>
+
+        {/* 현재위치 버튼 */}
+        <button
+          onClick={() => {
+            if (!navigator.geolocation) return;
+            setIsLocating(true);
+            navigator.geolocation.getCurrentPosition(
+              (position) => {
+                const { latitude: lat, longitude: lng } = position.coords;
+                setUserLocation({ lat, lng });
+                if (mapInstanceRef.current) {
+                  const newCenter = new window.kakao.maps.LatLng(lat, lng);
+                  mapInstanceRef.current.setCenter(newCenter);
+                  mapInstanceRef.current.setLevel(5);
+                }
+                setIsLocating(false);
+              },
+              (error) => {
+                console.error('위치 가져오기 실패:', error);
+                setIsLocating(false);
+              },
+              { enableHighAccuracy: true, timeout: 10000 }
+            );
+          }}
+          disabled={isLocating}
+          className="w-11 h-11 bg-white hover:bg-gray-50 rounded-xl shadow-lg flex items-center justify-center border border-gray-200 disabled:opacity-50"
+          aria-label="현재위치"
+        >
+          {isLocating ? (
+            <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+          ) : (
+            <svg className="w-5 h-5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+          )}
+        </button>
+      </div>
 
       {/* 모바일 바텀시트 (공고 목록) - 길찾기 시트 열려있으면 숨김 */}
       {!showDirectionsSheet && (
@@ -3342,58 +3541,22 @@ export const Hero: React.FC = () => {
         />
       </div>
 
-      {/* 모바일 하단 등록탭 네비게이션 */}
+      {/* 모바일 하단 네비게이션 (5개: 공고보기, 구직자보기, 강사보기, 채팅, 즐겨찾기) */}
       <MobileRegisterNav
         showJobLayer={showJobLayer}
         showSeekerLayer={showSeekerLayer}
+        showInstructorLayer={showInstructorLayer}
         onJobLayerToggle={() => setShowJobLayer(prev => !prev)}
         onSeekerLayerToggle={() => setShowSeekerLayer(prev => !prev)}
-        onJobSeekerRegister={() => {
-          // Early Access 체크: 일반 접속 시 ComingSoonModal 표시
-          if (!hasEarlyAccess) {
-            setComingSoonFeature('구직등록');
-            setIsComingSoonOpen(true);
-            return;
-          }
-          if (!user) {
-            setPendingAction('register');
-            setAuthModalInitialTab('login');
-            setIsAuthModalOpen(true);
-            return;
-          }
-          // 구직 등록 - LocationPicker 스킵, 바로 모달 열기 (위치는 모달 내에서 선택)
-          setIsTeacherModalOpen(true);
-        }}
-        onJobPostRegister={() => {
-          // Early Access 체크: 일반 접속 시 ComingSoonModal 표시
-          if (!hasEarlyAccess) {
-            setComingSoonFeature('공고등록');
-            setIsComingSoonOpen(true);
-            return;
-          }
-          if (!user) {
-            setPendingAction('jobPost');
-            setAuthModalInitialTab('login');
-            setIsAuthModalOpen(true);
-            return;
-          }
-          setLocationPickerType('jobPosting');
-          setIsLocationPickerOpen(true);
-        }}
-        onInstructorRegister={() => {
-          // Early Access 체크: 일반 접속 시 ComingSoonModal 표시
-          if (!hasEarlyAccess) {
-            setComingSoonFeature('교원연수 강사등록');
-            setIsComingSoonOpen(true);
-            return;
-          }
-          setIsInstructorModalOpen(true);
+        onInstructorLayerToggle={() => setShowInstructorLayer(prev => !prev)}
+        onChatClick={() => {
+          setComingSoonFeature('채팅');
+          setIsComingSoonOpen(true);
         }}
         onBookmarkClick={() => {
           setComingSoonFeature('즐겨찾기');
           setIsComingSoonOpen(true);
         }}
-        isLoggedIn={!!user}
       />
 
       {/* 구현 예정 모달 */}

@@ -120,6 +120,9 @@ export interface TeacherMarker {
   introduction?: string;
   profile_image_url?: string;
   privacy_agreed?: boolean;               // 개인정보 동의
+  // 전화번호 노출 제어
+  phone_number?: string;                  // 연락처 (선택 입력)
+  phone_public?: boolean;                 // 전화번호 공개 허용 여부
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -145,6 +148,9 @@ export interface TeacherMarkerInput {
   introduction?: string;
   profile_image_url?: string;
   privacy_agreed: boolean;                // 개인정보 동의 (필수)
+  // 전화번호 노출 제어
+  phone_number?: string;                  // 연락처 (선택 입력)
+  phone_public?: boolean;                 // 전화번호 공개 허용 여부
 }
 
 // 프로그램 마커 타입

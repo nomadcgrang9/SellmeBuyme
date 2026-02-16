@@ -69,6 +69,10 @@ export default function InstructorMarkerModal({
   const [profileImage, setProfileImage] = useState<File | null>(null);
   const [profileImagePreview, setProfileImagePreview] = useState<string | null>(null);
 
+  // 전화번호 노출 제어
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [phonePublic, setPhonePublic] = useState(false);
+
   // 개인정보 동의
   const [privacyAgreed, setPrivacyAgreed] = useState(false);
 
@@ -231,6 +235,8 @@ export default function InstructorMarkerModal({
         activity_history: activityHistory.trim() || undefined,
         profile_image_url: profileImageUrl,
         privacy_agreed: privacyAgreed,
+        phone_number: phoneNumber.trim() || undefined,
+        phone_public: phoneNumber.trim() ? phonePublic : undefined,
       };
 
       const newMarker = await createInstructorMarker(input);
@@ -262,6 +268,8 @@ export default function InstructorMarkerModal({
     setActivityHistory('');
     setProfileImage(null);
     setProfileImagePreview(null);
+    setPhoneNumber('');
+    setPhonePublic(false);
     setPrivacyAgreed(false);
     setError(null);
     onClose();
@@ -372,7 +380,7 @@ export default function InstructorMarkerModal({
                 </div>
 
                 {/* 이메일 */}
-                <div>
+                <div className="mb-4">
                   <label className="block text-sm font-medium text-gray-600 mb-1.5">
                     이메일 <span className="text-red-500">*</span>
                   </label>
@@ -386,6 +394,33 @@ export default function InstructorMarkerModal({
                   <p className="mt-1 text-xs text-gray-500">
                     학교 담당자가 연락할 수 있는 이메일 주소입니다.
                   </p>
+                </div>
+
+                {/* 전화번호 (선택) */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-1.5">
+                    전화번호 <span className="text-gray-400">(선택이며 입력시 로그인한 회원에게만 보여집니다)</span>
+                  </label>
+                  <input
+                    type="tel"
+                    value={phoneNumber}
+                    onChange={(e) => setPhoneNumber(e.target.value)}
+                    placeholder="010-1234-5678"
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 transition-all text-sm"
+                  />
+                  {phoneNumber.trim() && (
+                    <label className="flex items-center gap-2 mt-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={phonePublic}
+                        onChange={(e) => setPhonePublic(e.target.checked)}
+                        className="w-4 h-4 text-sky-600 border-gray-300 rounded focus:ring-sky-500"
+                      />
+                      <span className="text-sm text-gray-600">
+                        체크하면 로그인한 사용자에게만 노출됩니다
+                      </span>
+                    </label>
+                  )}
                 </div>
               </section>
 
