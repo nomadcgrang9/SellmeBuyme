@@ -16,6 +16,9 @@ const MobileRegister = lazy(() => import('./pages/MobileRegister'))
 const MobileChat = lazy(() => import('./pages/MobileChat'))
 const MobileChatRoom = lazy(() => import('./pages/MobileChatRoom'))
 const NewLanding = lazy(() => import('./pages/new-landing/App'))
+const TermsPage = lazy(() => import('./pages/TermsPage'))
+const PrivacyPage = lazy(() => import('./pages/PrivacyPage'))
+const EarlyAccessQR = lazy(() => import('./pages/EarlyAccessQR'))
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 로딩 폴백 컴포넌트
@@ -93,6 +96,12 @@ else if (import.meta.env.DEV && pathname.startsWith('/team-console')) {
 else if (import.meta.env.VITE_TEAM_CONSOLE_PATH && pathname === import.meta.env.VITE_TEAM_CONSOLE_PATH) {
   rootComponent = <TeamConsolePage />
 }
+else if (pathname === '/terms') {
+  rootComponent = <TermsPage />
+}
+else if (pathname === '/privacy') {
+  rootComponent = <PrivacyPage />
+}
 else if (pathname.startsWith('/auth/callback')) {
   rootComponent = <AuthCallback />
 }
@@ -111,6 +120,10 @@ else if (pathname.match(/^\/chat\/.+/)) {
 // 모바일 채팅 목록 페이지 (/chat)
 else if (pathname.startsWith('/chat')) {
   rootComponent = <MobileChat />
+}
+// Early Access QR 홍보 페이지 (섭외자용)
+else if (pathname === '/earlyteacher2026/qr') {
+  rootComponent = <EarlyAccessQR />
 }
 // Early Access 경로 (구직등록/강사등록 사전 개방)
 else if (pathname === '/earlyteacher2026') {
