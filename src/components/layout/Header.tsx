@@ -112,12 +112,14 @@ export default function Header({ onProfileClick, onChatClick, onBookmarkClick }:
   const handleSelectProvider = async (provider: AuthProvider) => {
     try {
       setLoadingProvider(provider);
+      // 기존 세션 정리 (다른 계정 로그인 시 세션 충돌 방지)
+      await supabase.auth.signOut({ scope: 'local' });
       const redirectTo = `${window.location.origin}/auth/callback`;
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
           redirectTo,
-          queryParams: provider === 'kakao' ? { prompt: 'login' } : undefined
+          queryParams: provider === 'kakao' ? { prompt: 'login' } : { prompt: 'select_account' }
         } as Record<string, unknown>
       });
 

@@ -57,14 +57,17 @@ export const useAuthStore = create<AuthState>((set) => ({
     }
   },
   logout: async () => {
-    const { error } = await supabase.auth.signOut();
+    // scope: 'local' → 서버 API 호출 없이 로컬 세션만 즉시 정리
+    // (서버 호출 실패 시 로그아웃 안 되는 문제 방지)
+    const { error } = await supabase.auth.signOut({ scope: 'local' });
 
     if (error) {
       console.error('로그아웃 실패:', error.message);
-      return;
     }
 
+    // 에러 여부와 관계없이 항상 로컬 상태 초기화
     set({ user: null, status: 'unauthenticated' });
+    initialized = false;
   }
 }));
 

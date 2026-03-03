@@ -125,9 +125,9 @@ else if (pathname.startsWith('/chat')) {
 else if (pathname === '/earlyteacher2026/qr') {
   rootComponent = <EarlyAccessQR />
 }
-// Early Access 경로 (구직등록/강사등록 사전 개방)
+// /earlyteacher2026 → / 리다이렉트 (기존 QR코드 호환)
 else if (pathname === '/earlyteacher2026') {
-  rootComponent = <NewLanding />
+  window.location.replace('/');
 }
 // 기존 App 접근 경로 (레거시)
 else if (pathname.startsWith('/legacy') || pathname.startsWith('/old')) {

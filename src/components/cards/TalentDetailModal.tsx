@@ -1,6 +1,7 @@
 import { TalentCard } from '@/types';
 import { IconX, IconMapPin, IconBriefcase, IconShieldCheck, IconPhone, IconAt, IconId } from '@tabler/icons-react';
 import { formatLocationDisplay } from '@/lib/constants/regionHierarchy';
+import { useAuthStore } from '@/stores/authStore';
 
 interface TalentDetailModalProps {
   talent: TalentCard;
@@ -10,6 +11,7 @@ interface TalentDetailModalProps {
 }
 
 export default function TalentDetailModal({ talent, isOpen, onClose, onEditClick }: TalentDetailModalProps) {
+  const { user } = useAuthStore();
   if (!isOpen) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
@@ -54,7 +56,7 @@ export default function TalentDetailModal({ talent, isOpen, onClose, onEditClick
                 <span className="font-medium">{talent.license}</span>
               </div>
             )}
-            {talent.phone && (
+            {talent.phone && user && (
               <div className="flex items-center gap-2 text-gray-700">
                 <IconPhone size={18} stroke={1.5} className="text-emerald-600" />
                 <span className="font-medium">{talent.phone}</span>

@@ -22,18 +22,9 @@ export default function AuthCallbackPage() {
       }
 
       try {
-        // 1. 먼저 기존 세션 확인
-        const { data: sessionData } = await supabase.auth.getSession();
-
-        if (sessionData?.session) {
-          // 이미 로그인 되어있으면 바로 홈으로
-          await ensureAuthInitialized();
-          window.location.replace('/');
-          return;
-        }
-
-        // 2. code가 있으면 세션 교환
+        // 1. code가 있으면 → 새 OAuth 플로우 → 기존 세션 정리 후 교환
         if (code) {
+          await supabase.auth.signOut({ scope: 'local' });
           const decodedCode = decodeURIComponent(code);
           const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(decodedCode);
 
@@ -43,11 +34,12 @@ export default function AuthCallbackPage() {
             return;
           }
         } else {
-          // 3. hash에서 토큰 확인
+          // 2. hash에서 토큰 확인 (implicit flow)
           const accessToken = hashParams.get('access_token');
           const refreshToken = hashParams.get('refresh_token');
 
           if (accessToken && refreshToken) {
+            await supabase.auth.signOut({ scope: 'local' });
             const { error: setError } = await supabase.auth.setSession({
               access_token: accessToken,
               refresh_token: refreshToken
@@ -59,7 +51,13 @@ export default function AuthCallbackPage() {
               return;
             }
           } else {
-            // 토큰도 없고 세션도 없으면 그냥 홈으로
+            // 3. code도 토큰도 없음 → 기존 세션 확인
+            const { data: sessionData } = await supabase.auth.getSession();
+            if (sessionData?.session) {
+              await ensureAuthInitialized();
+              window.location.replace('/');
+              return;
+            }
             window.location.replace('/');
             return;
           }
@@ -74,6 +72,17 @@ export default function AuthCallbackPage() {
 
           if (userEmail) {
             await createMinimalProfile(userId, userEmail);
+          }
+
+          // 약관동의 여부 확인 → 미동의 시 플래그 세팅
+          const { data: profileCheck } = await supabase
+            .from('user_profiles')
+            .select('agree_terms')
+            .eq('user_id', userId)
+            .maybeSingle();
+
+          if (!profileCheck?.agree_terms) {
+            sessionStorage.setItem('needsTermsAgreement', 'true');
           }
         }
 

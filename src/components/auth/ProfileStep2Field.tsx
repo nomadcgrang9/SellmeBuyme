@@ -24,24 +24,27 @@ const TEACHER_LEVEL_OPTIONS: {
   level: TeacherLevel;
   title: string;
 }[] = [
-  {
-    level: "유치원",
-    title: "유치원 교사"
-  },
-  {
-    level: "초등",
-    title: "초등 교사"
-  },
-  {
-    level: "중등",
-    title: "중등 교사"
-  },
-  {
-    level: "특수",
-    title: "특수 교사"
-  }
+  { level: "유치원", title: "유치원 교사" },
+  { level: "초등", title: "초등 담임" },
+  { level: "초등전담", title: "초등 전담" },
+  { level: "중등", title: "중등 교과" },
+  { level: "비교과", title: "비교과" },
+  { level: "특수", title: "특수 교사" },
+  { level: "방과후/돌봄", title: "방과후/돌봄" },
+  { level: "행정·교육지원", title: "행정·교육지원" },
 ];
 
+// 초등 전담 과목
+export const ELEMENTARY_JEONDAM_SUBJECTS = [
+  "초등전담 과학",
+  "초등전담 영어",
+  "초등전담 체육",
+  "초등전담 음악",
+  "초등전담 미술",
+  "초등전담 실과"
+];
+
+// 기존 초등 담임 과목 (하위호환)
 export const ELEMENTARY_SUBJECTS = [
   "초등 담임",
   "초등 과학",
@@ -52,26 +55,28 @@ export const ELEMENTARY_SUBJECTS = [
   "초등 실과"
 ];
 
+// 중등 교과 과목 (도덕·윤리 추가, 제2외국어 → 개별 언어)
 export const MIDDLE_SUBJECTS = [
   "중등 국어",
   "중등 수학",
   "중등 사회",
-  "중등 윤리",
-  "중등 물리",
-  "중등 화학",
-  "중등 생물",
-  "중등 지구과학",
+  "중등 역사",
   "중등 영어",
+  "중등 과학",
   "중등 체육",
   "중등 음악",
   "중등 미술",
   "중등 기술·가정",
   "중등 정보",
-  "중등 상담",
-  "중등 진로",
-  "중등 역사"
+  "중등 도덕·윤리",
+  "중등 중국어",
+  "중등 일본어",
+  "중등 한문",
+  "중등 프랑스어",
+  "중등 스페인어"
 ];
 
+// 초등 전담 가능 과목 (크로스오버)
 export const MIDDLE_CROSSOVER_SUBJECTS = [
   "초등 과학",
   "초등 영어",
@@ -79,6 +84,37 @@ export const MIDDLE_CROSSOVER_SUBJECTS = [
   "초등 음악",
   "초등 미술",
   "초등 실과"
+];
+
+// 비교과 과목
+export const BIGYOGWA_SUBJECTS = [
+  "비교과 보건",
+  "비교과 상담",
+  "비교과 사서",
+  "비교과 영양교사"
+];
+
+// 방과후/돌봄 분야
+export const AFTERSCHOOL_SUBJECTS = [
+  "방과후 체육",
+  "방과후 음악",
+  "방과후 미술",
+  "방과후 무용",
+  "방과후 요리",
+  "방과후 외국어",
+  "방과후 코딩/STEM",
+  "방과후 돌봄/늘봄"
+];
+
+// 행정·교육지원 직종
+export const ADMIN_SUBJECTS = [
+  "행정 교무실무사",
+  "행정 조리실무사",
+  "행정 시설/환경",
+  "행정 영양사",
+  "행정 학습튜터/협력강사",
+  "행정 자원봉사",
+  "행정 안전지킴이"
 ];
 
 export type TeacherEmploymentType = '기간제교사' | '정규교원';
@@ -126,9 +162,10 @@ export default function ProfileStep2Field({
 
   const handleCustomSubjectAdd = () => {
     if (customSubject.trim()) {
-      const formatted = customSubject.startsWith("중등 ")
+      const prefix = teacherLevel === "중등" ? "중등 " : "";
+      const formatted = customSubject.startsWith(prefix)
         ? customSubject.trim()
-        : `중등 ${customSubject.trim()}`;
+        : `${prefix}${customSubject.trim()}`;
 
       if (!teacherSubjects.includes(formatted)) {
         const nextSubjects = [...teacherSubjects, formatted];
@@ -182,16 +219,29 @@ export default function ProfileStep2Field({
     onInstructorFieldsChange(next);
   };
 
+  const getSubjectsForLevel = (): string[] => {
+    switch (teacherLevel) {
+      case "초등전담": return ELEMENTARY_JEONDAM_SUBJECTS;
+      case "중등": return MIDDLE_SUBJECTS;
+      case "비교과": return BIGYOGWA_SUBJECTS;
+      case "방과후/돌봄": return AFTERSCHOOL_SUBJECTS;
+      case "행정·교육지원": return ADMIN_SUBJECTS;
+      default: return [];
+    }
+  };
+
+  const needsSubjectSelection = ["초등전담", "중등", "비교과", "방과후/돌봄", "행정·교육지원"].includes(teacherLevel || "");
+
   return (
     <div className="space-y-8">
       {isTeacher && (
         <section className="space-y-6">
           <div className="space-y-2">
-            <h3 className="text-lg font-bold text-gray-900">어떤 학교급에서 활동하세요?</h3>
-            <p className="text-sm text-gray-500">학교급을 선택하면 관련 과목을 이어서 선택할 수 있어요.</p>
+            <h3 className="text-lg font-bold text-gray-900">어떤 분야에서 활동하세요?</h3>
+            <p className="text-sm text-gray-500">분야를 선택하면 관련 세부항목을 이어서 선택할 수 있어요.</p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {TEACHER_LEVEL_OPTIONS.map(({ level, title }) => {
               const isSelected = teacherLevel === level;
               return (
@@ -211,8 +261,8 @@ export default function ProfileStep2Field({
             })}
           </div>
 
-          {/* 교사 고용 형태 선택 */}
-          {teacherLevel && teacherLevel !== "특수" && (
+          {/* 교사 고용 형태 선택 (유치원/초등/초등전담/중등만) */}
+          {teacherLevel && ["유치원", "초등", "초등전담", "중등"].includes(teacherLevel) && (
             <div className="space-y-3">
               <div className="space-y-2">
                 <h3 className="text-md font-bold text-gray-900">고용 형태를 선택해 주세요</h3>
@@ -283,14 +333,27 @@ export default function ProfileStep2Field({
             </div>
           )}
 
-          {teacherLevel === "중등" && (
-            <div className="space-y-4">
-              <span className="text-sm font-semibold text-gray-900">담당 가능한 교과를 모두 선택해 주세요</span>
+          {teacherLevel === "유치원" && (
+            <div className="space-y-2">
+              <span className="text-sm text-gray-600">유치원 담임 기준으로 추천해 드릴게요.</span>
+            </div>
+          )}
 
-              {/* 중등 과목 */}
+          {/* 과목/분야 선택 (초등전담, 중등, 비교과, 방과후/돌봄, 행정·교육지원) */}
+          {needsSubjectSelection && (
+            <div className="space-y-4">
+              <span className="text-sm font-semibold text-gray-900">
+                {teacherLevel === "중등" ? "담당 가능한 교과를 모두 선택해 주세요" :
+                 teacherLevel === "초등전담" ? "전담 가능한 과목을 선택해 주세요" :
+                 teacherLevel === "비교과" ? "담당 분야를 선택해 주세요" :
+                 teacherLevel === "방과후/돌봄" ? "활동 분야를 선택해 주세요" :
+                 "해당 직종을 선택해 주세요"}
+              </span>
+
               <div className="grid grid-cols-3 md:grid-cols-5 gap-2">
-                {MIDDLE_SUBJECTS.map((subject) => {
+                {getSubjectsForLevel().map((subject) => {
                   const isSelected = teacherSubjects.includes(subject);
+                  const displayLabel = subject.replace(/^(중등|초등전담|비교과|방과후|행정) /, '');
                   return (
                     <button
                       key={subject}
@@ -302,42 +365,46 @@ export default function ProfileStep2Field({
                           : "border-gray-200 bg-white text-gray-700 hover:border-[#7aa3cc]"
                       }`}
                     >
-                      {subject}
+                      {displayLabel}
                     </button>
                   );
                 })}
               </div>
 
-              {/* 초등 전담 가능 과목 (크로스오버) */}
-              <div className="space-y-2">
-                <span className="text-xs text-gray-600">초등 전담 가능 과목</span>
-                <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
-                  {MIDDLE_CROSSOVER_SUBJECTS.map((subject) => {
-                    const isSelected = teacherSubjects.includes(subject);
-                    return (
-                      <button
-                        key={subject}
-                        type="button"
-                        onClick={() => toggleTeacherSubject(subject)}
-                        className={`rounded-lg border px-2 py-2 text-xs font-medium transition-colors ${
-                          isSelected
-                            ? "border-[#4b83c6] bg-[#4b83c6] text-white"
-                            : "border-gray-200 bg-white text-gray-700 hover:border-[#7aa3cc]"
-                        }`}
-                      >
-                        {subject}
-                      </button>
-                    );
-                  })}
+              {/* 중등: 초등 전담 가능 과목 (크로스오버) */}
+              {teacherLevel === "중등" && (
+                <div className="space-y-2">
+                  <span className="text-xs text-gray-600">초등 전담 가능 과목</span>
+                  <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
+                    {MIDDLE_CROSSOVER_SUBJECTS.map((subject) => {
+                      const isSelected = teacherSubjects.includes(subject);
+                      return (
+                        <button
+                          key={subject}
+                          type="button"
+                          onClick={() => toggleTeacherSubject(subject)}
+                          className={`rounded-lg border px-2 py-2 text-xs font-medium transition-colors ${
+                            isSelected
+                              ? "border-[#4b83c6] bg-[#4b83c6] text-white"
+                              : "border-gray-200 bg-white text-gray-700 hover:border-[#7aa3cc]"
+                          }`}
+                        >
+                          {subject}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* 직접 입력한 과목 표시 */}
               {(() => {
+                const allKnownSubjects = [
+                  ...getSubjectsForLevel(),
+                  ...MIDDLE_CROSSOVER_SUBJECTS
+                ];
                 const customSubjects = teacherSubjects.filter(
-                  (subject) =>
-                    !MIDDLE_SUBJECTS.includes(subject) &&
-                    !MIDDLE_CROSSOVER_SUBJECTS.includes(subject)
+                  (subject) => !allKnownSubjects.includes(subject)
                 );
                 return customSubjects.length > 0 ? (
                   <div className="space-y-2">
@@ -359,33 +426,29 @@ export default function ProfileStep2Field({
                 ) : null;
               })()}
 
-              {/* 기타 과목 직접 입력 */}
-              <div className="p-4 bg-gray-50 rounded-lg space-y-2">
-                <label className="block text-sm font-semibold text-gray-700">
-                  기타 과목 (직접 입력)
-                </label>
-                <input
-                  type="text"
-                  placeholder="예: 한문, 일본어, 중국어"
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#7aa3cc] focus:ring-2 focus:ring-[#cfe0f3]"
-                  value={customSubject}
-                  onChange={(e) => setCustomSubject(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      handleCustomSubjectAdd();
-                    }
-                  }}
-                  onBlur={handleCustomSubjectAdd}
-                />
-                <p className="text-xs text-gray-500">Enter 키를 누르거나 다른 곳을 클릭하면 추가됩니다</p>
-              </div>
-            </div>
-          )}
-
-          {teacherLevel === "유치원" && (
-            <div className="space-y-2">
-              <span className="text-sm text-gray-600">유치원 담임 기준으로 추천해 드릴게요.</span>
+              {/* 기타 과목 직접 입력 (중등만) */}
+              {teacherLevel === "중등" && (
+                <div className="p-4 bg-gray-50 rounded-lg space-y-2">
+                  <label className="block text-sm font-semibold text-gray-700">
+                    기타 과목 (직접 입력)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="예: 한문, 일본어, 중국어"
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#7aa3cc] focus:ring-2 focus:ring-[#cfe0f3]"
+                    value={customSubject}
+                    onChange={(e) => setCustomSubject(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        handleCustomSubjectAdd();
+                      }
+                    }}
+                    onBlur={handleCustomSubjectAdd}
+                  />
+                  <p className="text-xs text-gray-500">Enter 키를 누르거나 다른 곳을 클릭하면 추가됩니다</p>
+                </div>
+              )}
             </div>
           )}
         </section>

@@ -165,7 +165,7 @@ function TalentCard({ talent, onEditClick, isHighlight, onOpenChatModal }: Talen
             <IconBriefcase size={16} stroke={1.5} className="text-[#3b8c6e] flex-shrink-0" />
             <span className="font-medium text-gray-900 truncate">{talent.experience}</span>
           </div>
-          {talent.phone && (
+          {talent.phone && user && (
             <div className="flex items-center gap-2">
               <IconPhone size={16} stroke={1.5} className="text-emerald-600 flex-shrink-0" />
               <span className="font-medium truncate">{talent.phone}</span>

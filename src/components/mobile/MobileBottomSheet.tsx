@@ -4,16 +4,18 @@ interface MobileBottomSheetProps {
   children: React.ReactNode;
   height: 'collapsed' | 'half' | 'full';
   onHeightChange: (height: 'collapsed' | 'half' | 'full') => void;
-  jobCount: number;
+  itemCount: number;
   isLoading: boolean;
+  label?: string;
 }
 
 const MobileBottomSheet: React.FC<MobileBottomSheetProps> = ({
   children,
   height,
   onHeightChange,
-  jobCount,
+  itemCount,
   isLoading,
+  label = '주변 목록',
 }) => {
   const sheetRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -47,7 +49,7 @@ const MobileBottomSheet: React.FC<MobileBottomSheetProps> = ({
               </div>
             ) : (
               <span className="text-sm font-medium text-gray-700">
-                주변공고 <span className="text-blue-600 font-bold">{jobCount}개</span>
+                {label} <span className="text-blue-600 font-bold">{itemCount}개</span>
               </span>
             )}
           </div>
@@ -92,12 +94,12 @@ const MobileBottomSheet: React.FC<MobileBottomSheetProps> = ({
             <svg className="w-5 h-5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
             </svg>
-            <h2 className="font-bold text-gray-900">주변 공고</h2>
+            <h2 className="font-bold text-gray-900">{label}</h2>
             {isLoading ? (
               <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
             ) : (
               <span className="text-sm font-medium text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
-                {jobCount}개
+                {itemCount}개
               </span>
             )}
           </div>

@@ -7,7 +7,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Heart, User } from 'lucide-react';
-import { MARKER_COLORS, getTeacherMarkerColor, type TeacherMarker, type ProgramMarker, type MarkerComment } from '@/types/markers';
+import { MARKER_COLORS, getTeacherMarkerColor, CATEGORY_MARKER_COLORS, type TeacherMarker, type ProgramMarker, type MarkerComment, type PrimaryCategory } from '@/types/markers';
 import { type InstructorMarker, INSTRUCTOR_MARKER_COLORS } from '@/types/instructorMarkers';
 import {
     fetchMarkerComments,
@@ -16,6 +16,7 @@ import {
     fetchMarkerLikeCount,
     checkUserLiked,
     toggleMarkerLike,
+    toggleTeacherMarkerStatus,
     fetchInstructorComments,
     createInstructorComment,
     type InstructorComment
@@ -57,6 +58,12 @@ export default function MarkerPopup({ type, marker, position, onClose, onEdit, o
     const [submittingComment, setSubmittingComment] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
+
+    // 구직 상태 토글 관련
+    const [localIsActive, setLocalIsActive] = useState(
+        type === 'teacher' ? (marker as TeacherMarker).is_active !== false : true
+    );
+    const [isToggling, setIsToggling] = useState(false);
 
     // 좋아요 관련 state
     const [likeCount, setLikeCount] = useState(0);
@@ -278,8 +285,44 @@ export default function MarkerPopup({ type, marker, position, onClose, onEdit, o
                                     ? (marker as InstructorMarker).display_name
                                     : (marker as ProgramMarker).program_title}
                         </span>
+                        {type === 'teacher' && (
+                            localIsActive ? (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-medium">구직중</span>
+                            ) : (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-400 font-medium">구직종료</span>
+                            )
+                        )}
                     </div>
                     <div className="flex items-center gap-1">
+                        {/* 구직 상태 토글 - 본인 teacher 마커일 때만 헤더에 표시 */}
+                        {type === 'teacher' && isOwner && (
+                            <button
+                                onClick={async (e) => {
+                                    e.stopPropagation();
+                                    if (isToggling) return;
+                                    setIsToggling(true);
+                                    const newStatus = !localIsActive;
+                                    try {
+                                        await toggleTeacherMarkerStatus(marker.id, newStatus);
+                                        setLocalIsActive(newStatus);
+                                        (marker as TeacherMarker).is_active = newStatus;
+                                    } catch (err) {
+                                        console.error('상태 변경 실패:', err);
+                                    } finally {
+                                        setIsToggling(false);
+                                    }
+                                }}
+                                disabled={isToggling}
+                                title={localIsActive ? '구직종료로 전환' : '구직중으로 전환'}
+                                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                                    localIsActive ? 'bg-emerald-500' : 'bg-gray-300'
+                                } ${isToggling ? 'opacity-50' : ''}`}
+                            >
+                                <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${
+                                    localIsActive ? 'translate-x-[19px]' : 'translate-x-[3px]'
+                                }`} />
+                            </button>
+                        )}
                         {/* 삭제 버튼 - 본인 마커 또는 Super Admin만 표시 */}
                         {canDelete && (
                             <button
@@ -333,18 +376,50 @@ export default function MarkerPopup({ type, marker, position, onClose, onEdit, o
                             )}
                             <div className="flex-1 min-w-0">
                                 {type === 'teacher' ? (
-                                    <>
-                                        {(marker as TeacherMarker).subjects && (marker as TeacherMarker).subjects!.length > 0 && (
-                                            <div className="flex flex-wrap gap-1 mb-1">
-                                                {(marker as TeacherMarker).subjects!.slice(0, 3).map((s, i) => (
-                                                    <span key={i} className="text-xs px-2 py-0.5 bg-gray-100 text-gray-700 rounded-full">{s}</span>
-                                                ))}
-                                            </div>
-                                        )}
-                                        {(marker as TeacherMarker).experience_years && (
-                                            <span className="text-xs text-gray-500">{(marker as TeacherMarker).experience_years}</span>
-                                        )}
-                                    </>
+                                    (() => {
+                                        const t = marker as TeacherMarker;
+                                        const hasSub = t.sub_categories && t.sub_categories.length > 0;
+                                        const mainBadge = hasSub ? t.sub_categories![0] : (t.primary_category || '');
+                                        const subText = hasSub ? t.primary_category : '';
+                                        const badgeColor = CATEGORY_MARKER_COLORS[t.primary_category as PrimaryCategory] || '#68B2FF';
+                                        return (
+                                            <>
+                                                {/* 메인뱃지 + 보조텍스트 */}
+                                                {mainBadge && (
+                                                    <div className="flex items-center gap-1.5 mb-1">
+                                                        <span
+                                                            className="inline-block text-xs px-2 py-0.5 rounded-full text-white font-medium"
+                                                            style={{ backgroundColor: badgeColor }}
+                                                        >
+                                                            {mainBadge}
+                                                        </span>
+                                                        {subText && (
+                                                            <span className="text-xs text-gray-400">{subText}</span>
+                                                        )}
+                                                    </div>
+                                                )}
+                                                {/* 나머지 sub_categories (2개 이상일 때) */}
+                                                {hasSub && t.sub_categories!.length > 1 && (
+                                                    <div className="flex flex-wrap gap-1 mb-1">
+                                                        {t.sub_categories!.slice(1).map((s, i) => (
+                                                            <span key={i} className="text-xs px-2 py-0.5 bg-gray-100 text-gray-700 rounded-full">{s}</span>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                                {/* 레거시 subjects fallback */}
+                                                {!hasSub && t.subjects && t.subjects.length > 0 && (
+                                                    <div className="flex flex-wrap gap-1 mb-1">
+                                                        {t.subjects.slice(0, 3).map((s, i) => (
+                                                            <span key={i} className="text-xs px-2 py-0.5 bg-gray-100 text-gray-700 rounded-full">{s}</span>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                                {t.experience_years && (
+                                                    <span className="text-xs text-gray-500">{t.experience_years}</span>
+                                                )}
+                                            </>
+                                        );
+                                    })()
                                 ) : (
                                     <>
                                         {(marker as InstructorMarker).specialties && (marker as InstructorMarker).specialties.length > 0 && (
@@ -366,16 +441,30 @@ export default function MarkerPopup({ type, marker, position, onClose, onEdit, o
                     {type === 'teacher' ? (
                         // 구직 교사 마커 내용
                         <>
-                            {(marker as TeacherMarker).school_levels && (marker as TeacherMarker).school_levels!.length > 0 && (
+                            {/* 희망 학교급 (신규 preferred_school_levels 우선, 레거시 school_levels fallback) */}
+                            {((marker as TeacherMarker).preferred_school_levels?.length || (marker as TeacherMarker).school_levels?.length) ? (
                                 <div className="flex items-start gap-2">
-                                    <span className="text-xs text-gray-500 w-12 flex-shrink-0">학교급</span>
+                                    <span className="text-xs text-gray-500 w-14 flex-shrink-0">학교급</span>
                                     <div className="flex flex-wrap gap-1">
-                                        {(marker as TeacherMarker).school_levels!.map((l, i) => (
+                                        {((marker as TeacherMarker).preferred_school_levels?.length
+                                            ? (marker as TeacherMarker).preferred_school_levels!
+                                            : (marker as TeacherMarker).school_levels!
+                                        ).map((l, i) => (
                                             <span key={i} className="text-xs px-2 py-0.5 bg-gray-100 text-gray-700 rounded-full">{l}</span>
                                         ))}
                                     </div>
                                 </div>
+                            ) : null}
+                            {/* 활동 가능 지역 */}
+                            {(marker as TeacherMarker).available_regions && (marker as TeacherMarker).available_regions!.length > 0 && (
+                                <div className="flex items-start gap-2">
+                                    <span className="text-xs text-gray-500 w-14 flex-shrink-0">활동지역</span>
+                                    <span className="text-xs text-gray-700">
+                                        {(marker as TeacherMarker).available_regions!.join(', ')}
+                                    </span>
+                                </div>
                             )}
+                            {/* 자기소개 */}
                             {(marker as TeacherMarker).introduction && (
                                 <div className="pt-2 border-t border-gray-100">
                                     <p className="text-xs text-gray-600 leading-relaxed">
@@ -451,22 +540,38 @@ export default function MarkerPopup({ type, marker, position, onClose, onEdit, o
                     )}
 
                     {/* 연락처 - Gmail 연동 */}
-                    <div className="pt-2 border-t border-gray-100">
+                    <div className="pt-2 border-t border-gray-100 space-y-1.5">
                         {type === 'teacher' ? (
-                            // 구직 교사: Gmail Compose로 열기
-                            <button
-                                onClick={() => handleOpenGmail(
-                                    (marker as TeacherMarker).email,
-                                    (marker as TeacherMarker).nickname
-                                )}
-                                className="inline-flex items-center gap-1.5 text-xs font-medium hover:underline cursor-pointer"
-                                style={{ color }}
-                            >
-                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                                </svg>
-                                {(marker as TeacherMarker).email}
-                            </button>
+                            // 구직 교사: Gmail Compose + 전화번호
+                            <>
+                                <button
+                                    onClick={() => handleOpenGmail(
+                                        (marker as TeacherMarker).email,
+                                        (marker as TeacherMarker).nickname
+                                    )}
+                                    className="inline-flex items-center gap-1.5 text-xs font-medium hover:underline cursor-pointer"
+                                    style={{ color }}
+                                >
+                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                    </svg>
+                                    {(marker as TeacherMarker).email}
+                                </button>
+                                {/* 전화번호: phone_public && 로그인 상태일 때만 표시 */}
+                                {(marker as TeacherMarker).phone_number && (marker as TeacherMarker).phone_public && currentUser ? (
+                                    <a
+                                        href={`tel:${(marker as TeacherMarker).phone_number}`}
+                                        className="flex items-center gap-1.5 text-xs font-medium text-gray-600 hover:underline"
+                                    >
+                                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                                        </svg>
+                                        {(marker as TeacherMarker).phone_number}
+                                    </a>
+                                ) : (marker as TeacherMarker).phone_number && (marker as TeacherMarker).phone_public && !currentUser ? (
+                                    <span className="text-xs text-gray-400">로그인하면 전화번호를 볼 수 있습니다</span>
+                                ) : null}
+                            </>
                         ) : type === 'instructor' ? (
                             // 교원연수 강사: Gmail Compose로 열기
                             <button
@@ -507,6 +612,7 @@ export default function MarkerPopup({ type, marker, position, onClose, onEdit, o
                             </a>
                         )}
                     </div>
+
                 </div>
 
                 {/* 좋아요 + 후기 토글 바 (teacher, instructor만) */}

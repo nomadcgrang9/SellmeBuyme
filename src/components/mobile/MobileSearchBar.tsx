@@ -85,7 +85,7 @@ const MobileSearchBar: React.FC<MobileSearchBarProps> = ({
             onChange={(e) => setInputValue(e.target.value)}
             onFocus={() => setIsFocused(true)}
             onBlur={() => setIsFocused(false)}
-            placeholder="지역, 학교명 입력"
+            placeholder="지역, 학교, 과목으로 검색"
             className="flex-1 bg-transparent outline-none text-gray-900 placeholder-gray-400 text-sm min-w-0"
           />
 
@@ -160,7 +160,7 @@ const MobileSearchBar: React.FC<MobileSearchBarProps> = ({
             onChange={(e) => setInputValue(e.target.value)}
             onFocus={() => setIsFocused(true)}
             onBlur={() => setIsFocused(false)}
-            placeholder="지역, 학교명 입력"
+            placeholder="지역, 학교, 과목으로 검색"
             className="flex-1 bg-transparent outline-none text-gray-900 placeholder-gray-400 text-sm min-w-0"
           />
 

@@ -23,7 +23,6 @@ import MobileBottomNav from '@/components/mobile/MobileBottomNav';
 import RegisterBottomSheet from '@/components/mobile/RegisterBottomSheet';
 import MobileProfilePage from '@/components/mobile/MobileProfilePage';
 import MobileAuthPage from '@/components/mobile/MobileAuthPage';
-// import WelcomeTourModal from '@/components/tour/WelcomeTourModal';
 import DesktopChatModal from '@/components/chat/DesktopChatModal';
 import BookmarkModal from '@/components/bookmark/BookmarkModal';
 import BookmarkPage from '@/pages/BookmarkPage';
@@ -608,12 +607,14 @@ export default function App() {
   const handleSelectProvider = useCallback(async (provider: AuthProvider) => {
     try {
       setLoadingProvider(provider);
+      // 기존 세션 정리 (다른 계정 로그인 시 세션 충돌 방지)
+      await supabase.auth.signOut({ scope: 'local' });
       const redirectTo = `${window.location.origin}/auth/callback`;
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
           redirectTo,
-          queryParams: provider === 'kakao' ? { prompt: 'login' } : undefined
+          queryParams: provider === 'kakao' ? { prompt: 'login' } : { prompt: 'select_account' }
         } as Record<string, unknown>
       });
 
@@ -1469,9 +1470,6 @@ export default function App() {
           alert(`${type === 'job' ? '공고' : type === 'talent' ? '인력' : '체험'} 등록 준비 중`);
         }}
       />
-
-      {/* 최초 방문자용 투어 모달 */}
-      {/* <WelcomeTourModal /> */}
 
       {/* 데스크톱 채팅 모달 */}
       <DesktopChatModal

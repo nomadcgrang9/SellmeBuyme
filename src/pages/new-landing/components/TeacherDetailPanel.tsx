@@ -1,25 +1,29 @@
-import React from 'react';
+import React, { useState } from 'react';
 import type { TeacherMarker } from '@/types/markers';
+import { CATEGORY_MARKER_COLORS, type PrimaryCategory } from '@/types/markers';
 import { useAuthStore } from '@/stores/authStore';
+import { toggleTeacherMarkerStatus } from '@/lib/supabase/markers';
 
 interface TeacherDetailPanelProps {
   teacher: TeacherMarker | null;
   isOpen: boolean;
   onClose: () => void;
-  onEmailClick?: (email: string) => void;
-  onDirectionsClick?: (teacher: TeacherMarker) => void;
 }
 
 export const TeacherDetailPanel: React.FC<TeacherDetailPanelProps> = ({
   teacher,
   isOpen,
   onClose,
-  onEmailClick,
-  onDirectionsClick,
 }) => {
   const { user } = useAuthStore();
 
   if (!isOpen || !teacher) return null;
+
+  // 메인뱃지 로직: sub가 있으면 sub[0]이 메인, 없으면 primary가 메인
+  const hasSub = teacher.sub_categories && teacher.sub_categories.length > 0;
+  const mainBadge = hasSub ? teacher.sub_categories![0] : (teacher.primary_category || '');
+  const subText = hasSub ? teacher.primary_category : '';
+  const badgeColor = CATEGORY_MARKER_COLORS[teacher.primary_category as PrimaryCategory] || '#68B2FF';
 
   // 카테고리 표시 텍스트 생성
   const getCategoryDisplay = () => {
@@ -47,6 +51,39 @@ export const TeacherDetailPanel: React.FC<TeacherDetailPanelProps> = ({
     return null;
   };
 
+  const isOwner = user?.id === teacher.user_id;
+  const [localIsActive, setLocalIsActive] = useState(teacher.is_active !== false);
+  const [isToggling, setIsToggling] = useState(false);
+  const [copied, setCopied] = useState<'email' | null>(null);
+
+  // 클립보드 복사
+  const handleCopyEmail = async () => {
+    try {
+      await navigator.clipboard.writeText(teacher.email);
+      setCopied('email');
+      setTimeout(() => setCopied(null), 1500);
+    } catch {
+      // fallback: 구형 브라우저
+      const ta = document.createElement('textarea');
+      ta.value = teacher.email;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      setCopied('email');
+      setTimeout(() => setCopied(null), 1500);
+    }
+  };
+
+  // Gmail compose URL 생성
+  const handleEmailClick = () => {
+    const subject = encodeURIComponent(`[학교일자리] ${teacher.nickname}님에게 연락드립니다`);
+    const gmailUrl = `https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(teacher.email)}&su=${subject}`;
+    window.open(gmailUrl, '_blank');
+  };
+
   return (
     <div className="w-[260px] bg-white/95 backdrop-blur-sm rounded-xl border border-gray-200 shadow-lg overflow-hidden flex flex-col max-h-[calc(100vh-80px)]">
       {/* 헤더 - 스카이블루 톤 */}
@@ -68,7 +105,7 @@ export const TeacherDetailPanel: React.FC<TeacherDetailPanelProps> = ({
 
       {/* 내용 */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {/* 프로필 이미지 + 닉네임 */}
+        {/* 프로필 이미지 + 닉네임 + 상태칩 */}
         <div className="flex items-center gap-3">
           {teacher.profile_image_url ? (
             <img
@@ -84,7 +121,18 @@ export const TeacherDetailPanel: React.FC<TeacherDetailPanelProps> = ({
             </div>
           )}
           <div>
-            <p className="font-bold text-gray-900">{teacher.nickname}</p>
+            <div className="flex items-center gap-1.5">
+              <p className="font-bold text-gray-900">{teacher.nickname}</p>
+              {localIsActive ? (
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-medium">
+                  구직중
+                </span>
+              ) : (
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-400 font-medium">
+                  구직종료
+                </span>
+              )}
+            </div>
             {teacher.experience_years && (
               <p className="text-xs text-gray-500">경력 {teacher.experience_years}</p>
             )}
@@ -100,7 +148,31 @@ export const TeacherDetailPanel: React.FC<TeacherDetailPanelProps> = ({
           </svg>
           <div>
             <p className="text-xs text-gray-500">희망 분야</p>
-            <p className="text-sm text-gray-800">{getCategoryDisplay()}</p>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              {mainBadge && (
+                <span
+                  className="text-xs px-1.5 py-0.5 rounded-full text-white font-medium"
+                  style={{ backgroundColor: badgeColor }}
+                >
+                  {mainBadge}
+                </span>
+              )}
+              {subText && (
+                <span className="text-xs text-gray-400">{subText}</span>
+              )}
+              {!mainBadge && (
+                <p className="text-sm text-gray-800">{getCategoryDisplay()}</p>
+              )}
+            </div>
+            {/* 나머지 sub가 있으면 표시 */}
+            {hasSub && teacher.sub_categories!.length > 1 && (
+              <p className="text-xs text-gray-600 mt-0.5">
+                {teacher.sub_categories!.slice(1).join(', ')}
+              </p>
+            )}
+            {teacher.other_subject && (
+              <p className="text-xs text-gray-600 mt-0.5">{teacher.other_subject}</p>
+            )}
           </div>
         </div>
 
@@ -144,8 +216,43 @@ export const TeacherDetailPanel: React.FC<TeacherDetailPanelProps> = ({
           </div>
         )}
 
-        {/* 전화번호 - 로그인 회원에게만 표시 */}
-        {user && teacher.phone_number && (
+        {/* 이메일 - 정보행 */}
+        {teacher.email && (
+          <div className="flex items-start gap-2">
+            <svg className="w-4 h-4 text-sky-400 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+            </svg>
+            <div>
+              <p className="text-xs text-gray-500">이메일</p>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={handleEmailClick}
+                  className="text-sm text-sky-600 hover:underline cursor-pointer truncate"
+                >
+                  {teacher.email}
+                </button>
+                <button
+                  onClick={handleCopyEmail}
+                  className="flex-shrink-0 p-1 text-gray-300 hover:text-sky-500 transition-colors rounded"
+                  title="이메일 복사"
+                >
+                  {copied === 'email' ? (
+                    <svg className="w-3.5 h-3.5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                  ) : (
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9.75a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184" />
+                    </svg>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 전화번호 - 로그인 회원 + phone_public 허용 시에만 표시 */}
+        {user && teacher.phone_number && teacher.phone_public && (
           <div className="flex items-start gap-2">
             <svg className="w-4 h-4 text-sky-400 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z" />
@@ -161,32 +268,42 @@ export const TeacherDetailPanel: React.FC<TeacherDetailPanelProps> = ({
             </div>
           </div>
         )}
-      </div>
 
-      {/* 하단 버튼 */}
-      <div className="p-4 border-t border-gray-100 flex-shrink-0">
-        <div className="flex gap-2">
-          {/* 길찾기 버튼 */}
-          <button
-            onClick={() => onDirectionsClick?.(teacher)}
-            className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-lg transition-colors"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
-            </svg>
-            길찾기
-          </button>
-          {/* 이메일 연락 버튼 */}
-          <button
-            onClick={() => onEmailClick?.(teacher.email)}
-            className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 text-sm font-medium text-white bg-sky-500 hover:bg-sky-600 rounded-lg transition-colors"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-            </svg>
-            이메일
-          </button>
-        </div>
+        {/* 구직 상태 토글 - 본인 마커일 때만 */}
+        {isOwner && (
+          <div className="pt-3 mt-1 border-t border-gray-100">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-gray-600 font-medium">구직 상태</span>
+              <button
+                onClick={async () => {
+                  if (isToggling) return;
+                  setIsToggling(true);
+                  const newStatus = !localIsActive;
+                  try {
+                    await toggleTeacherMarkerStatus(teacher.id, newStatus);
+                    setLocalIsActive(newStatus);
+                    teacher.is_active = newStatus;
+                  } catch (err) {
+                    console.error('상태 변경 실패:', err);
+                  } finally {
+                    setIsToggling(false);
+                  }
+                }}
+                disabled={isToggling}
+                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                  localIsActive ? 'bg-emerald-500' : 'bg-gray-300'
+                } ${isToggling ? 'opacity-50' : ''}`}
+              >
+                <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${
+                  localIsActive ? 'translate-x-[18px]' : 'translate-x-[3px]'
+                }`} />
+              </button>
+            </div>
+            <p className="text-[10px] text-gray-400 mt-1">
+              {localIsActive ? '구직중 - 다른 사용자에게 표시됩니다' : '구직종료 - 비공개 상태입니다'}
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );

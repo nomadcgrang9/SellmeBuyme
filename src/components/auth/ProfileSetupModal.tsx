@@ -15,7 +15,7 @@ export type RoleOption = '교사' | '강사' | '업체' | '기타';
 
 export const ROLE_OPTIONS: RoleOption[] = ['교사', '강사', '업체', '기타'];
 
-export type TeacherLevel = '유치원' | '초등' | '중등' | '특수';
+export type TeacherLevel = '유치원' | '초등' | '초등전담' | '중등' | '비교과' | '특수' | '방과후/돌봄' | '행정·교육지원';
 export type TeacherEmploymentType = '기간제교사' | '정규교원';
 export type SpecialEducationType = '초등특수' | '중등특수';
 
@@ -475,15 +475,6 @@ export default function ProfileSetupModal({
                               />
                               <span className="flex-1">개인정보 수집 및 이용에 동의합니다 (필수)</span>
                               <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-xs font-semibold text-[#7aa3cc]">보기</a>
-                            </label>
-                            <label className="flex items-center gap-3">
-                              <input
-                                type="checkbox"
-                                checked={agreeMarketing}
-                                onChange={(event) => setAgreeMarketing(event.target.checked)}
-                                className="h-4 w-4 rounded border-gray-300 text-[#7aa3cc] focus:ring-[#7aa3cc]"
-                              />
-                              <span className="flex-1">셀미바이미 소식 및 이벤트 정보를 받아볼게요 (선택)</span>
                             </label>
                           </div>
                         </div>

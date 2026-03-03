@@ -25,8 +25,8 @@ export const Footer: React.FC = () => {
                 </div>
                 <div className="flex flex-col gap-2">
                     <a href="#" className="font-bold text-gray-900">약관 및 정책</a>
-                    <a href="#" className="hover:text-blue-600">이용약관</a>
-                    <a href="#" className="hover:text-blue-600 font-bold">개인정보처리방침</a>
+                    <a href="/terms" className="hover:text-blue-600">이용약관</a>
+                    <a href="/privacy" className="hover:text-blue-600 font-bold">개인정보처리방침</a>
                 </div>
                 <div className="flex flex-col gap-2">
                     <a href="#" className="font-bold text-gray-900">지원</a>

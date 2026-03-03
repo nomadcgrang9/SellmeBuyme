@@ -257,6 +257,26 @@ export async function deleteTeacherMarker(id: string, userId?: string): Promise<
     console.log('[deleteTeacherMarker] 삭제 완료, id:', id);
 }
 
+/**
+ * 구직 상태 토글 (구직중 ↔ 구직종료)
+ * - 본인 마커만 변경 가능 (RLS + user_id 검증)
+ */
+export async function toggleTeacherMarkerStatus(markerId: string, isActive: boolean): Promise<void> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('로그인이 필요합니다');
+
+    const { error } = await supabase
+        .from('teacher_markers')
+        .update({ is_active: isActive, updated_at: new Date().toISOString() })
+        .eq('id', markerId)
+        .eq('user_id', user.id);
+
+    if (error) {
+        console.error('toggleTeacherMarkerStatus error:', error);
+        throw error;
+    }
+}
+
 // ============================================================================
 // 프로그램 마커 (Program Markers)
 // ============================================================================

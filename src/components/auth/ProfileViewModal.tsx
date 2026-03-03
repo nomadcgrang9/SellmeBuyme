@@ -12,6 +12,7 @@ import {
 import { fetchUserProfile, type UserProfileRow } from '@/lib/supabase/profiles';
 import { supabase } from '@/lib/supabase/client';
 import { useAuthStore } from '@/stores/authStore';
+import WithdrawalModal from './WithdrawalModal';
 
 interface ProfileViewModalProps {
   isOpen: boolean;
@@ -29,6 +30,7 @@ export default function ProfileViewModal({ isOpen, onClose, userId, userEmail, o
   const [profile, setProfile] = useState<UserProfileRow | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [isWithdrawalOpen, setIsWithdrawalOpen] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -113,6 +115,7 @@ export default function ProfileViewModal({ isOpen, onClose, userId, userEmail, o
   const isAdmin = profile?.roles?.includes('admin');
 
   return (
+    <>
     <AnimatePresence>
       {isOpen && (
         <motion.div
@@ -291,12 +294,6 @@ export default function ProfileViewModal({ isOpen, onClose, userId, userEmail, o
                             </span>
                             <span className="text-gray-600">개인정보</span>
                           </div>
-                          <div className="flex items-center gap-1.5 text-[11px]">
-                            <span className={profile.agree_marketing ? 'text-blue-600' : 'text-gray-400'}>
-                              {profile.agree_marketing ? '✓' : '✗'}
-                            </span>
-                            <span className="text-gray-600">마케팅</span>
-                          </div>
                         </div>
                       </div>
                     </section>
@@ -333,9 +330,24 @@ export default function ProfileViewModal({ isOpen, onClose, userId, userEmail, o
                   {loggingOut ? '로그아웃 중...' : '로그아웃'}
                 </button>
             </footer>
+            <div className="px-7 py-2 text-right border-t border-gray-50">
+              <button
+                type="button"
+                onClick={() => setIsWithdrawalOpen(true)}
+                className="text-xs text-gray-400 hover:text-red-500 transition-colors"
+              >
+                회원 탈퇴
+              </button>
+            </div>
           </motion.div>
         </motion.div>
       )}
     </AnimatePresence>
+
+    <WithdrawalModal
+      isOpen={isWithdrawalOpen}
+      onClose={() => setIsWithdrawalOpen(false)}
+    />
+    </>
   );
 }

@@ -12,12 +12,12 @@
  */
 
 export const SCHOOL_LEVEL_MARKER_COLORS = {
-  '유치원':   { fill: '#8D6E63', stroke: '#6D4C41', text: '#3E2723' },
+  '유치원': { fill: '#8D6E63', stroke: '#6D4C41', text: '#3E2723' },
   '초등학교': { fill: '#4CAF50', stroke: '#388E3C', text: '#1B5E20' },
-  '중학교':   { fill: '#2196F3', stroke: '#1976D2', text: '#0D47A1' },
+  '중학교': { fill: '#2196F3', stroke: '#1976D2', text: '#0D47A1' },
   '고등학교': { fill: '#7C4DFF', stroke: '#651FFF', text: '#4A148C' },
   '특수학교': { fill: '#FF9800', stroke: '#F57C00', text: '#E65100' },
-  '기타':     { fill: '#607D8B', stroke: '#455A64', text: '#263238' },
+  '기타': { fill: '#607D8B', stroke: '#455A64', text: '#263238' },
 } as const;
 
 export type SchoolLevel = keyof typeof SCHOOL_LEVEL_MARKER_COLORS;
@@ -212,11 +212,11 @@ export function generateClusterMarker(count: number, dominantLevel?: SchoolLevel
  * 공고마커(36x48)와 비슷한 크기
  */
 export const TEACHER_MARKER_SIZE = {
-  width: 34,
-  height: 44,
-  innerCircleRadius: 10,
-  centerX: 17,
-  centerY: 17,
+  width: 36,
+  height: 48,
+  innerCircleRadius: 11,
+  centerX: 18,
+  centerY: 18,
 } as const;
 
 /**
@@ -252,15 +252,107 @@ export function generateTeacherMarkerSVG(color: string = '#68B2FF'): string {
 }
 
 /**
+ * Supabase Image Transform URL 생성
+ * Pro plan에 포함된 기능: 원본 이미지를 CDN에서 리사이즈하여 서빙
+ * 원본 2~5MB → 썸네일 5~10KB (80x80px)
+ */
+export function getSupabaseThumbnailUrl(originalUrl: string, width = 80, height = 80): string {
+  return originalUrl.replace(
+    '/storage/v1/object/public/',
+    '/storage/v1/render/image/public/'
+  ) + `?width=${width}&height=${height}&resize=cover`;
+}
+
+/**
+ * 프로필 이미지가 포함된 마커를 Canvas로 렌더링 → data URL 반환
+ * - 물방울 핀 형태 유지 + 내부 원형 영역에 프로필 이미지 삽입
+ * - 2x 해상도로 렌더링 (레티나 대응)
+ */
+export function renderProfileMarkerToDataURL(
+  color: string,
+  thumbnailUrl: string
+): Promise<string> {
+  const { width, height, innerCircleRadius, centerX, centerY } = TEACHER_MARKER_SIZE;
+  const scale = 2;
+
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = width * scale;
+        canvas.height = height * scale;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) { reject(new Error('Canvas not supported')); return; }
+        ctx.scale(scale, scale);
+
+        // 1. Drop shadow
+        ctx.shadowColor = 'rgba(0,0,0,0.25)';
+        ctx.shadowBlur = 4;
+        ctx.shadowOffsetY = 2;
+
+        // 2. Pin body (물방울 형태 - SVG path와 동일)
+        ctx.beginPath();
+        ctx.moveTo(centerX, height - 2);
+        ctx.bezierCurveTo(centerX, height - 2, 4, 26, 4, centerY);
+        ctx.bezierCurveTo(4, 8, 9, 2, centerX, 2);
+        ctx.bezierCurveTo(width - 9, 2, width - 4, 8, width - 4, centerY);
+        ctx.bezierCurveTo(width - 4, 26, centerX, height - 2, centerX, height - 2);
+        ctx.closePath();
+        ctx.fillStyle = color;
+        ctx.fill();
+
+        // Shadow 리셋 후 stroke
+        ctx.shadowColor = 'transparent';
+        ctx.strokeStyle = 'white';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        // 3. 내부 흰색 원
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, innerCircleRadius, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.92)';
+        ctx.fill();
+
+        // 4. 원형 클리핑 → 프로필 이미지 삽입
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, innerCircleRadius - 0.5, 0, Math.PI * 2);
+        ctx.clip();
+
+        const imgSize = (innerCircleRadius - 0.5) * 2;
+        ctx.drawImage(
+          img,
+          centerX - innerCircleRadius + 0.5,
+          centerY - innerCircleRadius + 0.5,
+          imgSize,
+          imgSize
+        );
+        ctx.restore();
+
+        resolve(canvas.toDataURL('image/png'));
+      } catch (err) {
+        reject(err);
+      }
+    };
+
+    img.onerror = () => reject(new Error('Image load failed'));
+    img.src = thumbnailUrl;
+  });
+}
+
+/**
  * 교원연수 강사 마커 크기 상수 (물방울 형태)
  * 공고마커(36x48)와 비슷한 크기
  */
 export const INSTRUCTOR_MARKER_SIZE = {
-  width: 34,
-  height: 44,
-  innerCircleRadius: 10,
-  centerX: 17,
-  centerY: 17,
+  width: 36,
+  height: 48,
+  innerCircleRadius: 11,
+  centerX: 18,
+  centerY: 18,
 } as const;
 
 /**

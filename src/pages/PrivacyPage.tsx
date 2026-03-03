@@ -67,6 +67,7 @@ export default function PrivacyPage() {
                       <tr><td className="px-3 py-2 border-b border-gray-100">프로필 설정</td><td className="px-3 py-2 border-b border-gray-100">역할(교사, 강사 등)</td><td className="px-3 py-2 border-b border-gray-100">이용자 선택</td></tr>
                       <tr><td className="px-3 py-2 border-b border-gray-100">프로필 설정</td><td className="px-3 py-2 border-b border-gray-100">관심 지역</td><td className="px-3 py-2 border-b border-gray-100">이용자 선택</td></tr>
                       <tr><td className="px-3 py-2 border-b border-gray-100">프로필 설정</td><td className="px-3 py-2 border-b border-gray-100">관심 과목/분야</td><td className="px-3 py-2 border-b border-gray-100">이용자 선택</td></tr>
+                      <tr><td className="px-3 py-2 border-b border-gray-100">프로필 설정</td><td className="px-3 py-2 border-b border-gray-100">전화번호</td><td className="px-3 py-2 border-b border-gray-100">이용자 직접 입력</td></tr>
                       <tr><td className="px-3 py-2">프로필 설정</td><td className="px-3 py-2">자기소개</td><td className="px-3 py-2">이용자 직접 입력</td></tr>
                     </tbody>
                   </table>

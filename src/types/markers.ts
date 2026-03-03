@@ -17,7 +17,7 @@ export const NICKNAME_CHARACTERS = [
 // ============================================
 export const PRIMARY_CATEGORY_OPTIONS = [
   '유치원', '초등담임', '교과과목', '비교과',
-  '특수교육', '방과후/돌봄', '행정·교육지원', '기타'
+  '특수', '방과후/돌봄', '행정·교육지원', '기타'
 ] as const;
 
 export type PrimaryCategory = typeof PRIMARY_CATEGORY_OPTIONS[number];
@@ -28,9 +28,9 @@ export type PrimaryCategory = typeof PRIMARY_CATEGORY_OPTIONS[number];
 export const SUB_CATEGORY_OPTIONS: Record<PrimaryCategory, readonly string[]> = {
   '유치원': ['유치원담임', '유치원방과후'],
   '초등담임': [], // 2차 없음
-  '교과과목': ['국어', '영어', '수학', '과학', '사회', '체육', '음악', '미술', '정보', '기술가정', '기타'],
+  '교과과목': ['국어', '영어', '수학', '물리', '화학', '생물', '지구과학', '사회', '역사', '도덕·윤리', '체육', '음악', '미술', '기가·정보', '중국어', '일본어', '한문', '독일어', '프랑스어', '스페인어', '기타'],
   '비교과': ['보건', '상담', '사서', '영양교사'],
-  '특수교육': [], // 2차 없음
+  '특수': [], // 2차 없음
   '방과후/돌봄': ['체육', '영어', '코딩', '논술', '미술', '돌봄'],
   '행정·교육지원': ['교무실무사', '조리실무사', '시설/환경', '영양사', '학습튜터/협력강사', '자원봉사', '안전지킴이'],
   '기타': [], // 2차 없음
@@ -47,7 +47,7 @@ export const CATEGORY_MARKER_COLORS: Record<PrimaryCategory, string> = {
   '초등담임': '#22C55E',     // Green
   '교과과목': '#14B8A6',     // Teal
   '비교과': '#10B981',       // Emerald
-  '특수교육': '#EF4444',     // Red
+  '특수': '#EF4444',         // Red
   '방과후/돌봄': '#6B7280',  // Gray
   '행정·교육지원': '#9CA3AF', // Light Gray
   '기타': '#D1D5DB',         // Lighter Gray
