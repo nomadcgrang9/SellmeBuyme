@@ -222,6 +222,29 @@ export async function updateInstructorMarker(
 }
 
 // ============================================================================
+// 활동 상태 토글
+// ============================================================================
+
+/**
+ * 교원연수 강사 마커 활동 상태 토글 (활동중/활동종료)
+ */
+export async function toggleInstructorMarkerStatus(markerId: string, isActive: boolean): Promise<void> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('로그인이 필요합니다');
+
+  const { error } = await supabase
+    .from('instructor_markers')
+    .update({ is_active: isActive, updated_at: new Date().toISOString() })
+    .eq('id', markerId)
+    .eq('user_id', user.id);
+
+  if (error) {
+    console.error('toggleInstructorMarkerStatus error:', error);
+    throw error;
+  }
+}
+
+// ============================================================================
 // 삭제 (DELETE - soft delete)
 // ============================================================================
 

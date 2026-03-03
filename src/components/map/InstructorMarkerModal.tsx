@@ -655,6 +655,9 @@ export default function InstructorMarkerModal({
                 <h3 className="text-sm font-semibold text-gray-700 mb-3">
                   개인정보 동의 <span className="text-red-500">*</span>
                 </h3>
+                <p className="text-sm text-gray-600 leading-relaxed mb-3">
+                  학교와 사람을 연결하기 위한 최소한의 정보만 수집합니다.
+                </p>
                 <label className="flex items-start gap-3 cursor-pointer">
                   <input
                     type="checkbox"
@@ -663,8 +666,7 @@ export default function InstructorMarkerModal({
                     className="mt-0.5 w-4 h-4 text-sky-600 border-gray-300 rounded focus:ring-sky-500"
                   />
                   <span className="text-sm text-gray-700 leading-relaxed">
-                    학교와 사람을 연결하기 위한 최소한의 정보만 수집합니다.
-                    서비스 내에서 노출과 활용에 동의하십니까?
+                    현재 등록한 내용에 대한 개인정보이용과 서비스 내 노출에 동의합니다.
                   </span>
                 </label>
               </section>

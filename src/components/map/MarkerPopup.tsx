@@ -21,7 +21,7 @@ import {
     createInstructorComment,
     type InstructorComment
 } from '@/lib/supabase/markers';
-import { deleteInstructorMarker } from '@/lib/supabase/instructorMarkers';
+import { deleteInstructorMarker, toggleInstructorMarkerStatus } from '@/lib/supabase/instructorMarkers';
 import { useAuthStore } from '@/stores/authStore';
 
 // 브라우저 fingerprint 생성 (localStorage 기반)
@@ -59,9 +59,11 @@ export default function MarkerPopup({ type, marker, position, onClose, onEdit, o
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
 
-    // 구직 상태 토글 관련
+    // 구직/활동 상태 토글 관련
     const [localIsActive, setLocalIsActive] = useState(
-        type === 'teacher' ? (marker as TeacherMarker).is_active !== false : true
+        type === 'teacher' ? (marker as TeacherMarker).is_active !== false
+        : type === 'instructor' ? (marker as InstructorMarker).is_active !== false
+        : true
     );
     const [isToggling, setIsToggling] = useState(false);
 
@@ -77,9 +79,9 @@ export default function MarkerPopup({ type, marker, position, onClose, onEdit, o
         (type === 'instructor' && currentUser?.id === (marker as InstructorMarker).user_id);
     const canDelete = isOwner || isSuperAdmin;
 
-    // ★ 타입별 색상 적용
+    // ★ 타입별 색상 적용 - 메인 블루 컨셉 유지 (핑크는 뱃지/칩 accent만)
     const MAIN_BLUE = '#3B82F6';
-    const color = type === 'instructor' ? INSTRUCTOR_MARKER_COLORS.base : MAIN_BLUE;
+    const color = MAIN_BLUE;
 
     // 프로필 이미지 URL 가져오기 (teacher, instructor만)
     const profileImageUrl = type === 'teacher'
@@ -292,6 +294,13 @@ export default function MarkerPopup({ type, marker, position, onClose, onEdit, o
                                 <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-400 font-medium">구직종료</span>
                             )
                         )}
+                        {type === 'instructor' && (
+                            localIsActive ? (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-pink-100 text-pink-700 font-medium">활동중</span>
+                            ) : (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-400 font-medium">활동종료</span>
+                            )
+                        )}
                     </div>
                     <div className="flex items-center gap-1">
                         {/* 구직 상태 토글 - 본인 teacher 마커일 때만 헤더에 표시 */}
@@ -316,6 +325,35 @@ export default function MarkerPopup({ type, marker, position, onClose, onEdit, o
                                 title={localIsActive ? '구직종료로 전환' : '구직중으로 전환'}
                                 className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
                                     localIsActive ? 'bg-emerald-500' : 'bg-gray-300'
+                                } ${isToggling ? 'opacity-50' : ''}`}
+                            >
+                                <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${
+                                    localIsActive ? 'translate-x-[19px]' : 'translate-x-[3px]'
+                                }`} />
+                            </button>
+                        )}
+                        {/* 활동 상태 토글 - 본인 instructor 마커일 때만 헤더에 표시 */}
+                        {type === 'instructor' && isOwner && (
+                            <button
+                                onClick={async (e) => {
+                                    e.stopPropagation();
+                                    if (isToggling) return;
+                                    setIsToggling(true);
+                                    const newStatus = !localIsActive;
+                                    try {
+                                        await toggleInstructorMarkerStatus(marker.id, newStatus);
+                                        setLocalIsActive(newStatus);
+                                        (marker as InstructorMarker).is_active = newStatus;
+                                    } catch (err) {
+                                        console.error('상태 변경 실패:', err);
+                                    } finally {
+                                        setIsToggling(false);
+                                    }
+                                }}
+                                disabled={isToggling}
+                                title={localIsActive ? '활동종료로 전환' : '활동중으로 전환'}
+                                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                                    localIsActive ? 'bg-pink-500' : 'bg-gray-300'
                                 } ${isToggling ? 'opacity-50' : ''}`}
                             >
                                 <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${
@@ -427,6 +465,9 @@ export default function MarkerPopup({ type, marker, position, onClose, onEdit, o
                                                 {(marker as InstructorMarker).specialties.slice(0, 3).map((s, i) => (
                                                     <span key={i} className="text-xs px-2 py-0.5 bg-pink-50 text-pink-700 rounded-full">{s}</span>
                                                 ))}
+                                                {(marker as InstructorMarker).specialties.length > 3 && (
+                                                    <span className="text-xs text-gray-400">+{(marker as InstructorMarker).specialties.length - 3}</span>
+                                                )}
                                             </div>
                                         )}
                                         {(marker as InstructorMarker).experience_years && (

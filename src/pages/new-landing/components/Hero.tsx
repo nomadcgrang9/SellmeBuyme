@@ -1602,7 +1602,49 @@ export const Hero: React.FC = () => {
 
     console.log('[Hero] 교원연수 마커 렌더링 완료:', instructorMapMarkersRef.current.length, '개');
 
+    // ★ Progressive enhancement: 프로필 이미지가 있는 강사 마커에 썸네일 적용
+    let abortedInstructor = false;
+    const instructorMarkerById = new Map<string, any>();
+    filteredInstructors.forEach((m, i) => instructorMarkerById.set(m.id, instructorMapMarkersRef.current[i]));
+
+    filteredInstructors.forEach(marker => {
+      if (!marker.profile_image_url) return;
+
+      const markerColor = INSTRUCTOR_MARKER_COLORS.base;
+      const cacheKey = `instructor_${marker.profile_image_url}_${markerColor}`;
+
+      // 캐시 히트 → 즉시 적용
+      const cached = profileMarkerCacheRef.current.get(cacheKey);
+      if (cached) {
+        const km = instructorMarkerById.get(marker.id);
+        if (km) {
+          km.setImage(new window.kakao.maps.MarkerImage(
+            cached,
+            new window.kakao.maps.Size(INSTRUCTOR_MARKER_SIZE.width, INSTRUCTOR_MARKER_SIZE.height)
+          ));
+        }
+        return;
+      }
+
+      // Supabase Image Transform으로 80x80 썸네일 URL 생성 → Canvas 렌더링
+      const thumbnailUrl = getSupabaseThumbnailUrl(marker.profile_image_url);
+      renderProfileMarkerToDataURL(markerColor, thumbnailUrl)
+        .then(dataUrl => {
+          if (abortedInstructor) return;
+          profileMarkerCacheRef.current.set(cacheKey, dataUrl);
+          const km = instructorMarkerById.get(marker.id);
+          if (km) {
+            km.setImage(new window.kakao.maps.MarkerImage(
+              dataUrl,
+              new window.kakao.maps.Size(INSTRUCTOR_MARKER_SIZE.width, INSTRUCTOR_MARKER_SIZE.height)
+            ));
+          }
+        })
+        .catch(() => { /* 실패 시 기본 SVG 아이콘 유지 */ });
+    });
+
     return () => {
+      abortedInstructor = true;
       instructorMapMarkersRef.current.forEach(m => m.setMap(null));
       instructorMapMarkersRef.current = [];
     };
@@ -3122,24 +3164,36 @@ export const Hero: React.FC = () => {
                   // 교원연수 강사 카드
                   if (item.type === 'instructor') {
                     const marker = item.data;
+                    const isActive = marker.is_active !== false;
+                    const mainSpecialty = marker.specialties?.[0] || '';
+                    const isSelectedInstructor = selectedInstructor?.id === marker.id;
+
+                    // 정보행
+                    const infoParts: string[] = [];
+                    if (marker.target_audience?.length > 0) infoParts.push(marker.target_audience[0]);
+                    if (marker.experience_years) infoParts.push(marker.experience_years);
+
                     return (
                       <div
                         key={`instructor-${marker.id}`}
-                        className="group relative p-3 cursor-pointer transition-all hover:bg-pink-50/50 border-l-4 border-l-transparent"
+                        className={`group relative p-3 cursor-pointer transition-all border-l-4 ${
+                          isSelectedInstructor
+                            ? 'bg-sky-50/50'
+                            : 'hover:bg-gray-50'
+                        } ${!isActive ? 'opacity-60' : ''}`}
+                        style={{
+                          borderLeftColor: isSelectedInstructor ? '#0EA5E9' : 'transparent',
+                        }}
                         onClick={() => {
-                          // 토글: 이미 선택된 강사면 선택 해제
                           if (selectedInstructor?.id === marker.id) {
                             setSelectedInstructor(null);
                             return;
                           }
-
-                          // 다른 패널 닫기 + 강사 패널 열기
                           setSelectedJob(null);
                           setSelectedTeacher(null);
                           setSelectedMarker(null);
                           setSelectedInstructor(marker);
 
-                          // 지도 이동 (공고와 동일한 패턴: setCenter 사용)
                           const markerCoords = instructorMarkerCoordsRef.current.get(marker.id);
                           if (markerCoords) {
                             moveMapToCoords(markerCoords.lat, markerCoords.lng);
@@ -3148,8 +3202,8 @@ export const Hero: React.FC = () => {
                           }
                         }}
                       >
-                        <div className="flex items-start gap-3">
-                          {/* 프로필 이미지 - 핑크 테마 */}
+                        {/* 행1: 프로필 이미지 + 이름 + 상태칩 */}
+                        <div className="flex items-center gap-3 mb-1.5">
                           <div
                             className="w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center text-white text-sm font-medium"
                             style={{ backgroundColor: INSTRUCTOR_MARKER_COLORS.base }}
@@ -3160,45 +3214,64 @@ export const Hero: React.FC = () => {
                               marker.display_name?.charAt(0) || 'I'
                             )}
                           </div>
-
-                          {/* 정보 */}
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
+                            <div className="flex items-center gap-1.5">
                               <span className="text-sm font-medium text-gray-800 truncate">
                                 {marker.display_name || '익명'}
                               </span>
-                              <span className="text-[10px] px-1.5 py-0.5 rounded border"
-                                style={{
-                                  color: INSTRUCTOR_MARKER_COLORS.text,
-                                  borderColor: INSTRUCTOR_MARKER_COLORS.base,
-                                  backgroundColor: INSTRUCTOR_MARKER_COLORS.light
-                                }}
-                              >
-                                연수강사
-                              </span>
+                              {isActive ? (
+                                <span className="flex-shrink-0 text-[10px] px-1.5 py-0.5 rounded-full bg-pink-100 text-pink-700 font-medium">
+                                  활동중
+                                </span>
+                              ) : (
+                                <span className="flex-shrink-0 text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-400 font-medium">
+                                  활동종료
+                                </span>
+                              )}
                             </div>
-
-                            {marker.specialties && marker.specialties.length > 0 && (
-                              <div className="flex flex-wrap gap-1 mb-1">
-                                {marker.specialties.slice(0, 2).map((specialty, idx) => (
-                                  <span key={idx} className="text-[10px] text-gray-500">
-                                    {specialty}{idx < Math.min(marker.specialties!.length, 2) - 1 ? ',' : ''}
-                                  </span>
-                                ))}
-                                {marker.specialties.length > 2 && (
-                                  <span className="text-[10px] text-gray-400">+{marker.specialties.length - 2}</span>
-                                )}
-                              </div>
-                            )}
-
-                            {marker.available_regions && marker.available_regions.length > 0 && (
-                              <div className="text-xs text-gray-500">
-                                {marker.available_regions.slice(0, 2).join(', ')}
-                                {marker.available_regions.length > 2 && ` 외 ${marker.available_regions.length - 2}곳`}
-                              </div>
-                            )}
                           </div>
                         </div>
+
+                        {/* 행2: specialties[0] 메인뱃지 + 연수강사 보조 */}
+                        {mainSpecialty && (
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <span
+                              className="text-[10px] px-1.5 py-0.5 rounded-full text-white font-medium"
+                              style={{ backgroundColor: INSTRUCTOR_MARKER_COLORS.base }}
+                            >
+                              {mainSpecialty}
+                            </span>
+                            <span className="text-[10px] text-gray-400">연수강사</span>
+                          </div>
+                        )}
+
+                        {/* 행3: 연수대상 + 경력 */}
+                        {infoParts.length > 0 && (
+                          <div className="text-xs text-gray-600 mb-1 truncate">
+                            {infoParts.join(' · ')}
+                          </div>
+                        )}
+
+                        {/* 행4: 활동지역 */}
+                        {marker.available_regions && marker.available_regions.length > 0 && (
+                          <div className="flex items-center gap-1.5 text-xs text-gray-600 mb-1">
+                            <svg className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                            <span className="truncate">{marker.available_regions.join(', ')}</span>
+                          </div>
+                        )}
+
+                        {/* 행5: 활동이력 1줄 */}
+                        {marker.activity_history && (
+                          <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                            <svg className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                            </svg>
+                            <span className="truncate">{marker.activity_history}</span>
+                          </div>
+                        )}
                       </div>
                     );
                   }
@@ -3244,16 +3317,6 @@ export const Hero: React.FC = () => {
               instructor={selectedInstructor}
               isOpen={!!selectedInstructor}
               onClose={() => setSelectedInstructor(null)}
-              onEmailClick={(email) => {
-                window.location.href = `mailto:${email}`;
-              }}
-              onDirectionsClick={(instructor) => {
-                // 길찾기 기능 (추후 구현)
-                if (instructor.latitude && instructor.longitude) {
-                  const kakaoMapUrl = `https://map.kakao.com/link/to/${encodeURIComponent(instructor.display_name || '강사 위치')},${instructor.latitude},${instructor.longitude}`;
-                  window.open(kakaoMapUrl, '_blank');
-                }
-              }}
             />
           </div>
         )}
