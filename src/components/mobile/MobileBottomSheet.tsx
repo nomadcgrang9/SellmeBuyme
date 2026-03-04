@@ -30,7 +30,7 @@ const MobileBottomSheet: React.FC<MobileBottomSheetProps> = ({
     return (
       <div
         ref={sheetRef}
-        className="absolute left-4 right-4 z-30 bg-white rounded-2xl shadow-lg"
+        className="fixed left-4 right-4 z-[31] bg-white rounded-2xl shadow-lg"
         style={{
           boxShadow: '0 2px 16px rgba(0, 0, 0, 0.12)',
           bottom: 'calc(64px + 1rem + env(safe-area-inset-bottom, 0px))'
