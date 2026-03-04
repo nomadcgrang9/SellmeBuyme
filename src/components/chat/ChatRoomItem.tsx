@@ -2,6 +2,7 @@
 // 채팅방 목록 아이템
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+import { useState } from 'react';
 import type { ChatRoom } from '@/types/chat';
 
 interface Props {
@@ -27,6 +28,7 @@ function formatRelativeTime(dateStr: string | null): string {
 
 export default function ChatRoomItem({ room, isOnline, onClick }: Props) {
   const hasUnread = room.unread_count > 0;
+  const [imgError, setImgError] = useState(false);
 
   return (
     <button
@@ -36,11 +38,12 @@ export default function ChatRoomItem({ room, isOnline, onClick }: Props) {
       {/* 프로필 이미지 */}
       <div className="relative shrink-0">
         <div className="w-10 h-10 rounded-full bg-gray-200 overflow-hidden">
-          {room.other_user_profile_image ? (
+          {room.other_user_profile_image && !imgError ? (
             <img
               src={room.other_user_profile_image}
               alt=""
               className="w-full h-full object-cover"
+              onError={() => setImgError(true)}
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center text-gray-400 text-sm font-medium">
