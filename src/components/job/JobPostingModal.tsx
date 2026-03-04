@@ -355,7 +355,7 @@ export default function JobPostingModal({
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: 40 }}
           transition={{ type: 'spring', damping: 28, stiffness: 320 }}
-          className="fixed inset-3 flex flex-col bg-white rounded-2xl overflow-hidden md:absolute md:inset-auto md:top-4 md:bottom-4 md:right-[128px] md:w-[420px]"
+          className="fixed top-[60px] left-3 right-3 bottom-[76px] flex flex-col bg-white rounded-2xl overflow-hidden md:absolute md:inset-auto md:top-4 md:bottom-4 md:right-[128px] md:w-[420px]"
           style={{
             zIndex: jobPostZ,
             boxShadow: '0 8px 32px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.08)',

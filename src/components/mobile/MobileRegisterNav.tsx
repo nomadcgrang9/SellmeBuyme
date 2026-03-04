@@ -7,8 +7,9 @@ import { MapPin, User, Star, MessageCircle } from 'lucide-react';
 import { useChatStore } from '@/stores/chatStore';
 import PresentationGraph from '@solar-icons/react/csr/business/PresentationGraph';
 
-// 메인 컬러 (스카이블루)
-const ACTIVE_COLOR = '#4facfe';
+// 활성 컬러: 무채색 다크 (지도 컬러와 안 겹치게)
+const ACTIVE_COLOR = '#111827';   // gray-900
+const INACTIVE_COLOR = '#6B7280'; // gray-500
 
 interface MobileRegisterNavProps {
   /** 공고 레이어 표시 여부 */
@@ -47,7 +48,7 @@ export default function MobileRegisterNav({
         backdropFilter: 'blur(16px)',
         WebkitBackdropFilter: 'blur(16px)',
         paddingBottom: 'env(safe-area-inset-bottom)',
-        boxShadow: '0 -2px 10px rgba(0,0,0,0.06)',
+        boxShadow: '0 -4px 12px rgba(0,0,0,0.15)',
       }}
     >
       <div className="flex items-center justify-around h-16">
@@ -60,11 +61,11 @@ export default function MobileRegisterNav({
           <MapPin
             size={20}
             strokeWidth={2}
-            style={{ color: showJobLayer ? ACTIVE_COLOR : '#9CA3AF' }}
+            style={{ color: showJobLayer ? ACTIVE_COLOR : INACTIVE_COLOR }}
           />
           <span
-            className="text-[10px] mt-0.5 font-medium"
-            style={{ color: showJobLayer ? ACTIVE_COLOR : '#9CA3AF' }}
+            className={`text-[10px] mt-0.5 ${showJobLayer ? 'font-semibold' : 'font-medium'}`}
+            style={{ color: showJobLayer ? ACTIVE_COLOR : INACTIVE_COLOR }}
           >
             공고보기
           </span>
@@ -79,11 +80,11 @@ export default function MobileRegisterNav({
           <User
             size={20}
             strokeWidth={2}
-            style={{ color: showSeekerLayer ? ACTIVE_COLOR : '#9CA3AF' }}
+            style={{ color: showSeekerLayer ? ACTIVE_COLOR : INACTIVE_COLOR }}
           />
           <span
-            className="text-[10px] mt-0.5 font-medium"
-            style={{ color: showSeekerLayer ? ACTIVE_COLOR : '#9CA3AF' }}
+            className={`text-[10px] mt-0.5 ${showSeekerLayer ? 'font-semibold' : 'font-medium'}`}
+            style={{ color: showSeekerLayer ? ACTIVE_COLOR : INACTIVE_COLOR }}
           >
             구직자보기
           </span>
@@ -97,11 +98,11 @@ export default function MobileRegisterNav({
         >
           <PresentationGraph
             size={20}
-            color={showInstructorLayer ? ACTIVE_COLOR : '#9CA3AF'}
+            color={showInstructorLayer ? ACTIVE_COLOR : INACTIVE_COLOR}
           />
           <span
-            className="text-[10px] mt-0.5 font-medium"
-            style={{ color: showInstructorLayer ? ACTIVE_COLOR : '#9CA3AF' }}
+            className={`text-[10px] mt-0.5 ${showInstructorLayer ? 'font-semibold' : 'font-medium'}`}
+            style={{ color: showInstructorLayer ? ACTIVE_COLOR : INACTIVE_COLOR }}
           >
             강사보기
           </span>
@@ -116,8 +117,8 @@ export default function MobileRegisterNav({
           className="flex flex-col items-center justify-center flex-1 h-full transition-colors"
           aria-label="즐겨찾기"
         >
-          <Star size={20} strokeWidth={2} className="text-gray-400" />
-          <span className="text-[10px] mt-0.5 font-medium text-gray-400">즐겨찾기</span>
+          <Star size={20} strokeWidth={2} style={{ color: INACTIVE_COLOR }} />
+          <span className="text-[10px] mt-0.5 font-medium" style={{ color: INACTIVE_COLOR }}>즐겨찾기</span>
         </button>
       </div>
     </nav>
@@ -135,14 +136,14 @@ function ChatNavButton({ onClick }: { onClick: () => void }) {
       aria-label="채팅"
     >
       <div className="relative">
-        <MessageCircle size={20} strokeWidth={2} className="text-gray-400" />
+        <MessageCircle size={20} strokeWidth={2} style={{ color: INACTIVE_COLOR }} />
         {chatUnreadCount > 0 && (
           <span className="absolute -top-1.5 -right-2 w-4 h-4 flex items-center justify-center rounded-full bg-yellow-400 text-gray-800 text-[10px] font-bold shadow-sm">
             N
           </span>
         )}
       </div>
-      <span className="text-[10px] mt-0.5 font-medium text-gray-400">채팅</span>
+      <span className="text-[10px] mt-0.5 font-medium" style={{ color: INACTIVE_COLOR }}>채팅</span>
     </button>
   );
 }

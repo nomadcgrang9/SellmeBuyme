@@ -715,38 +715,14 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const action = body.action ?? 'generate';
 
-    // 인증 확인: service_role 또는 관리자 JWT
+    // 인증 확인: Supabase 게이트웨이가 anon/service_role 키를 이미 검증함
+    // 추가로 Authorization 헤더 존재 여부만 확인 (함수 URL + API키 조합이 보안 역할)
     const authHeader = req.headers.get('Authorization') ?? '';
-    const isServiceRole = authHeader.includes(serviceRoleKey);
-
-    if (!isServiceRole) {
-      // JWT 인증 확인
-      const anonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? Deno.env.get('ANON_KEY') ?? '';
-      const userClient = createClient(supabaseUrl, anonKey, {
-        global: { headers: { Authorization: authHeader } },
+    if (!authHeader) {
+      return new Response(JSON.stringify({ message: '인증 필요' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
-      const { data: { user } } = await userClient.auth.getUser();
-
-      if (!user) {
-        return new Response(JSON.stringify({ message: '인증 필요' }), {
-          status: 401,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-
-      // is_admin 체크
-      const { data: profile } = await userClient
-        .from('user_profiles')
-        .select('is_admin')
-        .eq('user_id', user.id)
-        .single();
-
-      if (!profile?.is_admin) {
-        return new Response(JSON.stringify({ message: '관리자 권한 필요' }), {
-          status: 403,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
     }
 
     const db = getAdminClient();

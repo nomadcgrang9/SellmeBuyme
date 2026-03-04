@@ -3564,8 +3564,8 @@ export const Hero: React.FC = () => {
         </button>
       </div>
 
-      {/* 모바일 바텀시트 (통합 목록: 공고+구직자+강사) - 길찾기 시트 열려있으면 숨김 */}
-      {!showDirectionsSheet && (
+      {/* 모바일 바텀시트 (통합 목록: 공고+구직자+강사) - 길찾기/채팅/즐겨찾기 열려있으면 숨김 */}
+      {!showDirectionsSheet && !isChatPanelOpen && !isFavoritesPanelOpen && (
         <div className="md:hidden">
           <MobileBottomSheet
             height={bottomSheetHeight}

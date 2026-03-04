@@ -96,17 +96,22 @@ export default function DesktopChatPanel() {
         <motion.div
           ref={panelRef}
           key="panel"
-          initial={{ opacity: 0, x: 40 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: 40 }}
-          transition={{ type: 'spring', damping: 28, stiffness: 320 }}
-          className="fixed inset-3 flex flex-col bg-white rounded-2xl overflow-hidden md:absolute md:inset-auto md:top-4 md:bottom-4 md:right-[128px] md:w-[420px]"
+          initial={{ opacity: 0, y: '100%' }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: '100%' }}
+          transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+          className="fixed bottom-0 left-0 right-0 h-[70vh] flex flex-col bg-white rounded-t-3xl overflow-hidden md:absolute md:inset-auto md:top-4 md:bottom-4 md:right-[128px] md:w-[420px] md:rounded-2xl md:h-auto"
           style={{
             zIndex: chatZ,
             boxShadow: '0 8px 32px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.08)',
             border: '1px solid rgba(0,0,0,0.06)',
           }}
         >
+          {/* 드래그 핸들 (모바일만) */}
+          <div className="flex justify-center pt-2 pb-1 md:hidden">
+            <div className="w-10 h-1 bg-gray-300 rounded-full" />
+          </div>
+
           {/* 비로그인 */}
           {!user ? (
             <>

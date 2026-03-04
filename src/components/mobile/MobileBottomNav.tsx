@@ -58,7 +58,7 @@ export default function MobileBottomNav({
   const ViewIcon = currentViewConfig.icon;
 
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-white/95 backdrop-blur-sm shadow-[0_-2px_10px_rgba(0,0,0,0.08)] pb-safe">
+    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-white/95 backdrop-blur-sm shadow-[0_-4px_12px_rgba(0,0,0,0.15)] pb-safe">
       <div className="flex items-center justify-around h-16 px-2">
         {/* 1. 홈 버튼 */}
         <NavButton
@@ -113,7 +113,7 @@ export default function MobileBottomNav({
           <div className="p-1.5 rounded-full bg-blue-500 text-white">
             <Plus size={20} strokeWidth={2} />
           </div>
-          <span className="text-[10px] font-medium text-gray-400">등록</span>
+          <span className="text-[10px] font-medium text-gray-500">등록</span>
         </motion.button>
 
         {/* 4. 와글와글 버튼 */}
@@ -167,8 +167,8 @@ function NavButton({
       <div className="relative">
         <Icon
           size={24}
-          strokeWidth={1.5}
-          className={isActive ? 'text-[#4facfe]' : 'text-gray-400'}
+          strokeWidth={isActive ? 2 : 1.5}
+          className={isActive ? 'text-gray-900' : 'text-gray-500'}
         />
         {badge && badge > 0 && (
           <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold">
@@ -178,7 +178,7 @@ function NavButton({
       </div>
       <span
         className={`text-[10px] font-medium ${
-          isActive ? 'text-[#4facfe]' : 'text-gray-400'
+          isActive ? 'text-gray-900 font-semibold' : 'text-gray-500'
         }`}
       >
         {label}
@@ -186,7 +186,7 @@ function NavButton({
       {isActive && (
         <motion.div
           layoutId="navIndicator"
-          className="absolute -bottom-1 w-1 h-1 rounded-full bg-[#4facfe]"
+          className="absolute -bottom-0.5 w-5 h-[2px] rounded-full bg-gray-900"
           transition={{ type: 'spring', stiffness: 500, damping: 30 }}
         />
       )}

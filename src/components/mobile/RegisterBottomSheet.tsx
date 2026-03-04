@@ -22,7 +22,7 @@ export default function RegisterBottomSheet({
       />
 
       {/* 바텀시트 */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-3xl shadow-2xl animate-slide-up pb-safe">
+      <div className="md:hidden fixed bottom-[64px] left-0 right-0 z-50 bg-white rounded-t-3xl shadow-2xl animate-slide-up pb-safe">
         {/* 핸들 */}
         <div className="flex justify-center pt-3 pb-2">
           <div className="w-10 h-1 bg-gray-300 rounded-full" />
