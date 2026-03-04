@@ -18,13 +18,21 @@ export function WagleHashtagsDisplay({ hashtags, onHashtagClick }: WagleHashtags
   return (
     <div className="flex flex-wrap gap-1.5">
       {hashtags.map((tag) => (
-        <button
+        <span
           key={tag}
-          onClick={() => onHashtagClick?.(tag)}
+          role="button"
+          tabIndex={0}
+          onClick={(e) => {
+            e.stopPropagation();
+            onHashtagClick?.(tag);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') onHashtagClick?.(tag);
+          }}
           className="text-xs text-blue-600 hover:underline cursor-pointer"
         >
           #{tag}
-        </button>
+        </span>
       ))}
     </div>
   );
