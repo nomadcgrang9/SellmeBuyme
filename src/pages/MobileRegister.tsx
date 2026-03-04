@@ -20,6 +20,8 @@ import FileUploadField from '@/components/forms/FileUploadField';
 import { createJobPosting, createTalent, createExperience } from '@/lib/supabase/queries';
 import type { CreateJobPostingInput } from '@/lib/supabase/queries';
 import MobileBottomNav from '@/components/mobile/MobileBottomNav';
+import { useActivityTracking } from '@/lib/hooks/useActivityTracking';
+import { useGeolocation } from '@/lib/hooks/useGeolocation';
 
 type RegistrationType = 'job' | 'talent' | 'experience';
 
@@ -29,6 +31,10 @@ export default function MobileRegister() {
   const initialType: RegistrationType = (urlType && ['job', 'talent', 'experience'].includes(urlType)) ? urlType : 'job';
   const [registrationType, setRegistrationType] = useState<RegistrationType>(initialType);
   const [currentBottomTab, setCurrentBottomTab] = useState<'home' | 'wagle' | 'profile' | null>(null);
+
+  // 지역별 접속 통계 수집
+  useGeolocation();
+  useActivityTracking();
 
   const handleBack = () => {
     window.history.back();

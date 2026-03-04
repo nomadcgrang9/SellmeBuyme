@@ -14,6 +14,8 @@ import {
   RECOMMENDED_KEYWORDS
 } from '@/lib/utils/searchHistory';
 import type { Card, JobPostingCard } from '@/types';
+import { useActivityTracking } from '@/lib/hooks/useActivityTracking';
+import { useGeolocation } from '@/lib/hooks/useGeolocation';
 
 const ITEMS_PER_PAGE = 20;
 
@@ -21,7 +23,11 @@ export default function MobileSearch() {
   const inputRef = useRef<HTMLInputElement>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
 
-  const { filters } = useSearchStore(); // Store에서 필터 가져오기
+  const { filters } = useSearchStore();
+
+  // 지역별 접속 통계 수집
+  useGeolocation();
+  useActivityTracking();
 
   const [searchInput, setSearchInput] = useState('');
   const [searchHistory, setSearchHistory] = useState(getSearchHistory());

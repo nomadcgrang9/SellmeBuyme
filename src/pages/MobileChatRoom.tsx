@@ -6,11 +6,15 @@ import { useEffect } from 'react';
 import { useChatStore } from '@/stores/chatStore';
 import { useAuthStore } from '@/stores/authStore';
 import ChatRoomView from '@/components/chat/ChatRoom';
+import { useActivityTracking } from '@/lib/hooks/useActivityTracking';
 
 export default function MobileChatRoom() {
   const roomId = window.location.pathname.split('/chat/')[1];
   const { user, status } = useAuthStore();
   const { setActiveRoom, activeRoomId } = useChatStore();
+
+  // 지역별 접속 통계 수집
+  useActivityTracking();
 
   useEffect(() => {
     if (roomId && user && roomId !== activeRoomId) {

@@ -415,8 +415,8 @@ export interface ChatSearchResult {
   user_id: string;
   display_name: string;
   profile_image_url: string | null;
-  source: 'profile' | 'talent';
-  subtitle?: string; // 인력: specialty
+  source: 'profile' | 'teacher' | 'instructor' | 'talent';
+  subtitle?: string;
 }
 
 export async function searchUsers(
@@ -425,53 +425,90 @@ export async function searchUsers(
   try {
     if (!query.trim()) return { data: [], error: null };
 
-    // 1) user_profiles 검색
-    const profileQuery = supabase
-      .from('user_profiles')
-      .select('user_id, display_name, profile_image_url')
-      .or(`display_name.ilike.%${query}%,phone.ilike.%${query}%`)
-      .limit(10);
-
-    // 2) talents 검색 (user_id 있는 것만 = 채팅 가능)
-    const talentQuery = supabase
-      .from('talents')
-      .select('user_id, name, specialty, profile_image_url')
-      .not('user_id', 'is', null)
-      .or(`name.ilike.%${query}%,specialty.ilike.%${query}%`)
-      .limit(10);
-
-    const [profileRes, talentRes] = await Promise.all([profileQuery, talentQuery]);
-
-    if (profileRes.error) throw profileRes.error;
+    // 4개 테이블 병렬 검색 (개별 .ilike → URL 인코딩 안전)
+    const [profileRes, teacherRes, instructorRes, talentRes] = await Promise.allSettled([
+      // 1) user_profiles
+      supabase.from('user_profiles')
+        .select('user_id, display_name, profile_image_url')
+        .ilike('display_name', `%${query}%`)
+        .limit(10),
+      // 2) teacher_markers (구직교사)
+      supabase.from('teacher_markers')
+        .select('user_id, nickname, profile_image_url, sub_categories')
+        .eq('is_active', true)
+        .ilike('nickname', `%${query}%`)
+        .limit(10),
+      // 3) instructor_markers (연수강사)
+      supabase.from('instructor_markers')
+        .select('user_id, display_name, profile_image_url, specialties')
+        .eq('is_active', true)
+        .ilike('display_name', `%${query}%`)
+        .limit(10),
+      // 4) talents (인력풀, 계정 연결된 것만)
+      supabase.from('talents')
+        .select('user_id, name, specialty')
+        .not('user_id', 'is', null)
+        .ilike('name', `%${query}%`)
+        .limit(10),
+    ]);
 
     const results: ChatSearchResult[] = [];
     const seenUserIds = new Set<string>();
 
-    // 프로필 결과
-    for (const p of (profileRes.data || [])) {
-      if (!seenUserIds.has(p.user_id)) {
-        seenUserIds.add(p.user_id);
-        results.push({
-          user_id: p.user_id,
-          display_name: p.display_name || '이름 없음',
-          profile_image_url: p.profile_image_url,
-          source: 'profile',
-        });
-      }
+    // 안전하게 데이터 추출하는 헬퍼
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const rows = (res: PromiseSettledResult<any>): any[] =>
+      res.status === 'fulfilled' && !res.value.error ? (res.value.data || []) : [];
+
+    // 1) 프로필
+    for (const p of rows(profileRes)) {
+      if (seenUserIds.has(p.user_id)) continue;
+      seenUserIds.add(p.user_id);
+      results.push({
+        user_id: p.user_id,
+        display_name: p.display_name || '이름 없음',
+        profile_image_url: p.profile_image_url,
+        source: 'profile',
+      });
     }
 
-    // 인력 결과 (프로필에 없는 user_id만 추가)
-    for (const t of (talentRes.data || [])) {
-      if (t.user_id && !seenUserIds.has(t.user_id)) {
-        seenUserIds.add(t.user_id);
-        results.push({
-          user_id: t.user_id,
-          display_name: t.name || '이름 없음',
-          profile_image_url: t.profile_image_url,
-          source: 'talent',
-          subtitle: t.specialty || undefined,
-        });
-      }
+    // 2) 구직교사
+    for (const t of rows(teacherRes)) {
+      if (seenUserIds.has(t.user_id)) continue;
+      seenUserIds.add(t.user_id);
+      results.push({
+        user_id: t.user_id,
+        display_name: t.nickname || '이름 없음',
+        profile_image_url: t.profile_image_url,
+        source: 'teacher',
+        subtitle: t.sub_categories?.join(', ') || undefined,
+      });
+    }
+
+    // 3) 연수강사
+    for (const i of rows(instructorRes)) {
+      if (seenUserIds.has(i.user_id)) continue;
+      seenUserIds.add(i.user_id);
+      results.push({
+        user_id: i.user_id,
+        display_name: i.display_name || '이름 없음',
+        profile_image_url: i.profile_image_url,
+        source: 'instructor',
+        subtitle: i.specialties?.join(', ') || undefined,
+      });
+    }
+
+    // 4) 인력풀
+    for (const t of rows(talentRes)) {
+      if (!t.user_id || seenUserIds.has(t.user_id)) continue;
+      seenUserIds.add(t.user_id);
+      results.push({
+        user_id: t.user_id,
+        display_name: t.name || '이름 없음',
+        profile_image_url: null,
+        source: 'talent',
+        subtitle: t.specialty || undefined,
+      });
     }
 
     return { data: results.slice(0, 10), error: null };

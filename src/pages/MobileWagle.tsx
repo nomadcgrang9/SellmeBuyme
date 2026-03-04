@@ -11,10 +11,16 @@ import WagleFeed from '@/components/wagle/WagleFeed';
 import WagleComposer from '@/components/wagle/WagleComposer';
 import type { WagleThread } from '@/types/wagle';
 import { supabase } from '@/lib/supabase/client';
+import { useActivityTracking } from '@/lib/hooks/useActivityTracking';
+import { useGeolocation } from '@/lib/hooks/useGeolocation';
 
 export default function MobileWagle() {
   const { user, status, initialize } = useAuthStore();
   const { isComposerOpen, setComposerOpen, loadUnreadCount } = useWagleStore();
+
+  // 지역별 접속 통계 수집
+  useGeolocation();
+  useActivityTracking();
 
   // 인증 초기화
   useEffect(() => {

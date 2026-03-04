@@ -9,6 +9,7 @@ import { useWagleStore } from '@/stores/wagleStore';
 import { useWagleRealtime } from '@/hooks/useWagleRealtime';
 import WagleThreadDetail from '@/components/wagle/WagleThreadDetail';
 import WagleReplyInput from '@/components/wagle/WagleReplyInput';
+import { useActivityTracking } from '@/lib/hooks/useActivityTracking';
 
 export default function MobileWagleThread() {
   const threadId = window.location.pathname.split('/wagle/')[1];
@@ -20,6 +21,9 @@ export default function MobileWagleThread() {
     loadThread,
     loadReplies,
   } = useWagleStore();
+
+  // 지역별 접속 통계 수집
+  useActivityTracking();
 
   const [replyTarget, setReplyTarget] = useState<{
     parentId: string | null;
