@@ -132,17 +132,35 @@ export function useChatRealtime(roomId: string | null) {
 
 /**
  * 글로벌 채팅 알림 구독 (채팅 목록용)
- * - chat_participants.unread_count 변경 감지 → 배지 갱신
+ * - chat_participants 변경 감지 (INSERT + UPDATE) → 배지 갱신
+ * - 탭 전환 시 폴백으로 unread count 재로드
  */
 export function useChatGlobalRealtime() {
   const { user } = useAuthStore();
-  const { loadUnreadCount, loadRooms, isDesktopPanelOpen } = useChatStore();
 
   useEffect(() => {
     if (!user) return;
 
+    const handleChange = () => {
+      const store = useChatStore.getState();
+      store.loadUnreadCount();
+      if (store.isDesktopPanelOpen) {
+        store.loadRooms();
+      }
+    };
+
     const channel = supabase
-      .channel('chat:global')
+      .channel(`chat:global:${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'chat_participants',
+          filter: `user_id=eq.${user.id}`,
+        },
+        handleChange
+      )
       .on(
         'postgres_changes',
         {
@@ -151,18 +169,21 @@ export function useChatGlobalRealtime() {
           table: 'chat_participants',
           filter: `user_id=eq.${user.id}`,
         },
-        () => {
-          loadUnreadCount();
-          // 패널이 열려있으면 목록도 갱신
-          if (isDesktopPanelOpen) {
-            loadRooms();
-          }
-        }
+        handleChange
       )
       .subscribe();
 
+    // 탭 전환 시 폴백: unread count 재로드
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        useChatStore.getState().loadUnreadCount();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
     return () => {
       supabase.removeChannel(channel);
+      document.removeEventListener('visibilitychange', handleVisibility);
     };
-  }, [user, loadUnreadCount, loadRooms, isDesktopPanelOpen]);
+  }, [user]);
 }
