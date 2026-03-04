@@ -3,10 +3,10 @@ import { TalentCard as TalentCardType } from '@/types';
 import { IconMapPin, IconBriefcase, IconStar, IconPhone, IconAt, IconHeart } from '@tabler/icons-react';
 import { MessageCircle } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
+import { useChatStore } from '@/stores/chatStore';
 import { useBookmarkStore } from '@/stores/bookmarkStore';
 import { formatLocationDisplay } from '@/lib/constants/regionHierarchy';
 import { getTalentImage, handleImageError } from '@/lib/utils/cardImages';
-import { createOrGetChatRoom } from '@/lib/supabase/chat';
 import { addBookmark, removeBookmark } from '@/lib/supabase/queries';
 import { useToastStore } from '@/stores/toastStore';
 
@@ -71,46 +71,11 @@ function TalentCard({ talent, onEditClick, isHighlight, onOpenChatModal }: Talen
     }
   };
 
-  // 채팅 시작 핸들러
-  const handleChatClick = async (e: React.MouseEvent) => {
+  // 1:1 채팅 시작 핸들러
+  const handleChatClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-
-    if (!user) {
-      alert('로그인이 필요한 기능입니다');
-      return;
-    }
-
-    if (!talent.user_id) {
-      alert('이 인력과는 채팅할 수 없습니다');
-      return;
-    }
-
-    try {
-      const { data: roomId, error } = await createOrGetChatRoom({
-        other_user_id: talent.user_id,
-        context_type: 'talent',
-        context_card_id: talent.id,
-      });
-
-      if (error || !roomId) {
-        console.error('채팅방 생성 실패:', error);
-        alert('채팅방을 생성할 수 없습니다');
-        return;
-      }
-
-      // 화면 크기에 따라 분기
-      const isMobile = window.innerWidth < 768;
-      if (isMobile) {
-        // 모바일: 페이지 이동
-        window.location.href = `/chat/${roomId}`;
-      } else {
-        // 데스크톱: 모달 열기
-        onOpenChatModal?.(roomId);
-      }
-    } catch (err) {
-      console.error('채팅 시작 오류:', err);
-      alert('채팅을 시작할 수 없습니다');
-    }
+    if (!talent.user_id) return;
+    useChatStore.getState().openChat(talent.user_id, 'talent', talent.id);
   };
 
   return (

@@ -45,6 +45,14 @@ import ComingSoonModal from '@/components/common/ComingSoonModal';
 import InstructorInfoModal from '@/components/mobile/InstructorInfoModal';
 import InstructorMarkerModal from '@/components/map/InstructorMarkerModal';
 import FloatingLocationButton from '@/components/map/FloatingLocationButton';
+import DesktopWaglePanel from '@/components/wagle/DesktopWaglePanel';
+import DesktopChatPanel from '@/components/chat/DesktopChatPanel';
+import FavoritesPanel from '@/components/bookmark/FavoritesPanel';
+import { useWagleStore } from '@/stores/wagleStore';
+import { useChatStore } from '@/stores/chatStore';
+import { useSidePanelStore } from '@/stores/sidePanelStore';
+import { useBookmarkStore } from '@/stores/bookmarkStore';
+import { fetchUserBookmarkIds } from '@/lib/supabase/queries';
 
 // 간단한 debounce 유틸리티
 function debounce<T extends (...args: any[]) => void>(fn: T, delay: number): T & { cancel: () => void } {
@@ -88,6 +96,10 @@ import { type MarkerLayer, type TeacherMarker, type ProgramMarker, MARKER_COLORS
 import { type InstructorMarker, INSTRUCTOR_MARKER_COLORS } from '@/types/instructorMarkers';
 import { useAutoScaleMap } from '@/hooks/useAutoScaleMap';
 import TermsAgreementModal from '@/components/auth/TermsAgreementModal';
+import PopupBannerModal from '@/components/popup/PopupBannerModal';
+import CardBannerItem from '@/components/cards/CardBannerItem';
+import { getNativeBannerConfig, getNativeBanners } from '@/lib/supabase/hero-banner';
+import type { NativeBannerConfig, NativeBanner } from '@/types/hero-banner';
 import { fetchUserProfile } from '@/lib/supabase/profiles';
 
 // ============================================
@@ -156,6 +168,15 @@ export const Hero: React.FC = () => {
   // 마커 등록 관련 상태
   const { user, status: authStatus } = useAuthStore();
   const { showToast } = useToastStore();
+  const isWagleDrawerOpen = useWagleStore(s => s.isDesktopPanelOpen);
+  const isChatPanelOpen = useChatStore(s => s.isDesktopPanelOpen);
+  const activeSidePanel = useSidePanelStore(s => s.activePanel);
+
+  // 즐겨찾기 패널 상태
+  const [isFavoritesPanelOpen, setIsFavoritesPanelOpen] = useState(false);
+  const openFavoritesDrawer = useCallback(() => {
+    setIsFavoritesPanelOpen(true);
+  }, []);
 
   // 공고 수정용 상태
   const [editJobData, setEditJobData] = useState<JobPostingCard | null>(null);
@@ -197,19 +218,15 @@ export const Hero: React.FC = () => {
   // ★ 로그인 성공 후 pendingAction 처리 (등록 플로우 이어가기)
   useEffect(() => {
     if (user && pendingAction && !isAuthModalOpen) {
-      // 로그인 완료 + 대기 액션 있음 + 모달 닫힘
       if (pendingAction === 'register') {
         setPendingAction(null);
-        // 구직등록: LocationPicker 스킵, 바로 모달 열기 (위치는 모달 내에서 선택)
-        setIsTeacherModalOpen(true);
+        useSidePanelStore.getState().openPanel('register');
       } else if (pendingAction === 'jobPost') {
         setPendingAction(null);
-        setLocationPickerType('jobPosting');
-        setIsLocationPickerOpen(true);
+        useSidePanelStore.getState().openPanel('jobPost');
       } else if (pendingAction === 'instructor') {
         setPendingAction(null);
-        // 강사등록: LocationPicker 스킵, 바로 모달 열기 (위치는 모달 내에서 선택)
-        setIsInstructorRegisterModalOpen(true);
+        useSidePanelStore.getState().openPanel('instructor');
       }
     }
   }, [user, pendingAction, isAuthModalOpen]);
@@ -218,6 +235,10 @@ export const Hero: React.FC = () => {
 
   // 약관동의 모달 상태
   const [needsTermsAgreement, setNeedsTermsAgreement] = useState(false);
+
+  // 카드배너 상태
+  const [cardBannerConfig, setCardBannerConfig] = useState<NativeBannerConfig | null>(null);
+  const [cardBanners, setCardBanners] = useState<NativeBanner[]>([]);
 
   // 로그인 사용자 약관동의 여부 체크
   useEffect(() => {
@@ -500,6 +521,8 @@ export const Hero: React.FC = () => {
   const [teacherMarkers, setTeacherMarkers] = useState<TeacherMarker[]>([]);
   const [programMarkers, setProgramMarkers] = useState<ProgramMarker[]>([]);
   const [instructorMarkers, setInstructorMarkers] = useState<InstructorMarker[]>([]);
+  const [editingTeacherMarker, setEditingTeacherMarker] = useState<TeacherMarker | null>(null);
+  const [editingInstructorMarker, setEditingInstructorMarker] = useState<InstructorMarker | null>(null);
   const teacherMapMarkersRef = useRef<any[]>([]);
   const programMapMarkersRef = useRef<any[]>([]);
   const instructorMapMarkersRef = useRef<any[]>([]);
@@ -911,11 +934,44 @@ export const Hero: React.FC = () => {
     return parts.join('+');
   }, [showJobLayer, showSeekerLayer, showInstructorLayer]);
 
+  // 카드배너 로드
+  useEffect(() => {
+    async function loadCardBanners() {
+      try {
+        const [cfg, banners] = await Promise.all([
+          getNativeBannerConfig(),
+          getNativeBanners(true), // filterActive = true
+        ]);
+        if (cfg) setCardBannerConfig(cfg);
+        setCardBanners(banners);
+      } catch (err) {
+        console.error('Failed to load card banners:', err);
+      }
+    }
+    loadCardBanners();
+  }, []);
+
   // 인증 상태 초기화
   const { initialize: initializeAuth } = useAuthStore();
   useEffect(() => {
     initializeAuth();
   }, [initializeAuth]);
+
+  // 로그인 시 북마크 + 채팅 unread count 초기 로드
+  const { loadBookmarks } = useBookmarkStore();
+  const { loadUnreadCount } = useChatStore();
+  useEffect(() => {
+    if (!user?.id) {
+      loadBookmarks([], 0);
+      return;
+    }
+    // 북마크 ID 로드
+    fetchUserBookmarkIds(user.id)
+      .then((ids) => loadBookmarks(ids, ids.length))
+      .catch(() => loadBookmarks([], 0));
+    // 채팅 unread count 로드
+    loadUnreadCount();
+  }, [user?.id, loadBookmarks, loadUnreadCount]);
 
   // Load Kakao Maps SDK
   useEffect(() => {
@@ -2524,19 +2580,29 @@ export const Hero: React.FC = () => {
         />
       )}
 
-      {/* 구직 교사 마커 등록 모달 */}
+      {/* 접속배너 팝업 */}
+      <PopupBannerModal />
+
+      {/* 구직 교사 마커 등록 사이드 패널 */}
       <TeacherMarkerModal
-        isOpen={isTeacherModalOpen}
+        isOpen={activeSidePanel === 'register'}
         onClose={() => {
-          setIsTeacherModalOpen(false);
+          useSidePanelStore.getState().closePanel();
+          setEditingTeacherMarker(null);
           setPendingMarkerCoords(null);
           setPendingMarkerAddress('');
         }}
+        editData={editingTeacherMarker}
         onSuccess={(newMarker) => {
-          // 방안 2: 낙관적 업데이트 - 새로 등록된 마커를 즉시 state에 추가
           if (newMarker) {
-            console.log('[Hero] 낙관적 업데이트 - 새 구직 마커 추가:', newMarker.id);
-            setTeacherMarkers(prev => [newMarker, ...prev]);
+            if (editingTeacherMarker) {
+              // 수정: 기존 마커 교체
+              setTeacherMarkers(prev => prev.map(m => m.id === newMarker.id ? newMarker : m));
+            } else {
+              // 신규: 추가
+              setTeacherMarkers(prev => [newMarker, ...prev]);
+            }
+            setEditingTeacherMarker(null);
 
             // 지도를 새 마커 위치로 이동
             if (newMarker.latitude && newMarker.longitude && mapInstanceRef.current) {
@@ -2580,10 +2646,11 @@ export const Hero: React.FC = () => {
         }}
       />
 
-      {/* 공고 등록/수정 모달 */}
+      {/* 공고 등록/수정 사이드 패널 */}
       <JobPostingModal
-        isOpen={isJobPostingModalOpen}
+        isOpen={activeSidePanel === 'jobPost' || isJobPostingModalOpen}
         onClose={() => {
+          useSidePanelStore.getState().closePanel();
           setIsJobPostingModalOpen(false);
           setPendingMarkerCoords(null);
           setPendingMarkerAddress('');
@@ -2645,34 +2712,46 @@ export const Hero: React.FC = () => {
         }}
       />
 
-      {/* 하단 우측: 통합 필터 바 (레이어 토글 + 필터 바 붙어있는 형태) */}
-      <div className="hidden md:block absolute bottom-4 right-4 z-20">
-        <CascadingFilterBarWithLayerToggle
-          filter={cascadingFilter}
-          onFilterChange={setCascadingFilter}
-          showJobLayer={showJobLayer}
-          showSeekerLayer={showSeekerLayer}
-          showInstructorLayer={showInstructorLayer}
-          onJobLayerToggle={() => setShowJobLayer(prev => !prev)}
-          onSeekerLayerToggle={() => setShowSeekerLayer(prev => !prev)}
-          onInstructorLayerToggle={() => {
-            setShowInstructorLayer(prev => {
-              const newValue = !prev;
-              if (newValue) {
-                // 교원연수강사만 보기 ON → 필터도 교원연수로 자동 전환
-                setCascadingFilter({ primary: '교원연수', secondary: null, tertiary: null });
-              } else {
-                // 교원연수강사만 보기 OFF → 다른 토글도 모두 OFF면 필터 초기화
-                // (showJobLayer, showSeekerLayer는 현재 값 기준)
-                if (!showJobLayer && !showSeekerLayer) {
-                  setCascadingFilter({ primary: null, secondary: null, tertiary: null });
-                }
-              }
-              return newValue;
-            });
+      {/* 하단 우측: 통합 필터 바 or 플로팅 버튼 (사이드 패널 열림 시) */}
+      {(isWagleDrawerOpen || isChatPanelOpen || isFavoritesPanelOpen || !!activeSidePanel) ? (
+        <button
+          onClick={() => {
+            useWagleStore.getState().setDesktopPanelOpen(false);
+            useChatStore.getState().closePanel();
+            setIsFavoritesPanelOpen(false);
+            useSidePanelStore.getState().closePanel();
           }}
-        />
-      </div>
+          className="hidden md:flex items-center gap-1.5 absolute bottom-6 left-1/2 -translate-x-1/2 z-20 px-4 py-2.5 bg-gray-900 text-white text-sm font-medium rounded-full shadow-lg hover:bg-gray-800 transition-colors"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>
+          검색필터
+        </button>
+      ) : (
+        <div className="hidden md:block absolute bottom-4 right-4 z-20">
+          <CascadingFilterBarWithLayerToggle
+            filter={cascadingFilter}
+            onFilterChange={setCascadingFilter}
+            showJobLayer={showJobLayer}
+            showSeekerLayer={showSeekerLayer}
+            showInstructorLayer={showInstructorLayer}
+            onJobLayerToggle={() => setShowJobLayer(prev => !prev)}
+            onSeekerLayerToggle={() => setShowSeekerLayer(prev => !prev)}
+            onInstructorLayerToggle={() => {
+              setShowInstructorLayer(prev => {
+                const newValue = !prev;
+                if (newValue) {
+                  setCascadingFilter({ primary: '교원연수', secondary: null, tertiary: null });
+                } else {
+                  if (!showJobLayer && !showSeekerLayer) {
+                    setCascadingFilter({ primary: null, secondary: null, tertiary: null });
+                  }
+                }
+                return newValue;
+              });
+            }}
+          />
+        </div>
+      )}
 
       {/* 우측 상단: 사이드패널 + 현재위치 버튼 - PC만 */}
       <div className="hidden md:flex flex-col items-center gap-2 absolute top-4 right-4 z-20">
@@ -2690,7 +2769,10 @@ export const Hero: React.FC = () => {
               setIsAuthModalOpen(true);
               return;
             }
-            setIsTeacherModalOpen(true);
+            setIsFavoritesPanelOpen(false);
+            setEditingTeacherMarker(null);
+            useSidePanelStore.getState().bringToFront('register');
+            useSidePanelStore.getState().togglePanel('register');
           }}
           onJobPostClick={() => {
             if (!user) {
@@ -2699,19 +2781,45 @@ export const Hero: React.FC = () => {
               setIsAuthModalOpen(true);
               return;
             }
-            setLocationPickerType('jobPosting');
-            setIsLocationPickerOpen(true);
+            setIsFavoritesPanelOpen(false);
+            useSidePanelStore.getState().bringToFront('jobPost');
+            useSidePanelStore.getState().togglePanel('jobPost');
           }}
           onFavoritesClick={() => {
-            setComingSoonFeature('즐겨찾기');
-            setIsComingSoonOpen(true);
+            if (!user) {
+              setAuthModalInitialTab('login');
+              setIsAuthModalOpen(true);
+              return;
+            }
+            // 하나만 열리게: 즐겨찾기 열면 다른 패널 모두 닫기
+            const nextOpen = !isFavoritesPanelOpen;
+            if (nextOpen) {
+              useWagleStore.getState().setDesktopPanelOpen(false);
+              useChatStore.getState().closePanel();
+              useSidePanelStore.getState().closePanel();
+              useSidePanelStore.getState().bringToFront('favorites');
+            }
+            setIsFavoritesPanelOpen(nextOpen);
           }}
           onChatClick={() => {
-            setComingSoonFeature('채팅');
-            setIsComingSoonOpen(true);
+            // 채팅 열면 다른 패널 모두 닫기
+            useWagleStore.getState().setDesktopPanelOpen(false);
+            setIsFavoritesPanelOpen(false);
+            useSidePanelStore.getState().closePanel();
+            useSidePanelStore.getState().bringToFront('chat');
+            useChatStore.getState().openPanel();
           }}
           onInstructorRegisterClick={() => {
-            setIsInstructorModalOpen(true);
+            if (!user) {
+              setPendingAction('instructor');
+              setAuthModalInitialTab('login');
+              setIsAuthModalOpen(true);
+              return;
+            }
+            setIsFavoritesPanelOpen(false);
+            setEditingInstructorMarker(null);
+            useSidePanelStore.getState().bringToFront('instructor');
+            useSidePanelStore.getState().togglePanel('instructor');
           }}
           onLoginClick={() => {
             if (user) {
@@ -2724,6 +2832,8 @@ export const Hero: React.FC = () => {
           isLoggedIn={!!user}
           userProfileImage={null}
           userName={user?.email?.split('@')[0] || null}
+          onCloseFavorites={() => setIsFavoritesPanelOpen(false)}
+          onOpenFavorites={openFavoritesDrawer}
         />
         {/* 현재위치 버튼 - 사이드패널 바로 아래 */}
         <FloatingLocationButton mapInstance={mapInstanceRef.current} />
@@ -2737,6 +2847,31 @@ export const Hero: React.FC = () => {
           </button>
         )}
       </div>
+
+      {/* 와글와글 데스크탑 패널 */}
+      <DesktopWaglePanelWrapper />
+
+      {/* 1:1 채팅 데스크탑 패널 */}
+      <DesktopChatPanelWrapper />
+
+      {/* 즐겨찾기 데스크탑 패널 */}
+      <FavoritesPanel
+        isOpen={isFavoritesPanelOpen}
+        onClose={() => setIsFavoritesPanelOpen(false)}
+        onJobCardClick={(job) => {
+          setIsFavoritesPanelOpen(false);
+          setSelectedJob(job);
+          // 지도에서 해당 공고 마커로 이동
+          if (mapInstanceRef.current && window.kakao?.maps) {
+            const lat = job.latitude;
+            const lng = job.longitude;
+            if (lat && lng) {
+              mapInstanceRef.current.setCenter(new window.kakao.maps.LatLng(lat, lng));
+              mapInstanceRef.current.setLevel(5);
+            }
+          }
+        }}
+      />
 
       {/* 구현 예정 모달 */}
       <ComingSoonModal
@@ -2761,15 +2896,23 @@ export const Hero: React.FC = () => {
         }}
       />
 
-      {/* 교원연수 강사등록 실제 모달 */}
+      {/* 교원연수 강사등록 사이드 패널 */}
       <InstructorMarkerModal
-        isOpen={isInstructorRegisterModalOpen}
-        onClose={() => setIsInstructorRegisterModalOpen(false)}
+        isOpen={activeSidePanel === 'instructor' || isInstructorRegisterModalOpen}
+        onClose={() => {
+          useSidePanelStore.getState().closePanel();
+          setIsInstructorRegisterModalOpen(false);
+          setEditingInstructorMarker(null);
+        }}
+        editData={editingInstructorMarker}
         onSuccess={(newMarker) => {
-          // 방안 2: 낙관적 업데이트 - 새로 등록된 마커를 즉시 state에 추가
           if (newMarker) {
-            console.log('[Hero] 낙관적 업데이트 - 새 교원연수 강사 마커 추가:', newMarker.id);
-            setInstructorMarkers(prev => [newMarker, ...prev]);
+            if (editingInstructorMarker) {
+              setInstructorMarkers(prev => prev.map(m => m.id === newMarker.id ? newMarker : m));
+            } else {
+              setInstructorMarkers(prev => [newMarker, ...prev]);
+            }
+            setEditingInstructorMarker(null);
 
             // 지도를 새 마커 위치로 이동
             if (newMarker.latitude && newMarker.longitude && mapInstanceRef.current) {
@@ -2796,8 +2939,17 @@ export const Hero: React.FC = () => {
           marker={selectedMarker.marker}
           position={selectedMarker.position}
           onClose={() => setSelectedMarker(null)}
+          onEdit={(marker) => {
+            setEditingTeacherMarker(marker);
+            setSelectedMarker(null);
+            useSidePanelStore.getState().openPanel('register');
+          }}
+          onEditInstructor={(marker) => {
+            setEditingInstructorMarker(marker);
+            setSelectedMarker(null);
+            useSidePanelStore.getState().openPanel('instructor');
+          }}
           onDelete={() => {
-            // 삭제 완료 후 - 마커 목록 리로드
             setSelectedMarker(null);
             loadMarkerData();
           }}
@@ -2934,11 +3086,29 @@ export const Hero: React.FC = () => {
               />
             ) : (
               <div className="divide-y divide-gray-100" ref={jobListContainerRef}>
-                {unifiedVisibleItems.map((item) => {
-                  // 공고 카드
-                  if (item.type === 'job') {
-                    const job = item.data;
-                    return (
+                {(() => {
+                  // 카드배너를 N번째마다 삽입한 통합 렌더 리스트 생성
+                  const interval = cardBannerConfig?.isActive && cardBanners.length > 0
+                    ? (cardBannerConfig.insertionInterval || 5) : 0;
+                  const elements: React.ReactNode[] = [];
+                  let bannerIdx = 0;
+
+                  unifiedVisibleItems.forEach((item, itemIdx) => {
+                    // 배너 삽입 (첫 번째 위치 제외, interval마다)
+                    if (interval > 0 && itemIdx > 0 && itemIdx % interval === 0) {
+                      const banner = cardBanners[bannerIdx % cardBanners.length];
+                      elements.push(
+                        <div key={`ad-${itemIdx}`} className="px-4 py-2">
+                          <CardBannerItem banner={banner} />
+                        </div>
+                      );
+                      bannerIdx++;
+                    }
+
+                    // 원본 아이템 렌더링
+                    if (item.type === 'job') {
+                      const job = item.data;
+                      elements.push(
                       <div
                         key={`job-${job.id}`}
                         data-job-id={job.id}
@@ -3044,7 +3214,7 @@ export const Hero: React.FC = () => {
                     const hasSub = marker.sub_categories && marker.sub_categories.length > 0;
                     const mainBadgeText = hasSub ? marker.sub_categories![0] : (marker.primary_category || '');
                     const subBadgeText = hasSub ? marker.primary_category : '';
-                    return (
+                    elements.push(
                       <div
                         key={`teacher-${marker.id}`}
                         className={`group relative p-3 cursor-pointer transition-all border-l-4 ${selectedTeacher?.id === marker.id
@@ -3173,14 +3343,13 @@ export const Hero: React.FC = () => {
                     if (marker.target_audience?.length > 0) infoParts.push(marker.target_audience[0]);
                     if (marker.experience_years) infoParts.push(marker.experience_years);
 
-                    return (
+                    elements.push(
                       <div
                         key={`instructor-${marker.id}`}
-                        className={`group relative p-3 cursor-pointer transition-all border-l-4 ${
-                          isSelectedInstructor
-                            ? 'bg-sky-50/50'
-                            : 'hover:bg-gray-50'
-                        } ${!isActive ? 'opacity-60' : ''}`}
+                        className={`group relative p-3 cursor-pointer transition-all border-l-4 ${isSelectedInstructor
+                          ? 'bg-sky-50/50'
+                          : 'hover:bg-gray-50'
+                          } ${!isActive ? 'opacity-60' : ''}`}
                         style={{
                           borderLeftColor: isSelectedInstructor ? '#0EA5E9' : 'transparent',
                         }}
@@ -3276,8 +3445,10 @@ export const Hero: React.FC = () => {
                     );
                   }
 
-                  return null;
-                })}
+                  });
+
+                  return elements;
+                })()}
               </div>
             )}
           </div>
@@ -3412,7 +3583,10 @@ export const Hero: React.FC = () => {
               setIsAuthModalOpen(true);
               return;
             }
-            setIsTeacherModalOpen(true);
+            setIsFavoritesPanelOpen(false);
+            setEditingTeacherMarker(null);
+            useSidePanelStore.getState().bringToFront('register');
+            useSidePanelStore.getState().togglePanel('register');
           }}
           className="w-12 h-12 bg-sky-500 hover:bg-sky-600 active:bg-sky-700 rounded-xl shadow-lg flex items-center justify-center transition-all active:scale-95 text-white"
           aria-label="구직등록"
@@ -3429,8 +3603,9 @@ export const Hero: React.FC = () => {
               setIsAuthModalOpen(true);
               return;
             }
-            setLocationPickerType('jobPosting');
-            setIsLocationPickerOpen(true);
+            setIsFavoritesPanelOpen(false);
+            useSidePanelStore.getState().bringToFront('jobPost');
+            useSidePanelStore.getState().togglePanel('jobPost');
           }}
           className="w-12 h-12 bg-blue-500 hover:bg-blue-600 active:bg-blue-700 rounded-xl shadow-lg flex items-center justify-center transition-all active:scale-95 text-white"
           aria-label="공고등록"
@@ -3441,7 +3616,15 @@ export const Hero: React.FC = () => {
         {/* 강사등록 버튼 */}
         <button
           onClick={() => {
-            setIsInstructorModalOpen(true);
+            if (!user) {
+              setPendingAction('instructor');
+              setAuthModalInitialTab('login');
+              setIsAuthModalOpen(true);
+              return;
+            }
+            setIsFavoritesPanelOpen(false);
+            useSidePanelStore.getState().bringToFront('instructor');
+            useSidePanelStore.getState().togglePanel('instructor');
           }}
           className="w-12 h-12 bg-pink-500 hover:bg-pink-600 active:bg-pink-700 rounded-xl shadow-lg flex items-center justify-center transition-all active:scale-95 text-white"
           aria-label="강사등록"
@@ -3449,7 +3632,22 @@ export const Hero: React.FC = () => {
           <span className="text-[11px] font-bold leading-tight text-center">강사<br />등록</span>
         </button>
 
-        {/* 현재위치 버튼 */}
+        {/* 와글와글 버튼 */}
+        <button
+          onClick={() => {
+            useChatStore.getState().closePanel();
+            setIsFavoritesPanelOpen(false);
+            useSidePanelStore.getState().closePanel();
+            useSidePanelStore.getState().bringToFront('wagle');
+            useWagleStore.getState().setDesktopPanelOpen(true);
+          }}
+          className="w-12 h-12 bg-amber-700 hover:bg-amber-800 active:bg-amber-900 rounded-xl shadow-lg flex items-center justify-center transition-all active:scale-95 text-white"
+          aria-label="와글와글"
+        >
+          <span className="text-[10px] font-bold leading-tight text-center">와글<br />와글</span>
+        </button>
+
+        {/* 현재위치 버튼 - 원형 플로팅 */}
         <button
           onClick={() => {
             if (!navigator.geolocation) return;
@@ -3473,7 +3671,7 @@ export const Hero: React.FC = () => {
             );
           }}
           disabled={isLocating}
-          className="w-11 h-11 bg-white hover:bg-gray-50 rounded-xl shadow-lg flex items-center justify-center border border-gray-200 disabled:opacity-50"
+          className="w-11 h-11 bg-white hover:bg-gray-50 rounded-full shadow-lg flex items-center justify-center border border-gray-200 disabled:opacity-50 mt-1"
           aria-label="현재위치"
         >
           {isLocating ? (
@@ -3498,74 +3696,91 @@ export const Hero: React.FC = () => {
             label={mobileBottomSheetLabel}
           >
             <div className="space-y-3 pb-20">
-              {unifiedVisibleItems.map((item) => {
-                if (item.type === 'job') {
-                  const job = item.data;
-                  return (
-                    <MobileJobCard
-                      key={`job-${job.id}`}
-                      job={job}
-                      isSelected={selectedJob?.id === job.id}
-                      onClick={() => {
-                        setSelectedJob(job);
-                        setShowMobileDetail(true);
-                        const keyword = job.organization || job.location;
-                        if (keyword && coordsCacheRef.current.has(keyword)) {
-                          const coords = coordsCacheRef.current.get(keyword)!;
-                          if (mapInstanceRef.current) {
-                            mapInstanceRef.current.panTo(
-                              new window.kakao.maps.LatLng(coords.lat, coords.lng)
-                            );
+              {(() => {
+                const elements: React.ReactNode[] = [];
+                const interval = cardBannerConfig?.insertionInterval || 5;
+                let cardIndex = 0;
+
+                unifiedVisibleItems.forEach((item) => {
+                  // 카드배너 삽입
+                  if (
+                    cardBannerConfig?.isActive &&
+                    cardBanners.length > 0 &&
+                    cardIndex > 0 &&
+                    cardIndex % interval === 0
+                  ) {
+                    const bannerIdx = Math.floor(cardIndex / interval - 1) % cardBanners.length;
+                    elements.push(
+                      <CardBannerItem key={`card-banner-m-${cardIndex}`} banner={cardBanners[bannerIdx]} />
+                    );
+                  }
+
+                  if (item.type === 'job') {
+                    const job = item.data;
+                    elements.push(
+                      <MobileJobCard
+                        key={`job-${job.id}`}
+                        job={job}
+                        isSelected={selectedJob?.id === job.id}
+                        onClick={() => {
+                          setSelectedJob(job);
+                          setShowMobileDetail(true);
+                          const keyword = job.organization || job.location;
+                          if (keyword && coordsCacheRef.current.has(keyword)) {
+                            const coords = coordsCacheRef.current.get(keyword)!;
+                            if (mapInstanceRef.current) {
+                              mapInstanceRef.current.panTo(
+                                new window.kakao.maps.LatLng(coords.lat, coords.lng)
+                              );
+                            }
                           }
-                        }
-                      }}
-                      onDetailClick={() => {
-                        setSelectedJob(job);
-                        setShowMobileDetail(true);
-                      }}
-                      onDirectionsClick={() => handleDirectionsClick(job)}
-                    />
-                  );
-                }
+                        }}
+                        onDetailClick={() => {
+                          setSelectedJob(job);
+                          setShowMobileDetail(true);
+                        }}
+                        onDirectionsClick={() => handleDirectionsClick(job)}
+                      />
+                    );
+                  } else if (item.type === 'teacher') {
+                    const marker = item.data;
+                    elements.push(
+                      <MobileTeacherCard
+                        key={`teacher-${marker.id}`}
+                        teacher={marker}
+                        isSelected={selectedTeacher?.id === marker.id}
+                        onClick={() => {
+                          setSelectedJob(null);
+                          setSelectedInstructor(null);
+                          setSelectedMarker(null);
+                          setSelectedTeacher(marker);
+                          setShowMobileTeacherDetail(true);
+                        }}
+                      />
+                    );
+                  } else if (item.type === 'instructor') {
+                    const marker = item.data;
+                    elements.push(
+                      <MobileInstructorCard
+                        key={`instructor-${marker.id}`}
+                        instructor={marker}
+                        isSelected={selectedInstructor?.id === marker.id}
+                        onClick={() => {
+                          setSelectedJob(null);
+                          setSelectedTeacher(null);
+                          setSelectedMarker(null);
+                          setSelectedInstructor(marker);
+                          setShowMobileInstructorDetail(true);
+                        }}
+                      />
+                    );
+                  }
 
-                if (item.type === 'teacher') {
-                  const marker = item.data;
-                  return (
-                    <MobileTeacherCard
-                      key={`teacher-${marker.id}`}
-                      teacher={marker}
-                      isSelected={selectedTeacher?.id === marker.id}
-                      onClick={() => {
-                        setSelectedJob(null);
-                        setSelectedInstructor(null);
-                        setSelectedMarker(null);
-                        setSelectedTeacher(marker);
-                        setShowMobileTeacherDetail(true);
-                      }}
-                    />
-                  );
-                }
+                  cardIndex++;
+                });
 
-                if (item.type === 'instructor') {
-                  const marker = item.data;
-                  return (
-                    <MobileInstructorCard
-                      key={`instructor-${marker.id}`}
-                      instructor={marker}
-                      isSelected={selectedInstructor?.id === marker.id}
-                      onClick={() => {
-                        setSelectedJob(null);
-                        setSelectedTeacher(null);
-                        setSelectedMarker(null);
-                        setSelectedInstructor(marker);
-                        setShowMobileInstructorDetail(true);
-                      }}
-                    />
-                  );
-                }
-
-                return null;
-              })}
+                return elements;
+              })()}
 
               {!isJobsLoading && unifiedVisibleItems.length === 0 && (
                 <div className="text-center py-12 text-gray-500">
@@ -3709,12 +3924,26 @@ export const Hero: React.FC = () => {
         onSeekerLayerToggle={() => setShowSeekerLayer(prev => !prev)}
         onInstructorLayerToggle={() => setShowInstructorLayer(prev => !prev)}
         onChatClick={() => {
-          setComingSoonFeature('채팅');
-          setIsComingSoonOpen(true);
+          useWagleStore.getState().setDesktopPanelOpen(false);
+          setIsFavoritesPanelOpen(false);
+          useSidePanelStore.getState().closePanel();
+          useSidePanelStore.getState().bringToFront('chat');
+          useChatStore.getState().openPanel();
         }}
         onBookmarkClick={() => {
-          setComingSoonFeature('즐겨찾기');
-          setIsComingSoonOpen(true);
+          if (!user) {
+            setAuthModalInitialTab('login');
+            setIsAuthModalOpen(true);
+            return;
+          }
+          const nextOpen = !isFavoritesPanelOpen;
+          if (nextOpen) {
+            useWagleStore.getState().setDesktopPanelOpen(false);
+            useChatStore.getState().closePanel();
+            useSidePanelStore.getState().closePanel();
+            useSidePanelStore.getState().bringToFront('favorites');
+          }
+          setIsFavoritesPanelOpen(nextOpen);
         }}
       />
 
@@ -3751,3 +3980,13 @@ export const Hero: React.FC = () => {
     </section>
   );
 };
+
+/** 와글와글 데스크탑 호버 서랍 래퍼 */
+function DesktopWaglePanelWrapper() {
+  return <DesktopWaglePanel />;
+}
+
+/** 1:1 채팅 데스크탑 호버 서랍 래퍼 */
+function DesktopChatPanelWrapper() {
+  return <DesktopChatPanel />;
+}

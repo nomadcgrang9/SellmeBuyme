@@ -23,7 +23,6 @@ import MobileBottomNav from '@/components/mobile/MobileBottomNav';
 import RegisterBottomSheet from '@/components/mobile/RegisterBottomSheet';
 import MobileProfilePage from '@/components/mobile/MobileProfilePage';
 import MobileAuthPage from '@/components/mobile/MobileAuthPage';
-import DesktopChatModal from '@/components/chat/DesktopChatModal';
 import BookmarkModal from '@/components/bookmark/BookmarkModal';
 import BookmarkPage from '@/pages/BookmarkPage';
 import { searchCards, fetchRecommendationsCache, isCacheValid, hasProfileChanged, shouldInvalidateCache, fetchPromoCards, selectRecommendationCards, filterByTeacherLevel, filterByJobType, calculateSubjectScore, filterByExperience, generateRecommendations, fetchFreshJobs, fetchUserBookmarkIds } from '@/lib/supabase/queries';
@@ -31,8 +30,6 @@ import { fetchUserProfile, type UserProfileRow } from '@/lib/supabase/profiles';
 import { useSearchStore } from '@/stores/searchStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useBookmarkStore } from '@/stores/bookmarkStore';
-import { useChatStore } from '@/stores/chatStore';
-import { useChatRealtime } from '@/hooks/useChatRealtime';
 import { supabase } from '@/lib/supabase/client';
 import type { Card, PromoCardSettings, JobPostingCard, ExperienceCard } from '@/types';
 import { getRegisteredTalentFromLocalStorage, clearRegisteredTalentFromLocalStorage } from '@/lib/utils/landingTransform';
@@ -177,15 +174,6 @@ export default function App() {
   const status = useAuthStore((s) => s.status);
   const user = useAuthStore((s) => s.user);
 
-  const updateUnreadCount = useChatStore(state => state.updateUnreadCount);
-  const loadChatRooms = useChatStore(state => state.loadChatRooms);
-
-  // 전역 실시간 구독 (채팅 모달 닫혀있어도 작동)
-  useChatRealtime({
-    enableTyping: false,      // 전역에서는 타이핑 불필요
-    enablePresence: false,    // 전역에서는 온라인 상태 불필요
-  });
-
   // 사용자 활동 트래킹 (페이지뷰 자동 기록)
   useActivityTracking();
 
@@ -234,11 +222,9 @@ export default function App() {
   const [highlightTalentId, setHighlightTalentId] = useState<string | null>(null);
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
-  const [currentBottomTab, setCurrentBottomTab] = useState<'home' | 'chat' | 'profile' | null>('home');
+  const [currentBottomTab, setCurrentBottomTab] = useState<'home' | 'wagle' | 'profile' | null>('home');
   const [isRegisterBottomSheetOpen, setIsRegisterBottomSheetOpen] = useState(false);
   const [registerType, setRegisterType] = useState<'job' | 'talent' | 'experience' | null>(null);
-  const [isChatModalOpen, setIsChatModalOpen] = useState(false);
-  const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
   const [isBookmarkModalOpen, setIsBookmarkModalOpen] = useState(false);
   const [showBookmarkPage, setShowBookmarkPage] = useState(false);
   const [shouldResumeBookmark, setShouldResumeBookmark] = useState<'modal' | 'page' | false>(false);
@@ -304,14 +290,6 @@ export default function App() {
   useEffect(() => {
     void initialize();
   }, [initialize]);
-
-  // 앱 마운트 시 채팅 관련 초기화
-  useEffect(() => {
-    if (user) {
-      updateUnreadCount();
-      loadChatRooms(); // 채팅방 목록 미리 로드
-    }
-  }, [user, updateUnreadCount, loadChatRooms]);
 
   // 북마크 초기화 (사용자 로그인 시)
   const { loadBookmarks } = useBookmarkStore();
@@ -546,24 +524,9 @@ export default function App() {
     }
   }, [status, user?.id]);
 
-  // 모바일 하단 네비: 채팅 버튼 클릭
+  // 모바일 하단 네비: 와글와글 버튼 클릭
   const handleChatClick = useCallback(() => {
-    // 화면 크기 확인 (768px = md breakpoint)
-    const isMobile = window.innerWidth < 768;
-
-    if (isMobile) {
-      // 모바일: 새 페이지로 이동
-      window.location.href = '/chat';
-    } else {
-      // 데스크톱: 모달 열기
-      setIsChatModalOpen(true);
-    }
-  }, []);
-
-  // 카드에서 채팅 모달 열기 (특정 room)
-  const handleOpenChatModal = useCallback((roomId: string) => {
-    setSelectedRoomId(roomId);
-    setIsChatModalOpen(true);
+    window.location.href = '/wagle';
   }, []);
 
   // 북마크 버튼 클릭 (모바일 헤더 / 데스크톱 헤더)
@@ -1217,7 +1180,6 @@ export default function App() {
                     onExperienceEditClick={handleExperienceEditClick}
                     onExperienceDeleteClick={handleExperienceDeleteClick}
                     highlightTalentId={highlightTalentId}
-                    onOpenChatModal={handleOpenChatModal}
                   />
                 );
               })()}
@@ -1471,16 +1433,6 @@ export default function App() {
         }}
       />
 
-      {/* 데스크톱 채팅 모달 */}
-      <DesktopChatModal
-        isOpen={isChatModalOpen}
-        onClose={() => {
-          setIsChatModalOpen(false);
-          setSelectedRoomId(null);
-        }}
-        selectedRoomId={selectedRoomId}
-      />
-
       {/* 데스크톱 북마크 모달 */}
       <BookmarkModal
         isOpen={isBookmarkModalOpen}
@@ -1489,7 +1441,6 @@ export default function App() {
         onJobEditClick={handleJobEditClick}
         onExperienceEditClick={handleExperienceEditClick}
         onExperienceDeleteClick={handleExperienceDeleteClick}
-        onOpenChatModal={handleOpenChatModal}
       />
 
       {/* 모바일 북마크 페이지 */}
@@ -1503,7 +1454,6 @@ export default function App() {
           onJobEditClick={handleJobEditClick}
           onExperienceEditClick={handleExperienceEditClick}
           onExperienceDeleteClick={handleExperienceDeleteClick}
-          onOpenChatModal={handleOpenChatModal}
         />
       )}
     </div>

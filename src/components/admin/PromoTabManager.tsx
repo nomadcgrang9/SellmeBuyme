@@ -1,6 +1,6 @@
 import HeroBannerManager from './HeroBannerManager';
-import PromoCardEditSection from './PromoCardEditSection';
-import StripeBannerManager from './StripeBannerManager';
+import PopupBannerManager from './PopupBannerManager';
+import NativeBannerManager from './NativeBannerManager';
 
 export default function PromoTabManager() {
   return (
@@ -8,11 +8,11 @@ export default function PromoTabManager() {
       {/* 히어로배너 관리 */}
       <HeroBannerManager />
 
-      {/* 띠지배너 관리 */}
-      <StripeBannerManager />
+      {/* 접속배너 관리 */}
+      <PopupBannerManager />
 
-      {/* 프로모 카드 편집 - 추후 활성화 예정 */}
-      {false && <PromoCardEditSection />}
+      {/* 카드배너 관리 */}
+      <NativeBannerManager />
     </div>
   );
 }

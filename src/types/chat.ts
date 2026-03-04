@@ -1,150 +1,120 @@
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// 채팅 시스템 타입 정의
+// 1:1 채팅 타입 정의
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-export type MessageType = 'text' | 'system' | 'file';
+// ━━━ DB Row 타입 (Supabase 테이블 직접 대응) ━━━
+
+export type MessageType = 'text' | 'file' | 'system';
 export type ContextType = 'talent' | 'experience';
-
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// 데이터베이스 테이블 타입
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 export interface ChatRoomRow {
   id: string;
-  created_at: string;
-  updated_at: string;
-  last_message_at: string | null;
-
   participant_1_id: string;
   participant_2_id: string;
-
   context_type: ContextType | null;
   context_card_id: string | null;
-
+  last_message_at: string | null;
+  last_message_preview: string | null;
+  last_message_type: MessageType | null;
   is_archived: boolean;
+  created_at: string;
 }
 
 export interface ChatMessageRow {
   id: string;
-  created_at: string;
-
   room_id: string;
   sender_id: string;
-
   content: string | null;
   message_type: MessageType;
-
   file_url: string | null;
   file_name: string | null;
-  file_size: number | null; // bytes
-  file_type: string | null; // MIME type
-
+  file_size: number | null;
+  file_type: string | null;
+  reply_to_id: string | null;
   is_read: boolean;
   read_at: string | null;
+  created_at: string;
 }
 
 export interface ChatParticipantRow {
   id: string;
   room_id: string;
   user_id: string;
-
-  joined_at: string;
   last_read_message_id: string | null;
   last_read_at: string | null;
   unread_count: number;
 }
 
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// UI에서 사용할 확장 타입
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+export interface ChatNotificationRow {
+  id: string;
+  user_id: string;
+  room_id: string;
+  message_id: string | null;
+  sender_id: string;
+  type: MessageType;
+  preview: string | null;
+  is_read: boolean;
+  created_at: string;
+}
+
+// ━━━ UI 확장 타입 (프로필 정보 포함) ━━━
 
 export interface ChatRoom extends ChatRoomRow {
-  // 상대방 정보 (조인)
   other_user_id: string;
   other_user_name: string;
   other_user_profile_image: string | null;
-
-  // 마지막 메시지 (조인)
-  last_message_content: string | null;
-  last_message_type: MessageType | null;
-
-  // 내 참여자 정보 (조인)
-  my_unread_count: number;
+  unread_count: number;
 }
 
 export interface ChatMessage extends ChatMessageRow {
-  // 발신자 정보 (조인)
   sender_name: string;
   sender_profile_image: string | null;
-
-  // 파일 메타데이터
-  file_metadata?: {
-    url: string;
-    name: string;
-    size: number;
-    type: string;
-    size_formatted: string; // "1.2 MB"
-  };
+  reply_to_preview: string | null;
 }
 
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// API 요청/응답 타입
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ━━━ 입력/요청 타입 ━━━
 
 export interface CreateChatRoomInput {
-  other_user_id: string;
-  context_type?: ContextType;
-  context_card_id?: string;
+  targetUserId: string;
+  contextType?: ContextType;
+  contextCardId?: string;
 }
 
 export interface SendMessageInput {
-  room_id: string;
+  roomId: string;
   content?: string;
-  message_type?: MessageType;
+  messageType?: MessageType;
   file?: File;
+  replyToId?: string;
 }
 
 export interface GetMessagesParams {
-  room_id: string;
+  roomId: string;
   limit?: number;
-  offset?: number;
-  before_message_id?: string;
+  before?: string;
 }
 
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// Realtime 이벤트 타입
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ━━━ Realtime 이벤트 타입 ━━━
 
-export interface TypingEventPayload {
-  room_id: string;
-  user_id: string;
-  user_name: string;
-  is_typing: boolean;
+export interface TypingPayload {
+  userId: string;
+  userName: string;
+  isTyping: boolean;
 }
 
 export interface PresenceState {
-  user_id: string;
-  user_name: string;
-  online_at: string;
+  [userId: string]: {
+    online_at: string;
+    user_id: string;
+  }[];
 }
 
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// 파일 업로드 관련
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ━━━ 파일 업로드 ━━━
 
-export const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB in bytes
+export const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
 
 export interface FileUploadProgress {
-  file_name: string;
-  loaded: number;
-  total: number;
-  percentage: number;
-}
-
-export interface FileUploadResult {
-  url: string;
-  path: string;
-  file_name: string;
-  file_size: number;
-  file_type: string;
+  fileName: string;
+  progress: number;
+  status: 'uploading' | 'done' | 'error';
 }

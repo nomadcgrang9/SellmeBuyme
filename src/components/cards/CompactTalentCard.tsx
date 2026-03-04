@@ -1,9 +1,12 @@
-import { memo } from 'react';
+import { memo, useState } from 'react';
 import { TalentCard as TalentCardType } from '@/types';
 import { IconMapPin, IconBriefcase, IconStar } from '@tabler/icons-react';
 import { MessageCircle } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
-import { createOrGetChatRoom } from '@/lib/supabase/chat';
+import { useChatStore } from '@/stores/chatStore';
+import { useBookmarkStore } from '@/stores/bookmarkStore';
+import { useToastStore } from '@/stores/toastStore';
+import { addBookmark, removeBookmark } from '@/lib/supabase/queries';
 import { formatLocationDisplay } from '@/lib/constants/regionHierarchy';
 
 interface CompactTalentCardProps {
@@ -12,40 +15,41 @@ interface CompactTalentCardProps {
 }
 
 function CompactTalentCard({ talent, onClick }: CompactTalentCardProps) {
-  // Zustand selector 최적화: 개별 구독
   const user = useAuthStore((s) => s.user);
   const isOwner = Boolean(user && talent.user_id && user.id === talent.user_id);
+  const isBookmarkedFn = useBookmarkStore((s) => s.isBookmarked);
+  const addToStore = useBookmarkStore((s) => s.addBookmark);
+  const removeFromStore = useBookmarkStore((s) => s.removeBookmark);
+  const { showToast } = useToastStore();
+  const [isLoading, setIsLoading] = useState(false);
+  const bookmarked = isBookmarkedFn(talent.id);
 
-  const handleChatClick = async (e: React.MouseEvent) => {
+  const handleChatClick = (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (!talent.user_id) return;
+    useChatStore.getState().openChat(talent.user_id, 'talent', talent.id);
+  };
 
-    if (!user) {
-      alert('로그인이 필요한 기능입니다');
-      return;
-    }
-
-    if (!talent.user_id) {
-      alert('이 인력과는 채팅할 수 없습니다');
-      return;
-    }
-
+  const handleBookmarkToggle = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!user) { showToast('로그인이 필요합니다', 'error'); return; }
+    if (isLoading) return;
+    setIsLoading(true);
     try {
-      const { data: roomId, error } = await createOrGetChatRoom({
-        other_user_id: talent.user_id,
-        context_type: 'talent',
-        context_card_id: talent.id,
-      });
-
-      if (error || !roomId) {
-        console.error('채팅방 생성 실패:', error);
-        alert('채팅방을 생성할 수 없습니다');
-        return;
+      if (bookmarked) {
+        removeFromStore(talent.id);
+        await removeBookmark(user.id, talent.id, 'talent');
+        showToast('즐겨찾기에서 제거했습니다', 'info');
+      } else {
+        addToStore(talent.id);
+        await addBookmark(user.id, talent.id, 'talent');
+        showToast('즐겨찾기에 추가했습니다', 'success');
       }
-
-      window.location.href = `/chat/${roomId}`;
-    } catch (err) {
-      console.error('채팅 시작 오류:', err);
-      alert('채팅을 시작할 수 없습니다');
+    } catch {
+      if (bookmarked) addToStore(talent.id); else removeFromStore(talent.id);
+      showToast('오류가 발생했습니다', 'error');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -54,26 +58,39 @@ function CompactTalentCard({ talent, onClick }: CompactTalentCardProps) {
       className="card-interactive bg-white border border-gray-200 rounded-lg animate-slide-up overflow-hidden h-full min-h-[235px] cursor-pointer shadow-sm hover:shadow-lg transition-shadow"
       onClick={onClick}
     >
-      {/* 추천 카드 섹션에서는 상단 컬러 바 제거 */}
-
       <div className="flex flex-1 flex-col p-3">
         {/* 헤더 */}
         <div className="flex items-center justify-between mb-2">
           <span className="text-xs font-semibold text-[#7db8a3]">인력풀</span>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
             {talent.isVerified && (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-[#7db8a3] text-white text-xs font-bold rounded-full">
                 ✓ 인증
               </span>
             )}
-            {/* 채팅 버튼 (본인 카드가 아니고 user_id가 있을 때만) */}
+            {/* 즐겨찾기 별 버튼 */}
+            <button
+              onClick={handleBookmarkToggle}
+              disabled={isLoading}
+              title={bookmarked ? '즐겨찾기 해제' : '즐겨찾기 추가'}
+              className={`p-1 rounded-full transition-all duration-200 ${bookmarked ? 'text-amber-400' : 'text-gray-300 hover:text-amber-400'
+                } disabled:opacity-50`}
+            >
+              <IconStar
+                size={16}
+                fill={bookmarked ? 'currentColor' : 'none'}
+                stroke={bookmarked ? 'none' : 'currentColor'}
+                strokeWidth={1.5}
+              />
+            </button>
+            {/* 채팅 버튼 */}
             {user && !isOwner && talent.user_id && (
               <button
                 onClick={handleChatClick}
                 className="p-1.5 hover:bg-emerald-50 rounded-full transition-colors"
                 title="채팅하기"
               >
-                <MessageCircle className="w-5 h-5 text-emerald-600" />
+                <MessageCircle className="w-4 h-4 text-emerald-600" />
               </button>
             )}
           </div>
@@ -89,19 +106,12 @@ function CompactTalentCard({ talent, onClick }: CompactTalentCardProps) {
           {talent.specialty}
         </p>
 
-        {/* 태그 (최대 2개) */}
+        {/* 태그 */}
         <div className="mb-2 flex flex-wrap gap-1.5">
           {talent.tags.slice(0, 3).map((tag, index) => {
-            const tagColors = [
-              'bg-[#e5f4f0] text-[#5a9d85]',
-              'bg-[#dff0ea] text-[#5a9d85]',
-              'bg-cyan-100 text-cyan-700'
-            ];
+            const tagColors = ['bg-[#e5f4f0] text-[#5a9d85]', 'bg-[#dff0ea] text-[#5a9d85]', 'bg-cyan-100 text-cyan-700'];
             return (
-              <span
-                key={index}
-                className={`rounded-full px-2 py-0.5 text-xs font-semibold ${tagColors[index % tagColors.length]}`}
-              >
+              <span key={index} className={`rounded-full px-2 py-0.5 text-xs font-semibold ${tagColors[index % tagColors.length]}`}>
                 {tag}
               </span>
             );
@@ -117,13 +127,6 @@ function CompactTalentCard({ talent, onClick }: CompactTalentCardProps) {
           <div className="flex items-center gap-1.5">
             <IconBriefcase size={14} stroke={1.5} className="text-purple-500 flex-shrink-0" />
             <span className="font-medium text-gray-900 truncate">{talent.experience}</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <IconStar size={14} stroke={1.5} className="text-yellow-500 flex-shrink-0" />
-            <span className="font-medium text-gray-900">
-              {talent.rating.toFixed(1)}
-            </span>
-            <span className="font-medium text-gray-500">({talent.reviewCount})</span>
           </div>
         </div>
       </div>

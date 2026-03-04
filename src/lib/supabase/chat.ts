@@ -1,537 +1,398 @@
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// 채팅 시스템 Supabase 쿼리 함수
+// 1:1 채팅 Supabase 쿼리 레이어
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 import { supabase } from './client';
 import type {
-  ChatRoom,
-  ChatMessage,
   ChatRoomRow,
   ChatMessageRow,
+  ChatRoom,
+  ChatMessage,
   CreateChatRoomInput,
   SendMessageInput,
   GetMessagesParams,
-  FileUploadResult,
-  MAX_FILE_SIZE
+  MessageType,
 } from '@/types/chat';
 
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// 유틸리티 함수
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ━━━ 프로필 캐시 (와글와글과 동일 패턴, 독립 인스턴스) ━━━
 
-/**
- * 사용자 표시 이름 가져오기 (email fallback 포함)
- * 우선순위: display_name > 이메일 @ 앞부분 > "알 수 없음"
- */
-async function getUserDisplayName(userId: string): Promise<string> {
-  // 1. user_profiles에서 display_name 조회
-  const { data: profile } = await supabase
-    .from('user_profiles')
-    .select('display_name')
-    .eq('user_id', userId)
-    .single();
-
-  if (profile?.display_name) {
-    return profile.display_name;
-  }
-
-  // 2. auth.users에서 이메일 조회하여 @ 앞부분 추출
-  try {
-    const { data: { user } } = await supabase.auth.admin.getUserById(userId);
-    if (user?.email) {
-      return user.email.split('@')[0];
-    }
-  } catch (error) {
-    console.error('[getUserDisplayName] auth.users 조회 실패:', error);
-  }
-
-  // 3. 모두 실패 시 fallback
-  return '알 수 없음';
+interface ProfileInfo {
+  display_name: string | null;
+  profile_image_url: string | null;
 }
 
-/**
- * 사용자 프로필 이미지 URL 가져오기
- * 우선순위: user_profiles.profile_image_url > auth.user_metadata.avatar_url/picture > null
- */
-async function getUserProfileImage(userId: string): Promise<string | null> {
-  // 1. user_profiles에서 profile_image_url 조회
-  const { data: profile } = await supabase
-    .from('user_profiles')
-    .select('profile_image_url')
-    .eq('user_id', userId)
-    .single();
-
-  if (profile?.profile_image_url) {
-    // Storage 경로인 경우 Public URL로 변환
-    if (!profile.profile_image_url.startsWith('http')) {
-      const { data: urlData } = supabase.storage
-        .from('profiles')
-        .getPublicUrl(profile.profile_image_url);
-      return urlData.publicUrl;
-    }
-    return profile.profile_image_url;
-  }
-
-  // 2. auth.users의 OAuth 프로필 이미지 사용
-  try {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user?.id === userId) {
-      // 자신의 프로필이면 현재 세션의 user_metadata 사용
-      return user.user_metadata?.avatar_url || user.user_metadata?.picture || null;
-    }
-  } catch {
-    // 무시
-  }
-
-  return null;
+interface CachedProfile {
+  info: ProfileInfo;
+  cachedAt: number;
 }
 
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// 채팅방 관련 쿼리
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+const PROFILE_CACHE_TTL = 5 * 60 * 1000; // 5분
+const profileCache = new Map<string, CachedProfile>();
 
-/**
- * 현재 사용자의 채팅방 목록 조회
- * @returns 채팅방 목록 (최신 메시지 순)
- */
-export async function getChatRooms(): Promise<{ data: ChatRoom[] | null; error: Error | null }> {
+function isCacheValid(cached: CachedProfile): boolean {
+  return Date.now() - cached.cachedAt < PROFILE_CACHE_TTL;
+}
+
+async function getProfileInfoBatch(userIds: string[]): Promise<Map<string, ProfileInfo>> {
+  const unique = [...new Set(userIds)];
+  const missing = unique.filter((id) => {
+    const cached = profileCache.get(id);
+    return !cached || !isCacheValid(cached);
+  });
+
+  if (missing.length > 0) {
+    const { data } = await supabase
+      .from('user_profiles')
+      .select('user_id, display_name, profile_image_url')
+      .in('user_id', missing);
+
+    const fetched = new Map((data || []).map((p) => [p.user_id, p]));
+    for (const id of missing) {
+      const info = fetched.get(id) || { display_name: null, profile_image_url: null };
+      profileCache.set(id, { info, cachedAt: Date.now() });
+    }
+  }
+
+  const result = new Map<string, ProfileInfo>();
+  for (const id of unique) {
+    result.set(id, profileCache.get(id)!.info);
+  }
+  return result;
+}
+
+// ━━━ 채팅방 쿼리 ━━━
+
+const MESSAGES_PER_PAGE = 50;
+
+export async function getChatRooms(): Promise<{ data: ChatRoom[]; error: Error | null }> {
   try {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      return { data: null, error: new Error('로그인이 필요합니다') };
-    }
+    if (!user) return { data: [], error: new Error('로그인이 필요합니다') };
 
-    const { data: rooms, error } = await supabase
+    // 내가 참여한 방 조회
+    const { data: participants, error: pErr } = await supabase
+      .from('chat_participants')
+      .select('room_id, unread_count')
+      .eq('user_id', user.id);
+
+    if (pErr) throw pErr;
+    if (!participants || participants.length === 0) return { data: [], error: null };
+
+    const roomIds = participants.map((p) => p.room_id);
+    const unreadMap = new Map(participants.map((p) => [p.room_id, p.unread_count || 0]));
+
+    const { data: rooms, error: rErr } = await supabase
       .from('chat_rooms')
-      .select(`
-        *,
-        chat_messages!room_id (
-          content,
-          message_type,
-          created_at
-        )
-      `)
-      .or(`participant_1_id.eq.${user.id},participant_2_id.eq.${user.id}`)
+      .select('*')
+      .in('id', roomIds)
+      .eq('is_archived', false)
       .order('last_message_at', { ascending: false, nullsFirst: false });
 
-    if (error) throw error;
+    if (rErr) throw rErr;
+    if (!rooms || rooms.length === 0) return { data: [], error: null };
 
-    // 각 채팅방에 대해 상대방 정보와 참여자 정보 조회
-    const enrichedRooms = await Promise.all(
-      (rooms || []).map(async (room) => {
-        const otherId = room.participant_1_id === user.id
-          ? room.participant_2_id
-          : room.participant_1_id;
-
-        // 내 참여자 정보 조회
-        const { data: participant } = await supabase
-          .from('chat_participants')
-          .select('unread_count')
-          .eq('room_id', room.id)
-          .eq('user_id', user.id)
-          .single();
-
-        // 마지막 메시지 (이미 조회됨)
-        const lastMessage = (room as any).chat_messages?.[0];
-
-        return {
-          ...room,
-          other_user_id: otherId,
-          other_user_name: await getUserDisplayName(otherId),
-          other_user_profile_image: await getUserProfileImage(otherId),
-          last_message_content: lastMessage?.content || null,
-          last_message_type: lastMessage?.message_type || null,
-          my_unread_count: participant?.unread_count || 0,
-        } as ChatRoom;
-      })
+    // 상대방 프로필 일괄 조회
+    const otherUserIds = rooms.map((r: ChatRoomRow) =>
+      r.participant_1_id === user.id ? r.participant_2_id : r.participant_1_id
     );
+    const profiles = await getProfileInfoBatch(otherUserIds);
 
-    return { data: enrichedRooms, error: null };
+    const chatRooms: ChatRoom[] = rooms.map((r: ChatRoomRow) => {
+      const otherUserId = r.participant_1_id === user.id ? r.participant_2_id : r.participant_1_id;
+      const profile = profiles.get(otherUserId);
+      return {
+        ...r,
+        other_user_id: otherUserId,
+        other_user_name: profile?.display_name || '알 수 없음',
+        other_user_profile_image: profile?.profile_image_url || null,
+        unread_count: unreadMap.get(r.id) || 0,
+      };
+    });
+
+    return { data: chatRooms, error: null };
   } catch (err) {
-    console.error('getChatRooms error:', err);
-    return { data: null, error: err as Error };
+    console.error('[chat] getChatRooms error:', err);
+    return { data: [], error: err as Error };
   }
 }
 
-/**
- * 채팅방 생성 또는 기존 채팅방 반환
- * @param input - 상대방 ID, 컨텍스트 정보
- * @returns 채팅방 ID
- */
 export async function createOrGetChatRoom(
   input: CreateChatRoomInput
-): Promise<{ data: string | null; error: Error | null }> {
+): Promise<{ data: ChatRoom | null; error: Error | null }> {
   try {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      return { data: null, error: new Error('로그인이 필요합니다') };
-    }
+    if (!user) return { data: null, error: new Error('로그인이 필요합니다') };
 
-    // 유틸리티 함수 호출 (PostgreSQL 함수)
     const { data, error } = await supabase.rpc('get_or_create_chat_room', {
       user1_id: user.id,
-      user2_id: input.other_user_id,
-      ctx_type: input.context_type || null,
-      ctx_card_id: input.context_card_id || null,
+      user2_id: input.targetUserId,
+      ctx_type: input.contextType || null,
+      ctx_card_id: input.contextCardId || null,
     });
 
     if (error) throw error;
 
-    return { data: data as string, error: null };
-  } catch (err) {
-    console.error('createOrGetChatRoom error:', err);
-    return { data: null, error: err as Error };
-  }
-}
+    const roomId = data as string;
 
-/**
- * 특정 채팅방의 상세 정보 조회
- * @param roomId - 채팅방 ID
- * @returns 채팅방 정보
- */
-export async function getChatRoom(
-  roomId: string
-): Promise<{ data: ChatRoom | null; error: Error | null }> {
-  try {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      return { data: null, error: new Error('로그인이 필요합니다') };
-    }
-
-    const { data: room, error } = await supabase
+    // 방 정보 조회
+    const { data: room, error: rErr } = await supabase
       .from('chat_rooms')
       .select('*')
       .eq('id', roomId)
       .single();
 
-    if (error) throw error;
-    if (!room) return { data: null, error: new Error('채팅방을 찾을 수 없습니다') };
+    if (rErr) throw rErr;
 
-    // 상대방 ID
-    const otherId = room.participant_1_id === user.id
+    const otherUserId = room.participant_1_id === user.id
       ? room.participant_2_id
       : room.participant_1_id;
 
-    // 상대방 프로필
-    const { data: profile } = await supabase
-      .from('user_profiles')
-      .select('display_name, profile_image_url')
-      .eq('user_id', otherId)
-      .single();
+    const profiles = await getProfileInfoBatch([otherUserId]);
+    const profile = profiles.get(otherUserId);
 
-    // 내 참여자 정보
+    // unread_count 조회
     const { data: participant } = await supabase
       .from('chat_participants')
       .select('unread_count')
-      .eq('room_id', room.id)
+      .eq('room_id', roomId)
       .eq('user_id', user.id)
       .single();
 
     return {
       data: {
         ...room,
-        other_user_id: otherId,
-        other_user_name: await getUserDisplayName(otherId),
+        other_user_id: otherUserId,
+        other_user_name: profile?.display_name || '알 수 없음',
         other_user_profile_image: profile?.profile_image_url || null,
-        last_message_content: null,
-        last_message_type: null,
-        my_unread_count: participant?.unread_count || 0,
-      } as ChatRoom,
+        unread_count: participant?.unread_count || 0,
+      },
       error: null,
     };
   } catch (err) {
-    console.error('getChatRoom error:', err);
+    console.error('[chat] createOrGetChatRoom error:', err);
     return { data: null, error: err as Error };
   }
 }
 
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// 메시지 관련 쿼리
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ━━━ 메시지 쿼리 ━━━
 
-/**
- * 채팅방의 메시지 목록 조회
- * @param params - 채팅방 ID, 페이지네이션 옵션
- * @returns 메시지 목록 (최신순)
- */
 export async function getMessages(
   params: GetMessagesParams
-): Promise<{ data: ChatMessage[] | null; error: Error | null }> {
+): Promise<{ data: ChatMessage[]; error: Error | null }> {
   try {
-    const { room_id, limit = 50, offset = 0 } = params;
+    const { roomId, limit = MESSAGES_PER_PAGE, before } = params;
 
-    const { data: messages, error } = await supabase
+    let query = supabase
       .from('chat_messages')
       .select('*')
-      .eq('room_id', room_id)
+      .eq('room_id', roomId)
       .order('created_at', { ascending: false })
-      .range(offset, offset + limit - 1);
+      .limit(limit);
 
+    if (before) {
+      query = query.lt('created_at', before);
+    }
+
+    const { data: rows, error } = await query;
     if (error) throw error;
+    if (!rows || rows.length === 0) return { data: [], error: null };
 
-    // 발신자 프로필 정보 조회
-    const enrichedMessages = await Promise.all(
-      (messages || []).map(async (msg) => {
-        const { data: profile } = await supabase
-          .from('user_profiles')
-          .select('display_name, profile_image_url')
-          .eq('user_id', msg.sender_id)
-          .single();
+    // 발신자 프로필 일괄 조회
+    const senderIds = rows.map((r: ChatMessageRow) => r.sender_id);
+    const profiles = await getProfileInfoBatch(senderIds);
 
-        let fileMetadata = undefined;
-        if (msg.message_type === 'file' && msg.file_url) {
-          fileMetadata = {
-            url: msg.file_url,
-            name: msg.file_name || '파일',
-            size: msg.file_size || 0,
-            type: msg.file_type || 'application/octet-stream',
-            size_formatted: formatFileSize(msg.file_size || 0),
-          };
-        }
+    // reply_to 미리보기 조회
+    const replyToIds = rows
+      .filter((r: ChatMessageRow) => r.reply_to_id)
+      .map((r: ChatMessageRow) => r.reply_to_id!);
 
-        return {
-          ...msg,
-          sender_name: await getUserDisplayName(msg.sender_id),
-          sender_profile_image: profile?.profile_image_url || null,
-          file_metadata: fileMetadata,
-        } as ChatMessage;
-      })
-    );
+    let replyPreviews = new Map<string, string>();
+    if (replyToIds.length > 0) {
+      const { data: replyRows } = await supabase
+        .from('chat_messages')
+        .select('id, content, message_type, file_name')
+        .in('id', replyToIds);
 
-    // 오래된 순으로 정렬 (UI에서 최신 메시지가 하단에 표시)
-    enrichedMessages.reverse();
+      replyPreviews = new Map(
+        (replyRows || []).map((r) => [
+          r.id,
+          r.message_type === 'file'
+            ? `[파일] ${r.file_name || '첨부파일'}`
+            : (r.content?.substring(0, 50) || ''),
+        ])
+      );
+    }
 
-    return { data: enrichedMessages, error: null };
+    const messages: ChatMessage[] = rows.map((row: ChatMessageRow) => {
+      const profile = profiles.get(row.sender_id);
+      return {
+        ...row,
+        sender_name: profile?.display_name || '알 수 없음',
+        sender_profile_image: profile?.profile_image_url || null,
+        reply_to_preview: row.reply_to_id ? (replyPreviews.get(row.reply_to_id) || null) : null,
+      };
+    });
+
+    // 시간순 정렬 (오래된 것 먼저)
+    messages.reverse();
+
+    return { data: messages, error: null };
   } catch (err) {
-    console.error('getMessages error:', err);
-    return { data: null, error: err as Error };
+    console.error('[chat] getMessages error:', err);
+    return { data: [], error: err as Error };
   }
 }
 
-/**
- * 메시지 전송
- * @param input - 채팅방 ID, 메시지 내용, 파일 (선택)
- * @returns 생성된 메시지
- */
+export async function getMessagesSince(
+  roomId: string,
+  since: string
+): Promise<{ data: ChatMessage[]; error: Error | null }> {
+  try {
+    const { data: rows, error } = await supabase
+      .from('chat_messages')
+      .select('*')
+      .eq('room_id', roomId)
+      .gt('created_at', since)
+      .order('created_at', { ascending: true });
+
+    if (error) throw error;
+    if (!rows || rows.length === 0) return { data: [], error: null };
+
+    const senderIds = rows.map((r: ChatMessageRow) => r.sender_id);
+    const profiles = await getProfileInfoBatch(senderIds);
+
+    const messages: ChatMessage[] = rows.map((row: ChatMessageRow) => {
+      const profile = profiles.get(row.sender_id);
+      return {
+        ...row,
+        sender_name: profile?.display_name || '알 수 없음',
+        sender_profile_image: profile?.profile_image_url || null,
+        reply_to_preview: null,
+      };
+    });
+
+    return { data: messages, error: null };
+  } catch (err) {
+    console.error('[chat] getMessagesSince error:', err);
+    return { data: [], error: err as Error };
+  }
+}
+
+// ━━━ 메시지 전송 ━━━
+
 export async function sendMessage(
   input: SendMessageInput
 ): Promise<{ data: ChatMessage | null; error: Error | null }> {
   try {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      return { data: null, error: new Error('로그인이 필요합니다') };
-    }
+    if (!user) return { data: null, error: new Error('로그인이 필요합니다') };
 
     let fileUrl: string | null = null;
     let fileName: string | null = null;
     let fileSize: number | null = null;
     let fileType: string | null = null;
+    let messageType: MessageType = input.messageType || 'text';
 
-    // 파일 업로드 처리
+    // 파일 업로드
     if (input.file) {
-      const uploadResult = await uploadChatFile(input.room_id, input.file);
-      if (uploadResult.error) {
-        return { data: null, error: uploadResult.error };
-      }
-      if (uploadResult.data) {
-        fileUrl = uploadResult.data.url;
-        fileName = uploadResult.data.file_name;
-        fileSize = uploadResult.data.file_size;
-        fileType = uploadResult.data.file_type;
-      }
+      const uploaded = await uploadChatFile(input.roomId, input.file);
+      if (uploaded.error) throw uploaded.error;
+      fileUrl = uploaded.url;
+      fileName = input.file.name;
+      fileSize = input.file.size;
+      fileType = input.file.type;
+      messageType = 'file';
     }
 
-    // 메시지 INSERT
-    const { data: message, error } = await supabase
+    const { data: row, error } = await supabase
       .from('chat_messages')
       .insert({
-        room_id: input.room_id,
+        room_id: input.roomId,
         sender_id: user.id,
         content: input.content || null,
-        message_type: input.message_type || (fileUrl ? 'file' : 'text'),
+        message_type: messageType,
         file_url: fileUrl,
         file_name: fileName,
         file_size: fileSize,
         file_type: fileType,
+        reply_to_id: input.replyToId || null,
       })
       .select()
       .single();
 
     if (error) throw error;
 
-    // 발신자 프로필
-    const { data: profile } = await supabase
-      .from('user_profiles')
-      .select('display_name, profile_image_url')
-      .eq('user_id', user.id)
-      .single();
-
-    let fileMetadata = undefined;
-    if (fileUrl) {
-      fileMetadata = {
-        url: fileUrl,
-        name: fileName || '파일',
-        size: fileSize || 0,
-        type: fileType || 'application/octet-stream',
-        size_formatted: formatFileSize(fileSize || 0),
-      };
-    }
+    const profiles = await getProfileInfoBatch([user.id]);
+    const profile = profiles.get(user.id);
 
     return {
       data: {
-        ...message,
-        sender_name: await getUserDisplayName(user.id),
+        ...row,
+        sender_name: profile?.display_name || '알 수 없음',
         sender_profile_image: profile?.profile_image_url || null,
-        file_metadata: fileMetadata,
-      } as ChatMessage,
+        reply_to_preview: null,
+      },
       error: null,
     };
   } catch (err) {
-    console.error('sendMessage error:', err);
+    console.error('[chat] sendMessage error:', err);
     return { data: null, error: err as Error };
   }
 }
 
-/**
- * 채팅방의 모든 메시지를 읽음 처리
- * @param roomId - 채팅방 ID
- */
-export async function markRoomAsRead(
-  roomId: string
-): Promise<{ error: Error | null }> {
+// ━━━ 읽음 처리 ━━━
+
+export async function markRoomAsRead(roomId: string): Promise<{ error: Error | null }> {
   try {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      return { error: new Error('로그인이 필요합니다') };
-    }
+    if (!user) return { error: new Error('로그인이 필요합니다') };
 
-    // PostgreSQL 함수 호출
     const { error } = await supabase.rpc('mark_room_as_read', {
       p_room_id: roomId,
       p_user_id: user.id,
     });
 
     if (error) throw error;
-
     return { error: null };
   } catch (err) {
-    console.error('markRoomAsRead error:', err);
+    console.error('[chat] markRoomAsRead error:', err);
     return { error: err as Error };
   }
 }
 
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// 파일 업로드 관련
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ━━━ 파일 업로드 ━━━
 
-/**
- * 채팅 파일 업로드 (Supabase Storage)
- * @param roomId - 채팅방 ID
- * @param file - 파일 객체 (최대 20MB)
- * @returns 업로드된 파일 정보
- */
-export async function uploadChatFile(
+async function uploadChatFile(
   roomId: string,
   file: File
-): Promise<{ data: FileUploadResult | null; error: Error | null }> {
+): Promise<{ url: string | null; error: Error | null }> {
   try {
-    // 파일 크기 검증 (20MB)
-    const MAX_SIZE = 20 * 1024 * 1024;
-    if (file.size > MAX_SIZE) {
-      return { data: null, error: new Error('파일 크기는 20MB를 초과할 수 없습니다') };
-    }
+    const ext = file.name.split('.').pop() || 'bin';
+    const path = `${roomId}/${crypto.randomUUID()}.${ext}`;
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      return { data: null, error: new Error('로그인이 필요합니다') };
-    }
-
-    // 파일명 생성: {roomId}/{timestamp}_{원본파일명}
-    const timestamp = Date.now();
-    const sanitizedFileName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-    const filePath = `${roomId}/${timestamp}_${sanitizedFileName}`;
-
-    // Supabase Storage에 업로드
-    const { data, error } = await supabase.storage
-      .from('chat-files')
-      .upload(filePath, file, {
-        cacheControl: '3600',
-        upsert: false,
-      });
-
-    if (error) throw error;
-
-    // Public URL 생성
-    const { data: urlData } = supabase.storage
-      .from('chat-files')
-      .getPublicUrl(data.path);
-
-    return {
-      data: {
-        url: urlData.publicUrl,
-        path: data.path,
-        file_name: file.name,
-        file_size: file.size,
-        file_type: file.type,
-      },
-      error: null,
-    };
-  } catch (err) {
-    console.error('uploadChatFile error:', err);
-    return { data: null, error: err as Error };
-  }
-}
-
-/**
- * 파일 삭제 (Storage)
- * @param filePath - Storage 경로
- */
-export async function deleteChatFile(
-  filePath: string
-): Promise<{ error: Error | null }> {
-  try {
     const { error } = await supabase.storage
       .from('chat-files')
-      .remove([filePath]);
+      .upload(path, file, { contentType: file.type });
 
     if (error) throw error;
 
-    return { error: null };
+    const { data: { publicUrl } } = supabase.storage
+      .from('chat-files')
+      .getPublicUrl(path);
+
+    return { url: publicUrl, error: null };
   } catch (err) {
-    console.error('deleteChatFile error:', err);
-    return { error: err as Error };
+    console.error('[chat] uploadChatFile error:', err);
+    return { url: null, error: err as Error };
   }
 }
 
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// 유틸리티 함수
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ━━━ 총 안읽은 수 ━━━
 
-/**
- * 파일 크기 포맷팅
- * @param bytes - 바이트 단위 크기
- * @returns "1.2 MB" 형식 문자열
- */
-function formatFileSize(bytes: number): string {
-  if (bytes === 0) return '0 Bytes';
-
-  const k = 1024;
-  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-
-  return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
-}
-
-/**
- * 전체 읽지 않은 메시지 개수 조회
- * @returns 읽지 않은 메시지 총 개수
- */
 export async function getTotalUnreadCount(): Promise<{ data: number; error: Error | null }> {
   try {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      return { data: 0, error: new Error('로그인이 필요합니다') };
-    }
+    if (!user) return { data: 0, error: null };
 
     const { data, error } = await supabase
       .from('chat_participants')
@@ -541,10 +402,89 @@ export async function getTotalUnreadCount(): Promise<{ data: number; error: Erro
     if (error) throw error;
 
     const total = (data || []).reduce((sum, p) => sum + (p.unread_count || 0), 0);
-
     return { data: total, error: null };
   } catch (err) {
-    console.error('getTotalUnreadCount error:', err);
+    console.error('[chat] getTotalUnreadCount error:', err);
     return { data: 0, error: err as Error };
   }
+}
+
+// ━━━ 사용자 검색 (새 채팅 시작용) ━━━
+
+export interface ChatSearchResult {
+  user_id: string;
+  display_name: string;
+  profile_image_url: string | null;
+  source: 'profile' | 'talent';
+  subtitle?: string; // 인력: specialty
+}
+
+export async function searchUsers(
+  query: string
+): Promise<{ data: ChatSearchResult[]; error: Error | null }> {
+  try {
+    if (!query.trim()) return { data: [], error: null };
+
+    // 1) user_profiles 검색
+    const profileQuery = supabase
+      .from('user_profiles')
+      .select('user_id, display_name, profile_image_url')
+      .or(`display_name.ilike.%${query}%,phone.ilike.%${query}%`)
+      .limit(10);
+
+    // 2) talents 검색 (user_id 있는 것만 = 채팅 가능)
+    const talentQuery = supabase
+      .from('talents')
+      .select('user_id, name, specialty, profile_image_url')
+      .not('user_id', 'is', null)
+      .or(`name.ilike.%${query}%,specialty.ilike.%${query}%`)
+      .limit(10);
+
+    const [profileRes, talentRes] = await Promise.all([profileQuery, talentQuery]);
+
+    if (profileRes.error) throw profileRes.error;
+
+    const results: ChatSearchResult[] = [];
+    const seenUserIds = new Set<string>();
+
+    // 프로필 결과
+    for (const p of (profileRes.data || [])) {
+      if (!seenUserIds.has(p.user_id)) {
+        seenUserIds.add(p.user_id);
+        results.push({
+          user_id: p.user_id,
+          display_name: p.display_name || '이름 없음',
+          profile_image_url: p.profile_image_url,
+          source: 'profile',
+        });
+      }
+    }
+
+    // 인력 결과 (프로필에 없는 user_id만 추가)
+    for (const t of (talentRes.data || [])) {
+      if (t.user_id && !seenUserIds.has(t.user_id)) {
+        seenUserIds.add(t.user_id);
+        results.push({
+          user_id: t.user_id,
+          display_name: t.name || '이름 없음',
+          profile_image_url: t.profile_image_url,
+          source: 'talent',
+          subtitle: t.specialty || undefined,
+        });
+      }
+    }
+
+    return { data: results.slice(0, 10), error: null };
+  } catch (err) {
+    console.error('[chat] searchUsers error:', err);
+    return { data: [], error: err as Error };
+  }
+}
+
+// ━━━ 유틸 ━━━
+
+export function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes}B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
 }

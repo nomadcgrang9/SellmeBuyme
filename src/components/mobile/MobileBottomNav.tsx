@@ -1,10 +1,11 @@
-import { Home, Briefcase, Users, Sparkles, Plus, MessageCircle, User } from 'lucide-react';
+import { Home, Briefcase, Users, Sparkles, Plus, MessagesSquare, User } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useSearchStore } from '@/stores/searchStore';
+import { useWagleStore } from '@/stores/wagleStore';
 
 interface MobileBottomNavProps {
-  currentTab: 'home' | 'chat' | 'profile' | null;
-  onTabChange: (tab: 'home' | 'chat' | 'profile' | null) => void;
+  currentTab: 'home' | 'wagle' | 'profile' | null;
+  onTabChange: (tab: 'home' | 'wagle' | 'profile' | null) => void;
   onChatClick: () => void;
   onProfileClick: () => void;
   onRegisterClick: () => void;
@@ -42,6 +43,7 @@ export default function MobileBottomNav({
   onHomeClick
 }: MobileBottomNavProps) {
   const { viewType, setViewType } = useSearchStore();
+  const { unreadCount } = useWagleStore();
 
   // 토글 버튼 클릭 핸들러
   const handleToggleView = () => {
@@ -114,13 +116,14 @@ export default function MobileBottomNav({
           <span className="text-[10px] font-medium text-gray-400">등록</span>
         </motion.button>
 
-        {/* 4. 채팅 버튼 */}
+        {/* 4. 와글와글 버튼 */}
         <NavButton
-          icon={MessageCircle}
-          label="채팅"
-          isActive={currentTab === 'chat'}
+          icon={MessagesSquare}
+          label="와글와글"
+          isActive={currentTab === 'wagle'}
+          badge={unreadCount}
           onClick={() => {
-            onTabChange('chat');
+            onTabChange('wagle');
             onChatClick();
           }}
         />

@@ -1,0 +1,959 @@
+{
+  "timestamp": "2026-02-05T10:00:48.245Z",
+  "reason": "compaction",
+  "status": {
+    "version": "2.0",
+    "lastUpdated": "2026-02-05T08:26:39.572Z",
+    "activeFeatures": [
+      "new-landing",
+      "SellmeBuyme",
+      "supabase",
+      "scripts",
+      "crawler",
+      "map",
+      "mobile",
+      "constants",
+      "cards",
+      "auth",
+      "sources"
+    ],
+    "primaryFeature": "new-landing",
+    "features": {
+      "new-landing": {
+        "phase": "do",
+        "phaseNumber": 3,
+        "matchRate": null,
+        "iterationCount": 0,
+        "requirements": [],
+        "documents": {},
+        "timestamps": {
+          "started": "2026-02-01T15:03:45.730Z",
+          "lastUpdated": "2026-02-05T08:23:47.718Z"
+        },
+        "lastFile": "c:\\PRODUCT\\SellmeBuyme\\src\\pages\\new-landing\\components\\Hero.tsx"
+      },
+      "SellmeBuyme": {
+        "phase": "do",
+        "phaseNumber": 3,
+        "matchRate": null,
+        "iterationCount": 0,
+        "requirements": [],
+        "documents": {},
+        "timestamps": {
+          "started": "2026-02-02T10:21:20.252Z",
+          "lastUpdated": "2026-02-05T08:26:39.572Z"
+        },
+        "lastFile": "c:\\PRODUCT\\SellmeBuyme\\src\\components\\common\\BetaBadge.tsx"
+      },
+      "supabase": {
+        "phase": "do",
+        "phaseNumber": 3,
+        "matchRate": null,
+        "iterationCount": 0,
+        "requirements": [],
+        "documents": {},
+        "timestamps": {
+          "started": "2026-02-02T10:32:34.678Z",
+          "lastUpdated": "2026-02-05T01:40:08.116Z"
+        },
+        "lastFile": "c:\\PRODUCT\\SellmeBuyme\\src\\lib\\supabase\\queries.ts"
+      },
+      "scripts": {
+        "phase": "do",
+        "phaseNumber": 3,
+        "matchRate": null,
+        "iterationCount": 0,
+        "requirements": [],
+        "documents": {},
+        "timestamps": {
+          "started": "2026-02-02T10:50:41.400Z",
+          "lastUpdated": "2026-02-02T11:55:13.485Z"
+        },
+        "lastFile": "c:\\PRODUCT\\SellmeBuyme\\scripts\\check-db-samples.ts"
+      },
+      "crawler": {
+        "phase": "do",
+        "phaseNumber": 3,
+        "matchRate": null,
+        "iterationCount": 0,
+        "requirements": [],
+        "documents": {},
+        "timestamps": {
+          "started": "2026-02-02T11:19:46.147Z",
+          "lastUpdated": "2026-02-05T05:16:03.637Z"
+        },
+        "lastFile": "c:\\PRODUCT\\SellmeBuyme\\crawler\\index.js"
+      },
+      "map": {
+        "phase": "do",
+        "phaseNumber": 3,
+        "matchRate": null,
+        "iterationCount": 0,
+        "requirements": [],
+        "documents": {},
+        "timestamps": {
+          "started": "2026-02-02T14:33:56.129Z",
+          "lastUpdated": "2026-02-04T09:11:28.135Z"
+        },
+        "lastFile": "c:\\PRODUCT\\SellmeBuyme\\src\\components\\map\\CascadingFilterBar.tsx"
+      },
+      "mobile": {
+        "phase": "do",
+        "phaseNumber": 3,
+        "matchRate": null,
+        "iterationCount": 0,
+        "requirements": [],
+        "documents": {},
+        "timestamps": {
+          "started": "2026-02-02T14:35:59.390Z",
+          "lastUpdated": "2026-02-05T01:43:09.316Z"
+        },
+        "lastFile": "c:\\PRODUCT\\SellmeBuyme\\src\\components\\mobile\\MobileJobDetail.tsx"
+      },
+      "constants": {
+        "phase": "do",
+        "phaseNumber": 3,
+        "matchRate": null,
+        "iterationCount": 0,
+        "requirements": [],
+        "documents": {},
+        "timestamps": {
+          "started": "2026-02-05T01:40:12.310Z",
+          "lastUpdated": "2026-02-05T04:09:06.916Z"
+        },
+        "lastFile": "c:\\PRODUCT\\SellmeBuyme\\src\\lib\\constants\\adminEmails.ts"
+      },
+      "cards": {
+        "phase": "do",
+        "phaseNumber": 3,
+        "matchRate": null,
+        "iterationCount": 0,
+        "requirements": [],
+        "documents": {},
+        "timestamps": {
+          "started": "2026-02-05T01:42:03.186Z",
+          "lastUpdated": "2026-02-05T01:43:00.677Z"
+        },
+        "lastFile": "c:\\PRODUCT\\SellmeBuyme\\src\\components\\cards\\JobDetailModal.tsx"
+      },
+      "auth": {
+        "phase": "do",
+        "phaseNumber": 3,
+        "matchRate": null,
+        "iterationCount": 0,
+        "requirements": [],
+        "documents": {},
+        "timestamps": {
+          "started": "2026-02-05T03:34:53.393Z",
+          "lastUpdated": "2026-02-05T04:12:06.449Z"
+        },
+        "lastFile": "c:\\PRODUCT\\SellmeBuyme\\src\\components\\auth\\AuthModal.tsx"
+      },
+      "sources": {
+        "phase": "do",
+        "phaseNumber": 3,
+        "matchRate": null,
+        "iterationCount": 0,
+        "requirements": [],
+        "documents": {},
+        "timestamps": {
+          "started": "2026-02-05T05:14:11.185Z",
+          "lastUpdated": "2026-02-05T05:14:11.185Z"
+        },
+        "lastFile": "c:\\PRODUCT\\SellmeBuyme\\crawler\\sources\\nttPattern.js"
+      }
+    },
+    "pipeline": {
+      "currentPhase": 1,
+      "level": "Dynamic",
+      "phaseHistory": []
+    },
+    "session": {
+      "startedAt": "2026-02-01T14:54:59.214Z",
+      "onboardingCompleted": false,
+      "lastActivity": "2026-02-05T08:26:39.572Z"
+    },
+    "history": [
+      {
+        "timestamp": "2026-02-01T15:03:45.730Z",
+        "feature": "new-landing",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-02T10:14:22.280Z",
+        "feature": "new-landing",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-02T10:14:33.986Z",
+        "feature": "new-landing",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-02T10:14:59.247Z",
+        "feature": "new-landing",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-02T10:15:23.498Z",
+        "feature": "new-landing",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-02T10:15:31.487Z",
+        "feature": "new-landing",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-02T10:15:46.273Z",
+        "feature": "new-landing",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-02T10:21:20.252Z",
+        "feature": "SellmeBuyme",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-02T10:21:47.557Z",
+        "feature": "SellmeBuyme",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-02T10:21:57.789Z",
+        "feature": "SellmeBuyme",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-02T10:22:35.601Z",
+        "feature": "new-landing",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-02T10:32:34.678Z",
+        "feature": "supabase",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-02T10:33:02.043Z",
+        "feature": "new-landing",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-02T10:33:31.465Z",
+        "feature": "new-landing",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-02T10:33:49.442Z",
+        "feature": "new-landing",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-02T10:34:43.654Z",
+        "feature": "SellmeBuyme",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-02T10:37:20.051Z",
+        "feature": "supabase",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-02T10:45:38.161Z",
+        "feature": "SellmeBuyme",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-02T10:46:27.885Z",
+        "feature": "SellmeBuyme",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-02T10:47:24.750Z",
+        "feature": "new-landing",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-02T10:48:52.088Z",
+        "feature": "new-landing",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-02T10:50:41.400Z",
+        "feature": "scripts",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-02T10:52:05.762Z",
+        "feature": "scripts",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-02T11:02:21.050Z",
+        "feature": "supabase",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-02T11:02:54.847Z",
+        "feature": "supabase",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-02T11:19:46.147Z",
+        "feature": "crawler",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-02T11:19:59.139Z",
+        "feature": "crawler",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-02T11:20:10.631Z",
+        "feature": "crawler",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-02T11:20:59.195Z",
+        "feature": "crawler",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-02T11:21:18.956Z",
+        "feature": "crawler",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-02T11:26:08.490Z",
+        "feature": "scripts",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-02T11:36:16.525Z",
+        "feature": "scripts",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-02T11:37:50.008Z",
+        "feature": "scripts",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-02T11:40:51.850Z",
+        "feature": "scripts",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-02T11:50:26.949Z",
+        "feature": "scripts",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-02T11:51:34.403Z",
+        "feature": "scripts",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-02T11:52:49.719Z",
+        "feature": "scripts",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-02T11:55:13.485Z",
+        "feature": "scripts",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-02T12:19:40.478Z",
+        "feature": "crawler",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-02T12:20:18.081Z",
+        "feature": "crawler",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-02T12:20:54.837Z",
+        "feature": "crawler",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-02T12:22:18.974Z",
+        "feature": "new-landing",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-02T12:22:59.656Z",
+        "feature": "new-landing",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-02T12:23:25.128Z",
+        "feature": "new-landing",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-02T13:15:16.907Z",
+        "feature": "supabase",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-02T13:19:01.651Z",
+        "feature": "supabase",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-02T13:21:12.110Z",
+        "feature": "supabase",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-02T13:32:52.922Z",
+        "feature": "supabase",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-02T13:50:38.366Z",
+        "feature": "SellmeBuyme",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-02T13:51:09.772Z",
+        "feature": "SellmeBuyme",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-02T14:10:19.573Z",
+        "feature": "SellmeBuyme",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-02T14:12:12.137Z",
+        "feature": "SellmeBuyme",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-02T14:31:29.711Z",
+        "feature": "SellmeBuyme",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-02T14:31:39.212Z",
+        "feature": "SellmeBuyme",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-02T14:31:48.554Z",
+        "feature": "SellmeBuyme",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-02T14:32:22.942Z",
+        "feature": "SellmeBuyme",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-02T14:32:42.915Z",
+        "feature": "SellmeBuyme",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-02T14:32:53.272Z",
+        "feature": "SellmeBuyme",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-02T14:33:28.341Z",
+        "feature": "SellmeBuyme",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-02T14:33:56.129Z",
+        "feature": "map",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-02T14:34:20.764Z",
+        "feature": "map",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-02T14:34:38.710Z",
+        "feature": "map",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-02T14:34:47.566Z",
+        "feature": "map",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-02T14:35:59.390Z",
+        "feature": "mobile",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-02T14:36:14.254Z",
+        "feature": "mobile",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-02T14:36:26.519Z",
+        "feature": "mobile",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-02T14:36:37.471Z",
+        "feature": "mobile",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-02T14:37:04.053Z",
+        "feature": "mobile",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-02T14:37:56.470Z",
+        "feature": "mobile",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-02T14:57:04.010Z",
+        "feature": "SellmeBuyme",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-02T15:01:35.793Z",
+        "feature": "SellmeBuyme",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-02T15:10:00.044Z",
+        "feature": "mobile",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-02T15:17:07.027Z",
+        "feature": "SellmeBuyme",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-02T15:22:06.200Z",
+        "feature": "SellmeBuyme",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-04T08:28:03.989Z",
+        "feature": "SellmeBuyme",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-04T08:28:17.643Z",
+        "feature": "SellmeBuyme",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-04T08:28:31.771Z",
+        "feature": "SellmeBuyme",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-04T08:29:18.520Z",
+        "feature": "supabase",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-04T08:32:24.603Z",
+        "feature": "SellmeBuyme",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-04T08:32:51.964Z",
+        "feature": "map",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-04T08:33:25.864Z",
+        "feature": "map",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-04T08:34:06.962Z",
+        "feature": "SellmeBuyme",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-04T08:34:37.072Z",
+        "feature": "SellmeBuyme",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-04T08:48:54.197Z",
+        "feature": "SellmeBuyme",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-04T09:01:36.970Z",
+        "feature": "mobile",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-04T09:01:54.055Z",
+        "feature": "mobile",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-04T09:02:29.568Z",
+        "feature": "mobile",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-04T09:11:19.590Z",
+        "feature": "map",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-04T09:11:28.135Z",
+        "feature": "map",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-04T10:30:00.436Z",
+        "feature": "new-landing",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-04T10:39:24.114Z",
+        "feature": "new-landing",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-04T10:39:50.061Z",
+        "feature": "new-landing",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-05T01:40:04.092Z",
+        "feature": "SellmeBuyme",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-05T01:40:08.116Z",
+        "feature": "supabase",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-05T01:40:12.310Z",
+        "feature": "constants",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-05T01:40:47.622Z",
+        "feature": "constants",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-05T01:42:03.186Z",
+        "feature": "cards",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-05T01:42:07.562Z",
+        "feature": "cards",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-05T01:43:00.677Z",
+        "feature": "cards",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-05T01:43:05.033Z",
+        "feature": "mobile",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-05T01:43:09.316Z",
+        "feature": "mobile",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-05T01:43:13.437Z",
+        "feature": "new-landing",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-05T01:43:17.562Z",
+        "feature": "new-landing",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-05T01:43:21.695Z",
+        "feature": "new-landing",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-05T03:27:07.701Z",
+        "feature": "constants",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-05T03:33:40.337Z",
+        "feature": "constants",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-05T03:34:06.332Z",
+        "feature": "SellmeBuyme",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-05T03:34:19.382Z",
+        "feature": "SellmeBuyme",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-05T03:34:53.393Z",
+        "feature": "auth",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-05T03:35:09.575Z",
+        "feature": "auth",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-05T03:38:00.929Z",
+        "feature": "SellmeBuyme",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-05T03:44:19.679Z",
+        "feature": "SellmeBuyme",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-05T04:09:06.916Z",
+        "feature": "constants",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-05T04:11:26.902Z",
+        "feature": "SellmeBuyme",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-05T04:11:40.721Z",
+        "feature": "SellmeBuyme",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-05T04:12:06.449Z",
+        "feature": "auth",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-05T05:14:11.185Z",
+        "feature": "sources",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-05T05:16:03.637Z",
+        "feature": "crawler",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-05T08:06:20.780Z",
+        "feature": "SellmeBuyme",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-05T08:06:51.509Z",
+        "feature": "new-landing",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-05T08:07:22.335Z",
+        "feature": "new-landing",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-05T08:07:57.701Z",
+        "feature": "new-landing",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-05T08:18:20.923Z",
+        "feature": "new-landing",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-05T08:18:33.306Z",
+        "feature": "new-landing",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-05T08:18:43.248Z",
+        "feature": "new-landing",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-05T08:22:20.660Z",
+        "feature": "new-landing",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-05T08:22:32.684Z",
+        "feature": "new-landing",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-05T08:22:59.500Z",
+        "feature": "new-landing",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-05T08:23:47.718Z",
+        "feature": "new-landing",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-05T08:26:39.572Z",
+        "feature": "SellmeBuyme",
+        "phase": "do",
+        "action": "updated"
+      }
+    ]
+  }
+}

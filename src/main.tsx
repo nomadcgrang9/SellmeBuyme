@@ -8,12 +8,12 @@ import { errorReporter } from './lib/utils/errorReporter'
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 const App = lazy(() => import('./App'))
 const AdminPage = lazy(() => import('./pages/AdminPage'))
-const TeamConsolePage = lazy(() => import('./pages/TeamConsolePage'))
 const DeveloperPage = lazy(() => import('./pages/DeveloperPage'))
 const AuthCallback = lazy(() => import('./pages/AuthCallback'))
 const MobileSearch = lazy(() => import('./pages/MobileSearch'))
 const MobileRegister = lazy(() => import('./pages/MobileRegister'))
-const MobileChat = lazy(() => import('./pages/MobileChat'))
+const MobileWagle = lazy(() => import('./pages/MobileWagle'))
+const MobileWagleThread = lazy(() => import('./pages/MobileWagleThread'))
 const MobileChatRoom = lazy(() => import('./pages/MobileChatRoom'))
 const NewLanding = lazy(() => import('./pages/new-landing/App'))
 const TermsPage = lazy(() => import('./pages/TermsPage'))
@@ -82,19 +82,18 @@ let rootComponent: React.ReactNode = <NewLanding />;
 if (pathname.startsWith('/note')) {
   rootComponent = <DeveloperPage />
 }
-// 관리자 페이지 라우팅
+// 관리자 콘솔 라우팅 (일원화)
 else if (import.meta.env.DEV && pathname.startsWith('/admin')) {
+  rootComponent = <AdminPage />
+}
+else if (import.meta.env.DEV && pathname.startsWith('/team-console')) {
+  rootComponent = <AdminPage />
+}
+else if (import.meta.env.VITE_TEAM_CONSOLE_PATH && pathname === import.meta.env.VITE_TEAM_CONSOLE_PATH) {
   rootComponent = <AdminPage />
 }
 else if (import.meta.env.PROD && pathname.startsWith('/admin-portal')) {
   rootComponent = <AdminPage />
-}
-// 팀 콘솔 페이지 라우팅
-else if (import.meta.env.DEV && pathname.startsWith('/team-console')) {
-  rootComponent = <TeamConsolePage />
-}
-else if (import.meta.env.VITE_TEAM_CONSOLE_PATH && pathname === import.meta.env.VITE_TEAM_CONSOLE_PATH) {
-  rootComponent = <TeamConsolePage />
 }
 else if (pathname === '/terms') {
   rootComponent = <TermsPage />
@@ -113,13 +112,17 @@ else if (pathname.startsWith('/search')) {
 else if (pathname.startsWith('/register')) {
   rootComponent = <MobileRegister />
 }
-// 모바일 채팅 상세 페이지 (/chat/:roomId)
+// 와글와글 쓰레드 상세 (/wagle/:threadId)
+else if (pathname.match(/^\/wagle\/.+/)) {
+  rootComponent = <MobileWagleThread />
+}
+// 와글와글 피드 목록 (/wagle)
+else if (pathname.startsWith('/wagle')) {
+  rootComponent = <MobileWagle />
+}
+// 모바일 채팅방 (/chat/:roomId)
 else if (pathname.match(/^\/chat\/.+/)) {
   rootComponent = <MobileChatRoom />
-}
-// 모바일 채팅 목록 페이지 (/chat)
-else if (pathname.startsWith('/chat')) {
-  rootComponent = <MobileChat />
 }
 // Early Access QR 홍보 페이지 (섭외자용)
 else if (pathname === '/earlyteacher2026/qr') {

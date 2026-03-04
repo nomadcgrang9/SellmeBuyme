@@ -207,9 +207,10 @@ export async function crawlUlsan(page, config) {
     throw error;
   }
 
+  const totalFound = jobListData.length;
   console.log(`\n✅ [울산] ${config.name} 크롤링 완료`);
   console.log(`   - 신규: ${jobs.length}개`);
   console.log(`   - 중복 스킵: ${skippedCount}개\n`);
 
-  return jobs;
+  return { jobs, meta: { totalFound, skipped: skippedCount } };
 }

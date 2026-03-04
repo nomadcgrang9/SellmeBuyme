@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cmd.exe /c \"dir C:\\\\PRODUCT\\\\\")",
+      "Bash(powershell.exe -NoProfile -Command \"[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; \\(Get-ChildItem ''C:\\\\PRODUCT\\\\SEL HUB'' -Filter ''260216*''\\).FullName\")"
+    ]
+  }
+}

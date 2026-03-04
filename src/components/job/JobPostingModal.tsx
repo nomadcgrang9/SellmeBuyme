@@ -4,6 +4,7 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useSidePanelStore } from '@/stores/sidePanelStore';
 import {
   PRIMARY_CATEGORY_OPTIONS,
   SUB_CATEGORY_OPTIONS,
@@ -47,6 +48,7 @@ export default function JobPostingModal({
   const isEditMode = !!editData;
   const { user } = useAuthStore();
   const { showToast } = useToastStore();
+  const jobPostZ = useSidePanelStore((s) => s.panelZ['jobPost'] ?? 30);
   const contentRef = useRef<HTMLDivElement>(null);
 
   // 폼 상태 - 위치
@@ -61,6 +63,7 @@ export default function JobPostingModal({
   // 폼 상태 - 분류
   const [primaryCategory, setPrimaryCategory] = useState<PrimaryCategory | null>(null);
   const [subCategories, setSubCategories] = useState<string[]>([]);
+  const [customCategoryText, setCustomCategoryText] = useState(''); // '기타' 선택 시 직접 입력
 
   // 폼 상태 - 모집 조건
   const [deadline, setDeadline] = useState('');
@@ -132,9 +135,11 @@ export default function JobPostingModal({
     if (primaryCategory === category) {
       setPrimaryCategory(null);
       setSubCategories([]);
+      setCustomCategoryText('');
     } else {
       setPrimaryCategory(category);
       setSubCategories([]);
+      setCustomCategoryText('');
     }
   };
 
@@ -198,6 +203,12 @@ export default function JobPostingModal({
     setIsSubmitting(true);
     setError(null);
 
+    // '기타' 직접입력 텍스트를 sub_categories에 포함
+    const finalSubCategories = [...subCategories];
+    if (customCategoryText.trim()) {
+      finalSubCategories.push(customCategoryText.trim());
+    }
+
     try {
       // 임시 ID 생성 (파일 업로드용)
       const tempId = crypto.randomUUID();
@@ -236,7 +247,7 @@ export default function JobPostingModal({
           location: address,
           school_level: schoolLevel,
           primary_category: primaryCategory,
-          sub_categories: subCategories.length > 0 ? subCategories : undefined,
+          sub_categories: finalSubCategories.length > 0 ? finalSubCategories : undefined,
           contact_phone: contactPhone.trim() || undefined,
           attachment_url: attachmentUrl || editData.attachment_url,
         });
@@ -256,7 +267,7 @@ export default function JobPostingModal({
           location: address,
           school_level: schoolLevel,
           primary_category: primaryCategory,
-          sub_categories: subCategories.length > 0 ? subCategories : undefined,
+          sub_categories: finalSubCategories.length > 0 ? finalSubCategories : undefined,
           contact_phone: contactPhone.trim() || undefined,
           attachment_url: attachmentUrl,
           source: 'user_posted'
@@ -269,7 +280,7 @@ export default function JobPostingModal({
           isUrgent: newJob.is_urgent,
           organization: newJob.organization || '',
           title: newJob.title,
-          tags: [primaryCategory, ...(subCategories || [])].filter(Boolean),
+          tags: [primaryCategory, ...(finalSubCategories || [])].filter(Boolean),
           location: newJob.location || address,
           compensation: '', // 사용자 등록 공고는 compensation 정보 없음
           deadline: newJob.deadline || '',
@@ -308,6 +319,7 @@ export default function JobPostingModal({
     setTitle('');
     setPrimaryCategory(null);
     setSubCategories([]);
+    setCustomCategoryText('');
     setDeadline('');
     setIsUrgent(false);
     setWorkPeriodStart('');
@@ -334,20 +346,29 @@ export default function JobPostingModal({
     <AnimatePresence>
       {isOpen && (
         <motion.div
+          key="mobile-backdrop"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
-          onClick={handleClose}
+          className="fixed inset-0 bg-black/40 md:hidden"
+          style={{ zIndex: jobPostZ - 1 }}
+          onClick={onClose}
+        />
+      )}
+      {isOpen && (
+        <motion.div
+          key="panel"
+          initial={{ opacity: 0, x: 40 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: 40 }}
+          transition={{ type: 'spring', damping: 28, stiffness: 320 }}
+          className="fixed inset-3 flex flex-col bg-white rounded-2xl overflow-hidden md:absolute md:inset-auto md:top-4 md:bottom-4 md:right-[128px] md:w-[420px]"
+          style={{
+            zIndex: jobPostZ,
+            boxShadow: '0 8px 32px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.08)',
+            border: '1px solid rgba(0,0,0,0.06)',
+          }}
         >
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-            className="relative w-full max-w-lg mx-4 bg-white rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col"
-            onClick={(e) => e.stopPropagation()}
-          >
             {/* 헤더 - 글래스모피즘 적용 */}
             <div
               className="px-6 py-4 border-b flex-shrink-0 backdrop-blur-md"
@@ -363,7 +384,7 @@ export default function JobPostingModal({
                 <div className="flex items-center gap-3">
                   <span
                     className="w-3 h-3 rounded-full"
-                    style={{ backgroundColor: '#68B2FF' }}
+                    style={{ backgroundColor: '#10B981' }}
                   />
                   <h2 className="text-lg font-bold text-gray-900">{isEditMode ? '공고 수정' : '공고 등록'}</h2>
                 </div>
@@ -525,6 +546,26 @@ export default function JobPostingModal({
                         );
                       })}
                     </div>
+                  </div>
+                )}
+
+                {/* '기타' 직접입력 필드 (1차가 '기타'이거나, 2차에서 '기타' 선택 시) */}
+                {primaryCategory && (
+                  primaryCategory === '기타' ||
+                  subCategories.includes('기타')
+                ) && (
+                  <div className="mt-3">
+                    <label className="block text-sm font-medium text-gray-600 mb-1.5">
+                      상세 내용 직접 입력
+                    </label>
+                    <input
+                      type="text"
+                      value={customCategoryText}
+                      onChange={(e) => setCustomCategoryText(e.target.value)}
+                      placeholder="예) 로봇공학, 드론조종, 바리스타 등"
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 transition-all text-sm"
+                      maxLength={30}
+                    />
                   </div>
                 )}
               </section>
@@ -700,13 +741,7 @@ export default function JobPostingModal({
               >
                 {isSubmitting ? (isEditMode ? '수정 중...' : '등록 중...') : (isEditMode ? '수정하기' : '등록하기')}
               </button>
-              {!privacyAgreed && (
-                <p className="mt-2 text-xs text-center text-gray-500">
-                  동의 체크 필수 - 미체크 시 버튼 비활성화
-                </p>
-              )}
             </div>
-          </motion.div>
         </motion.div>
       )}
     </AnimatePresence>

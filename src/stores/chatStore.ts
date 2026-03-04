@@ -1,345 +1,362 @@
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 1:1 채팅 Zustand Store
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 import { create } from 'zustand';
-import type {
-  ChatRoom,
-  ChatMessage,
-  TypingEventPayload,
-  PresenceState,
-  SendMessageInput,
-} from '@/types/chat';
+import type { ChatRoom, ChatMessage, CreateChatRoomInput, ContextType } from '@/types/chat';
 import {
   getChatRooms,
+  createOrGetChatRoom,
   getMessages,
+  getMessagesSince,
   sendMessage as sendMessageApi,
-  uploadChatFile,
-  markRoomAsRead,
+  markRoomAsRead as markRoomAsReadApi,
   getTotalUnreadCount,
 } from '@/lib/supabase/chat';
 
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// 타입 정의
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ━━━ 호버 서랍 타이머 (모듈 레벨) ━━━
+let drawerCloseTimeout: ReturnType<typeof setTimeout> | null = null;
+
+// ━━━ 타입 ━━━
+
+type ChatView = 'list' | 'room';
 
 type ChatState = {
-  // ━━━ State ━━━
+  // 채팅방 목록
   rooms: ChatRoom[];
-  messagesByRoom: Record<string, ChatMessage[]>;
-  activeRoomId: string | null;
-  typingUsers: Record<string, TypingEventPayload[]>; // roomId → typing users
-  onlineUsers: Record<string, PresenceState>; // userId → presence
-  totalUnreadCount: number;
   isLoadingRooms: boolean;
-  isLoadingMessages: Record<string, boolean>;
-  isSendingMessage: boolean;
 
-  // ━━━ Actions ━━━
-  loadChatRooms: () => Promise<void>;
-  loadMessages: (roomId: string, offset?: number) => Promise<void>;
-  sendMessage: (input: Omit<SendMessageInput, 'file'> & { file?: File }) => Promise<void>;
+  // 현재 활성 채팅방
+  activeRoomId: string | null;
+  activeRoom: ChatRoom | null;
+  messages: ChatMessage[];
+  isLoadingMessages: boolean;
+  hasMoreMessages: boolean;
+
+  // 뷰 상태
+  view: ChatView;
+
+  // 패널
+  isDesktopPanelOpen: boolean;
+
+  // 실시간
+  typingUsers: Map<string, string>; // userId -> userName
+  onlineUsers: Set<string>;
+
+  // 알림
+  totalUnreadCount: number;
+
+  // 액션 - 채팅방
+  loadRooms: () => Promise<void>;
+  openChat: (targetUserId: string, contextType?: ContextType, contextCardId?: string) => Promise<string | null>;
+  setActiveRoom: (roomId: string, room?: ChatRoom) => Promise<void>;
+  backToList: () => void;
+
+  // 액션 - 메시지
+  loadMessages: (roomId: string) => Promise<void>;
+  loadMoreMessages: () => Promise<void>;
+  sendMessage: (content?: string, file?: File, replyToId?: string) => Promise<void>;
+  addRealtimeMessage: (message: ChatMessage) => void;
+  fetchDeltaMessages: () => Promise<void>;
+
+  // 액션 - 읽음
   markAsRead: (roomId: string) => Promise<void>;
-  setActiveRoom: (roomId: string | null) => void;
-  updateTyping: (payload: TypingEventPayload) => void;
-  updatePresence: (userId: string, state: PresenceState | null) => void;
-  addMessage: (message: ChatMessage) => void;
-  updateUnreadCount: () => Promise<void>;
+  loadUnreadCount: () => Promise<void>;
+
+  // 액션 - 패널
+  openPanel: () => void;
+  closePanel: () => void;
+  openDrawer: () => void;
+  scheduleDrawerClose: () => void;
+  cancelDrawerClose: () => void;
+
+  // 액션 - 실시간
+  setTypingUser: (userId: string, userName: string, isTyping: boolean) => void;
+  setOnlineUsers: (userIds: string[]) => void;
+
+  // 리셋
   reset: () => void;
 };
 
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// Store
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ━━━ Store ━━━
 
 export const useChatStore = create<ChatState>((set, get) => ({
-  // ━━━ Initial State ━━━
+  // 초기 상태
   rooms: [],
-  messagesByRoom: {},
-  activeRoomId: null,
-  typingUsers: {},
-  onlineUsers: {},
-  totalUnreadCount: 0,
   isLoadingRooms: false,
-  isLoadingMessages: {},
-  isSendingMessage: false,
+  activeRoomId: null,
+  activeRoom: null,
+  messages: [],
+  isLoadingMessages: false,
+  hasMoreMessages: true,
+  view: 'list',
+  isDesktopPanelOpen: false,
+  typingUsers: new Map(),
+  onlineUsers: new Set(),
+  totalUnreadCount: 0,
 
-  // ━━━ Actions ━━━
+  // ━━━ 채팅방 목록 ━━━
 
-  /**
-   * 사용자의 채팅방 목록 불러오기
-   */
-  loadChatRooms: async () => {
+  loadRooms: async () => {
+    const state = get();
+    if (state.isLoadingRooms) return;
     set({ isLoadingRooms: true });
 
     try {
       const { data, error } = await getChatRooms();
-
       if (error) {
         console.error('[chatStore] 채팅방 목록 로드 실패:', error.message);
         return;
       }
-
-      set({ rooms: data || [] });
+      set({ rooms: data });
     } finally {
       set({ isLoadingRooms: false });
     }
   },
 
-  /**
-   * 특정 채팅방의 메시지 불러오기
-   * @param roomId 채팅방 ID
-   * @param offset 페이지네이션 오프셋 (기본값: 0)
-   */
-  loadMessages: async (roomId: string, offset = 0) => {
-    // 로딩 상태 업데이트
-    set((state) => ({
-      isLoadingMessages: { ...state.isLoadingMessages, [roomId]: true },
-    }));
+  openChat: async (targetUserId, contextType, contextCardId) => {
+    const input: CreateChatRoomInput = {
+      targetUserId,
+      contextType,
+      contextCardId,
+    };
+
+    const { data, error } = await createOrGetChatRoom(input);
+    if (error || !data) {
+      console.error('[chatStore] 채팅방 생성/조회 실패:', error?.message);
+      return null;
+    }
+
+    // 패널 열기 + 채팅방 진입
+    set({ isDesktopPanelOpen: true });
+    await get().setActiveRoom(data.id, data);
+    return data.id;
+  },
+
+  setActiveRoom: async (roomId, room) => {
+    set({
+      activeRoomId: roomId,
+      activeRoom: room || null,
+      messages: [],
+      hasMoreMessages: true,
+      view: 'room',
+      typingUsers: new Map(),
+    });
+
+    await get().loadMessages(roomId);
+    await get().markAsRead(roomId);
+  },
+
+  backToList: () => {
+    set({
+      activeRoomId: null,
+      activeRoom: null,
+      messages: [],
+      view: 'list',
+      typingUsers: new Map(),
+    });
+    // 목록 새로고침
+    get().loadRooms();
+  },
+
+  // ━━━ 메시지 ━━━
+
+  loadMessages: async (roomId) => {
+    set({ isLoadingMessages: true });
 
     try {
-      const { data, error } = await getMessages({ room_id: roomId, limit: 50, offset });
-
+      const { data, error } = await getMessages({ roomId });
       if (error) {
         console.error('[chatStore] 메시지 로드 실패:', error.message);
         return;
       }
-
-      const messages = data || [];
-
-      // ✅ 안전장치: offset이 0이고 결과가 비어있으면 기존 데이터 유지
-      if (offset === 0 && messages.length === 0) {
-        const existing = get().messagesByRoom[roomId] || [];
-        if (existing.length > 0) {
-          console.warn('[chatStore] 메시지 재로드 결과가 비어있음 - 기존 데이터 유지');
-          return;
-        }
-      }
-
-      set((state) => {
-        const existing = state.messagesByRoom[roomId] || [];
-        const merged = offset === 0 ? messages : [...existing, ...messages];
-
-        // 중복 제거 (같은 ID의 메시지)
-        const uniqueMessages = Array.from(
-          new Map(merged.map(msg => [msg.id, msg])).values()
-        );
-
-        // 시간순 정렬 보장 (오래된 것 → 최신 순)
-        const sorted = uniqueMessages.sort(
-          (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-        );
-
-        // 디버깅 로그
-        console.log('[chatStore] loadMessages:', {
-          roomId: roomId.substring(0, 8) + '...',
-          offset,
-          existing: existing.length,
-          new: messages.length,
-          unique: uniqueMessages.length,
-          sorted: sorted.length,
-          latestMessage: sorted[sorted.length - 1]?.content?.substring(0, 20),
-          latestTime: sorted[sorted.length - 1]?.created_at,
-        });
-
-        return {
-          messagesByRoom: {
-            ...state.messagesByRoom,
-            [roomId]: sorted,
-          },
-        };
+      set({
+        messages: data,
+        hasMoreMessages: data.length >= 50,
       });
     } finally {
-      set((state) => ({
-        isLoadingMessages: { ...state.isLoadingMessages, [roomId]: false },
-      }));
+      set({ isLoadingMessages: false });
     }
   },
 
-  /**
-   * 메시지 전송 (텍스트 또는 파일)
-   */
-  sendMessage: async (input) => {
-    set({ isSendingMessage: true });
+  loadMoreMessages: async () => {
+    const state = get();
+    if (!state.activeRoomId || state.isLoadingMessages || !state.hasMoreMessages) return;
+    if (state.messages.length === 0) return;
+
+    set({ isLoadingMessages: true });
 
     try {
-      // sendMessageApi가 파일 업로드를 처리하므로 직접 전달
-      const { data, error } = await sendMessageApi({
-        room_id: input.room_id,
-        content: input.content,
-        message_type: input.message_type,
-        file: input.file, // File 객체를 그대로 전달
+      const oldestMessage = state.messages[0];
+      const { data, error } = await getMessages({
+        roomId: state.activeRoomId,
+        before: oldestMessage.created_at,
       });
 
       if (error) {
-        console.error('[chatStore] 메시지 전송 실패:', error.message);
+        console.error('[chatStore] 이전 메시지 로드 실패:', error.message);
         return;
       }
 
-      // 전송 성공 시 로컬 상태 업데이트 (Realtime으로 업데이트되지만 즉시 반영)
-      if (data) {
-        get().addMessage(data);
-      }
+      set({
+        messages: [...data, ...state.messages],
+        hasMoreMessages: data.length >= 50,
+      });
     } finally {
-      set({ isSendingMessage: false });
+      set({ isLoadingMessages: false });
     }
   },
 
-  /**
-   * 채팅방 읽음 처리
-   */
-  markAsRead: async (roomId: string) => {
-    const { error } = await markRoomAsRead(roomId);
+  sendMessage: async (content, file, replyToId) => {
+    const state = get();
+    if (!state.activeRoomId) return;
+
+    const { data, error } = await sendMessageApi({
+      roomId: state.activeRoomId,
+      content,
+      file,
+      replyToId,
+    });
 
     if (error) {
-      console.error('[chatStore] 읽음 처리 실패:', error.message);
+      console.error('[chatStore] 메시지 전송 실패:', error.message);
       return;
     }
 
-    // 로컬 상태 업데이트
+    if (data) {
+      // 로컬에 즉시 추가 (중복 체크)
+      set((prev) => {
+        const exists = prev.messages.some((m) => m.id === data.id);
+        if (exists) return prev;
+        return { messages: [...prev.messages, data] };
+      });
+    }
+  },
+
+  addRealtimeMessage: (message) => {
+    set((state) => {
+      // 중복 체크
+      const exists = state.messages.some((m) => m.id === message.id);
+      if (exists) return state;
+
+      const newMessages = [...state.messages, message];
+
+      // 방 목록의 미리보기 갱신
+      const updatedRooms = state.rooms.map((r) => {
+        if (r.id !== message.room_id) return r;
+        return {
+          ...r,
+          last_message_at: message.created_at,
+          last_message_preview:
+            message.message_type === 'file'
+              ? `[파일] ${message.file_name || '첨부파일'}`
+              : message.content?.substring(0, 100) || '',
+          last_message_type: message.message_type,
+        };
+      });
+
+      return { messages: newMessages, rooms: updatedRooms };
+    });
+  },
+
+  fetchDeltaMessages: async () => {
+    const state = get();
+    if (!state.activeRoomId || state.messages.length === 0) return;
+
+    const lastMessage = state.messages[state.messages.length - 1];
+    const { data, error } = await getMessagesSince(state.activeRoomId, lastMessage.created_at);
+    if (error || !data) return;
+
+    for (const msg of data) {
+      get().addRealtimeMessage(msg);
+    }
+  },
+
+  // ━━━ 읽음 처리 ━━━
+
+  markAsRead: async (roomId) => {
+    const { error } = await markRoomAsReadApi(roomId);
+    if (error) return;
+
     set((state) => ({
-      rooms: state.rooms.map((room) =>
-        room.id === roomId ? { ...room, my_unread_count: 0 } : room
+      rooms: state.rooms.map((r) =>
+        r.id === roomId ? { ...r, unread_count: 0 } : r
       ),
     }));
 
-    // 총 읽지 않은 메시지 수 업데이트
-    await get().updateUnreadCount();
+    // 총 unread 갱신
+    get().loadUnreadCount();
   },
 
-  /**
-   * 활성 채팅방 설정
-   */
-  setActiveRoom: (roomId: string | null) => {
-    set({ activeRoomId: roomId });
-
-    // 채팅방 진입 시 읽음 처리
-    if (roomId) {
-      get().markAsRead(roomId);
-    }
-  },
-
-  /**
-   * 타이핑 상태 업데이트 (Realtime Broadcast)
-   */
-  updateTyping: (payload: TypingEventPayload) => {
-    const { room_id, user_id, user_name, is_typing } = payload;
-
-    set((state) => {
-      const roomTyping = state.typingUsers[room_id] || [];
-
-      if (is_typing) {
-        // 타이핑 중인 사용자 추가
-        const exists = roomTyping.some((t) => t.user_id === user_id);
-        if (exists) return state;
-
-        return {
-          typingUsers: {
-            ...state.typingUsers,
-            [room_id]: [...roomTyping, payload],
-          },
-        };
-      } else {
-        // 타이핑 중지한 사용자 제거
-        return {
-          typingUsers: {
-            ...state.typingUsers,
-            [room_id]: roomTyping.filter((t) => t.user_id !== user_id),
-          },
-        };
-      }
-    });
-  },
-
-  /**
-   * 사용자 온라인 상태 업데이트 (Realtime Presence)
-   */
-  updatePresence: (userId: string, state: PresenceState | null) => {
-    set((prev) => {
-      const updated = { ...prev.onlineUsers };
-
-      if (state === null) {
-        delete updated[userId];
-      } else {
-        updated[userId] = state;
-      }
-
-      return { onlineUsers: updated };
-    });
-  },
-
-  /**
-   * 메시지 추가 (Realtime으로 수신한 메시지)
-   */
-  addMessage: (message: ChatMessage) => {
-    set((state) => {
-      const roomMessages = state.messagesByRoom[message.room_id] || [];
-      const exists = roomMessages.some((m) => m.id === message.id);
-
-      if (exists) return state;
-
-      return {
-        messagesByRoom: {
-          ...state.messagesByRoom,
-          [message.room_id]: [...roomMessages, message],
-        },
-      };
-    });
-
-    // 채팅방 목록의 last_message 업데이트 및 정렬
-    set((state) => {
-      const updatedRooms = state.rooms.map((room) =>
-        room.id === message.room_id
-          ? {
-              ...room,
-              last_message_content: message.content,
-              last_message_type: message.message_type,
-              last_message_at: message.created_at,
-            }
-          : room
-      );
-
-      // 최신 메시지 기준으로 정렬 (최신 대화방이 맨 위로)
-      const sorted = updatedRooms.sort((a, b) => {
-        const aTime = new Date(a.last_message_at || a.created_at).getTime();
-        const bTime = new Date(b.last_message_at || b.created_at).getTime();
-        return bTime - aTime; // 최신순
-      });
-
-      console.log('[chatStore] addMessage - 채팅방 목록 업데이트:', {
-        roomId: message.room_id.substring(0, 8) + '...',
-        content: message.content?.substring(0, 20),
-        time: message.created_at,
-      });
-
-      return { rooms: sorted };
-    });
-  },
-
-  /**
-   * 총 읽지 않은 메시지 수 업데이트
-   */
-  updateUnreadCount: async () => {
+  loadUnreadCount: async () => {
     const { data, error } = await getTotalUnreadCount();
-
-    if (error) {
-      console.error('[chatStore] 읽지 않은 메시지 수 조회 실패:', error.message);
-      return;
+    if (!error) {
+      set({ totalUnreadCount: data });
     }
-
-    set({ totalUnreadCount: data || 0 });
   },
 
-  /**
-   * Store 초기화 (로그아웃 시)
-   */
+  // ━━━ 패널 ━━━
+
+  openPanel: () => set({ isDesktopPanelOpen: true }),
+  closePanel: () => set({ isDesktopPanelOpen: false }),
+
+  openDrawer: () => {
+    if (drawerCloseTimeout) {
+      clearTimeout(drawerCloseTimeout);
+      drawerCloseTimeout = null;
+    }
+    set({ isDesktopPanelOpen: true });
+  },
+
+  scheduleDrawerClose: () => {
+    if (drawerCloseTimeout) clearTimeout(drawerCloseTimeout);
+    drawerCloseTimeout = setTimeout(() => {
+      set({ isDesktopPanelOpen: false });
+      drawerCloseTimeout = null;
+    }, 500);
+  },
+
+  cancelDrawerClose: () => {
+    if (drawerCloseTimeout) {
+      clearTimeout(drawerCloseTimeout);
+      drawerCloseTimeout = null;
+    }
+  },
+
+  // ━━━ 실시간 ━━━
+
+  setTypingUser: (userId, userName, isTyping) => {
+    set((state) => {
+      const next = new Map(state.typingUsers);
+      if (isTyping) {
+        next.set(userId, userName);
+      } else {
+        next.delete(userId);
+      }
+      return { typingUsers: next };
+    });
+  },
+
+  setOnlineUsers: (userIds) => {
+    set({ onlineUsers: new Set(userIds) });
+  },
+
+  // ━━━ 리셋 ━━━
+
   reset: () => {
     set({
       rooms: [],
-      messagesByRoom: {},
-      activeRoomId: null,
-      typingUsers: {},
-      onlineUsers: {},
-      totalUnreadCount: 0,
       isLoadingRooms: false,
-      isLoadingMessages: {},
-      isSendingMessage: false,
+      activeRoomId: null,
+      activeRoom: null,
+      messages: [],
+      isLoadingMessages: false,
+      hasMoreMessages: true,
+      view: 'list',
+      isDesktopPanelOpen: false,
+      typingUsers: new Map(),
+      onlineUsers: new Set(),
+      totalUnreadCount: 0,
     });
   },
 }));

@@ -1,25 +1,16 @@
-import { Fragment, useEffect, useState } from 'react';
-import { IconMenu2, IconX } from '@tabler/icons-react';
-import CrawlBoardList from '@/components/admin/CrawlBoardList';
-import CrawlBoardForm from '@/components/admin/CrawlBoardForm';
-import CrawlLogViewer from '@/components/admin/CrawlLogViewer';
+import { useEffect, useState } from 'react';
+import { IconMenu2, IconLock } from '@tabler/icons-react';
 import CrawlBoardStatus from '@/components/admin/CrawlBoardStatus';
 import PromoTabManager from '@/components/admin/PromoTabManager';
-import BoardSubmissionList from '@/components/admin/BoardSubmissionList';
-import BoardApprovalModal from '@/components/admin/BoardApprovalModal';
 import DashboardOverview from '@/components/admin/dashboard/DashboardOverview';
 import AdminUserManagement from '@/components/admin/AdminUserManagement';
 import ContentManagement from '@/components/admin/ContentManagement';
-import { CollapsibleSection } from '@/components/developer/CollapsibleSection';
-import type { CrawlBoard, CreateCrawlBoardInput } from '@/types';
-import { createCrawlBoard, updateCrawlBoard } from '@/lib/supabase/queries';
 import { useAdminAuth } from '@/lib/hooks/useAdminAuth';
 import { useAuthStore } from '@/stores/authStore';
 
-interface Notice {
-  type: 'success' | 'error';
-  message: string;
-}
+// 비밀번호 폴백 인증 (Supabase Auth 실패 시 사용)
+const TEAM_PASSWORD = import.meta.env.VITE_TEAM_CONSOLE_PASSWORD || '';
+const STORAGE_KEY = 'sellba_team_verified';
 
 interface AdminTab {
   key: string;
@@ -30,9 +21,8 @@ interface AdminTab {
 
 const ADMIN_TABS: AdminTab[] = [
   { key: 'overview', label: '대시보드', description: '요약 지표' },
-  { key: 'crawl', label: '크롤링 게시판 관리', description: '개발자 제출 승인 및 게시판 관리', badge: 'NEW' },
-  // { key: 'promo', label: '홍보카드 관리', description: '추천 섹션 프로모·띠지 배너 편집' },
-  { key: 'banner', label: '배너 관리', description: '히어로 배너 및 네이티브 광고 관리' },
+  { key: 'crawl', label: '크롤링 게시판 관리', description: '크롤링 게시판 현황 조회' },
+  { key: 'promo', label: '배너 관리', description: '히어로·접속·카드 배너 관리' },
   { key: 'users', label: '사용자 관리', description: '가입 사용자 목록 및 프로필 조회' },
   { key: 'content', label: '콘텐츠 관리', description: '공고 / 인력 검수' },
   { key: 'settings', label: '설정', description: '권한 및 시스템 설정' }
@@ -41,66 +31,39 @@ const ADMIN_TABS: AdminTab[] = [
 export default function AdminPageWithHamburger() {
   const { isAdmin, isLoading, user } = useAdminAuth();
   const { initialize } = useAuthStore();
+
+  // 비밀번호 폴백 인증 상태
+  const [passwordVerified, setPasswordVerified] = useState(false);
+  const [passwordInput, setPasswordInput] = useState('');
+  const [passwordError, setPasswordError] = useState(false);
+
   const [activeTab, setActiveTab] = useState<string>('overview');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [showBoardForm, setShowBoardForm] = useState(false);
-  const [editingBoard, setEditingBoard] = useState<CrawlBoard | undefined>();
-  const [logsBoard, setLogsBoard] = useState<CrawlBoard | undefined>();
-  const [notice, setNotice] = useState<Notice | null>(null);
   const [refreshToken, setRefreshToken] = useState(0);
-  const [submitting, setSubmitting] = useState(false);
-  const [approvalSubmissionId, setApprovalSubmissionId] = useState<string | null>(null);
 
   useEffect(() => {
     void initialize();
   }, [initialize]);
 
+  // 저장된 비밀번호 인증 상태 복원
   useEffect(() => {
-    if (!notice) return;
-    const timer = setTimeout(() => setNotice(null), 4000);
-    return () => clearTimeout(timer);
-  }, [notice]);
+    if (localStorage.getItem(STORAGE_KEY) === 'verified') {
+      setPasswordVerified(true);
+    }
+  }, []);
 
-  const handleCreateClick = () => {
-    setEditingBoard(undefined);
-    setShowBoardForm(true);
-  };
+  // 인증 여부: Supabase admin OR 비밀번호 인증
+  const isAuthorized = (user && isAdmin) || passwordVerified;
 
-  const handleEdit = (board: CrawlBoard) => {
-    setEditingBoard(board);
-    setShowBoardForm(true);
-  };
-
-  const handleLogs = (board: CrawlBoard) => {
-    setLogsBoard(board);
-  };
-
-  const handleCloseLogs = () => {
-    setLogsBoard(undefined);
-  };
-
-  const handleModalClose = () => {
-    setShowBoardForm(false);
-    setEditingBoard(undefined);
-  };
-
-  const handleSubmit = async (payload: CreateCrawlBoardInput, id?: string) => {
-    setSubmitting(true);
-    try {
-      if (id) {
-        await updateCrawlBoard(id, payload);
-        setNotice({ type: 'success', message: '게시판 설정이 업데이트되었습니다.' });
-      } else {
-        await createCrawlBoard(payload);
-        setNotice({ type: 'success', message: '새 게시판이 등록되었습니다.' });
-      }
-      setRefreshToken((token) => token + 1);
-    } catch (error) {
-      console.error(error);
-      setNotice({ type: 'error', message: '게시판 정보를 저장하지 못했습니다.' });
-      throw error;
-    } finally {
-      setSubmitting(false);
+  const handlePasswordSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (passwordInput === TEAM_PASSWORD) {
+      localStorage.setItem(STORAGE_KEY, 'verified');
+      setPasswordVerified(true);
+      setPasswordError(false);
+    } else {
+      setPasswordError(true);
+      setPasswordInput('');
     }
   };
 
@@ -109,65 +72,64 @@ export default function AdminPageWithHamburger() {
     setIsSidebarOpen(false);
   };
 
-  const handleApprovalSuccess = () => {
-    setApprovalSubmissionId(null);
-    setRefreshToken((token) => token + 1);
-    setNotice({ type: 'success', message: '게시판이 승인되어 크롤링 목록에 추가되었습니다.' });
-  };
 
-  const handleApprovalCancel = () => {
-    setApprovalSubmissionId(null);
-  };
-
-  // 로딩 중
-  if (isLoading) {
+  // 로딩 중 (비밀번호 인증이면 스킵)
+  if (isLoading && !passwordVerified) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
         <div className="text-center">
-          <div className="animate-spin text-4xl mb-4">⏳</div>
-          <p className="text-slate-600 font-esamanru">권한 확인 중...</p>
+          <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+          <p className="text-slate-600">권한 확인 중...</p>
         </div>
       </div>
     );
   }
 
-  // 로그인 안 됨
-  if (!user) {
+  // 인증 안 됨 → 비밀번호 입력 폼 표시
+  if (!isAuthorized) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="text-center">
-          <div className="text-6xl mb-4">🔒</div>
-          <h1 className="text-2xl font-bold mb-2 font-esamanru">로그인이 필요합니다</h1>
-          <p className="text-slate-600 mb-4 font-esamanru">관리자 페이지는 로그인 후 이용 가능합니다.</p>
-          <button
-            onClick={() => window.location.href = '/'}
-            className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition font-esamanru"
-          >
-            홈으로 돌아가기
-          </button>
-        </div>
-      </div>
-    );
-  }
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200">
+        <div className="w-full max-w-md mx-4">
+          <div className="bg-white rounded-2xl shadow-xl p-8">
+            <div className="text-center mb-8">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-4">
+                <IconLock size={32} className="text-primary" stroke={1.5} />
+              </div>
+              <h1 className="text-2xl font-bold text-slate-900">관리 콘솔</h1>
+              <p className="text-slate-500 mt-2 text-sm">비밀번호를 입력하세요</p>
+            </div>
 
-  // 관리자 권한 없음
-  if (!isAdmin) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="text-center">
-          <div className="text-6xl mb-4">🚫</div>
-          <h1 className="text-2xl font-bold mb-2 font-esamanru">접근 권한이 없습니다</h1>
-          <p className="text-slate-600 mb-4 font-esamanru">
-            관리자 권한이 필요합니다.
-            <br />
-            현재 계정: {user.email}
-          </p>
-          <button
-            onClick={() => window.location.href = '/'}
-            className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition font-esamanru"
-          >
-            홈으로 돌아가기
-          </button>
+            <form onSubmit={handlePasswordSubmit}>
+              <div className="space-y-4">
+                <div>
+                  <input
+                    type="password"
+                    value={passwordInput}
+                    onChange={(e) => {
+                      setPasswordInput(e.target.value);
+                      setPasswordError(false);
+                    }}
+                    placeholder="비밀번호"
+                    className={`w-full px-4 py-3 rounded-xl border-2 transition-colors outline-none ${
+                      passwordError
+                        ? 'border-red-300 bg-red-50 focus:border-red-500'
+                        : 'border-slate-200 focus:border-primary'
+                    }`}
+                    autoFocus
+                  />
+                  {passwordError && (
+                    <p className="mt-2 text-sm text-red-600">비밀번호가 틀렸습니다.</p>
+                  )}
+                </div>
+                <button
+                  type="submit"
+                  className="w-full py-3 px-4 bg-primary text-white font-semibold rounded-xl hover:bg-primary/90 transition-colors"
+                >
+                  입장
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       </div>
     );
@@ -178,73 +140,9 @@ export default function AdminPageWithHamburger() {
       case 'overview':
         return <DashboardOverview />;
       case 'crawl':
-        return (
-          <Fragment>
-            {notice && (
-              <div
-                className={`mb-4 rounded-md border px-4 py-3 text-sm ${notice.type === 'success'
-                    ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                    : 'border-red-200 bg-red-50 text-red-700'
-                  }`}
-              >
-                {notice.message}
-              </div>
-            )}
-
-            <div className="space-y-4">
-              {/* 크롤링 게시판 현황 */}
-              <CollapsibleSection
-                title="크롤링 게시판 현황"
-                defaultOpen={true}
-              >
-                <div className="p-4">
-                  <CrawlBoardStatus refreshToken={refreshToken} />
-                </div>
-              </CollapsibleSection>
-
-              {/* 승인대기 크롤링 게시판 */}
-              <CollapsibleSection
-                title="승인대기 크롤링 게시판"
-                defaultOpen={false}
-              >
-                <div className="p-4">
-                  <BoardSubmissionList
-                    onApprove={(submissionId) => {
-                      console.log('[AdminPage] Approving submission ID:', submissionId);
-                      setApprovalSubmissionId(submissionId);
-                    }}
-                    refreshToken={refreshToken}
-                  />
-                </div>
-              </CollapsibleSection>
-
-              {/* 승인된 크롤링 게시판 */}
-              <CollapsibleSection
-                title="승인된 크롤링 게시판"
-                defaultOpen={false}
-              >
-                <div className="p-4">
-                  <CrawlBoardList
-                    onCreate={handleCreateClick}
-                    onEdit={handleEdit}
-                    onLogs={handleLogs}
-                    refreshToken={refreshToken}
-                    filterApproved={true}
-                  />
-                </div>
-              </CollapsibleSection>
-            </div>
-          </Fragment>
-        );
+        return <CrawlBoardStatus refreshToken={refreshToken} />;
       case 'promo':
         return <PromoTabManager />;
-      case 'banner':
-        return (
-          <div className="flex h-full flex-col items-center justify-center rounded-lg border border-dashed border-slate-300 bg-white p-10 text-center text-sm text-slate-500">
-            <p className="font-medium text-slate-700">배너 관리 기능 준비 중</p>
-            <p className="mt-2 text-xs text-slate-400">히어로 배너 관리 기능이 곧 추가될 예정입니다.</p>
-          </div>
-        );
       case 'users':
         return <AdminUserManagement />;
       case 'content':
@@ -274,12 +172,12 @@ export default function AdminPageWithHamburger() {
             </button>
 
             <div>
-              <h1 className="text-xl font-bold text-slate-900">셀미바이미 관리자</h1>
-              <p className="text-xs text-slate-500">운영을 위한 전용 관리 센터입니다.</p>
+              <h1 className="text-xl font-bold text-slate-900">셀미바이미 관리 콘솔</h1>
+              <p className="text-xs text-slate-500">운영 관리 센터</p>
             </div>
           </div>
           <span className="rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
-            관리자 전용
+            관리자
           </span>
         </div>
       </header>
@@ -328,6 +226,19 @@ export default function AdminPageWithHamburger() {
               );
             })}
           </nav>
+
+          {/* 인증 해제 */}
+          <div className="border-t border-slate-200 p-4">
+            <button
+              onClick={() => {
+                localStorage.removeItem(STORAGE_KEY);
+                setPasswordVerified(false);
+              }}
+              className="w-full rounded-lg border border-slate-200 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 transition"
+            >
+              인증 해제
+            </button>
+          </div>
         </div>
       </aside>
 
@@ -349,29 +260,6 @@ export default function AdminPageWithHamburger() {
         </div>
       </main>
 
-      {showBoardForm && (
-        <CrawlBoardForm
-          initialValue={editingBoard}
-          onClose={handleModalClose}
-          onSubmit={handleSubmit}
-        />
-      )}
-
-      <CrawlLogViewer board={logsBoard} open={Boolean(logsBoard)} onClose={handleCloseLogs} />
-
-      {approvalSubmissionId && (
-        <BoardApprovalModal
-          submissionId={approvalSubmissionId}
-          onSuccess={handleApprovalSuccess}
-          onCancel={handleApprovalCancel}
-        />
-      )}
-
-      {submitting && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/20">
-          <div className="rounded-md bg-white px-4 py-2 text-sm text-gray-600 shadow">저장 중...</div>
-        </div>
-      )}
     </div>
   );
 }

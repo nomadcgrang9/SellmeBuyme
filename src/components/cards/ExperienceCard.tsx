@@ -3,9 +3,9 @@ import { ExperienceCard as ExperienceCardType } from '@/types';
 import { IconMapPin, IconCategory, IconSchool, IconUsers, IconPhone, IconAt, IconEdit, IconTrash, IconHeart } from '@tabler/icons-react';
 import { MessageCircle } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
+import { useChatStore } from '@/stores/chatStore';
 import { useBookmarkStore } from '@/stores/bookmarkStore';
 import { getExperienceImage, handleImageError } from '@/lib/utils/cardImages';
-import { createOrGetChatRoom } from '@/lib/supabase/chat';
 import { addBookmark, removeBookmark } from '@/lib/supabase/queries';
 import { useToastStore } from '@/stores/toastStore';
 
@@ -80,46 +80,11 @@ function ExperienceCard({ card, onEditClick, onDeleteClick, onCardClick, onOpenC
     }
   };
 
-  // 채팅 시작 핸들러
-  const handleChatClick = async (e: React.MouseEvent) => {
+  // 1:1 채팅 시작 핸들러
+  const handleChatClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-
-    if (!user) {
-      alert('로그인이 필요한 기능입니다');
-      return;
-    }
-
-    if (!card.user_id) {
-      alert('이 체험과는 채팅할 수 없습니다');
-      return;
-    }
-
-    try {
-      const { data: roomId, error } = await createOrGetChatRoom({
-        other_user_id: card.user_id,
-        context_type: 'experience',
-        context_card_id: card.id,
-      });
-
-      if (error || !roomId) {
-        console.error('채팅방 생성 실패:', error);
-        alert('채팅방을 생성할 수 없습니다');
-        return;
-      }
-
-      // 화면 크기에 따라 분기
-      const isMobile = window.innerWidth < 768;
-      if (isMobile) {
-        // 모바일: 페이지 이동
-        window.location.href = `/chat/${roomId}`;
-      } else {
-        // 데스크톱: 모달 열기
-        onOpenChatModal?.(roomId);
-      }
-    } catch (err) {
-      console.error('채팅 시작 오류:', err);
-      alert('채팅을 시작할 수 없습니다');
-    }
+    if (!card.user_id) return;
+    useChatStore.getState().openChat(card.user_id, 'experience', card.id);
   };
 
   return (

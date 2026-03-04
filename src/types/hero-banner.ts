@@ -62,6 +62,10 @@ export interface NativeBannerConfig {
 export interface NativeBanner {
     id: string;
     imageUrl: string;
+    title?: string;
+    description?: string;
+    bgColor?: string;
+    textColor?: string;
     linkUrl?: string;
     displayOrder: number;
     isActive: boolean;
@@ -75,7 +79,11 @@ export interface UpdateNativeBannerConfigInput {
 }
 
 export interface CreateNativeBannerInput {
-    imageUrl: string;
+    imageUrl?: string;
+    title?: string;
+    description?: string;
+    bgColor?: string;
+    textColor?: string;
     linkUrl?: string;
     displayOrder?: number;
     isActive?: boolean;
@@ -83,6 +91,10 @@ export interface CreateNativeBannerInput {
 
 export interface UpdateNativeBannerInput {
     imageUrl?: string;
+    title?: string;
+    description?: string;
+    bgColor?: string;
+    textColor?: string;
     linkUrl?: string;
     displayOrder?: number;
     isActive?: boolean;

@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Search, ChevronDown, MoreVertical, X, Eye, Edit2, Trash2, RefreshCw } from 'lucide-react';
+import { Search, ChevronDown, MoreVertical, X, Eye, Edit2, Trash2, RefreshCw, EyeOff } from 'lucide-react';
 import { supabase } from '@/lib/supabase/client';
 import type { TeacherMarker, PrimaryCategory } from '@/types/markers';
 import type { InstructorMarker, InstructorSpecialty } from '@/types/instructorMarkers';
+import type { WagleThreadRow, ReactionCounts } from '@/types/wagle';
 
 // ============================================
 // 타입 정의
@@ -29,7 +30,12 @@ interface JobPosting {
   updated_at: string;
 }
 
-type ContentType = 'jobs' | 'teachers' | 'instructors';
+/** 와글와글 관리용 확장 타입 (프로필 조인) */
+interface AdminWagleThread extends WagleThreadRow {
+  author_name: string;
+}
+
+type ContentType = 'jobs' | 'teachers' | 'instructors' | 'wagle';
 type ContentStatus = 'all' | 'active' | 'inactive';
 
 interface ContentFilters {
@@ -71,17 +77,18 @@ export default function ContentManagement() {
   const [jobs, setJobs] = useState<JobPosting[]>([]);
   const [teachers, setTeachers] = useState<TeacherMarker[]>([]);
   const [instructors, setInstructors] = useState<InstructorMarker[]>([]);
+  const [wagleThreads, setWagleThreads] = useState<AdminWagleThread[]>([]);
 
   // UI 상태
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedItem, setSelectedItem] = useState<JobPosting | TeacherMarker | InstructorMarker | null>(null);
+  const [selectedItem, setSelectedItem] = useState<JobPosting | TeacherMarker | InstructorMarker | AdminWagleThread | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [actionMenuId, setActionMenuId] = useState<string | null>(null);
   const [refreshToken, setRefreshToken] = useState(0);
 
   // 카운트
-  const [counts, setCounts] = useState({ jobs: 0, teachers: 0, instructors: 0 });
+  const [counts, setCounts] = useState({ jobs: 0, teachers: 0, instructors: 0, wagle: 0 });
 
   // ============================================
   // 데이터 로드
@@ -119,11 +126,37 @@ export default function ContentManagement() {
       if (instructorsError) throw instructorsError;
       setInstructors(instructorsData || []);
 
+      // 와글와글 로드 (숨김 포함 전체)
+      const { data: wagleData, error: wagleError } = await supabase
+        .from('wagle_threads')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (wagleError) throw wagleError;
+
+      // 작성자 프로필 일괄 조회
+      const authorIds = [...new Set((wagleData || []).map((w: WagleThreadRow) => w.author_id))];
+      let profileMap = new Map<string, string>();
+      if (authorIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('user_profiles')
+          .select('user_id, display_name')
+          .in('user_id', authorIds);
+        profileMap = new Map((profiles || []).map((p) => [p.user_id, p.display_name || '알 수 없음']));
+      }
+
+      const wagleWithProfiles: AdminWagleThread[] = (wagleData || []).map((row: WagleThreadRow) => ({
+        ...row,
+        author_name: profileMap.get(row.author_id) || '알 수 없음',
+      }));
+      setWagleThreads(wagleWithProfiles);
+
       // 카운트 업데이트
       setCounts({
         jobs: jobsData?.length || 0,
         teachers: teachersData?.length || 0,
-        instructors: instructorsData?.length || 0
+        instructors: instructorsData?.length || 0,
+        wagle: wagleData?.length || 0,
       });
 
     } catch (err) {
@@ -143,13 +176,34 @@ export default function ContentManagement() {
   // ============================================
   const getFilteredData = useCallback(() => {
     let data: (JobPosting | TeacherMarker | InstructorMarker)[] = [];
+    let wagleData: AdminWagleThread[] = [];
 
-    if (activeTab === 'jobs') {
+    if (activeTab === 'wagle') {
+      wagleData = [...wagleThreads];
+    } else if (activeTab === 'jobs') {
       data = jobs;
     } else if (activeTab === 'teachers') {
       data = teachers;
     } else {
       data = instructors;
+    }
+
+    // 와글 필터링
+    if (activeTab === 'wagle') {
+      if (filters.search) {
+        const searchLower = filters.search.toLowerCase();
+        wagleData = wagleData.filter(w =>
+          w.content.toLowerCase().includes(searchLower) ||
+          w.author_name.toLowerCase().includes(searchLower) ||
+          w.hashtags.some(h => h.toLowerCase().includes(searchLower))
+        );
+      }
+      if (filters.status !== 'all') {
+        wagleData = wagleData.filter(w =>
+          filters.status === 'active' ? !w.is_deleted : w.is_deleted
+        );
+      }
+      return wagleData;
     }
 
     // 검색 필터
@@ -182,12 +236,10 @@ export default function ContentManagement() {
     if (filters.status !== 'all') {
       data = data.filter(item => {
         if (activeTab === 'jobs') {
-          // 공고는 마감일 기준
           const job = item as JobPosting;
           const isActive = !job.deadline || new Date(job.deadline) >= new Date();
           return filters.status === 'active' ? isActive : !isActive;
         } else {
-          // 구직자/강사는 is_active 기준
           const marker = item as TeacherMarker | InstructorMarker;
           return filters.status === 'active' ? marker.is_active : !marker.is_active;
         }
@@ -195,12 +247,12 @@ export default function ContentManagement() {
     }
 
     return data;
-  }, [activeTab, jobs, teachers, instructors, filters]);
+  }, [activeTab, jobs, teachers, instructors, wagleThreads, filters]);
 
   // ============================================
   // 액션 핸들러
   // ============================================
-  const handleView = (item: JobPosting | TeacherMarker | InstructorMarker) => {
+  const handleView = (item: JobPosting | TeacherMarker | InstructorMarker | AdminWagleThread) => {
     setSelectedItem(item);
     setShowDetailModal(true);
     setActionMenuId(null);
@@ -225,7 +277,65 @@ export default function ContentManagement() {
     setActionMenuId(null);
   };
 
-  const handleDelete = async (item: JobPosting | TeacherMarker | InstructorMarker) => {
+  const handleWagleToggleHide = async (thread: AdminWagleThread) => {
+    const newDeleted = !thread.is_deleted;
+    try {
+      // .select() 붙여야 RLS 차단 시 0행 반환을 감지할 수 있음
+      const { data, error } = await supabase
+        .from('wagle_threads')
+        .update({ is_deleted: newDeleted })
+        .eq('id', thread.id)
+        .select('id, is_deleted');
+
+      if (error) throw error;
+      if (!data || data.length === 0) {
+        // RLS가 조용히 차단한 경우
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          alert('Supabase 로그인이 필요합니다.\n관리자 계정으로 메인 사이트에서 로그인 후 다시 시도해주세요.');
+        } else {
+          alert(`권한이 없습니다. 관리자 역할(admin)이 필요합니다.\n(유저: ${user.email})`);
+        }
+        return;
+      }
+
+      setRefreshToken(t => t + 1);
+    } catch (err) {
+      console.error('와글 숨기기/복구 실패:', err);
+      alert(`상태 변경에 실패했습니다: ${err}`);
+    }
+    setActionMenuId(null);
+  };
+
+  const handleWagleDelete = async (thread: AdminWagleThread) => {
+    if (!window.confirm('이 와글 글을 완전히 삭제하시겠습니까?\n(댓글, 리액션 모두 함께 삭제됩니다)')) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('wagle_threads')
+        .delete()
+        .eq('id', thread.id)
+        .select('id');
+
+      if (error) throw error;
+      if (!data || data.length === 0) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          alert('Supabase 로그인이 필요합니다.\n관리자 계정으로 메인 사이트에서 로그인 후 다시 시도해주세요.');
+        } else {
+          alert('삭제 권한이 없습니다. 관리자 역할(admin)이 필요합니다.');
+        }
+        return;
+      }
+      setRefreshToken(t => t + 1);
+    } catch (err) {
+      console.error('와글 삭제 실패:', err);
+      alert('삭제에 실패했습니다.');
+    }
+    setActionMenuId(null);
+  };
+
+  const handleDelete = async (item: JobPosting | TeacherMarker | InstructorMarker | AdminWagleThread) => {
     const confirmMsg = activeTab === 'jobs'
       ? '이 공고를 삭제하시겠습니까?'
       : activeTab === 'teachers'
@@ -294,6 +404,16 @@ export default function ContentManagement() {
         >
           강사 ({counts.instructors})
         </button>
+        <button
+          onClick={() => setActiveTab('wagle')}
+          className={`px-4 py-2 text-sm border-b-2 transition-colors ${
+            activeTab === 'wagle'
+              ? 'text-[#3B82F6] font-medium border-[#3B82F6]'
+              : 'text-gray-600 border-transparent hover:text-gray-800'
+          }`}
+        >
+          와글 ({counts.wagle})
+        </button>
       </div>
 
       {/* 필터 */}
@@ -318,8 +438,8 @@ export default function ContentManagement() {
                      text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           <option value="all">전체 상태</option>
-          <option value="active">활성</option>
-          <option value="inactive">비활성</option>
+          <option value="active">{activeTab === 'wagle' ? '공개' : '활성'}</option>
+          <option value="inactive">{activeTab === 'wagle' ? '숨김' : '비활성'}</option>
         </select>
 
         <button
@@ -339,7 +459,7 @@ export default function ContentManagement() {
       )}
 
       {/* 테이블 */}
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div className="bg-white rounded-xl border border-gray-200 overflow-visible">
         {/* 테이블 헤더 */}
         <div className="bg-gray-50 border-b border-gray-200 px-4 py-3">
           {activeTab === 'jobs' && (
@@ -368,6 +488,16 @@ export default function ContentManagement() {
               <span className="col-span-2">전문분야</span>
               <span>대상</span>
               <span>등록일</span>
+              <span>상태</span>
+              <span className="text-right">관리</span>
+            </div>
+          )}
+          {activeTab === 'wagle' && (
+            <div className="grid grid-cols-8 gap-4 text-xs font-medium text-gray-600">
+              <span>작성자</span>
+              <span className="col-span-3">내용</span>
+              <span>해시태그</span>
+              <span>반응/댓글</span>
               <span>상태</span>
               <span className="text-right">관리</span>
             </div>
@@ -470,6 +600,46 @@ export default function ContentManagement() {
                     </div>
                   </div>
                 )}
+
+                {/* 와글 행 */}
+                {activeTab === 'wagle' && (
+                  <div className={`grid grid-cols-8 gap-4 px-4 py-3 hover:bg-gray-50 transition-colors items-center ${
+                    (item as AdminWagleThread).is_deleted ? 'opacity-50 bg-gray-50' : ''
+                  }`}>
+                    <span className="text-sm text-gray-800 truncate">{(item as AdminWagleThread).author_name}</span>
+                    <span className="col-span-3 text-sm text-gray-600 truncate">
+                      {(item as AdminWagleThread).content.length > 50
+                        ? (item as AdminWagleThread).content.slice(0, 50) + '...'
+                        : (item as AdminWagleThread).content}
+                    </span>
+                    <span className="text-xs text-gray-500 truncate">
+                      {(item as AdminWagleThread).hashtags.length > 0
+                        ? (item as AdminWagleThread).hashtags.map(h => `#${h}`).join(' ')
+                        : '-'}
+                    </span>
+                    <span className="text-xs text-gray-500">
+                      <span title="좋아요">♡{getTotalReactions((item as AdminWagleThread).reaction_counts)}</span>
+                      {' '}
+                      <span title="댓글">💬{(item as AdminWagleThread).reply_count}</span>
+                    </span>
+                    <span className={`text-xs font-medium ${
+                      (item as AdminWagleThread).is_deleted ? 'text-red-500' : 'text-green-600'
+                    }`}>
+                      {(item as AdminWagleThread).is_deleted ? '숨김' : '공개'}
+                    </span>
+                    <div className="text-right">
+                      <WagleActionMenu
+                        itemId={item.id}
+                        isOpen={actionMenuId === item.id}
+                        onToggle={() => setActionMenuId(actionMenuId === item.id ? null : item.id)}
+                        onView={() => handleView(item)}
+                        onToggleHide={() => handleWagleToggleHide(item as AdminWagleThread)}
+                        onDelete={() => handleWagleDelete(item as AdminWagleThread)}
+                        isDeleted={(item as AdminWagleThread).is_deleted}
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
             ))
           )}
@@ -482,7 +652,17 @@ export default function ContentManagement() {
       </div>
 
       {/* 상세 보기 모달 */}
-      {showDetailModal && selectedItem && (
+      {showDetailModal && selectedItem && activeTab === 'wagle' ? (
+        <WagleDetailModal
+          thread={selectedItem as AdminWagleThread}
+          onClose={() => {
+            setShowDetailModal(false);
+            setSelectedItem(null);
+          }}
+          onToggleHide={() => handleWagleToggleHide(selectedItem as AdminWagleThread)}
+          onDelete={() => handleWagleDelete(selectedItem as AdminWagleThread)}
+        />
+      ) : showDetailModal && selectedItem && (
         <DetailModal
           item={selectedItem}
           type={activeTab}
@@ -556,7 +736,7 @@ function ActionMenu({ isOpen, onToggle, onView, onToggleActive, onDelete, isActi
 // 상세 보기 모달 컴포넌트
 // ============================================
 interface DetailModalProps {
-  item: JobPosting | TeacherMarker | InstructorMarker;
+  item: JobPosting | TeacherMarker | InstructorMarker | AdminWagleThread;
   type: ContentType;
   onClose: () => void;
   onToggleActive?: () => void;
@@ -773,5 +953,170 @@ function InfoRow({ label, value, highlight }: { label: string; value: React.Reac
       <span className="text-gray-500">{label}:</span>{' '}
       <span className={highlight ? 'font-bold text-red-600' : ''}>{value}</span>
     </p>
+  );
+}
+
+// ============================================
+// 와글와글 유틸
+// ============================================
+function getTotalReactions(counts: ReactionCounts): number {
+  return (counts.like || 0) + (counts.cheer || 0) + (counts.curious || 0) + (counts.thanks || 0);
+}
+
+function formatTimeAgo(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const minutes = Math.floor(diff / 60000);
+  if (minutes < 60) return `${minutes}분 전`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}시간 전`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `${days}일 전`;
+  return formatDate(dateStr);
+}
+
+// ============================================
+// 와글 액션 메뉴
+// ============================================
+interface WagleActionMenuProps {
+  itemId: string;
+  isOpen: boolean;
+  onToggle: () => void;
+  onView: () => void;
+  onToggleHide: () => void;
+  onDelete: () => void;
+  isDeleted: boolean;
+}
+
+function WagleActionMenu({ isOpen, onToggle, onView, onToggleHide, onDelete, isDeleted }: WagleActionMenuProps) {
+  return (
+    <div className="relative">
+      <button
+        onClick={onToggle}
+        className="p-1 hover:bg-gray-100 rounded transition-colors"
+      >
+        <MoreVertical size={16} className="text-gray-400" />
+      </button>
+
+      {isOpen && (
+        <div className="absolute right-0 mt-1 w-28 bg-white rounded-lg border border-gray-200 shadow-lg py-1 z-20">
+          <button
+            onClick={onView}
+            className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+          >
+            <Eye size={14} />
+            상세보기
+          </button>
+          <button
+            onClick={onToggleHide}
+            className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+          >
+            {isDeleted ? <Eye size={14} /> : <EyeOff size={14} />}
+            {isDeleted ? '공개 복구' : '숨기기'}
+          </button>
+          <button
+            onClick={onDelete}
+            className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+          >
+            <Trash2 size={14} />
+            완전삭제
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================
+// 와글 상세 보기 모달
+// ============================================
+interface WagleDetailModalProps {
+  thread: AdminWagleThread;
+  onClose: () => void;
+  onToggleHide: () => void;
+  onDelete: () => void;
+}
+
+function WagleDetailModal({ thread, onClose, onToggleHide, onDelete }: WagleDetailModalProps) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+      <div className="absolute inset-0" onClick={onClose} />
+
+      <div className="relative bg-white rounded-xl shadow-xl border border-gray-200 w-full max-w-2xl max-h-[90vh] overflow-hidden mx-4">
+        {/* 헤더 */}
+        <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+          <h2 className="text-lg font-bold text-gray-800">와글 상세 정보</h2>
+          <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded transition-colors">
+            <X size={20} className="text-gray-400" />
+          </button>
+        </div>
+
+        {/* 본문 */}
+        <div className="px-6 py-4 overflow-y-auto max-h-[60vh] space-y-6">
+          <Section title="작성자 정보">
+            <InfoRow label="작성자" value={thread.author_name} />
+            <InfoRow label="작성자 ID" value={thread.author_id} />
+            <InfoRow label="작성일" value={`${formatDate(thread.created_at)} (${formatTimeAgo(thread.created_at)})`} />
+          </Section>
+
+          <Section title="본문">
+            <div className="text-sm text-gray-800 whitespace-pre-wrap bg-gray-50 rounded-lg p-4 border border-gray-100">
+              {thread.content}
+            </div>
+          </Section>
+
+          {thread.hashtags.length > 0 && (
+            <Section title="해시태그">
+              <div className="flex flex-wrap gap-2">
+                {thread.hashtags.map((tag) => (
+                  <span key={tag} className="px-2 py-1 text-xs rounded-full bg-blue-50 text-blue-600 border border-blue-200">
+                    #{tag}
+                  </span>
+                ))}
+              </div>
+            </Section>
+          )}
+
+          <Section title="반응 / 댓글">
+            <div className="flex gap-4 text-sm text-gray-600">
+              <span>♡ 좋아요 {thread.reaction_counts.like || 0}</span>
+              <span>🎉 응원 {thread.reaction_counts.cheer || 0}</span>
+              <span>🤔 궁금 {thread.reaction_counts.curious || 0}</span>
+              <span>🙏 감사 {thread.reaction_counts.thanks || 0}</span>
+            </div>
+            <InfoRow label="댓글 수" value={`${thread.reply_count}개`} />
+          </Section>
+
+          <Section title="상태">
+            <InfoRow
+              label="현재 상태"
+              value={thread.is_deleted ? '숨김' : '공개'}
+              highlight={thread.is_deleted}
+            />
+          </Section>
+        </div>
+
+        {/* 푸터 */}
+        <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-3">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-sm bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50"
+          >
+            닫기
+          </button>
+          <button
+            onClick={() => { onToggleHide(); onClose(); }}
+            className="px-4 py-2 text-sm bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50"
+          >
+            {thread.is_deleted ? '공개 복구' : '숨기기'}
+          </button>
+          <button
+            onClick={onDelete}
+            className="px-4 py-2 text-sm bg-red-500 text-white rounded-lg hover:bg-red-600"
+          >
+            완전삭제
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }

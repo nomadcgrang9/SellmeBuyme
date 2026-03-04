@@ -19,7 +19,10 @@
  * └──────────────┘
  */
 
-import { Plus, FileText, Star, MessageCircle, User } from 'lucide-react';
+import { Plus, FileText, Star, MessagesSquare, MessageCircle, User } from 'lucide-react';
+import { useWagleStore } from '@/stores/wagleStore';
+import { useChatStore } from '@/stores/chatStore';
+import { useSidePanelStore } from '@/stores/sidePanelStore';
 import PresentationGraph from '@solar-icons/react/csr/business/PresentationGraph';
 
 interface LayerToggleBarProps {
@@ -29,7 +32,7 @@ interface LayerToggleBarProps {
   onJobPostClick: () => void;
   /** 즐겨찾기 버튼 클릭 */
   onFavoritesClick?: () => void;
-  /** 채팅 버튼 클릭 */
+  /** 와글와글 버튼 클릭 */
   onChatClick?: () => void;
   /** 교원연수 강사등록 버튼 클릭 */
   onInstructorRegisterClick?: () => void;
@@ -41,6 +44,12 @@ interface LayerToggleBarProps {
   userProfileImage?: string | null;
   /** 사용자 이름 (이니셜용) */
   userName?: string | null;
+  /** 즐겨찾기 패널 닫기 (패널 하나씩만 열리게) */
+  onCloseFavorites?: () => void;
+  /** 즐겨찾기 호버 열기 */
+  onOpenFavorites?: () => void;
+  /** @deprecated 미사용 - 호버 닫기 제거됨 */
+  onScheduleCloseFavorites?: () => void;
   // Legacy props (unused but kept for compatibility)
   showJobLayer?: boolean;
   showSeekerLayer?: boolean;
@@ -69,6 +78,8 @@ export default function LayerToggleBar({
   isLoggedIn = false,
   userProfileImage,
   userName,
+  onCloseFavorites,
+  onOpenFavorites,
 }: LayerToggleBarProps) {
   // 이니셜 생성 (이름 첫 글자)
   const getInitial = () => {
@@ -182,9 +193,22 @@ export default function LayerToggleBar({
       {/* 구분선 (얇은) */}
       <div className="h-px bg-gray-100 mx-2" />
 
-      {/* 5. 즐겨찾기 버튼 */}
+      {/* 5. 1:1 채팅 버튼 */}
+      <ChatButton isLoggedIn={isLoggedIn} onCloseFavorites={onCloseFavorites} />
+
+      {/* 구분선 (얇은) */}
+      <div className="h-px bg-gray-100 mx-2" />
+
+      {/* 6. 즐겨찾기 버튼 */}
       <button
         onClick={onFavoritesClick}
+        onMouseEnter={() => {
+          useWagleStore.getState().setDesktopPanelOpen(false);
+          useChatStore.getState().closePanel();
+          useSidePanelStore.getState().closePanel();
+          onOpenFavorites?.();
+          useSidePanelStore.getState().bringToFront('favorites');
+        }}
         className="flex flex-col items-center justify-center gap-0.5 py-2.5 px-2 transition-all duration-200 text-xs font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-100"
         aria-label="즐겨찾기"
         title={isLoggedIn ? '즐겨찾기 목록' : '로그인 후 이용 가능'}
@@ -196,16 +220,73 @@ export default function LayerToggleBar({
       {/* 구분선 (얇은) */}
       <div className="h-px bg-gray-100 mx-2" />
 
-      {/* 6. 채팅 버튼 (최하단) */}
-      <button
-        onClick={onChatClick}
-        className="flex flex-col items-center justify-center gap-0.5 py-2.5 px-2 transition-all duration-200 text-xs font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-100"
-        aria-label="채팅"
-        title={isLoggedIn ? '채팅 목록' : '로그인 후 이용 가능'}
-      >
-        <MessageCircle size={18} strokeWidth={2} />
-        <span>채팅</span>
-      </button>
+      {/* 7. 와글와글 버튼 (최하단) */}
+      <WagleButton onChatClick={onChatClick} isLoggedIn={isLoggedIn} onCloseFavorites={onCloseFavorites} />
     </div>
+  );
+}
+
+/** 1:1 채팅 버튼 (호버로 열기/닫기) */
+function ChatButton({ isLoggedIn, onCloseFavorites }: { isLoggedIn?: boolean; onCloseFavorites?: () => void }) {
+  const { totalUnreadCount } = useChatStore();
+
+  const handleMouseEnter = () => {
+    onCloseFavorites?.(); // 즐겨찾기 패널 닫기
+    useWagleStore.getState().setDesktopPanelOpen(false); // 와글와글 닫기
+    useSidePanelStore.getState().closePanel(); // 등록 패널 닫기
+    useSidePanelStore.getState().bringToFront('chat');
+    useChatStore.getState().openDrawer();
+  };
+
+  return (
+    <button
+      onMouseEnter={handleMouseEnter}
+      className="relative flex flex-col items-center justify-center gap-0.5 py-2.5 px-2 transition-all duration-200 text-xs font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+      aria-label="1:1 채팅"
+      title={isLoggedIn ? '1:1 채팅' : '로그인 후 이용 가능'}
+    >
+      <div className="relative">
+        <MessageCircle size={18} strokeWidth={2} />
+        {totalUnreadCount > 0 && (
+          <span className="absolute -top-1.5 -right-2 w-4 h-4 flex items-center justify-center rounded-full bg-yellow-400 text-gray-800 text-[10px] font-bold shadow-sm">
+            N
+          </span>
+        )}
+      </div>
+      <span>채팅</span>
+    </button>
+  );
+}
+
+/** 와글와글 버튼 (알림 백지 + 호버 서랍 트리거) */
+function WagleButton({ onChatClick, isLoggedIn, onCloseFavorites }: { onChatClick?: () => void; isLoggedIn?: boolean; onCloseFavorites?: () => void }) {
+  const { unreadCount, openDrawer } = useWagleStore();
+
+  const handleClick = () => {
+    onCloseFavorites?.(); // 즐겨찾기 패널 닫기
+    useChatStore.getState().closePanel(); // 채팅 패널 닫기
+    useSidePanelStore.getState().closePanel(); // 등록 패널 닫기
+    useSidePanelStore.getState().bringToFront('wagle');
+    onChatClick?.();
+  };
+
+  return (
+    <button
+      onClick={handleClick}
+      onMouseEnter={() => { onCloseFavorites?.(); useChatStore.getState().closePanel(); openDrawer(); useSidePanelStore.getState().bringToFront('wagle'); }}
+      className="relative flex flex-col items-center justify-center gap-0.5 py-2.5 px-2 transition-all duration-200 text-xs font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+      aria-label="와글와글"
+      title={isLoggedIn ? '와글와글 커뮤니티' : '로그인 후 이용 가능'}
+    >
+      <div className="relative">
+        <MessagesSquare size={18} strokeWidth={2} />
+        {unreadCount > 0 && (
+          <span className="absolute -top-1.5 -right-2 min-w-[16px] h-4 px-1 flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold">
+            {unreadCount > 99 ? '99+' : unreadCount}
+          </span>
+        )}
+      </div>
+      <span>와글와글</span>
+    </button>
   );
 }

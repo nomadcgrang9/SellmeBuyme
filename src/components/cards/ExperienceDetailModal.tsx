@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import { ReactNode, useState, useCallback } from 'react';
 import { ExperienceCard as ExperienceCardType } from '@/types';
 import {
   IconX,
@@ -7,9 +7,13 @@ import {
   IconUsers,
   IconPhone,
   IconAt,
-  IconEdit
+  IconEdit,
+  IconStar
 } from '@tabler/icons-react';
 import { useAuthStore } from '@/stores/authStore';
+import { useBookmarkStore } from '@/stores/bookmarkStore';
+import { useToastStore } from '@/stores/toastStore';
+import { addBookmark, removeBookmark } from '@/lib/supabase/queries';
 
 type StatItem = {
   icon: typeof IconMapPin;
@@ -34,46 +38,50 @@ export default function ExperienceDetailModal({
   onDeleteClick
 }: ExperienceDetailModalProps) {
   const { user } = useAuthStore((state) => ({ user: state.user }));
+  const isBookmarkedFn = useBookmarkStore((s) => s.isBookmarked);
+  const addToStore = useBookmarkStore((s) => s.addBookmark);
+  const removeFromStore = useBookmarkStore((s) => s.removeBookmark);
+  const { showToast } = useToastStore();
+  const [isLoading, setIsLoading] = useState(false);
+  const bookmarked = isBookmarkedFn(experience.id);
 
   // 소유권 확인
   const isOwner = Boolean(user && experience.user_id && user.id === experience.user_id);
 
+  const handleBookmarkToggle = useCallback(async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!user) { showToast('로그인이 필요합니다', 'error'); return; }
+    if (isLoading) return;
+    setIsLoading(true);
+    try {
+      if (bookmarked) {
+        removeFromStore(experience.id);
+        await removeBookmark(user.id, experience.id, 'experience');
+        showToast('즐겨찾기에서 제거했습니다', 'info');
+      } else {
+        addToStore(experience.id);
+        await addBookmark(user.id, experience.id, 'experience');
+        showToast('즐겨찾기에 추가했습니다', 'success');
+      }
+    } catch {
+      if (bookmarked) addToStore(experience.id); else removeFromStore(experience.id);
+      showToast('오류가 발생했습니다', 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user, bookmarked, isLoading, experience.id, addToStore, removeFromStore, showToast]);
+
   if (!isOpen) return null;
 
-  const buildStat = (
-    icon: typeof IconMapPin,
-    accent: string,
-    label: string,
-    value: ReactNode
-  ): StatItem => ({ icon, accent, label, value });
+  const buildStat = (icon: typeof IconMapPin, accent: string, label: string, value: ReactNode): StatItem =>
+    ({ icon, accent, label, value });
 
   const primaryStats: StatItem[] = [];
+  if (experience.locationSummary) primaryStats.push(buildStat(IconMapPin, 'text-gray-500', '지역', experience.locationSummary));
+  if (experience.targetSchoolLevels.length > 0) primaryStats.push(buildStat(IconSchool, 'text-gray-500', '대상', experience.targetSchoolLevels.join(', ')));
+  if (experience.operationTypes.length > 0) primaryStats.push(buildStat(IconUsers, 'text-gray-500', '운영방식', experience.operationTypes.join(', ')));
+  if (experience.capacity) primaryStats.push(buildStat(IconUsers, 'text-gray-500', '수용인원', experience.capacity));
 
-  // 지역
-  if (experience.locationSummary) {
-    primaryStats.push(buildStat(IconMapPin, 'text-gray-500', '지역', experience.locationSummary));
-  }
-
-  // 대상 학교급
-  if (experience.targetSchoolLevels.length > 0) {
-    primaryStats.push(
-      buildStat(IconSchool, 'text-gray-500', '대상', experience.targetSchoolLevels.join(', '))
-    );
-  }
-
-  // 운영 방식
-  if (experience.operationTypes.length > 0) {
-    primaryStats.push(
-      buildStat(IconUsers, 'text-gray-500', '운영방식', experience.operationTypes.join(', '))
-    );
-  }
-
-  // 수용 인원
-  if (experience.capacity) {
-    primaryStats.push(buildStat(IconUsers, 'text-gray-500', '수용인원', experience.capacity));
-  }
-
-  // 연락처 정보
   const contactItems = [
     { label: '전화번호', value: experience.contactPhone, icon: IconPhone },
     { label: '이메일', value: experience.contactEmail, icon: IconAt }
@@ -90,14 +98,41 @@ export default function ExperienceDetailModal({
       >
         {/* 헤더 - 노란 그라디언트 */}
         <div className="sticky top-0 z-10 bg-gradient-to-r from-[#ffd98e] to-[#f4c96b] p-4 text-gray-900">
-          <button
-            onClick={onClose}
-            className="absolute top-3 right-3 p-2 rounded-full hover:bg-white/20 transition-colors"
-          >
-            <IconX size={24} />
-          </button>
+          <div className="absolute top-3 right-3 flex items-center gap-1">
+            {/* 즐겨찾기 별 버튼 */}
+            <button
+              onClick={handleBookmarkToggle}
+              disabled={isLoading}
+              title={bookmarked ? '즐겨찾기 해제' : '즐겨찾기 추가'}
+              className={`p-1.5 rounded-full transition-all duration-200 ${bookmarked ? 'text-amber-600 hover:bg-black/10' : 'text-gray-600/60 hover:text-amber-600 hover:bg-black/10'
+                } disabled:opacity-50`}
+            >
+              <IconStar
+                size={20}
+                fill={bookmarked ? 'currentColor' : 'none'}
+                stroke={bookmarked ? 'none' : 'currentColor'}
+                strokeWidth={1.5}
+              />
+            </button>
+            {/* 수정 버튼 - 본인만 */}
+            {user && experience.user_id === user.id && onEditClick && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onEditClick(experience); }}
+                className="p-1.5 text-gray-600/60 hover:text-blue-600 hover:bg-black/10 rounded-full transition-colors"
+                title="수정"
+              >
+                <IconEdit size={20} stroke={1.5} />
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              className="p-2 rounded-full hover:bg-white/20 transition-colors"
+            >
+              <IconX size={24} />
+            </button>
+          </div>
 
-          <div className="pr-10 space-y-1">
+          <div className="pr-20 space-y-1">
             <div className="flex items-center gap-2">
               <span className="text-sm font-semibold">체험</span>
             </div>
@@ -113,10 +148,7 @@ export default function ExperienceDetailModal({
           {experience.categories.length > 0 && (
             <div className="flex flex-wrap gap-1.5">
               {experience.categories.map((cat, idx) => (
-                <span
-                  key={idx}
-                  className="inline-flex items-center px-2.5 py-1 rounded-md bg-gray-100 text-gray-700 text-sm font-medium"
-                >
+                <span key={idx} className="inline-flex items-center px-2.5 py-1 rounded-md bg-gray-100 text-gray-700 text-sm font-medium">
                   {cat}
                 </span>
               ))}
@@ -168,10 +200,7 @@ export default function ExperienceDetailModal({
               <div className="flex gap-2">
                 {onDeleteClick && (
                   <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onDeleteClick(experience);
-                    }}
+                    onClick={(e) => { e.stopPropagation(); onDeleteClick(experience); }}
                     className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-white border border-red-200 text-red-600 hover:bg-red-50 transition-colors font-semibold"
                   >
                     <span>삭제하기</span>
@@ -179,10 +208,7 @@ export default function ExperienceDetailModal({
                 )}
                 {onEditClick && (
                   <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onEditClick(experience);
-                    }}
+                    onClick={(e) => { e.stopPropagation(); onEditClick(experience); }}
                     className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors font-semibold"
                   >
                     <IconEdit size={18} />

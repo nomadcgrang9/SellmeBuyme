@@ -5,6 +5,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useSidePanelStore } from '@/stores/sidePanelStore';
 import {
   INSTRUCTOR_SPECIALTIES,
   TARGET_AUDIENCE_OPTIONS,
@@ -17,6 +18,7 @@ import {
 import { REGION_OPTIONS, EXPERIENCE_OPTIONS, generateRandomNickname } from '@/types/markers';
 import {
   createInstructorMarker,
+  updateInstructorMarker,
   uploadInstructorProfileImage,
 } from '@/lib/supabase/instructorMarkers';
 import { useAuthStore } from '@/stores/authStore';
@@ -27,10 +29,12 @@ import { getRandomizedCoordsFromAddress } from '@/lib/utils/geocoding';
 interface InstructorMarkerModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: (newMarker?: InstructorMarker) => void; // 새로 생성된 마커 데이터 전달
+  onSuccess: (newMarker?: InstructorMarker) => void;
   initialCoords?: { lat: number; lng: number } | null;
   initialAddress?: string | null;
   onRequestLocationChange?: () => void;
+  /** 수정 모드: 기존 마커 데이터 전달 시 pre-fill */
+  editData?: InstructorMarker | null;
 }
 
 export default function InstructorMarkerModal({
@@ -40,9 +44,11 @@ export default function InstructorMarkerModal({
   initialCoords,
   initialAddress,
   onRequestLocationChange,
+  editData,
 }: InstructorMarkerModalProps) {
   const { user } = useAuthStore();
   const { showToast } = useToastStore();
+  const instructorZ = useSidePanelStore((s) => s.panelZ['instructor'] ?? 30);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // 위치 정보
@@ -80,13 +86,32 @@ export default function InstructorMarkerModal({
   const [error, setError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
 
-  // 초기값 설정
+  const isEditMode = Boolean(editData);
+
+  // 초기값 설정 (신규 등록 or 수정 모드)
   useEffect(() => {
-    if (isOpen) {
+    if (!isOpen) return;
+    if (editData) {
+      setDisplayName(editData.display_name || '');
+      setEmail(editData.email || '');
+      setSpecialties(editData.specialties || []);
+      setCustomSpecialty(editData.custom_specialty || '');
+      setShowCustomInput(Boolean(editData.custom_specialty));
+      setTargetAudience(editData.target_audience || []);
+      setAvailableRegions(editData.available_regions || []);
+      setExperienceYears(editData.experience_years || '');
+      setActivityHistory(editData.activity_history || '');
+      setProfileImagePreview(editData.profile_image_url || null);
+      setProfileImage(null);
+      setPhoneNumber(editData.phone_number || '');
+      setPhonePublic(editData.phone_public || false);
+      setPrivacyAgreed(true);
+      setRegionData(null);
+    } else {
       setRegionData(null);
       setEmail(user?.email || '');
     }
-  }, [isOpen, user?.email]);
+  }, [isOpen, editData, user?.email]);
 
   // 닉네임 재생성
   const regenerateNickname = () => {
@@ -113,6 +138,12 @@ export default function InstructorMarkerModal({
 
   // 지역 토글
   const toggleRegion = (region: string) => {
+    if (region === '전국') {
+      setAvailableRegions((prev) =>
+        prev.length === REGION_OPTIONS.length ? [] : [...REGION_OPTIONS]
+      );
+      return;
+    }
     setAvailableRegions((prev) =>
       prev.includes(region)
         ? prev.filter((r) => r !== region)
@@ -239,16 +270,31 @@ export default function InstructorMarkerModal({
         phone_public: phoneNumber.trim() ? phonePublic : undefined,
       };
 
-      const newMarker = await createInstructorMarker(input);
-      showToast('교원연수 강사 등록이 완료되었습니다!', 'success');
-      // 낙관적 업데이트를 위해 새로 생성된 마커 데이터 전달
-      onSuccess(newMarker);
+      let resultMarker: InstructorMarker;
+      if (isEditMode && editData) {
+        resultMarker = await updateInstructorMarker(editData.id, {
+          display_name: input.display_name,
+          email: input.email,
+          specialties: input.specialties,
+          custom_specialty: input.custom_specialty || null,
+          available_regions: input.available_regions,
+          experience_years: input.experience_years || null,
+          target_audience: input.target_audience,
+          activity_history: input.activity_history || null,
+          profile_image_url: input.profile_image_url || null,
+        });
+        showToast('강사 정보가 수정되었습니다!', 'success');
+      } else {
+        resultMarker = await createInstructorMarker(input);
+        showToast('교원연수 강사 등록이 완료되었습니다!', 'success');
+      }
+      onSuccess(resultMarker);
       handleClose();
     } catch (err: any) {
-      console.error('강사 등록 실패:', err);
-      const errorMessage = err?.message || '등록에 실패했습니다. 다시 시도해주세요.';
+      console.error(isEditMode ? '강사 수정 실패:' : '강사 등록 실패:', err);
+      const errorMessage = err?.message || (isEditMode ? '수정에 실패했습니다.' : '등록에 실패했습니다. 다시 시도해주세요.');
       setError(errorMessage);
-      showToast('등록 실패: ' + errorMessage, 'error');
+      showToast((isEditMode ? '수정 실패: ' : '등록 실패: ') + errorMessage, 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -289,20 +335,29 @@ export default function InstructorMarkerModal({
     <AnimatePresence>
       {isOpen && (
         <motion.div
+          key="mobile-backdrop"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
-          onClick={handleClose}
+          className="fixed inset-0 bg-black/40 md:hidden"
+          style={{ zIndex: instructorZ - 1 }}
+          onClick={onClose}
+        />
+      )}
+      {isOpen && (
+        <motion.div
+          key="panel"
+          initial={{ opacity: 0, x: 40 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: 40 }}
+          transition={{ type: 'spring', damping: 28, stiffness: 320 }}
+          className="fixed inset-3 flex flex-col bg-white rounded-2xl overflow-hidden md:absolute md:inset-auto md:top-4 md:bottom-4 md:right-[128px] md:w-[420px]"
+          style={{
+            zIndex: instructorZ,
+            boxShadow: '0 8px 32px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.08)',
+            border: '1px solid rgba(0,0,0,0.06)',
+          }}
         >
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-            className="relative w-full max-w-lg mx-4 bg-white rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col"
-            onClick={(e) => e.stopPropagation()}
-          >
             {/* 헤더 - 스카이블루 글래스모피즘 (다른 모달과 동일) */}
             <div
               className="px-6 py-4 border-b flex-shrink-0 backdrop-blur-md"
@@ -321,7 +376,7 @@ export default function InstructorMarkerModal({
                     className="w-3 h-3 rounded-full"
                     style={{ backgroundColor: INSTRUCTOR_MARKER_COLORS.base }}
                   />
-                  <h2 className="text-lg font-bold text-gray-900">교원연수 강사등록</h2>
+                  <h2 className="text-lg font-bold text-gray-900">{isEditMode ? '강사 정보 수정' : '교원연수 강사등록'}</h2>
                 </div>
                 <button
                   onClick={handleClose}
@@ -374,7 +429,6 @@ export default function InstructorMarkerModal({
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                       </svg>
-                      랜덤
                     </button>
                   </div>
                 </div>
@@ -516,6 +570,17 @@ export default function InstructorMarkerModal({
                   <span className="font-normal text-gray-400 ml-2">(복수 선택)</span>
                 </h3>
                 <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => toggleRegion('전국')}
+                    className={`px-3 py-1.5 text-sm rounded-full border transition-all font-medium ${
+                      availableRegions.length === REGION_OPTIONS.length
+                        ? 'bg-sky-500 border-sky-500 text-white'
+                        : 'bg-white border-gray-300 text-gray-700 hover:border-sky-300'
+                    }`}
+                  >
+                    전국
+                  </button>
                   {REGION_OPTIONS.map((region) => {
                     const isSelected = availableRegions.includes(region);
                     return (
@@ -688,15 +753,9 @@ export default function InstructorMarkerModal({
                 className="w-full py-3 text-sm font-semibold text-white rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed bg-sky-500 hover:bg-sky-600"
                 style={{ boxShadow: '0 4px 14px rgba(14, 165, 233, 0.4)' }}
               >
-                {isSubmitting ? '등록 중...' : '등록하기'}
+                {isSubmitting ? (isEditMode ? '수정 중...' : '등록 중...') : (isEditMode ? '수정하기' : '등록하기')}
               </button>
-              {!privacyAgreed && (
-                <p className="mt-2 text-xs text-center text-gray-500">
-                  동의 체크 필수 - 미체크 시 버튼 비활성화
-                </p>
-              )}
             </div>
-          </motion.div>
         </motion.div>
       )}
     </AnimatePresence>

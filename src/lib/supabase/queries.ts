@@ -4433,48 +4433,11 @@ export async function addBookmark(
   cardId: string,
   cardType: 'job' | 'talent' | 'experience'
 ): Promise<void> {
-  console.log('[addBookmark] 🔍 시작:', { userId, cardId, cardType });
-
-  try {
-    // 세션 확인
-    const { data: { session } } = await supabase.auth.getSession();
-    console.log('[addBookmark] 📌 세션 정보:', {
-      sessionExists: !!session,
-      sessionUserId: session?.user?.id
-    });
-
-    const { data, error } = await supabase
-      .from('bookmarks')
-      .insert({
-        user_id: userId,
-        card_id: cardId,
-        card_type: cardType
-      })
-      .select();
-
-    console.log('[addBookmark] 📊 INSERT 결과:', { data, error });
-
-    if (error) {
-      // 중복 에러는 무시 (이미 북마크됨)
-      if (error.code === '23505') {
-        console.log('[addBookmark] ⚠️ 이미 북마크된 카드:', cardId);
-        return;
-      }
-      console.error('[addBookmark] ❌ DB 에러:', error);
-      console.error('[addBookmark] 에러 상세:', {
-        code: error.code,
-        message: error.message,
-        details: error.details,
-        hint: error.hint
-      });
-      throw error;
-    }
-
-    console.log('[addBookmark] ✅ 북마크 추가 성공');
-  } catch (error) {
-    console.error('[addBookmark] 💥 예외 발생:', error);
-    throw error;
-  }
+  const { error } = await supabase.rpc('add_bookmark', {
+    p_card_id: cardId,
+    p_card_type: cardType
+  });
+  if (error) throw error;
 }
 
 /**
@@ -4485,32 +4448,11 @@ export async function removeBookmark(
   cardId: string,
   cardType: 'job' | 'talent' | 'experience'
 ): Promise<void> {
-  console.log('[removeBookmark] 시작:', { userId, cardId, cardType });
-
-  try {
-    const { error } = await supabase
-      .from('bookmarks')
-      .delete()
-      .eq('user_id', userId)
-      .eq('card_id', cardId)
-      .eq('card_type', cardType);
-
-    if (error) {
-      console.error('[removeBookmark] DB 에러:', error);
-      console.error('[removeBookmark] 에러 상세:', {
-        code: error.code,
-        message: error.message,
-        details: error.details,
-        hint: error.hint
-      });
-      throw error;
-    }
-
-    console.log('[removeBookmark] 북마크 제거 성공:', cardId);
-  } catch (error) {
-    console.error('[removeBookmark] 예외 발생:', error);
-    throw error;
-  }
+  const { error } = await supabase.rpc('remove_bookmark', {
+    p_card_id: cardId,
+    p_card_type: cardType
+  });
+  if (error) throw error;
 }
 
 /**
@@ -4518,31 +4460,8 @@ export async function removeBookmark(
  */
 export async function fetchBookmarkedCards(userId: string): Promise<Card[]> {
   try {
-    console.log('[fetchBookmarkedCards] 🔍 시작 - userId:', userId);
-
-    // Supabase 세션 확인
-    const { data: { session } } = await supabase.auth.getSession();
-    console.log('[fetchBookmarkedCards] 📌 Supabase 세션:', {
-      sessionExists: !!session,
-      sessionUserId: session?.user?.id,
-      matchesProvidedUserId: session?.user?.id === userId
-    });
-
-    // Supabase URL 확인 (환경변수에서)
-    console.log('[fetchBookmarkedCards] 🌐 Supabase URL:', import.meta.env.VITE_SUPABASE_URL);
-
-    // 1. 사용자의 북마크 조회
-    const { data: bookmarks, error: bookmarkError } = await supabase
-      .from('bookmarks')
-      .select('card_id, card_type, created_at')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false });
-
-    console.log('[fetchBookmarkedCards] 📊 북마크 조회 결과:', {
-      bookmarksLength: bookmarks?.length,
-      bookmarkError,
-      rawBookmarks: bookmarks
-    });
+    // 1. RPC로 북마크 조회 (RLS 우회)
+    const { data: bookmarks, error: bookmarkError } = await supabase.rpc('get_my_bookmarks');
 
     if (bookmarkError) {
       console.error('[fetchBookmarkedCards] 북마크 조회 에러:', bookmarkError);
@@ -4555,15 +4474,16 @@ export async function fetchBookmarkedCards(userId: string): Promise<Card[]> {
     }
 
     // 2. 카드 타입별로 그룹화
-    const jobIds = bookmarks.filter(b => b.card_type === 'job').map(b => b.card_id);
-    const talentIds = bookmarks.filter(b => b.card_type === 'talent').map(b => b.card_id);
-    const experienceIds = bookmarks.filter(b => b.card_type === 'experience').map(b => b.card_id);
+    const jobIds = bookmarks.filter((b: any) => b.card_type === 'job').map((b: any) => b.card_id);
+    // ⚠️ 'talent' → teacher_markers 테이블, 'experience' → instructor_markers 테이블
+    const talentIds = bookmarks.filter((b: any) => b.card_type === 'talent').map((b: any) => b.card_id);
+    const experienceIds = bookmarks.filter((b: any) => b.card_type === 'experience').map((b: any) => b.card_id);
 
     console.log('[fetchBookmarkedCards] 카드 타입별 그룹화:', { jobIds, talentIds, experienceIds });
 
     const cards: Card[] = [];
 
-    // 3. 공고 카드 조회
+    // 3. 공고 카드 조회 (job_postings 테이블)
     if (jobIds.length > 0) {
       const { data: jobs, error: jobError } = await supabase
         .from('job_postings')
@@ -4578,47 +4498,85 @@ export async function fetchBookmarkedCards(userId: string): Promise<Card[]> {
       }
     }
 
-    // 4. 인력 카드 조회
+    // 4. 구직자 마커 조회 (teacher_markers 테이블) → TalentCard 타입으로 변환
     if (talentIds.length > 0) {
-      const { data: talents, error: talentError } = await supabase
-        .from('talents')
+      const { data: teachers, error: teacherError } = await supabase
+        .from('teacher_markers')
         .select('*')
         .in('id', talentIds);
 
-      console.log('[fetchBookmarkedCards] 인력 카드 조회:', { talents: talents?.length, talentError });
+      console.log('[fetchBookmarkedCards] 구직자 마커 조회:', { teachers: teachers?.length, teacherError });
 
-      if (!talentError && talents) {
-        const talentCards = talents.map(talent => mapTalentToCard(talent));
+      if (!teacherError && teachers) {
+        const talentCards: TalentCard[] = teachers.map(t => ({
+          id: t.id,
+          type: 'talent' as const,
+          isVerified: false,
+          user_id: t.user_id,
+          name: t.nickname || '이름 없음',
+          specialty: t.primary_category || (t.subjects?.[0]) || '교원',
+          tags: t.sub_categories || t.subjects || [],
+          location: t.available_regions?.join(', ') || '',
+          experience: t.experience_years || '',
+          phone: t.phone_public ? t.phone_number : null,
+          email: t.email,
+          introduction: t.introduction,
+          rating: 0,
+          reviewCount: 0,
+          isBookmarked: true,
+          latitude: t.latitude,
+          longitude: t.longitude,
+          profile_image_url: t.profile_image_url,
+          license: undefined,
+          school_levels: t.school_levels || t.preferred_school_levels,
+        }));
         cards.push(...talentCards);
       }
     }
 
-    // 5. 체험 카드 조회
+    // 5. 교원연수 강사 마커 조회 (instructor_markers 테이블) → ExperienceCard 타입으로 변환
     if (experienceIds.length > 0) {
-      const { data: experiences, error: expError } = await supabase
-        .from('experiences')
+      const { data: instructors, error: instError } = await supabase
+        .from('instructor_markers')
         .select('*')
         .in('id', experienceIds);
 
-      console.log('[fetchBookmarkedCards] 체험 카드 조회:', { experiences: experiences?.length, expError });
+      console.log('[fetchBookmarkedCards] 교원연수 강사 조회:', { instructors: instructors?.length, instError });
 
-      if (!expError && experiences) {
-        const experienceCards = experiences.map(exp => mapExperienceRowToCard(exp));
-        cards.push(...experienceCards);
+      if (!instError && instructors) {
+        const expCards: ExperienceCard[] = instructors.map(inst => ({
+          id: inst.id,
+          type: 'experience' as const,
+          user_id: inst.user_id,
+          programTitle: inst.display_name || '강사 없음',
+          introduction: inst.activity_history || '',
+          categories: inst.specialties || [],
+          targetSchoolLevels: inst.target_audience || [],
+          operationTypes: [],
+          regionSeoul: [],
+          regionGyeonggi: [],
+          locationSummary: inst.available_regions?.join(', ') || '',
+          capacity: undefined,
+          contactPhone: inst.phone_public ? (inst.phone_number || '') : '',
+          contactEmail: inst.email || '',
+          status: 'active',
+          createdAt: inst.created_at || '',
+          updatedAt: inst.updated_at || '',
+          isBookmarked: true,
+          latitude: inst.latitude,
+          longitude: inst.longitude,
+          profile_image_url: inst.profile_image_url,
+        }));
+        cards.push(...expCards);
       }
     }
 
     // 6. 북마크 생성일 순으로 정렬 (최신순)
-    const bookmarkMap = new Map(bookmarks.map(b => [b.card_id, b.created_at]));
+    const bookmarkMap = new Map(bookmarks.map((b: any) => [b.card_id, b.created_at as string]));
     cards.sort((a, b) => {
       const aTime = bookmarkMap.get(a.id) || '';
       const bTime = bookmarkMap.get(b.id) || '';
-      return bTime.localeCompare(aTime);
-    });
-
-    // 7. isBookmarked 플래그 추가
-    cards.forEach(card => {
-      card.isBookmarked = true;
+      return (bTime as string).localeCompare(aTime as string);
     });
 
     console.log('[fetchBookmarkedCards] 최종 반환 카드 수:', cards.length);

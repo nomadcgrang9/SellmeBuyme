@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import { ReactNode, useState, useCallback } from 'react';
 import { JobPostingCard } from '@/types';
 import {
   IconX,
@@ -10,9 +10,13 @@ import {
   IconFileDownload,
   IconExternalLink,
   IconBook,
-  IconEdit
+  IconEdit,
+  IconStar
 } from '@tabler/icons-react';
 import { useAuthStore } from '@/stores/authStore';
+import { useBookmarkStore } from '@/stores/bookmarkStore';
+import { addBookmark, removeBookmark } from '@/lib/supabase/queries';
+import { useToastStore } from '@/stores/toastStore';
 import { formatLocationDisplay } from '@/lib/constants/regionHierarchy';
 
 type StatItem = {
@@ -31,7 +35,37 @@ interface JobDetailModalProps {
 
 export default function JobDetailModal({ job, isOpen, onClose, onEditClick }: JobDetailModalProps) {
   const { user } = useAuthStore((state) => ({ user: state.user }));
-  
+  const isBookmarkedFn = useBookmarkStore((s) => s.isBookmarked);
+  const addToStore = useBookmarkStore((s) => s.addBookmark);
+  const removeFromStore = useBookmarkStore((s) => s.removeBookmark);
+  const { showToast } = useToastStore();
+  const [isBookmarkLoading, setIsBookmarkLoading] = useState(false);
+  const isBookmarked = isBookmarkedFn(job.id);
+
+  const handleBookmarkToggle = useCallback(async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!user) { showToast('로그인이 필요합니다', 'error'); return; }
+    if (isBookmarkLoading) return;
+    setIsBookmarkLoading(true);
+    try {
+      if (isBookmarked) {
+        removeFromStore(job.id);
+        await removeBookmark(user.id, job.id, 'job');
+        showToast('즐겨찾기에서 제거했습니다', 'success');
+      } else {
+        addToStore(job.id);
+        await addBookmark(user.id, job.id, 'job');
+        showToast('즐겨찾기에 추가했습니다', 'success');
+      }
+    } catch (err) {
+      console.error('[JobDetailModal] 북마크 토글 실패:', err);
+      if (isBookmarked) addToStore(job.id); else removeFromStore(job.id);
+      showToast('오류가 발생했습니다', 'error');
+    } finally {
+      setIsBookmarkLoading(false);
+    }
+  }, [user, isBookmarked, isBookmarkLoading, job.id, addToStore, removeFromStore, showToast]);
+
   // 소유권 확인
   const isOwner = user && job.user_id === user.id && job.source === 'user_posted';
   if (!isOpen) return null;
@@ -54,7 +88,7 @@ export default function JobDetailModal({ job, isOpen, onClose, onEditClick }: Jo
   const contactPhoneRaw = formatText(structured?.contact?.phone);
   const contactEmailRaw = formatText(structured?.contact?.email);
   const fallbackContact = formatText(job.contact);
-  
+
   let fallbackContactName: string | undefined;
   let fallbackContactPhone: string | undefined;
   let fallbackContactEmail: string | undefined;
@@ -145,13 +179,32 @@ export default function JobDetailModal({ job, isOpen, onClose, onEditClick }: Jo
       >
         {/* 헤더 */}
         <div className="sticky top-0 z-10 bg-gradient-to-r from-primary to-[#8fb4d6] p-4 text-white">
-          <button
-            onClick={onClose}
-            className="absolute top-3 right-3 p-2 rounded-full hover:bg-white/20 transition-colors"
-          >
-            <IconX size={24} />
-          </button>
-          
+          <div className="absolute top-3 right-3 flex items-center gap-1">
+            {/* 즐겨찾기 별 버튼 */}
+            <button
+              onClick={handleBookmarkToggle}
+              disabled={isBookmarkLoading}
+              title={isBookmarked ? '즐겨찾기 해제' : '즐겨찾기 추가'}
+              className={`p-1.5 rounded-full transition-all duration-200 ${isBookmarked
+                ? 'text-amber-300 hover:bg-white/20'
+                : 'text-white/60 hover:text-amber-300 hover:bg-white/20'
+                } disabled:opacity-50`}
+            >
+              <IconStar
+                size={20}
+                fill={isBookmarked ? 'currentColor' : 'none'}
+                stroke={isBookmarked ? 'none' : 'currentColor'}
+                strokeWidth={1.5}
+              />
+            </button>
+            <button
+              onClick={onClose}
+              className="p-2 rounded-full hover:bg-white/20 transition-colors"
+            >
+              <IconX size={24} />
+            </button>
+          </div>
+
           <div className="pr-10 space-y-1">
             <div className="flex items-center gap-2">
               <span className="text-sm font-semibold opacity-90">공고</span>

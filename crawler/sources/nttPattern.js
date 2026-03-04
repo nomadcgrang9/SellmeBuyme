@@ -47,7 +47,7 @@ export async function crawlNttPattern(page, config) {
 
     if (!loadResult.success) {
       console.error(`❌ 페이지 로드 실패: ${loadResult.error}`);
-      return [];
+      return { jobs: [], meta: { totalFound: 0, skipped: 0 } };
     }
 
     await page.waitForTimeout(2000);
@@ -162,7 +162,7 @@ export async function crawlNttPattern(page, config) {
       });
       console.log('디버그 정보:', debugInfo);
 
-      return [];
+      return { jobs: [], meta: { totalFound: 0, skipped: 0 } };
     }
 
     // 3. 각 공고 상세 페이지 크롤링 (SAFETY 로직 적용)
@@ -307,7 +307,7 @@ export async function crawlNttPattern(page, config) {
 
     console.log(`\n✅ [NTT패턴] ${config.name} 크롤링 완료`);
     console.log(`   📊 총 처리: ${totalProcessedCount}개, 신규 수집: ${jobs.length}개, 스킵(중복): ${skippedCount}개`);
-    return jobs;
+    return { jobs, meta: { totalFound: totalProcessedCount + skippedCount, skipped: skippedCount } };
 
   } catch (error) {
     console.error(`❌ 크롤링 오류: ${error.message}`);

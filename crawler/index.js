@@ -525,6 +525,13 @@ async function main() {
       throw new Error(`지원하지 않는 크롤러: ${targetSource} (parserType: ${parserType})`);
     }
 
+    // 크롤러가 { jobs, meta } 형태로 반환하는 경우 분리
+    let crawlMeta = null;
+    if (rawJobs && typeof rawJobs === 'object' && !Array.isArray(rawJobs) && rawJobs.jobs) {
+      crawlMeta = rawJobs.meta || null;
+      rawJobs = rawJobs.jobs;
+    }
+
     // rawJobs가 null/undefined인 경우 빈 배열로 처리
     if (!rawJobs) {
       logWarn('crawler', 'rawJobs가 null/undefined입니다. 빈 배열로 처리합니다.', { targetSource });
@@ -532,9 +539,25 @@ async function main() {
     }
 
     if (rawJobs.length === 0) {
+      // 크롤러가 내부 중복처리를 하는 경우: 파싱은 성공했지만 전부 중복
+      if (crawlMeta && crawlMeta.totalFound > 0) {
+        logStep('crawler', '신규 공고 없음 (전부 기존 중복)', {
+          totalFound: crawlMeta.totalFound,
+          skipped: crawlMeta.skipped,
+          targetSource,
+        });
+        await updateCrawlSuccess(crawlSourceId, {
+          jobsFound: crawlMeta.totalFound,
+          jobsSaved: 0,
+          jobsSkipped: crawlMeta.skipped,
+        });
+        process.exit(0);
+      }
+
+      // 페이지에서 아무것도 파싱 못한 경우 → 진짜 실패
       logWarn('crawler', '수집된 공고 없음, HTML 구조 변경 의심', { targetSource });
       await recordCrawlFailure(crawlSourceId, '수집된 공고 없음 - HTML 구조 변경 의심');
-      process.exit(0);
+      process.exit(1);
     }
 
     // 6. 중복 체크 및 AI 정규화

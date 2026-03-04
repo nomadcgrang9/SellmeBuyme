@@ -4,6 +4,7 @@
  */
 
 import { MapPin, User, Star, MessageCircle } from 'lucide-react';
+import { useChatStore } from '@/stores/chatStore';
 import PresentationGraph from '@solar-icons/react/csr/business/PresentationGraph';
 
 // 메인 컬러 (스카이블루)
@@ -107,14 +108,7 @@ export default function MobileRegisterNav({
         </button>
 
         {/* 4. 채팅 */}
-        <button
-          onClick={onChatClick}
-          className="flex flex-col items-center justify-center flex-1 h-full transition-colors"
-          aria-label="채팅"
-        >
-          <MessageCircle size={20} strokeWidth={2} className="text-gray-400" />
-          <span className="text-[10px] mt-0.5 font-medium text-gray-400">채팅</span>
-        </button>
+        <ChatNavButton onClick={onChatClick} />
 
         {/* 5. 즐겨찾기 */}
         <button
@@ -127,5 +121,28 @@ export default function MobileRegisterNav({
         </button>
       </div>
     </nav>
+  );
+}
+
+/** 채팅 네비게이션 버튼 (노란 N 배지 포함) */
+function ChatNavButton({ onClick }: { onClick: () => void }) {
+  const chatUnreadCount = useChatStore((s) => s.totalUnreadCount);
+
+  return (
+    <button
+      onClick={onClick}
+      className="flex flex-col items-center justify-center flex-1 h-full transition-colors"
+      aria-label="채팅"
+    >
+      <div className="relative">
+        <MessageCircle size={20} strokeWidth={2} className="text-gray-400" />
+        {chatUnreadCount > 0 && (
+          <span className="absolute -top-1.5 -right-2 w-4 h-4 flex items-center justify-center rounded-full bg-yellow-400 text-gray-800 text-[10px] font-bold shadow-sm">
+            N
+          </span>
+        )}
+      </div>
+      <span className="text-[10px] mt-0.5 font-medium text-gray-400">채팅</span>
+    </button>
   );
 }

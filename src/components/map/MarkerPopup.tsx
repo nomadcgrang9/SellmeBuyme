@@ -6,7 +6,12 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Heart, User } from 'lucide-react';
+import { Heart, User, MessageCircle } from 'lucide-react';
+import { IconStar } from '@tabler/icons-react';
+import { useChatStore } from '@/stores/chatStore';
+import { useBookmarkStore } from '@/stores/bookmarkStore';
+import { useToastStore } from '@/stores/toastStore';
+import { addBookmark, removeBookmark } from '@/lib/supabase/queries';
 import { MARKER_COLORS, getTeacherMarkerColor, CATEGORY_MARKER_COLORS, type TeacherMarker, type ProgramMarker, type MarkerComment, type PrimaryCategory } from '@/types/markers';
 import { type InstructorMarker, INSTRUCTOR_MARKER_COLORS } from '@/types/instructorMarkers';
 import {
@@ -23,6 +28,7 @@ import {
 } from '@/lib/supabase/markers';
 import { deleteInstructorMarker, toggleInstructorMarkerStatus } from '@/lib/supabase/instructorMarkers';
 import { useAuthStore } from '@/stores/authStore';
+import { supabase } from '@/lib/supabase/client';
 
 // 브라우저 fingerprint 생성 (localStorage 기반)
 function getUserFingerprint(): string {
@@ -44,10 +50,11 @@ interface MarkerPopupProps {
     position: { x: number; y: number };
     onClose: () => void;
     onEdit?: (marker: TeacherMarker) => void;
+    onEditInstructor?: (marker: InstructorMarker) => void;
     onDelete?: () => void;
 }
 
-export default function MarkerPopup({ type, marker, position, onClose, onEdit, onDelete }: MarkerPopupProps) {
+export default function MarkerPopup({ type, marker, position, onClose, onEdit, onEditInstructor, onDelete }: MarkerPopupProps) {
     const [showComments, setShowComments] = useState(false);
     const [comments, setComments] = useState<MarkerComment[]>([]);
     const [instructorComments, setInstructorComments] = useState<InstructorComment[]>([]);
@@ -62,8 +69,8 @@ export default function MarkerPopup({ type, marker, position, onClose, onEdit, o
     // 구직/활동 상태 토글 관련
     const [localIsActive, setLocalIsActive] = useState(
         type === 'teacher' ? (marker as TeacherMarker).is_active !== false
-        : type === 'instructor' ? (marker as InstructorMarker).is_active !== false
-        : true
+            : type === 'instructor' ? (marker as InstructorMarker).is_active !== false
+                : true
     );
     const [isToggling, setIsToggling] = useState(false);
 
@@ -72,8 +79,50 @@ export default function MarkerPopup({ type, marker, position, onClose, onEdit, o
     const [isLiked, setIsLiked] = useState(false);
     const [isLikeLoading, setIsLikeLoading] = useState(false);
 
-    // 현재 로그인 유저 확인
+    // 북마크 관련
     const currentUser = useAuthStore((state) => state.user);
+    const isBookmarkedFn = useBookmarkStore((s) => s.isBookmarked);
+    const addToStore = useBookmarkStore((s) => s.addBookmark);
+    const removeFromStore = useBookmarkStore((s) => s.removeBookmark);
+    const { showToast } = useToastStore();
+    const [isBookmarkLoading, setIsBookmarkLoading] = useState(false);
+
+    // 북마크 카드타입 결정
+    const bookmarkCardType: 'job' | 'talent' | 'experience' =
+        type === 'teacher' ? 'talent' :
+            type === 'instructor' ? 'experience' : 'job';
+
+    const isBookmarked = isBookmarkedFn(marker.id);
+
+    // 북마크 토글 핸들러
+    const handleBookmarkToggle = useCallback(async (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (!currentUser) {
+            showToast('로그인이 필요합니다', 'error');
+            return;
+        }
+        if (isBookmarkLoading) return;
+        setIsBookmarkLoading(true);
+        try {
+            if (isBookmarked) {
+                removeFromStore(marker.id);
+                await removeBookmark(currentUser.id, marker.id, bookmarkCardType);
+                showToast('즐겨찾기에서 제거했습니다', 'success');
+            } else {
+                addToStore(marker.id);
+                await addBookmark(currentUser.id, marker.id, bookmarkCardType);
+                showToast('즐겨찾기에 추가했습니다', 'success');
+            }
+        } catch (err) {
+            console.error('[MarkerPopup] 북마크 토글 실패:', err);
+            // 롤백
+            if (isBookmarked) addToStore(marker.id);
+            else removeFromStore(marker.id);
+            showToast('오류가 발생했습니다', 'error');
+        } finally {
+            setIsBookmarkLoading(false);
+        }
+    }, [currentUser, isBookmarked, isBookmarkLoading, marker.id, bookmarkCardType, addToStore, removeFromStore, showToast]);
     const isSuperAdmin = currentUser?.email && SUPER_ADMIN_EMAILS.includes(currentUser.email);
     const isOwner = (type === 'teacher' && currentUser?.id === (marker as TeacherMarker).user_id) ||
         (type === 'instructor' && currentUser?.id === (marker as InstructorMarker).user_id);
@@ -323,13 +372,11 @@ export default function MarkerPopup({ type, marker, position, onClose, onEdit, o
                                 }}
                                 disabled={isToggling}
                                 title={localIsActive ? '구직종료로 전환' : '구직중으로 전환'}
-                                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
-                                    localIsActive ? 'bg-emerald-500' : 'bg-gray-300'
-                                } ${isToggling ? 'opacity-50' : ''}`}
+                                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${localIsActive ? 'bg-emerald-500' : 'bg-gray-300'
+                                    } ${isToggling ? 'opacity-50' : ''}`}
                             >
-                                <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${
-                                    localIsActive ? 'translate-x-[19px]' : 'translate-x-[3px]'
-                                }`} />
+                                <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${localIsActive ? 'translate-x-[19px]' : 'translate-x-[3px]'
+                                    }`} />
                             </button>
                         )}
                         {/* 활동 상태 토글 - 본인 instructor 마커일 때만 헤더에 표시 */}
@@ -352,13 +399,51 @@ export default function MarkerPopup({ type, marker, position, onClose, onEdit, o
                                 }}
                                 disabled={isToggling}
                                 title={localIsActive ? '활동종료로 전환' : '활동중으로 전환'}
-                                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
-                                    localIsActive ? 'bg-pink-500' : 'bg-gray-300'
-                                } ${isToggling ? 'opacity-50' : ''}`}
+                                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${localIsActive ? 'bg-pink-500' : 'bg-gray-300'
+                                    } ${isToggling ? 'opacity-50' : ''}`}
                             >
-                                <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${
-                                    localIsActive ? 'translate-x-[19px]' : 'translate-x-[3px]'
-                                }`} />
+                                <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${localIsActive ? 'translate-x-[19px]' : 'translate-x-[3px]'
+                                    }`} />
+                            </button>
+                        )}
+                        {/* 즐겨찾기(별) 버튼 */}
+                        <button
+                            onClick={handleBookmarkToggle}
+                            disabled={isBookmarkLoading}
+                            title={isBookmarked ? '즐겨찾기 해제' : '즐겨찾기 추가'}
+                            className={`p-1.5 rounded-lg transition-all duration-200 ${isBookmarked
+                                ? 'text-amber-400 hover:bg-amber-50'
+                                : 'text-gray-400 hover:text-amber-400 hover:bg-amber-50'
+                                } disabled:opacity-50`}
+                        >
+                            <IconStar
+                                size={15}
+                                fill={isBookmarked ? 'currentColor' : 'none'}
+                                stroke={isBookmarked ? 'none' : 'currentColor'}
+                                strokeWidth={1.5}
+                            />
+                        </button>
+                        {/* 수정 버튼 - 본인 마커만 표시 */}
+                        {type === 'teacher' && isOwner && onEdit && (
+                            <button
+                                onClick={(e) => { e.stopPropagation(); onEdit(marker as TeacherMarker); }}
+                                className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                title="수정"
+                            >
+                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                </svg>
+                            </button>
+                        )}
+                        {type === 'instructor' && isOwner && onEditInstructor && (
+                            <button
+                                onClick={(e) => { e.stopPropagation(); onEditInstructor(marker as InstructorMarker); }}
+                                className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                title="수정"
+                            >
+                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                </svg>
                             </button>
                         )}
                         {/* 삭제 버튼 - 본인 마커 또는 Super Admin만 표시 */}
@@ -610,7 +695,26 @@ export default function MarkerPopup({ type, marker, position, onClose, onEdit, o
                                         {(marker as TeacherMarker).phone_number}
                                     </a>
                                 ) : (marker as TeacherMarker).phone_number && (marker as TeacherMarker).phone_public && !currentUser ? (
-                                    <span className="text-xs text-gray-400">로그인하면 전화번호를 볼 수 있습니다</span>
+                                    <div className="flex items-center gap-2">
+                                        <span className="flex items-center gap-1.5 text-xs font-medium text-gray-600">
+                                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                                            </svg>
+                                            <span className="select-none" style={{ filter: 'blur(4px)' }}>010-1234-5678</span>
+                                        </span>
+                                        <button
+                                            onClick={async () => {
+                                                const redirectTo = `${window.location.origin}/auth/callback`;
+                                                await supabase.auth.signInWithOAuth({
+                                                    provider: 'google',
+                                                    options: { redirectTo, queryParams: { prompt: 'select_account' } }
+                                                });
+                                            }}
+                                            className="shrink-0 text-[10px] font-medium px-2 py-1 rounded-full border border-blue-300 text-blue-600 bg-blue-50 hover:bg-blue-100 transition-colors cursor-pointer whitespace-nowrap"
+                                        >
+                                            전화번호 로그인해서 확인
+                                        </button>
+                                    </div>
                                 ) : null}
                             </>
                         ) : type === 'instructor' ? (
@@ -675,132 +779,122 @@ export default function MarkerPopup({ type, marker, position, onClose, onEdit, o
                             </span>
                         </button>
 
-                        {/* 후기 토글 */}
-                        <button
-                            onClick={toggleComments}
-                            className="flex items-center gap-1.5 text-xs font-medium text-gray-600 hover:text-gray-800 transition-colors"
-                        >
-                            <span>후기 {commentCount > 0 ? `(${commentCount})` : ''}</span>
-                            <svg
-                                className={`w-4 h-4 transition-transform ${showComments ? 'rotate-180' : ''}`}
-                                fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                        {/* 채팅 */}
+                        {!isOwner && (marker as TeacherMarker).user_id && (
+                            <button
+                                onClick={() => {
+                                    const m = marker as TeacherMarker | InstructorMarker;
+                                    if (!currentUser) return;
+                                    const contextType = type === 'teacher' ? 'talent' : 'experience';
+                                    onClose();
+                                    useChatStore.getState().openChat(m.user_id!, contextType as any, m.id);
+                                }}
+                                className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-[#3B82F6] transition-colors"
                             >
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                            </svg>
-                        </button>
+                                <MessageCircle size={16} />
+                                <span>채팅</span>
+                            </button>
+                        )}
+
                     </div>
                 )}
 
-                {/* 후기 섹션 (모든 타입 지원) */}
-                <div className="border-t border-gray-100">
-                    {/* program 타입은 후기 토글 버튼을 여기에 */}
-                    {type === 'program' && (
-                        <button
-                            onClick={toggleComments}
-                            className="w-full px-4 py-2.5 flex items-center justify-between text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors"
-                        >
-                            <span>후기 {commentCount > 0 ? `(${commentCount})` : ''}</span>
-                            <svg
-                                className={`w-4 h-4 transition-transform ${showComments ? 'rotate-180' : ''}`}
-                                fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                {/* 후기 섹션 (program 타입만) */}
+                {type === 'program' && (
+                    <div className="border-t border-gray-100">
+                        {/* program 타입 후기 토글 버튼 */}
+                        {type === 'program' && (
+                            <button
+                                onClick={toggleComments}
+                                className="w-full px-4 py-2.5 flex items-center justify-between text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors"
                             >
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                            </svg>
-                        </button>
-                    )}
-
-                    <AnimatePresence>
-                        {showComments && (
-                            <motion.div
-                                initial={{ height: 0, opacity: 0 }}
-                                animate={{ height: 'auto', opacity: 1 }}
-                                exit={{ height: 0, opacity: 0 }}
-                                className="overflow-hidden"
-                            >
-                                <div className="px-4 pb-3 space-y-2">
-                                    {loadingComments ? (
-                                        <div className="py-3 text-center text-xs text-gray-400">불러오는 중...</div>
-                                    ) : commentCount === 0 ? (
-                                        <div className="py-3 text-center text-xs text-gray-400">아직 후기가 없습니다</div>
-                                    ) : (
-                                        <div className="max-h-32 overflow-y-auto space-y-2">
-                                            {type === 'instructor' ? (
-                                                // instructor 후기
-                                                instructorComments.map((comment) => (
-                                                    <div key={comment.id} className="p-2 bg-gray-50 rounded-lg">
-                                                        <div className="flex items-center justify-between mb-1">
-                                                            <span className="text-xs font-medium text-gray-700">{comment.author_name}</span>
-                                                            <span className="text-[10px] text-gray-400">
-                                                                {new Date(comment.created_at).toLocaleDateString('ko-KR')}
-                                                            </span>
-                                                        </div>
-                                                        <p className="text-xs text-gray-600">{comment.content}</p>
-                                                    </div>
-                                                ))
-                                            ) : (
-                                                // teacher, program 후기
-                                                comments.map((comment) => (
-                                                    <div key={comment.id} className="p-2 bg-gray-50 rounded-lg">
-                                                        <div className="flex items-center justify-between mb-1">
-                                                            <span className="text-xs font-medium text-gray-700">{comment.author_name}</span>
-                                                            <span className="text-[10px] text-gray-400">
-                                                                {new Date(comment.created_at).toLocaleDateString('ko-KR')}
-                                                            </span>
-                                                        </div>
-                                                        <p className="text-xs text-gray-600">{comment.content}</p>
-                                                    </div>
-                                                ))
-                                            )}
-                                        </div>
-                                    )}
-
-                                    {/* 후기 작성 */}
-                                    {isAddingComment ? (
-                                        <div className="pt-2 space-y-2">
-                                            <input
-                                                type="text"
-                                                value={newCommentAuthor}
-                                                onChange={(e) => setNewCommentAuthor(e.target.value)}
-                                                placeholder="작성자 (선택)"
-                                                className="w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:border-gray-400"
-                                            />
-                                            <textarea
-                                                value={newCommentContent}
-                                                onChange={(e) => setNewCommentContent(e.target.value)}
-                                                placeholder="후기를 작성해주세요"
-                                                rows={2}
-                                                className="w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:border-gray-400 resize-none"
-                                            />
-                                            <div className="flex justify-end gap-2">
-                                                <button
-                                                    onClick={() => setIsAddingComment(false)}
-                                                    className="px-2.5 py-1 text-xs text-gray-500 hover:text-gray-700"
-                                                >
-                                                    취소
-                                                </button>
-                                                <button
-                                                    onClick={handleSubmitComment}
-                                                    disabled={submittingComment || !newCommentContent.trim()}
-                                                    className="px-2.5 py-1 text-xs font-medium text-white rounded-md disabled:opacity-50"
-                                                    style={{ backgroundColor: color }}
-                                                >
-                                                    {submittingComment ? '...' : '등록'}
-                                                </button>
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        <button
-                                            onClick={() => setIsAddingComment(true)}
-                                            className="w-full py-1.5 text-xs font-medium border border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-gray-400 hover:text-gray-600 transition-colors"
-                                        >
-                                            후기 남기기
-                                        </button>
-                                    )}
-                                </div>
-                            </motion.div>
+                                <span>후기 {commentCount > 0 ? `(${commentCount})` : ''}</span>
+                                <svg
+                                    className={`w-4 h-4 transition-transform ${showComments ? 'rotate-180' : ''}`}
+                                    fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                                >
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </button>
                         )}
-                    </AnimatePresence>
-                </div>
+
+                        <AnimatePresence>
+                            {showComments && (
+                                <motion.div
+                                    initial={{ height: 0, opacity: 0 }}
+                                    animate={{ height: 'auto', opacity: 1 }}
+                                    exit={{ height: 0, opacity: 0 }}
+                                    className="overflow-hidden"
+                                >
+                                    <div className="px-4 pb-3 space-y-2">
+                                        {loadingComments ? (
+                                            <div className="py-3 text-center text-xs text-gray-400">불러오는 중...</div>
+                                        ) : commentCount === 0 ? (
+                                            <div className="py-3 text-center text-xs text-gray-400">아직 후기가 없습니다</div>
+                                        ) : (
+                                            <div className="max-h-32 overflow-y-auto space-y-2">
+                                                {comments.map((comment) => (
+                                                    <div key={comment.id} className="p-2 bg-gray-50 rounded-lg">
+                                                        <div className="flex items-center justify-between mb-1">
+                                                            <span className="text-xs font-medium text-gray-700">{comment.author_name}</span>
+                                                            <span className="text-[10px] text-gray-400">
+                                                                {new Date(comment.created_at).toLocaleDateString('ko-KR')}
+                                                            </span>
+                                                        </div>
+                                                        <p className="text-xs text-gray-600">{comment.content}</p>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+
+                                        {/* 후기 작성 */}
+                                        {isAddingComment ? (
+                                            <div className="pt-2 space-y-2">
+                                                <input
+                                                    type="text"
+                                                    value={newCommentAuthor}
+                                                    onChange={(e) => setNewCommentAuthor(e.target.value)}
+                                                    placeholder="작성자 (선택)"
+                                                    className="w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:border-gray-400"
+                                                />
+                                                <textarea
+                                                    value={newCommentContent}
+                                                    onChange={(e) => setNewCommentContent(e.target.value)}
+                                                    placeholder="후기를 작성해주세요"
+                                                    rows={2}
+                                                    className="w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:border-gray-400 resize-none"
+                                                />
+                                                <div className="flex justify-end gap-2">
+                                                    <button
+                                                        onClick={() => setIsAddingComment(false)}
+                                                        className="px-2.5 py-1 text-xs text-gray-500 hover:text-gray-700"
+                                                    >
+                                                        취소
+                                                    </button>
+                                                    <button
+                                                        onClick={handleSubmitComment}
+                                                        disabled={submittingComment || !newCommentContent.trim()}
+                                                        className="px-2.5 py-1 text-xs font-medium text-white rounded-md disabled:opacity-50"
+                                                        style={{ backgroundColor: color }}
+                                                    >
+                                                        {submittingComment ? '...' : '등록'}
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <button
+                                                onClick={() => setIsAddingComment(true)}
+                                                className="w-full py-1.5 text-xs font-medium border border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-gray-400 hover:text-gray-600 transition-colors"
+                                            >
+                                                후기 남기기
+                                            </button>
+                                        )}
+                                    </div>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+                    </div>
+                )}
             </motion.div>
 
             {/* 삭제 확인 모달 */}

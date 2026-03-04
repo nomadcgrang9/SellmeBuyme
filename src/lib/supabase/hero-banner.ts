@@ -351,7 +351,11 @@ export async function createNativeBanner(
     const { data, error } = await supabase
         .from('native_banners')
         .insert({
-            image_url: input.imageUrl,
+            image_url: input.imageUrl || '',
+            title: input.title || null,
+            description: input.description || null,
+            bg_color: input.bgColor || null,
+            text_color: input.textColor || null,
             link_url: input.linkUrl,
             display_order: input.displayOrder || 0,
             is_active: input.isActive ?? true,
@@ -377,6 +381,10 @@ export async function updateNativeBanner(
         updated_at: new Date().toISOString()
     };
     if (updates.imageUrl !== undefined) dbUpdates.image_url = updates.imageUrl;
+    if (updates.title !== undefined) dbUpdates.title = updates.title || null;
+    if (updates.description !== undefined) dbUpdates.description = updates.description || null;
+    if (updates.bgColor !== undefined) dbUpdates.bg_color = updates.bgColor || null;
+    if (updates.textColor !== undefined) dbUpdates.text_color = updates.textColor || null;
     if (updates.linkUrl !== undefined) dbUpdates.link_url = updates.linkUrl;
     if (updates.displayOrder !== undefined) dbUpdates.display_order = updates.displayOrder;
     if (updates.isActive !== undefined) dbUpdates.is_active = updates.isActive;
@@ -455,6 +463,10 @@ function mapNativeBannerFromDb(row: Record<string, unknown>): NativeBanner {
     return {
         id: row.id as string,
         imageUrl: row.image_url as string,
+        title: (row.title as string) || undefined,
+        description: (row.description as string) || undefined,
+        bgColor: (row.bg_color as string) || undefined,
+        textColor: (row.text_color as string) || undefined,
         linkUrl: row.link_url as string | undefined,
         displayOrder: row.display_order as number,
         isActive: row.is_active as boolean,

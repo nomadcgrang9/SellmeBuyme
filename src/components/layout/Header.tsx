@@ -1,13 +1,15 @@
 'use client';
 
 import { IconSearch, IconHeart } from '@tabler/icons-react';
-import { MessageCircle } from 'lucide-react';
+import { MessagesSquare, MessageCircle } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useDebounce } from '@/lib/hooks/useDebounce';
 import { useSearchStore } from '@/stores/searchStore';
+import { useWagleStore } from '@/stores/wagleStore';
 import { useChatStore } from '@/stores/chatStore';
 import { useBookmarkStore } from '@/stores/bookmarkStore';
+import { useSidePanelStore } from '@/stores/sidePanelStore';
 import SocialSignupModal, { type AuthProvider } from '@/components/auth/SocialSignupModal';
 import { supabase } from '@/lib/supabase/client';
 import { useAuthStore } from '@/stores/authStore';
@@ -52,9 +54,9 @@ export default function Header({ onProfileClick, onChatClick, onBookmarkClick }:
     status: state.status,
     user: state.user
   }));
-  const { totalUnreadCount } = useChatStore();
+  const { unreadCount: totalUnreadCount } = useWagleStore();
+  const chatUnreadCount = useChatStore((s) => s.totalUnreadCount);
   const { bookmarkCount } = useBookmarkStore();
-  const updateUnreadCount = useChatStore(state => state.updateUnreadCount);
   const debouncedSearchQuery = useDebounce(localSearchQuery, 500);
   const {
     searchQuery,
@@ -79,13 +81,6 @@ export default function Header({ onProfileClick, onChatClick, onBookmarkClick }:
       setSearchQuery(debouncedSearchQuery);
     }
   }, [debouncedSearchQuery, setSearchQuery]);
-
-  // 컴포넌트 마운트 시 읽지 않은 메시지 수 초기화
-  useEffect(() => {
-    if (user) {
-      updateUnreadCount();
-    }
-  }, [user, updateUnreadCount]);
 
   const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
@@ -232,16 +227,33 @@ export default function Header({ onProfileClick, onChatClick, onBookmarkClick }:
                       </div>
                     )}
                   </button>
-                  {/* 채팅 버튼 - 아이콘만 */}
+                  {/* 1:1 채팅 버튼 */}
+                  <button
+                    type="button"
+                    onClick={() => { useSidePanelStore.getState().bringToFront('chat'); useChatStore.getState().openPanel(); }}
+                    className="relative p-2 rounded-md hover:bg-gray-100 transition-colors"
+                    title="1:1 채팅"
+                    aria-label="1:1 채팅"
+                  >
+                    <MessageCircle className="w-5 h-5 text-gray-700" />
+                    {chatUnreadCount > 0 && (
+                      <div className="absolute -top-0.5 -right-0.5 w-4 h-4
+                                      bg-yellow-400 text-gray-800 text-[9px] font-bold
+                                      rounded-full flex items-center justify-center
+                                      shadow-sm">
+                        N
+                      </div>
+                    )}
+                  </button>
+                  {/* 와글와글 버튼 */}
                   <button
                     type="button"
                     onClick={() => onChatClick?.()}
                     className="relative p-2 rounded-md hover:bg-gray-100 transition-colors"
-                    title="채팅"
-                    aria-label="채팅"
+                    title="와글와글"
+                    aria-label="와글와글"
                   >
-                    <MessageCircle className="w-5 h-5 text-gray-700" />
-                    {/* 읽지 않은 메시지 배지 */}
+                    <MessagesSquare className="w-5 h-5 text-gray-700" />
                     {totalUnreadCount > 0 && (
                       <div className="absolute -top-0.5 -right-0.5 min-w-[16px] h-[16px] px-1
                                       bg-red-500 text-white text-[9px] font-bold
@@ -329,7 +341,7 @@ export default function Header({ onProfileClick, onChatClick, onBookmarkClick }:
                   className="relative h-7 px-2 text-[10px] font-semibold text-gray-700 rounded-md border border-gray-300"
                   title="채팅"
                 >
-                  <MessageCircle className="w-3 h-3" />
+                  <MessagesSquare className="w-3 h-3" />
 
                   {/* 읽지 않은 메시지 배지 (모바일) */}
                   {totalUnreadCount > 0 && (

@@ -24,8 +24,11 @@ import MobileBottomNav from '@/components/mobile/MobileBottomNav';
 type RegistrationType = 'job' | 'talent' | 'experience';
 
 export default function MobileRegister() {
-  const [registrationType, setRegistrationType] = useState<RegistrationType>('job');
-  const [currentBottomTab, setCurrentBottomTab] = useState<'home' | 'chat' | 'profile' | null>(null);
+  // URL 파라미터에서 초기 등록 유형 결정
+  const urlType = new URLSearchParams(window.location.search).get('type') as RegistrationType | null;
+  const initialType: RegistrationType = (urlType && ['job', 'talent', 'experience'].includes(urlType)) ? urlType : 'job';
+  const [registrationType, setRegistrationType] = useState<RegistrationType>(initialType);
+  const [currentBottomTab, setCurrentBottomTab] = useState<'home' | 'wagle' | 'profile' | null>(null);
 
   const handleBack = () => {
     window.history.back();

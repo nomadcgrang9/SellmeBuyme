@@ -1,7 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
+import { MessageCircle } from 'lucide-react';
+import { IconStar } from '@tabler/icons-react';
 import type { InstructorMarker } from '@/types/instructorMarkers';
 import { INSTRUCTOR_MARKER_COLORS } from '@/types/instructorMarkers';
 import { useAuthStore } from '@/stores/authStore';
+import { useChatStore } from '@/stores/chatStore';
+import { useBookmarkStore } from '@/stores/bookmarkStore';
+import { useToastStore } from '@/stores/toastStore';
+import { addBookmark, removeBookmark } from '@/lib/supabase/queries';
 import { toggleInstructorMarkerStatus } from '@/lib/supabase/instructorMarkers';
 
 interface InstructorDetailPanelProps {
@@ -23,6 +29,35 @@ export const InstructorDetailPanel: React.FC<InstructorDetailPanelProps> = ({
   const [localIsActive, setLocalIsActive] = useState(instructor.is_active !== false);
   const [isToggling, setIsToggling] = useState(false);
   const [copied, setCopied] = useState<'email' | null>(null);
+  const [isBookmarkLoading, setIsBookmarkLoading] = useState(false);
+
+  const isBookmarked = useBookmarkStore((s) => s.isBookmarked)(instructor.id);
+  const addToStore = useBookmarkStore((s) => s.addBookmark);
+  const removeFromStore = useBookmarkStore((s) => s.removeBookmark);
+  const { showToast } = useToastStore();
+
+  const handleBookmarkToggle = useCallback(async () => {
+    if (!user) { showToast('로그인이 필요합니다', 'error'); return; }
+    if (isBookmarkLoading) return;
+    setIsBookmarkLoading(true);
+    try {
+      if (isBookmarked) {
+        removeFromStore(instructor.id);
+        await removeBookmark(user.id, instructor.id, 'experience');
+        showToast('즐겨찾기에서 제거했습니다', 'success');
+      } else {
+        addToStore(instructor.id);
+        await addBookmark(user.id, instructor.id, 'experience');
+        showToast('즐겨찾기에 추가했습니다', 'success');
+      }
+    } catch {
+      if (isBookmarked) addToStore(instructor.id);
+      else removeFromStore(instructor.id);
+      showToast('오류가 발생했습니다', 'error');
+    } finally {
+      setIsBookmarkLoading(false);
+    }
+  }, [user, isBookmarked, isBookmarkLoading, instructor.id, addToStore, removeFromStore, showToast]);
 
   // 클립보드 복사
   const handleCopyEmail = async () => {
@@ -65,16 +100,29 @@ export const InstructorDetailPanel: React.FC<InstructorDetailPanelProps> = ({
       <div className="px-4 py-3 border-b border-sky-100 bg-sky-50/50 flex-shrink-0">
         <div className="flex items-center justify-between">
           <h4 className="font-bold text-gray-800 text-sm">강사 정보</h4>
-          <button
-            onClick={onClose}
-            className="p-2.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors active:scale-95"
-            aria-label="닫기"
-            title="닫기"
-          >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={handleBookmarkToggle}
+              disabled={isBookmarkLoading}
+              className="p-2 text-gray-400 hover:text-yellow-500 transition-colors rounded-lg"
+              title={isBookmarked ? '즐겨찾기 해제' : '즐겨찾기 추가'}
+            >
+              <IconStar
+                size={18}
+                className={isBookmarked ? 'text-yellow-400 fill-yellow-400' : ''}
+              />
+            </button>
+            <button
+              onClick={onClose}
+              className="p-2.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors active:scale-95"
+              aria-label="닫기"
+              title="닫기"
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -227,6 +275,19 @@ export const InstructorDetailPanel: React.FC<InstructorDetailPanelProps> = ({
               </a>
             </div>
           </div>
+        )}
+
+        {/* 1:1 채팅 버튼 - 본인이 아닐 때만 */}
+        {!isOwner && user && instructor.user_id && (
+          <button
+            onClick={() => {
+              useChatStore.getState().openChat(instructor.user_id!, 'experience', instructor.id);
+            }}
+            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-sky-50 text-sky-600 hover:bg-sky-100 transition-colors text-sm font-medium"
+          >
+            <MessageCircle size={16} />
+            <span>1:1 채팅하기</span>
+          </button>
         )}
 
         {/* 활동 상태 토글 - 본인 마커일 때만 */}
