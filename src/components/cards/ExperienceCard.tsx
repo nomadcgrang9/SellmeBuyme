@@ -43,10 +43,8 @@ function ExperienceCard({ card, onEditClick, onDeleteClick, onCardClick, onOpenC
   const handleBookmarkToggle = async (e: React.MouseEvent) => {
     e.stopPropagation();
     
-    console.log('[ExperienceCard] 북마크 토글 시작:', { cardId: card.id, userId: user?.id, bookmarked });
     
     if (!user) {
-      console.warn('[ExperienceCard] 로그인 필요');
       showToast('로그인이 필요합니다', 'error');
       return;
     }
@@ -54,17 +52,13 @@ function ExperienceCard({ card, onEditClick, onDeleteClick, onCardClick, onOpenC
     try {
       if (bookmarked) {
         // 북마크 제거
-        console.log('[ExperienceCard] 북마크 제거 시작');
         removeFromStore(card.id);
         await removeBookmark(user.id, card.id, 'experience');
-        console.log('[ExperienceCard] 북마크 제거 완료');
         showToast('북마크를 제거했습니다', 'success');
       } else {
         // 북마크 추가
-        console.log('[ExperienceCard] 북마크 추가 시작');
         addToStore(card.id);
         await addBookmark(user.id, card.id, 'experience');
-        console.log('[ExperienceCard] 북마크 추가 완료');
         showToast('북마크했습니다', 'success');
       }
     } catch (error) {

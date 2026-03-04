@@ -80,7 +80,6 @@ export default function FullScreenLocationPicker({
                 },
                 (error) => {
                     // 위치 가져오기 실패 - 서울 시청으로 폴백
-                    console.log('위치 권한 거부 또는 오류, 기본 위치 사용:', error);
                     initializeMap(37.5665, 126.978);
                 },
                 {
@@ -137,11 +136,9 @@ export default function FullScreenLocationPicker({
             places.keywordSearch(searchQuery, (result: any[], status: string) => {
                 setIsSearching(false);
                 if (status === window.kakao.maps.services.Status.OK) {
-                    console.log('[FullScreenLocationPicker] Search results:', result.length);
                     setSearchResults(result.slice(0, 5));
                     setShowResults(true);
                 } else {
-                    console.log('[FullScreenLocationPicker] No results, status:', status);
                     setSearchResults([]);
                     setShowResults(true);
                 }

@@ -83,7 +83,6 @@ export default function MapPopup({
     // 1. 캐시 확인
     const cached = getCachedCoords();
     if (cached) {
-      console.log('캐시된 좌표 사용:', cached);
       setCoords(cached.coords);
       setAddress(cached.address || null);
       return;
@@ -103,7 +102,6 @@ export default function MapPopup({
     ];
 
     for (const query of searchQueries) {
-      console.log(`장소 검색 시도: "${query}"`);
 
       try {
         const result = await new Promise<any>((resolve, reject) => {
@@ -123,8 +121,6 @@ export default function MapPopup({
 
         const foundAddress = result.address_name || result.road_address_name;
 
-        console.log(`장소 검색 성공 (${query}):`, coordinates);
-        console.log(`검색된 장소: ${result.place_name} (${foundAddress})`);
 
         setCoords(coordinates);
         setAddress(foundAddress);
@@ -133,7 +129,6 @@ export default function MapPopup({
         return;
 
       } catch (err) {
-        console.warn(`"${query}" 검색 실패, 다음 시도...`);
         continue;
       }
     }
@@ -146,7 +141,6 @@ export default function MapPopup({
   useEffect(() => {
     if (!coords || !mapContainerRef.current || !window.kakao || !window.kakao.maps) return;
 
-    console.log('[MapPopup] 🗺️ 지도 렌더링:', coords);
 
     // 지도 옵션 설정
     const mapOption = {
@@ -207,13 +201,10 @@ export default function MapPopup({
 
   // 모달이 열릴 때 Kakao Maps 로드 및 주소 검색
   useEffect(() => {
-    console.log('[MapPopup] 🔔 모달 상태 변경:', { isOpen, organization, location });
 
     if (isOpen) {
-      console.log('[MapPopup] 📍 지도 로드 시작:', { organization, location });
       loadKakaoMaps()
         .then(() => {
-          console.log('[MapPopup] ✅ SDK 로드 완료, 주소 검색 시작');
           return searchAddress();
         })
         .catch((err) => {

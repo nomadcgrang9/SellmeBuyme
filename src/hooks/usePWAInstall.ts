@@ -139,7 +139,6 @@ export function usePWAInstall(): UsePWAInstallReturn {
     useEffect(() => {
         // index.html에서 이미 캐치했는지 확인
         if (typeof window !== 'undefined' && window.__PWA_PROMPT_CAPTURED__) {
-            console.log('✅ [Hook] 전역에서 캐치된 beforeinstallprompt 발견');
             if (isMobile()) {
                 setShowInstallButton(true);
             }
@@ -154,7 +153,6 @@ export function usePWAInstall(): UsePWAInstallReturn {
 
             // 이벤트 저장
             setDeferredPrompt(e as BeforeInstallPromptEvent);
-            console.log('✅ [Hook] beforeinstallprompt 캐치됨');
 
             // 모바일 환경에서만 설치 버튼 표시
             if (isMobile()) {
@@ -166,7 +164,6 @@ export function usePWAInstall(): UsePWAInstallReturn {
             setShowInstallButton(false);
             setShowInstallModal(false);
             setDeferredPrompt(null);
-            console.log('✅ PWA가 성공적으로 설치되었습니다');
         };
 
         window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
@@ -230,16 +227,13 @@ export function usePWAInstall(): UsePWAInstallReturn {
         if (canInstallPWA()) {
             const outcome = await showInstallPrompt();
             if (outcome === 'accepted') {
-                console.log('✅ 사용자가 PWA 설치를 수락했습니다');
             } else {
-                console.log('ℹ️ 사용자가 PWA 설치를 거부했습니다');
             }
         } else if (platform === 'ios') {
             // iOS: Safari 홈 화면 추가 안내
             setShowIOSGuide(true);
         } else if (platform === 'android') {
             // Android: 브라우저에서 수동 설치 안내
-            console.log('ℹ️ beforeinstallprompt 없음 - Android 수동 설치 안내 표시');
             setShowAndroidGuide(true);
         }
     }, [platform]);

@@ -32,14 +32,11 @@ export default function BoardApprovalModal({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    console.log('[BoardApprovalModal] Received submissionId:', submissionId);
 
     async function loadSubmission() {
       try {
         const submissions = await getBoardSubmissions(100);
-        console.log('[BoardApprovalModal] Loaded submissions:', submissions.length);
         const found = submissions.find(s => s.id === submissionId);
-        console.log('[BoardApprovalModal] Found submission:', found);
 
         if (!found) {
           setError('제출을 찾을 수 없습니다');
@@ -90,16 +87,6 @@ export default function BoardApprovalModal({
         regionName = province?.name.replace(/(도|시)$/, '') || null;
       }
 
-      console.log('[BoardApprovalModal] Edge Function 호출 시작:', {
-        submissionId: submission.id,
-        boardName: submission.boardName,
-        boardUrl: submission.boardUrl,
-        adminUserId: adminUserId,
-        regionCode: submission.regionCode,
-        subregionCode: submission.subregionCode,
-        regionName: regionName,
-        isLocalGovernment: submission.isLocalGovernment
-      });
 
       // Edge Function을 통해 안전하게 크롤러 생성 및 GitHub Actions 트리거
       const { data, error: functionError } = await supabase.functions.invoke('generate-crawler', {
@@ -118,7 +105,6 @@ export default function BoardApprovalModal({
         throw new Error(`Edge Function 호출 실패: ${functionError.message}`);
       }
 
-      console.log('[BoardApprovalModal] Edge Function 응답:', data);
 
       if (!data?.success) {
         const errorMsg = data?.error || data?.message || 'AI 크롤러 생성 실패';
@@ -126,8 +112,6 @@ export default function BoardApprovalModal({
         throw new Error(errorMsg);
       }
 
-      console.log('[BoardApprovalModal] 크롤러 생성 성공:', data);
-      console.log('기본 크롤러가 생성되었습니다. GitHub Actions에서 전체 AI 크롤러를 백그라운드에서 생성합니다 (1-2분 소요)');
 
       onSuccess();
     } catch (err) {

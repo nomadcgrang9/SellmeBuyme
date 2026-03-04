@@ -52,11 +52,9 @@ const waitForRegionInfo = async (maxWaitMs = 10000, intervalMs = 200): Promise<{
   // 즉시 확인
   let regionInfo = getRegionInfo();
   if (regionInfo.city) {
-    console.log('[ActivityTracking] 지역 정보 즉시 발견:', regionInfo.city);
     return regionInfo;
   }
 
-  console.log('[ActivityTracking] 지역 정보 대기 시작 (최대 10초)...');
 
   // 폴링으로 대기
   return new Promise((resolve) => {
@@ -66,7 +64,6 @@ const waitForRegionInfo = async (maxWaitMs = 10000, intervalMs = 200): Promise<{
       // 지역 정보가 있으면 반환
       if (regionInfo.city) {
         clearInterval(checkInterval);
-        console.log('[ActivityTracking] 지역 정보 발견:', regionInfo.city, `(${Date.now() - startTime}ms 소요)`);
         resolve(regionInfo);
         return;
       }
@@ -74,7 +71,6 @@ const waitForRegionInfo = async (maxWaitMs = 10000, intervalMs = 200): Promise<{
       // 타임아웃
       if (Date.now() - startTime >= maxWaitMs) {
         clearInterval(checkInterval);
-        console.warn('[ActivityTracking] 지역 정보 대기 타임아웃 (10초), region=null로 진행');
         resolve(regionInfo); // 빈 값이라도 반환
       }
     }, intervalMs);
@@ -121,10 +117,8 @@ export async function trackActivity({ actionType, metadata = {} }: TrackActivity
     });
 
     if (error) {
-      console.warn('[ActivityTracking] 기록 실패:', error.message);
     }
   } catch (err) {
-    console.warn('[ActivityTracking] 예외:', err);
   }
 }
 

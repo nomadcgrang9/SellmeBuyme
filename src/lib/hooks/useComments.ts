@@ -34,7 +34,6 @@ function getLocalStorage(): Storage | null {
   try {
     return window.localStorage;
   } catch (error) {
-    console.warn('LocalStorage is not available:', error);
     return null;
   }
 }
@@ -162,7 +161,6 @@ export function useComments(targetType: CommentTargetType, targetId: string): Us
       }));
       setFlatComments(comments);
     } catch (error: any) {
-      console.warn('Supabase comments unavailable, using localStorage:', error?.message);
       // 로컬 스토리지에서 폴백
       const comments = readComments(targetKey);
       setFlatComments(comments);
@@ -251,7 +249,6 @@ export function useComments(targetType: CommentTargetType, targetId: string): Us
           return next;
         });
       } catch (error: any) {
-        console.warn('Supabase unavailable, keeping optimistic update:', error?.message);
         // Supabase 실패해도 optimistic update는 유지
         // 단, localStorage에는 영구 ID로 저장
         setFlatComments((prev) => {
@@ -291,7 +288,6 @@ export function useComments(targetType: CommentTargetType, targetId: string): Us
         // 백그라운드에서 Supabase 업데이트
         await updateCommentAPI(commentId, trimmed);
       } catch (error: any) {
-        console.warn('Supabase update failed, optimistic update preserved:', error?.message);
         // 실패해도 optimistic update는 유지 (이미 localStorage에 저장됨)
       }
     },
@@ -314,7 +310,6 @@ export function useComments(targetType: CommentTargetType, targetId: string): Us
         // 백그라운드에서 Supabase 삭제
         await deleteCommentAPI(commentId);
       } catch (error: any) {
-        console.warn('Supabase delete failed, optimistic delete preserved:', error?.message);
         // 실패해도 optimistic delete는 유지 (이미 localStorage에서 삭제됨)
       }
     },

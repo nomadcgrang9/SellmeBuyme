@@ -300,7 +300,6 @@ export async function uploadIdeaImage(
   file: File,
   ideaId: string
 ): Promise<string> {
-  console.log('[uploadIdeaImage] 시작:', file.name, file.size, 'bytes');
 
   // 파일 크기 검증 (50MB)
   const maxSize = 50 * 1024 * 1024;
@@ -321,7 +320,6 @@ export async function uploadIdeaImage(
   const fileName = `${timestamp}-${randomStr}-${base64Name}.${ext}`;
   const filePath = `ideas/${ideaId}/${fileName}`;
 
-  console.log('[uploadIdeaImage] 경로:', filePath);
 
   // Content-Type 결정
   let contentType = file.type;
@@ -343,7 +341,6 @@ export async function uploadIdeaImage(
     contentType = extMap[ext] || 'application/octet-stream';
   }
 
-  console.log('[uploadIdeaImage] Content-Type:', contentType);
 
   // Storage에 업로드
   const { data, error } = await supabase.storage
@@ -360,14 +357,12 @@ export async function uploadIdeaImage(
     throw new Error(`파일 업로드에 실패했습니다: ${error.message}`);
   }
 
-  console.log('[uploadIdeaImage] 업로드 성공:', data);
 
   // Public URL 가져오기
   const {
     data: { publicUrl },
   } = supabase.storage.from('developer').getPublicUrl(data.path);
 
-  console.log('[uploadIdeaImage] Public URL:', publicUrl);
 
   return publicUrl;
 }
@@ -382,7 +377,6 @@ export async function uploadNoticeFile(
   file: File,
   noticeId: string
 ): Promise<string> {
-  console.log('[uploadNoticeFile] 시작:', file.name, file.size, 'bytes');
 
   // 파일 크기 검증 (50MB)
   const maxSize = 50 * 1024 * 1024;
@@ -403,7 +397,6 @@ export async function uploadNoticeFile(
   const fileName = `${timestamp}-${randomStr}-${base64Name}.${ext}`;
   const filePath = `notices/${noticeId}/${fileName}`;
 
-  console.log('[uploadNoticeFile] 경로:', filePath);
 
   // Content-Type 결정
   let contentType = file.type;
@@ -425,7 +418,6 @@ export async function uploadNoticeFile(
     contentType = extMap[ext] || 'application/octet-stream';
   }
 
-  console.log('[uploadNoticeFile] Content-Type:', contentType);
 
   // Storage에 업로드
   const { data, error } = await supabase.storage
@@ -442,14 +434,12 @@ export async function uploadNoticeFile(
     throw new Error(`파일 업로드에 실패했습니다: ${error.message}`);
   }
 
-  console.log('[uploadNoticeFile] 업로드 성공:', data);
 
   // Public URL 가져오기
   const {
     data: { publicUrl },
   } = supabase.storage.from('developer').getPublicUrl(data.path);
 
-  console.log('[uploadNoticeFile] Public URL:', publicUrl);
 
   return publicUrl;
 }
@@ -769,7 +759,6 @@ export async function createProject(project: ProjectFormData): Promise<DevProjec
 
   // 인증 오류가 있어도 계속 진행 (익명 사용자 허용)
   if (authError) {
-    console.warn('No authenticated user, proceeding as anonymous:', authError);
   }
 
   // 인증된 사용자가 있으면 user_id 사용, 없으면 NULL (익명)

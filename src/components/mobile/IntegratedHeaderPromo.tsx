@@ -137,12 +137,6 @@ export default function IntegratedHeaderPromo({
 
   // 디버깅용 로그 - promoCards 전체를 의존성으로 추가
   useEffect(() => {
-    console.log('[IntegratedHeaderPromo] 렌더링됨');
-    console.log('  - promoCards:', promoCards);
-    console.log('  - promoCards 개수:', promoCards.length);
-    console.log('  - activeCards 개수:', activeCards.length);
-    console.log('  - hasPromoCards:', hasPromoCards);
-    console.log('  - currentCard:', currentCard?.headline || 'null');
   }, [promoCards, activeCards.length, hasPromoCards, currentCard]);
 
   // 헤더 배경 스타일 (스크롤 상태에 따라 변경)

@@ -24,7 +24,6 @@ const KAKAO_APP_KEY = import.meta.env.VITE_KAKAO_MAP_KEY;
 if (!KAKAO_APP_KEY) {
   console.error('[useKakaoMaps] ❌ VITE_KAKAO_MAP_KEY 환경변수가 설정되지 않았습니다. .env 파일을 확인하세요.');
 } else {
-  console.log('[useKakaoMaps] 🔑 사용 중인 키:', KAKAO_APP_KEY.substring(0, 10) + '...');
 }
 
 const KAKAO_SDK_URL = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${KAKAO_APP_KEY}&libraries=services&autoload=false`;
@@ -34,7 +33,6 @@ export function useKakaoMaps(): UseKakaoMapsReturn {
   const [error, setError] = useState<Error | null>(null);
 
   const loadKakaoMaps = useCallback(async () => {
-    console.log('[useKakaoMaps] 🚀 loadKakaoMaps 시작 (동적 로드 방식)');
 
     try {
       const ensureInitialized = () =>
@@ -46,7 +44,6 @@ export function useKakaoMaps(): UseKakaoMapsReturn {
 
           window.kakao.maps.load(() => {
             if (window.kakao?.maps?.LatLng) {
-              console.log('[useKakaoMaps] ✅ SDK 초기화 완료');
               setIsLoaded(true);
               resolve();
             } else {
@@ -57,14 +54,12 @@ export function useKakaoMaps(): UseKakaoMapsReturn {
 
       // 이미 로드되어 LatLng 생성자가 있는지 확인
       if (window.kakao && window.kakao.maps && window.kakao.maps.LatLng) {
-        console.log('[useKakaoMaps] ✅ SDK 이미 로드됨 (LatLng 사용 가능)');
         setIsLoaded(true);
         return;
       }
 
       // kakao.maps.load만 존재할 경우 초기화 강제 실행
       if (window.kakao && window.kakao.maps && typeof window.kakao.maps.load === 'function') {
-        console.log('[useKakaoMaps] ⏳ SDK 초기화 진행 중...');
         await ensureInitialized();
         return;
       }
@@ -72,7 +67,6 @@ export function useKakaoMaps(): UseKakaoMapsReturn {
       // 기존 스크립트 태그 확인
       const existingScript = document.querySelector<HTMLScriptElement>('script[data-kakao-sdk="true"]');
       if (existingScript) {
-        console.log('[useKakaoMaps] ⏳ 기존 스크립트 로드 대기 중...');
         await new Promise<void>((resolve, reject) => {
           existingScript.addEventListener('load', () => {
             ensureInitialized().then(resolve).catch(reject);
@@ -86,7 +80,6 @@ export function useKakaoMaps(): UseKakaoMapsReturn {
       }
 
       // 동적으로 스크립트 로드
-      console.log('[useKakaoMaps] 📝 새 스크립트 동적 로드 시작');
       return new Promise<void>((resolve, reject) => {
         const script = document.createElement('script');
         script.src = KAKAO_SDK_URL;
@@ -94,7 +87,6 @@ export function useKakaoMaps(): UseKakaoMapsReturn {
         script.setAttribute('data-kakao-sdk', 'true');
 
         script.onload = () => {
-          console.log('[useKakaoMaps] ✅ 스크립트 로드 완료');
           ensureInitialized().then(resolve).catch(reject);
         };
 

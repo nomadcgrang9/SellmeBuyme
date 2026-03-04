@@ -75,19 +75,9 @@ export function useAutoScaleMap({
    * 자동 스케일업 체크 및 실행
    */
   const checkAndExpand = useCallback((): AutoScaleResult => {
-    console.log('[useAutoScaleMap] checkAndExpand 호출:', {
-      viewportFilteredCount,
-      totalFilteredCount,
-      isExpanded,
-      attempts: expansionAttemptRef.current,
-      currentZoom: currentMapState.zoom,
-      primaryCategory,
-      secondaryCategory,
-    });
 
     // 이미 확장된 상태면 스킵
     if (isExpanded && expansionAttemptRef.current >= AUTO_SCALE_CONFIG.MAX_EXPANSION_ATTEMPTS) {
-      console.log('[useAutoScaleMap] 최대 확장 횟수 도달, 스킵');
       return {
         expanded: false,
         newZoom: null,
@@ -99,7 +89,6 @@ export function useAutoScaleMap({
 
     // 뷰포트 내 결과가 충분하면 스킵 (사용자가 충분히 볼 수 있음)
     if (viewportFilteredCount >= AUTO_SCALE_CONFIG.MIN_RESULTS_THRESHOLD) {
-      console.log('[useAutoScaleMap] 뷰포트 내 결과 충분 (', viewportFilteredCount, '>=', AUTO_SCALE_CONFIG.MIN_RESULTS_THRESHOLD, '), 스킵');
       // 확장 상태 리셋
       if (isExpanded) {
         setIsExpanded(false);
@@ -115,22 +104,18 @@ export function useAutoScaleMap({
       };
     }
 
-    console.log('[useAutoScaleMap] 뷰포트 내 결과 부족! 확장 시작:', viewportFilteredCount, '개 (전체:', totalFilteredCount, '개)');
 
     // 첫 확장 시 원래 상태 저장
     if (!isExpanded) {
-      console.log('[useAutoScaleMap] 원래 상태 저장:', currentMapState);
       setOriginalState({ ...currentMapState });
     }
 
     // 희귀 카테고리인 경우 또는 전체 공고도 부족한 경우 즉시 전국 검색
     const goNational = shouldExpandToNational(primaryCategory, secondaryCategory) ||
                        totalFilteredCount < AUTO_SCALE_CONFIG.MIN_RESULTS_THRESHOLD;
-    console.log('[useAutoScaleMap] 전국 검색 필요 여부:', goNational, '(희귀:', shouldExpandToNational(primaryCategory, secondaryCategory), ', 전체부족:', totalFilteredCount < AUTO_SCALE_CONFIG.MIN_RESULTS_THRESHOLD, ')');
 
     // Kakao Maps: level이 높을수록 넓은 영역 → 이미 충분히 넓으면 전국 검색
     if (goNational || currentMapState.zoom >= AUTO_SCALE_CONFIG.NATIONAL_SEARCH_ZOOM) {
-      console.log('[useAutoScaleMap] 전국 검색으로 이동!');
       const message = getExpansionMessage(
         secondaryCategory || primaryCategory,
         viewportFilteredCount,
@@ -161,12 +146,6 @@ export function useAutoScaleMap({
     const newZoom = getNextExpansionZoom(currentMapState.zoom, expansionAttemptRef.current);
     const isNational = newZoom >= AUTO_SCALE_CONFIG.NATIONAL_ZOOM;
 
-    console.log('[useAutoScaleMap] 단계별 확장:', {
-      currentZoom: currentMapState.zoom,
-      newZoom,
-      attempt: expansionAttemptRef.current,
-      isNational,
-    });
 
     const message = getExpansionMessage(
       secondaryCategory || primaryCategory,
@@ -180,10 +159,8 @@ export function useAutoScaleMap({
 
     // 지도 줌 변경 (중심 유지 또는 전국 중심으로 이동)
     if (isNational) {
-      console.log('[useAutoScaleMap] 전국 줌으로 이동:', AUTO_SCALE_CONFIG.NATIONAL_ZOOM);
       onMapStateChange(AUTO_SCALE_CONFIG.NATIONAL_ZOOM, KOREA_CENTER);
     } else {
-      console.log('[useAutoScaleMap] 줌 레벨 변경:', newZoom);
       onMapStateChange(newZoom, currentMapState.center);
     }
 

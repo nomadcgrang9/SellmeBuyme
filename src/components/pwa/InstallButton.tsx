@@ -24,10 +24,8 @@ function InstallButton({
         const outcome = await showInstallPrompt();
 
         if (outcome === 'accepted') {
-            console.log('사용자가 PWA 설치를 수락했습니다');
             onInstallSuccess?.();
         } else if (outcome === 'dismissed') {
-            console.log('사용자가 PWA 설치를 거부했습니다');
             onInstallDismiss?.();
         }
     };

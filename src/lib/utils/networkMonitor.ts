@@ -93,7 +93,6 @@ class NetworkMonitor {
       }
     };
 
-    console.log('✅ Network monitoring enabled');
   }
 
   // 로그 추가
@@ -152,7 +151,6 @@ class NetworkMonitor {
     if (this.originalFetch) {
       window.fetch = this.originalFetch;
       this.originalFetch = undefined;
-      console.log('✅ Network monitoring disabled');
     }
   }
 }

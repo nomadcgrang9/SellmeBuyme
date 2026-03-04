@@ -56,8 +56,6 @@ type JobPostingLocation = {
 const downloadAttachmentFunctionUrl = (() => {
   const baseUrl = import.meta.env.VITE_SUPABASE_URL?.replace(/\/$/, '');
   const url = baseUrl ? `${baseUrl}/functions/v1/download-attachment` : null;
-  console.log('[downloadAttachmentFunctionUrl] VITE_SUPABASE_URL:', import.meta.env.VITE_SUPABASE_URL);
-  console.log('[downloadAttachmentFunctionUrl] Generated URL:', url);
   return url;
 })();
 
@@ -94,18 +92,14 @@ function buildAttachmentFilename(organization: string, originalFilename?: string
   }
 
   const filename = `${baseName} 공고문.${extension}`;
-  console.log('[buildAttachmentFilename] organization:', organization, 'originalFilename:', originalFilename, '=> filename:', filename);
   return filename;
 }
 
 function buildAttachmentDownloadUrl(originalUrl: string | null, filename?: string) {
   if (!originalUrl) return null;
 
-  console.log('[buildAttachmentDownloadUrl] Called with:', { originalUrl, filename });
-  console.log('[buildAttachmentDownloadUrl] downloadAttachmentFunctionUrl:', downloadAttachmentFunctionUrl);
 
   if (isSupabaseStorageUrl(originalUrl)) {
-    console.log('[buildAttachmentDownloadUrl] Supabase Storage URL detected');
     try {
       const url = new URL(originalUrl);
       if (filename?.trim()) {
@@ -123,7 +117,6 @@ function buildAttachmentDownloadUrl(originalUrl: string | null, filename?: strin
   if (downloadAttachmentFunctionUrl && filename) {
     // 구리남양주(goegn.kr)는 SSL 문제로 UUID 형식 다운로드 (원본 URL 사용)
     if (originalUrl.includes('goegn.kr')) {
-      console.log('[buildAttachmentDownloadUrl] goegn.kr detected, using original URL (UUID format)');
       return originalUrl;
     }
 
@@ -131,12 +124,10 @@ function buildAttachmentDownloadUrl(originalUrl: string | null, filename?: strin
     params.set('url', originalUrl);
     params.set('filename', filename.trim());
     const finalUrl = `${downloadAttachmentFunctionUrl}?${params.toString()}`;
-    console.log('[buildAttachmentDownloadUrl] Edge Function URL generated:', finalUrl);
     return finalUrl;
   }
 
   // 파일명이 없으면 원본 URL 그대로 반환
-  console.log('[buildAttachmentDownloadUrl] Returning original URL (no filename or no function URL)');
   return originalUrl;
 }
 
@@ -320,7 +311,6 @@ export async function updateJobPosting(input: UpdateJobPostingInput) {
     } catch (uploadError) {
       console.error('첨부파일 업로드 실패:', uploadError);
       const message = uploadError instanceof Error ? uploadError.message : '첨부파일 업로드에 실패했습니다.';
-      console.warn(`경고: ${message}`);
       // 업로드 실패 시 attachment_url은 null로 유지
       attachmentUrl = null;
     }
@@ -722,12 +712,10 @@ function sortExperiencesByRelevance(cards: ExperienceCard[], tokens: string[], f
 }
 
 export async function createExperience(data: ExperienceRegistrationFormData): Promise<ExperienceCard> {
-  console.log('[DEBUG] createExperience 시작:', data);
 
   const { data: userRes } = await supabase.auth.getUser();
   const user = userRes?.user;
 
-  console.log('[DEBUG] 사용자 ID:', user?.id || 'null (비인증)');
 
   if (user) {
     await ensureUserRow(user);
@@ -742,13 +730,6 @@ export async function createExperience(data: ExperienceRegistrationFormData): Pr
   const phone = data.phone.trim();
   const email = data.email.trim();
 
-  console.log('[DEBUG] 정규화된 데이터:', {
-    regionSeoul,
-    regionGyeonggi,
-    categories,
-    targetLevels,
-    operationTypes,
-  });
 
   const formPayload: ExperienceRegistrationFormData = {
     ...data,
@@ -774,7 +755,6 @@ export async function createExperience(data: ExperienceRegistrationFormData): Pr
     form_payload: formPayload,
   };
 
-  console.log('[DEBUG] INSERT 페이로드:', insertPayload);
 
   const { data: inserted, error } = await supabase
     .from('experiences')
@@ -783,19 +763,11 @@ export async function createExperience(data: ExperienceRegistrationFormData): Pr
     .single();
 
   if (inserted) {
-    console.log('[DEBUG] INSERT 성공 - 레코드 ID:', inserted.id);
   } else {
-    console.log('[DEBUG] INSERT 실패 - inserted가 null/undefined');
   }
 
   if (error) {
-    console.log('[DEBUG] INSERT 에러 발생');
-    console.log('[DEBUG] 에러 메시지:', String(error.message || ''));
-    console.log('[DEBUG] 에러 코드:', String(error.code || ''));
-    console.log('[DEBUG] 에러 상세:', String(error.details || ''));
-    console.log('[DEBUG] 에러 힌트:', String(error.hint || ''));
   } else {
-    console.log('[DEBUG] INSERT 에러 없음');
   }
 
   if (error || !inserted) {
@@ -804,7 +776,6 @@ export async function createExperience(data: ExperienceRegistrationFormData): Pr
     throw new Error(errorMsg);
   }
 
-  console.log('[DEBUG] 체험 등록 성공:', inserted);
   return mapExperienceRowToCard(inserted);
 }
 
@@ -1104,7 +1075,6 @@ export async function createJobPosting(input: CreateJobPostingInput) {
       console.error('첨부파일 업로드 실패:', uploadError);
       // 첨부파일 업로드 실패는 공고 등록을 막지 않음 (경고만 표시)
       const message = uploadError instanceof Error ? uploadError.message : '첨부파일 업로드에 실패했습니다.';
-      console.warn(`경고: ${message}`);
       // 업로드 실패 시 attachment_url은 null로 유지
       attachmentUrl = null;
     }
@@ -2081,7 +2051,6 @@ export async function normalizeCardOrder(collectionId: string): Promise<void> {
       }
     }
 
-    console.log(`[normalizeCardOrder] ${cards.length}개 카드 정규화 완료`);
   } catch (error) {
     console.error('[normalizeCardOrder] 정규화 실패:', { collectionId, error });
     throw error;
@@ -2225,7 +2194,6 @@ export async function fetchCrawlBoards(options?: FetchCrawlBoardsOptions): Promi
     });
 
     if (error) {
-      console.warn('고급 검색 실패, 기본 검색으로 fallback:', error);
       // Fallback to basic search
     } else if (data) {
       return (data ?? []).map(mapCrawlBoardFromDbRow);
@@ -2324,7 +2292,6 @@ export async function updateCrawlBoard(
  */
 export async function unapproveCrawlBoard(boardId: string): Promise<void> {
   try {
-    console.log(`[unapproveCrawlBoard] Edge Function 호출 시작 (boardId=${boardId})`);
 
     // Edge Function 호출 (SERVICE_ROLE_KEY로 RLS 우회)
     const { data, error } = await supabase.functions.invoke(
@@ -2349,10 +2316,6 @@ export async function unapproveCrawlBoard(boardId: string): Promise<void> {
 
     // 성공 로깅
     const result = data.data;
-    console.log(`[unapproveCrawlBoard] 승인 취소 완료:`);
-    console.log(`  - job_postings 삭제: ${result.jobsDeleted}개`);
-    console.log(`  - crawl_logs 삭제: ${result.logsDeleted}개`);
-    console.log(`  - boardId: ${result.boardId}`);
   } catch (error) {
     console.error('[unapproveCrawlBoard] 오류 발생:', error);
     throw error;
@@ -2553,9 +2516,6 @@ export async function fetchJobsByBoardRegion(
 
   const keywords = rawKeywords.map(normalizeKeyword);
 
-  console.log(`[fetchJobsByBoardRegion] Raw keywords:`, rawKeywords);
-  console.log(`[fetchJobsByBoardRegion] Normalized keywords:`, keywords);
-  console.log(`[fetchJobsByBoardRegion] Exclude keywords:`, excludeKeywords);
 
   let boardIds: string[] = [];
 
@@ -2563,14 +2523,12 @@ export async function fetchJobsByBoardRegion(
   for (const keyword of keywords) {
     const hardcodedIds = getCrawlBoardIdsForProvince(keyword);
     if (hardcodedIds && hardcodedIds.length > 0) {
-      console.log(`[fetchJobsByBoardRegion] Found hardcoded board IDs for "${keyword}":`, hardcodedIds.length);
       boardIds.push(...hardcodedIds);
     }
   }
 
   // 2. 하드코딩된 ID가 있으면 그것을 사용, 없으면 동적 검색
   if (boardIds.length === 0) {
-    console.log(`[fetchJobsByBoardRegion] No hardcoded IDs found, using dynamic search`);
 
     // 기존 동적 검색 로직
     const orConditions = keywords.flatMap(keyword => [
@@ -2584,7 +2542,6 @@ export async function fetchJobsByBoardRegion(
       .or(orConditions)
       .not('approved_at', 'is', null);
 
-    console.log(`[fetchJobsByBoardRegion] Found boards before filter:`, boards?.length ?? 0);
 
     if (boardsError) {
       console.error(`[fetchJobsByBoardRegion] Board query error:`, boardsError);
@@ -2592,7 +2549,6 @@ export async function fetchJobsByBoardRegion(
     }
 
     if (!boards || boards.length === 0) {
-      console.warn(`[fetchJobsByBoardRegion] No boards found for regions:`, keywords);
       return [];
     }
 
@@ -2609,21 +2565,17 @@ export async function fetchJobsByBoardRegion(
       })
       : boards;
 
-    console.log(`[fetchJobsByBoardRegion] Found boards after filter:`, filteredBoards.length, filteredBoards.map(b => b.name));
 
     if (filteredBoards.length === 0) {
-      console.warn(`[fetchJobsByBoardRegion] All boards were filtered out`);
       return [];
     }
 
     boardIds = filteredBoards.map(b => b.id);
   } else {
-    console.log(`[fetchJobsByBoardRegion] Using hardcoded board IDs:`, boardIds.length);
   }
 
   // 중복 제거
   boardIds = [...new Set(boardIds)];
-  console.log(`[fetchJobsByBoardRegion] Total unique board IDs:`, boardIds.length);
 
   // 3. 해당 crawl_board_id 또는 crawl_source_id의 job_postings 조회
   const today = new Date();
@@ -2669,7 +2621,6 @@ export async function fetchJobsByBoardRegion(
   const crawledJobs = crawledResult.data || [];
   const userPostedJobs = userPostedResult.data || [];
 
-  console.log(`[fetchJobsByBoardRegion] Crawled jobs: ${crawledJobs.length}, User posted jobs: ${userPostedJobs.length}`);
 
   // 합치고 중복 제거
   const allJobs = [...crawledJobs, ...userPostedJobs];
@@ -2679,10 +2630,8 @@ export async function fetchJobsByBoardRegion(
   uniqueJobs.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   const jobs = uniqueJobs.slice(0, limit);
 
-  console.log(`[fetchJobsByBoardRegion] Total unique jobs: ${jobs.length}`);
 
   if (jobs.length === 0) {
-    console.warn('[fetchJobsByBoardRegion] No jobs found for these boards');
     return [];
   }
 
@@ -2701,7 +2650,6 @@ export async function fetchJobsInViewport(
   today.setHours(0, 0, 0, 0);
   const todayIso = today.toISOString();
 
-  console.log(`[fetchJobsInViewport] 뷰포트 경계:`, bounds);
 
   // 좌표가 있는 공고만 뷰포트 내에서 조회
   const { data: jobs, error } = await supabase
@@ -2722,7 +2670,6 @@ export async function fetchJobsInViewport(
     return [];
   }
 
-  console.log(`[fetchJobsInViewport] 조회된 공고 수:`, jobs?.length ?? 0);
 
   if (!jobs || jobs.length === 0) {
     return [];
@@ -3593,9 +3540,7 @@ async function executeJobSearch({
       }
 
       // PGroonga 실패 시 아래 fallback으로 계속
-      console.warn('PGroonga 검색 실패, fallback 사용:', pgroongaError);
     } catch (err) {
-      console.warn('PGroonga 검색 오류, fallback 사용:', err);
     }
   }
 
@@ -3645,7 +3590,6 @@ async function executeJobSearch({
     const regionConditions: string[] = [];
 
     for (const r of filters.region) {
-      console.log('[executeJobSearch] 지역 필터 처리:', r, '| isProvinceWideSearch:', isProvinceWideSearch(r));
 
       // {province}-{city} 형식 확인 (예: "경기-성남시", "서울-강남구")
       if (r.includes('-')) {
@@ -3659,7 +3603,6 @@ async function executeJobSearch({
         // 광역시도 전체 검색: crawl_board_id 기반 필터링 (동일 지역명 충돌 방지)
         const crawlBoardIds = getCrawlBoardIdsForProvince(r);
         if (crawlBoardIds && crawlBoardIds.length > 0) {
-          console.log('[executeJobSearch] crawl_board_id 필터링:', crawlBoardIds.length, '개');
           for (const id of crawlBoardIds) {
             regionConditions.push(`crawl_board_id.eq.${id}`);
             // 레거시 지원: crawl_source_id만 있는 공고도 검색
@@ -3668,7 +3611,6 @@ async function executeJobSearch({
         } else {
           // fallback: crawl_board_id 매핑이 없는 경우 기존 location 확장 로직 사용
           const allLocations = expandProvinceToAllCities(r);
-          console.log('[executeJobSearch] 확장된 지역 목록 (fallback):', allLocations.length, '개');
           for (const loc of allLocations) {
             regionConditions.push(`location.ilike.%${loc}%`);
           }
@@ -3677,7 +3619,6 @@ async function executeJobSearch({
         // 광역시도명만 있는 경우 (예: "경기", "서울") - 해당 광역시도 전체 검색
         const crawlBoardIds = getCrawlBoardIdsForProvince(r);
         if (crawlBoardIds && crawlBoardIds.length > 0) {
-          console.log('[executeJobSearch] 광역시도명 crawl_board_id 필터링:', crawlBoardIds.length, '개');
           for (const id of crawlBoardIds) {
             regionConditions.push(`crawl_board_id.eq.${id}`);
             // 레거시 지원: crawl_source_id만 있는 공고도 검색
@@ -3699,7 +3640,6 @@ async function executeJobSearch({
       }
     }
 
-    console.log('[executeJobSearch] 총 지역 조건 수:', regionConditions.length);
     if (regionConditions.length > 0) {
       query = query.or(regionConditions.join(','));
     }
@@ -3879,7 +3819,6 @@ async function executeJobSearch({
   today.setHours(0, 0, 0, 0);
   const todayIso = today.toISOString();
 
-  console.log('[executeJobSearch] 마감일 필터 적용:', todayIso);
 
   // 마감되지 않은 공고만 필터링 (deadline이 null이거나 오늘 이후)
   query = query.or(`deadline.is.null,deadline.gte.${todayIso}`);
@@ -3944,7 +3883,6 @@ async function executeExperienceSearch({
   limit,
   offset,
 }: ExperienceSearchArgs): Promise<SearchResponse> {
-  console.log('[DEBUG] executeExperienceSearch 시작:', { searchQuery, tokens, filters, limit, offset });
 
   const trimmedQuery = searchQuery.trim();
 
@@ -4007,11 +3945,9 @@ async function executeExperienceSearch({
   const from = Math.max(offset ?? DEFAULT_OFFSET, 0);
   const to = from + Math.max(limit ?? DEFAULT_LIMIT, 1) - 1;
 
-  console.log('[DEBUG] executeExperienceSearch 쿼리 범위:', { from, to });
 
   const { data, error, count } = await query.range(from, to);
 
-  console.log('[DEBUG] executeExperienceSearch 결과:', { data, error, count });
 
   if (error || !data) {
     console.error('체험 검색 실패:', error);
@@ -4389,15 +4325,9 @@ function formatTalentLocation(locations: string[]): string {
  */
 export async function fetchUserBookmarkIds(userId: string): Promise<string[]> {
   try {
-    console.log('[fetchUserBookmarkIds] 🔍 시작 - userId:', userId);
 
     // 세션 확인
     const { data: { session } } = await supabase.auth.getSession();
-    console.log('[fetchUserBookmarkIds] 📌 세션 정보:', {
-      sessionExists: !!session,
-      sessionUserId: session?.user?.id,
-      matchesProvidedUserId: session?.user?.id === userId
-    });
 
     const { data, error } = await supabase
       .from('bookmarks')
@@ -4405,11 +4335,6 @@ export async function fetchUserBookmarkIds(userId: string): Promise<string[]> {
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
 
-    console.log('[fetchUserBookmarkIds] 📊 쿼리 결과:', {
-      dataLength: data?.length,
-      error: error,
-      rawData: data
-    });
 
     if (error) {
       console.error('[fetchUserBookmarkIds] ❌ 에러:', error);
@@ -4417,7 +4342,6 @@ export async function fetchUserBookmarkIds(userId: string): Promise<string[]> {
     }
 
     const result = data?.map(b => b.card_id) || [];
-    console.log('[fetchUserBookmarkIds] ✅ 반환:', result);
     return result;
   } catch (error) {
     console.error('[fetchUserBookmarkIds] 💥 북마크 조회 실패:', error);
@@ -4469,7 +4393,6 @@ export async function fetchBookmarkedCards(userId: string): Promise<Card[]> {
     }
 
     if (!bookmarks || bookmarks.length === 0) {
-      console.log('[fetchBookmarkedCards] 북마크 없음 - 빈 배열 반환');
       return [];
     }
 
@@ -4479,7 +4402,6 @@ export async function fetchBookmarkedCards(userId: string): Promise<Card[]> {
     const talentIds = bookmarks.filter((b: any) => b.card_type === 'talent').map((b: any) => b.card_id);
     const experienceIds = bookmarks.filter((b: any) => b.card_type === 'experience').map((b: any) => b.card_id);
 
-    console.log('[fetchBookmarkedCards] 카드 타입별 그룹화:', { jobIds, talentIds, experienceIds });
 
     const cards: Card[] = [];
 
@@ -4490,7 +4412,6 @@ export async function fetchBookmarkedCards(userId: string): Promise<Card[]> {
         .select('*')
         .in('id', jobIds);
 
-      console.log('[fetchBookmarkedCards] 공고 카드 조회:', { jobs: jobs?.length, jobError });
 
       if (!jobError && jobs) {
         const jobCards = jobs.map(job => mapJobPostingToCard(job));
@@ -4505,7 +4426,6 @@ export async function fetchBookmarkedCards(userId: string): Promise<Card[]> {
         .select('*')
         .in('id', talentIds);
 
-      console.log('[fetchBookmarkedCards] 구직자 마커 조회:', { teachers: teachers?.length, teacherError });
 
       if (!teacherError && teachers) {
         const talentCards: TalentCard[] = teachers.map(t => ({
@@ -4541,7 +4461,6 @@ export async function fetchBookmarkedCards(userId: string): Promise<Card[]> {
         .select('*')
         .in('id', experienceIds);
 
-      console.log('[fetchBookmarkedCards] 교원연수 강사 조회:', { instructors: instructors?.length, instError });
 
       if (!instError && instructors) {
         const expCards: ExperienceCard[] = instructors.map(inst => ({
@@ -4579,7 +4498,6 @@ export async function fetchBookmarkedCards(userId: string): Promise<Card[]> {
       return (bTime as string).localeCompare(aTime as string);
     });
 
-    console.log('[fetchBookmarkedCards] 최종 반환 카드 수:', cards.length);
 
     return cards;
   } catch (error) {

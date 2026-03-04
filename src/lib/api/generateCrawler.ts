@@ -29,7 +29,6 @@ export async function generateCrawlerViaAPI(
   request: GenerateCrawlerRequest
 ): Promise<GenerateCrawlerResponse> {
   try {
-    console.log('[generateCrawlerViaAPI] 요청:', request);
 
     // 로컬 백엔드 API 호출
     const response = await fetch('/api/generate-crawler', {
@@ -48,7 +47,6 @@ export async function generateCrawlerViaAPI(
     }
 
     const result: GenerateCrawlerResponse = await response.json();
-    console.log('[generateCrawlerViaAPI] 응답:', result);
 
     return result;
   } catch (error) {
@@ -71,12 +69,6 @@ export async function createCrawlBoardLocally(
   adminUserId: string,
   crawlerCode: string
 ): Promise<{ id: string }> {
-  console.log('[createCrawlBoardLocally] 크롤 게시판 생성/업데이트 시작:', {
-    boardName,
-    boardUrl,
-    adminUserId,
-    crawlerCodeLength: crawlerCode?.length,
-  });
 
   const { data: existingBoard, error: fetchError } = await supabase
     .from('crawl_boards')
@@ -90,7 +82,6 @@ export async function createCrawlBoardLocally(
   }
 
   if (existingBoard?.id) {
-    console.log('[createCrawlBoardLocally] 기존 게시판 발견, 업데이트 중:', existingBoard.id);
 
     // 기존 게시판이 비활성화되어 있거나 크롤러 코드가 없으면 업데이트
     const { error: updateError } = await supabase
@@ -109,13 +100,11 @@ export async function createCrawlBoardLocally(
     if (updateError) {
       console.error('[createCrawlBoardLocally] 기존 crawl_board 업데이트 실패:', updateError);
     } else {
-      console.log('[createCrawlBoardLocally] 기존 게시판 업데이트 완료:', existingBoard.id);
     }
 
     return { id: existingBoard.id };
   }
 
-  console.log('[createCrawlBoardLocally] 새 게시판 등록 중...');
 
   const insertPayload: Record<string, unknown> = {
     name: boardName,
@@ -141,7 +130,6 @@ export async function createCrawlBoardLocally(
     throw new Error(`crawl_boards 등록 실패: ${error.message}`);
   }
 
-  console.log('[createCrawlBoardLocally] 새 게시판 등록 완료:', data.id);
   return data;
 }
 
@@ -154,11 +142,6 @@ export async function approveBoardSubmissionLocally(
   crawlBoardId: string,
   adminUserId: string
 ): Promise<void> {
-  console.log('[approveBoardSubmissionLocally] 제출 승인 처리 시작:', {
-    submissionId,
-    crawlBoardId,
-    adminUserId,
-  });
 
   const { error } = await supabase
     .from('dev_board_submissions')
@@ -173,6 +156,5 @@ export async function approveBoardSubmissionLocally(
   if (error) {
     console.error('[approveBoardSubmissionLocally] 제출 승인 업데이트 실패:', error);
   } else {
-    console.log('[approveBoardSubmissionLocally] 제출 승인 완료:', submissionId);
   }
 }

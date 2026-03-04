@@ -220,13 +220,6 @@ export default function JobPostingModal({
       }
 
       // 공고 등록
-      console.log('[JobPostingModal] Submitting job posting...', {
-        user_id: user.id,
-        organization: organization.trim(),
-        coords,
-        deadline,
-        primaryCategory
-      });
 
       // 근무기간 문자열 조합
       const workPeriodStr = workPeriodStart && workPeriodEnd

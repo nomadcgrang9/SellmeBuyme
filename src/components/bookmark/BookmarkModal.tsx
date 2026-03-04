@@ -37,21 +37,13 @@ export default function BookmarkModal({
   const loadBookmarkedCards = async () => {
     if (!user?.id) return;
 
-    console.log('[BookmarkModal] 🔄 북마크 카드 로드 시작:', user.id);
 
     // 현재 bookmarkStore 상태 확인
     const bookmarkState = useBookmarkStore.getState();
-    console.log('[BookmarkModal] 📦 현재 북마크 스토어 상태:', {
-      bookmarkedIdsSize: bookmarkState.bookmarkedIds.size,
-      bookmarkCount: bookmarkState.bookmarkCount,
-      bookmarkedIdsArray: Array.from(bookmarkState.bookmarkedIds)
-    });
 
     setLoading(true);
     try {
       const bookmarkedCards = await fetchBookmarkedCards(user.id);
-      console.log('[BookmarkModal] ✅ 북마크 카드 로드 완료:', bookmarkedCards.length, '개');
-      console.log('[BookmarkModal] 📋 로드된 카드 목록:', bookmarkedCards.map(c => ({ id: c.id, type: c.type })));
       setCards(bookmarkedCards);
     } catch (error) {
       console.error('[BookmarkModal] ❌ 북마크 카드 로드 실패:', error);
@@ -62,7 +54,6 @@ export default function BookmarkModal({
 
   useEffect(() => {
     if (isOpen && user?.id) {
-      console.log('[BookmarkModal] useEffect 실행 - 모달 열림');
       loadBookmarkedCards();
     }
   }, [isOpen, user?.id]);

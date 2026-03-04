@@ -154,7 +154,6 @@ export async function fetchMyTeacherMarkers(userId: string): Promise<TeacherMark
  * 구직 교사 마커 생성 (이미 존재하면 업데이트)
  */
 export async function createTeacherMarker(input: TeacherMarkerInput): Promise<TeacherMarker> {
-    console.log('[createTeacherMarker] Input:', input);
 
     // 먼저 기존 마커가 있는지 확인
     const { data: existing, error: findError } = await supabase
@@ -163,14 +162,12 @@ export async function createTeacherMarker(input: TeacherMarkerInput): Promise<Te
         .eq('user_id', input.user_id)
         .single();
 
-    console.log('[createTeacherMarker] Existing marker:', existing, 'Find error:', findError);
 
     let data, error;
 
     if (existing?.id) {
         // 기존 마커가 있으면 업데이트 (user_id는 제외)
         const { user_id, ...updateData } = input;
-        console.log('[createTeacherMarker] Updating existing marker id:', existing.id, 'with data:', updateData);
 
         const result = await supabase
             .from('teacher_markers')
@@ -184,10 +181,8 @@ export async function createTeacherMarker(input: TeacherMarkerInput): Promise<Te
             .single();
         data = result.data;
         error = result.error;
-        console.log('[createTeacherMarker] Update result:', data, 'Error:', error);
     } else {
         // 없으면 새로 생성
-        console.log('[createTeacherMarker] Creating new marker');
         const result = await supabase
             .from('teacher_markers')
             .insert({
@@ -198,7 +193,6 @@ export async function createTeacherMarker(input: TeacherMarkerInput): Promise<Te
             .single();
         data = result.data;
         error = result.error;
-        console.log('[createTeacherMarker] Insert result:', data, 'Error:', error);
     }
 
     if (error) {
@@ -254,7 +248,6 @@ export async function deleteTeacherMarker(id: string, userId?: string): Promise<
         throw error;
     }
 
-    console.log('[deleteTeacherMarker] 삭제 완료, id:', id);
 }
 
 /**

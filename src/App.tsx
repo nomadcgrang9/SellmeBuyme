@@ -86,9 +86,6 @@ function sortCardsByLocation(
   const userCity = normalizeCity(userLocation.city);
   const userDistrict = normalizeCity(userLocation.district);
 
-  console.log('📍 [카드 정렬] 위치 기반 정렬 시작');
-  console.log('  - 사용자 도시:', userCity);
-  console.log('  - 사용자 구:', userDistrict);
 
   // 인접 지역 정의 (성남 기준 예시)
   const adjacentCities: Record<string, string[]> = {
@@ -142,12 +139,6 @@ function sortCardsByLocation(
     return scoreB - scoreA; // 높은 점수 우선
   });
 
-  console.log('✅ [카드 정렬] 완료');
-  console.log('  - 정렬된 카드 샘플 (처음 5개):', sortedCards.slice(0, 5).map(c => ({
-    type: c.type,
-    location: c.type === 'job' ? (c as any).location : (c as any).location,
-    score: getLocationScore(c)
-  })));
 
   return sortedCards;
 }
@@ -232,15 +223,12 @@ export default function App() {
 
   // AI 추천 카드 클릭 시 전체 데이터 조회
   const handleCardClick = useCallback(async (card: Card) => {
-    console.log('카드 클릭:', card);
 
     // 북마크 모달/페이지가 열려있으면 임시로 닫기
     if (isBookmarkModalOpen) {
-      console.log('[handleCardClick] 북마크 모달 임시 닫기');
       setIsBookmarkModalOpen(false);
       setShouldResumeBookmark('modal');
     } else if (showBookmarkPage) {
-      console.log('[handleCardClick] 북마크 페이지 임시 닫기');
       setShowBookmarkPage(false);
       setShouldResumeBookmark('page');
     }
@@ -261,7 +249,6 @@ export default function App() {
       setSelectedJob(card as JobPostingCard);
     } else {
       // AI 추천 카드 - DB에서 전체 데이터 조회 필요
-      console.log('AI 추천 카드 - 전체 데이터 조회 중...');
       try {
         const response = await searchCards({
           limit: 1000,
@@ -272,11 +259,9 @@ export default function App() {
         // ID가 일치하는 카드 찾기
         const fullCard = response.cards.find(c => c.id === card.id);
         if (fullCard && fullCard.type === 'job') {
-          console.log('전체 데이터 조회 완료:', fullCard);
           setSelectedJob(fullCard as JobPostingCard);
         } else {
           // 검색으로 못 찾으면 원본 카드라도 표시
-          console.warn('전체 데이터 조회 실패, 원본 카드 사용');
           setSelectedJob(card as JobPostingCard);
         }
       } catch (error) {
@@ -295,27 +280,18 @@ export default function App() {
   const { loadBookmarks } = useBookmarkStore();
   useEffect(() => {
     if (user?.id) {
-      console.log('[App] 🔄 북마크 초기화 시작:', user.id);
       fetchUserBookmarkIds(user.id)
         .then((bookmarkIds) => {
-          console.log('[App] ✅ 북마크 로드 완료:', bookmarkIds.length, '개');
-          console.log('[App] 📋 북마크 ID 목록:', bookmarkIds);
           loadBookmarks(bookmarkIds, bookmarkIds.length);
 
           // bookmarkStore 상태 확인
           const state = useBookmarkStore.getState();
-          console.log('[App] 📦 북마크 스토어 상태:', {
-            bookmarkedIdsSize: state.bookmarkedIds.size,
-            bookmarkCount: state.bookmarkCount,
-            bookmarkedIdsArray: Array.from(state.bookmarkedIds)
-          });
         })
         .catch((error) => {
           console.error('[App] ❌ 북마크 로드 실패:', error);
         });
     } else {
       // 로그아웃 시 북마크 초기화
-      console.log('[App] 🚪 로그아웃 - 북마크 초기화');
       loadBookmarks([], 0);
     }
   }, [user?.id, loadBookmarks]);
@@ -339,16 +315,9 @@ export default function App() {
   // - 익명 사용자: 브라우저 geolocation 사용
   // - 로그인 사용자: 프로필 interest_regions 사용
   useEffect(() => {
-    console.log('🔍 [위치 기반 정렬] useEffect 실행');
-    console.log('  - user:', user);
-    console.log('  - userProfile:', userProfile);
-    console.log('  - permissionDenied:', permissionDenied);
-    console.log('  - hasActiveSearch:', hasActiveSearch);
-    console.log('  - address (브라우저):', address);
 
     // 사용자가 수동으로 필터를 설정한 경우 자동 적용 안 함
     if (hasActiveSearch) {
-      console.log('  ⏭️ 수동 검색/필터 활성화 - 위치정렬 비활성화');
       setUserLocation(null);
       return;
     }
@@ -357,18 +326,14 @@ export default function App() {
     if (user && userProfile) {
       const profileRegion = userProfile.interest_regions?.[0];
       if (profileRegion) {
-        console.log('  ✅ 로그인 사용자 - 프로필 지역 사용:', profileRegion);
         // 프로필 지역도 정규화 (혹시 "성남시" 형태로 저장되었을 수 있음)
         const normalized = {
           city: profileRegion.replace(/시$/, ''),
           district: ''  // 프로필에는 시/군 단위만 저장
         };
-        console.log('  - 정규화된 지역:', normalized);
         setUserLocation(normalized);
-        console.log(`📍 [정렬 모드] 프로필 선호 지역(${normalized.city})을 기준으로 카드를 정렬합니다.`);
         return;
       } else {
-        console.log('  ⏭️ 로그인 사용자 - 프로필에 선호 지역 없음');
         setUserLocation(null);
         return;
       }
@@ -378,28 +343,19 @@ export default function App() {
     if (!user) {
       // 위치 권한 거부 시 전체 공고 표시
       if (permissionDenied) {
-        console.log('  ⏭️ 익명 사용자 - 위치 권한 거부');
         setUserLocation(null);
         return;
       }
 
       // 위치 정보 획득 성공 시 userLocation state 업데이트
       if (address && address.city) {
-        console.log('  ✅ 익명 사용자 - 브라우저 위치 사용');
-        console.log('  - 감지된 도시 (원본):', address.city);
-        console.log('  - 감지된 구 (원본):', address.district);
 
         // 중요: 캐시된 데이터도 정규화 처리
         const normalized = normalizeAddress(address);
-        console.log('  - 정규화된 도시:', normalized.city);
-        console.log('  - 정규화된 구:', normalized.district);
 
         setUserLocation(normalized);
 
-        console.log(`📍 [정렬 모드] 현재 위치(${normalized.city})를 기준으로 카드를 정렬합니다.`);
-        console.log('✅ 모든 지역 카드를 표시하되, 가까운 지역 우선 정렬합니다!');
       } else {
-        console.log('  ⏭️ 익명 사용자 - 위치 정보 없음');
         setUserLocation(null);
       }
     }
@@ -480,31 +436,22 @@ export default function App() {
   }, []);
 
   const handleProfileClose = useCallback(() => {
-    console.log('[DEBUG] handleProfileClose 호출됨');
     sessionStorage.removeItem('profileSetupPending');
     sessionStorage.removeItem('awarenessModalShown');
     setProfileModalOpen(false);
     setEditMode(false);
     setProfileInitialData(null);
-    console.log('[DEBUG] handleProfileClose 종료');
   }, []);
 
   const handleProfileViewClose = useCallback(() => {
-    console.log('[DEBUG] handleProfileViewClose 호출됨');
     setProfileViewOpen(false);
-    console.log('[DEBUG] handleProfileViewClose 종료');
   }, []);
 
   const handleProfileComplete = useCallback(() => {
-    console.log('[DEBUG] handleProfileComplete 호출됨', { isEditMode });
     sessionStorage.removeItem('profileSetupPending');
-    console.log('[DEBUG] profileSetupPending 제거됨');
     setProfileModalOpen(false);
-    console.log('[DEBUG] setProfileModalOpen(false) 실행');
     setRecommendationReloadKey((prev) => prev + 1);
-    console.log('[DEBUG] setRecommendationReloadKey 실행');
     setEditMode(false);
-    console.log('[DEBUG] handleProfileComplete 종료');
   }, [isEditMode]);
 
   const handleOpenProfileView = useCallback(() => {
@@ -899,12 +846,6 @@ export default function App() {
       }
       setError(null);
 
-      console.log('🔍 [카드 검색] searchCards 호출');
-      console.log('  - searchQuery:', searchQuery);
-      console.log('  - filters:', filters);
-      console.log('  - viewType:', viewType);
-      console.log('  - limit:', limit);
-      console.log('  - offset:', offset);
 
       try {
         const { cards: nextCards, totalCount: nextTotalCount } = await searchCards({
@@ -915,15 +856,6 @@ export default function App() {
           offset
         });
 
-        console.log('✅ [카드 검색 결과]');
-        console.log('  - 반환된 카드 수:', nextCards.length);
-        console.log('  - 전체 개수:', nextTotalCount);
-        console.log('  - 카드 샘플 (처음 3개):', nextCards.slice(0, 3).map(c => ({
-          id: c.id,
-          type: c.type,
-          title: c.type === 'job' ? (c as any).title : c.type === 'talent' ? (c as any).name : (c as any).programTitle,
-          location: c.type === 'job' ? (c as any).location : c.type === 'talent' ? (c as any).location : undefined
-        })));
 
         if (!active) return;
 
@@ -978,12 +910,6 @@ export default function App() {
 
   // 디버깅: 화면 너비 및 모바일/PC 렌더링 확인
   useEffect(() => {
-    console.log('[App] 화면 정보:');
-    console.log('  - window.innerWidth:', window.innerWidth);
-    console.log('  - md 브레이크포인트 (768px) 이상:', window.innerWidth >= 768);
-    console.log('  - IntegratedHeaderPromo 렌더링 (md:hidden):', window.innerWidth < 768);
-    console.log('  - 기존 Header 렌더링 (hidden md:block):', window.innerWidth >= 768);
-    console.log('  - promoCards 개수:', promoCards.length);
   }, [promoCards.length]);
 
   // 스크롤 감지 - 프로모 섹션이 가려지는지 확인
@@ -1245,31 +1171,20 @@ export default function App() {
               return;
             }
 
-            console.log('[App] onRequestEdit 호출됨:', {
-            hasProfileData: !!profileData,
-            currentEditMode: isEditMode,
-            currentProfileModalOpen: isProfileModalOpen
-          });
 
           if (profileData) {
-            console.log('[App] 프로필 데이터 있음 - 즉시 모달 열기');
             normalizeProfileForEdit(profileData);
             setEditMode(true);
-            console.log('[App] setEditMode(true) 완료');
             setProfileViewOpen(false);
             setProfileModalOpen(true);
-            console.log('[App] setProfileModalOpen(true) 완료');
             return;
           }
 
-          console.log('[App] 프로필 데이터 없음 - 프로필 재로드');
           void fetchUserProfile(user.id).then(({ data }) => {
             normalizeProfileForEdit(data ?? null);
             setEditMode(true);
-            console.log('[App] setEditMode(true) 완료 (비동기)');
             setProfileViewOpen(false);
             setProfileModalOpen(true);
-            console.log('[App] setProfileModalOpen(true) 완료 (비동기)');
           });
         }}
         />
@@ -1312,7 +1227,6 @@ export default function App() {
             setSelectedJob(null);
             // 북마크 모달/페이지 복원
             if (shouldResumeBookmark) {
-              console.log('[JobDetailModal] 북마크 복원:', shouldResumeBookmark);
               if (shouldResumeBookmark === 'modal') {
                 setIsBookmarkModalOpen(true);
               } else if (shouldResumeBookmark === 'page') {
@@ -1334,7 +1248,6 @@ export default function App() {
             setSelectedExperience(null);
             // 북마크 모달/페이지 복원
             if (shouldResumeBookmark) {
-              console.log('[ExperienceDetailModal] 북마크 복원:', shouldResumeBookmark);
               if (shouldResumeBookmark === 'modal') {
                 setIsBookmarkModalOpen(true);
               } else if (shouldResumeBookmark === 'page') {

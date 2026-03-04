@@ -62,11 +62,9 @@ export default function ProfileSetupModal({
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   useEffect(() => {
-    console.log('[ProfileModal] useEffect 실행:', { isOpen, mode, userId, showInitialModal, currentStep });
     if (!isOpen) return;
 
     if (mode === 'create') {
-      console.log('[ProfileModal] CREATE 모드 - 초기화');
       setCurrentStep(0);
       setShowInitialModal(true);
       setName('');
@@ -88,11 +86,9 @@ export default function ProfileSetupModal({
       setAgreePrivacy(false);
       setAgreeMarketing(false);
     } else if (mode === 'edit' && userId) {
-      console.log('[ProfileModal] EDIT 모드 - 프로필 로드 시작');
       // Load existing profile data
       void fetchUserProfile(userId).then(({ data }) => {
         if (data) {
-          console.log('[ProfileModal] EDIT 모드 - 프로필 로드 완료:', data.display_name);
           setCurrentStep(1);
           setShowInitialModal(false);
           setName(data.display_name || '');
@@ -236,7 +232,6 @@ export default function ProfileSetupModal({
       const accessToken = sessionData?.session?.access_token;
 
       if (accessToken) {
-        console.log('[Profile] AI 추천 생성 호출 중...');
         const { data, error: invokeError } = await supabase.functions.invoke('profile-recommendations', {
           headers: {
             Authorization: `Bearer ${accessToken}`
@@ -247,7 +242,6 @@ export default function ProfileSetupModal({
           console.error('[Profile] AI 추천 생성 실패:', invokeError);
           showToast('프로필은 저장되었으나 AI 추천 생성에 실패했습니다', 'warning');
         } else {
-          console.log('[Profile] AI 추천 생성 성공:', data);
           recommendationsGenerated = true;
         }
       }
@@ -295,13 +289,6 @@ export default function ProfileSetupModal({
 
   // 초기 모달 표시 조건 체크
   const shouldShowInitialModal = mode === 'create' && showInitialModal && currentStep === 0;
-  console.log('[ProfileModal] 렌더링:', {
-    isOpen,
-    mode,
-    showInitialModal,
-    currentStep,
-    shouldShowInitialModal
-  });
 
   return (
     <AnimatePresence>
@@ -508,11 +495,8 @@ export default function ProfileSetupModal({
                           <button
                             type="button"
                             onClick={() => {
-                              console.log('[TRACE] 다음 단계 버튼 클릭', { currentStep, canProceedToNext });
                               if (!canProceedToNext) return;
-                              console.log('[TRACE] Step 변경 전', { currentStep });
                               setCurrentStep(currentStep + 1);
-                              console.log('[TRACE] Step 변경 후', { newStep: currentStep + 1 });
                             }}
                             disabled={!canProceedToNext}
                             className={`h-11 rounded-xl px-6 text-sm font-semibold transition-colors flex items-center justify-center gap-2 ${

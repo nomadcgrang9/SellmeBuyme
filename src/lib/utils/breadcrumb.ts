@@ -126,5 +126,4 @@ export function setupBreadcrumbTracking() {
     });
   }
 
-  console.log('✅ Breadcrumb tracking enabled');
 }

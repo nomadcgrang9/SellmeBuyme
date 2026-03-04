@@ -44,7 +44,6 @@ class StorageManager {
       });
 
       if (!error) {
-        console.log('✅ Supabase 저장 성공');
         return true;
       } else {
         console.error('❌ Supabase 저장 실패:', error);
@@ -72,7 +71,6 @@ class StorageManager {
       }
 
       localStorage.setItem(this.LOCALSTORAGE_KEY, JSON.stringify(stored));
-      console.log('✅ LocalStorage 백업 성공');
       return true;
     } catch (err) {
       console.error('❌ LocalStorage 저장 실패:', err);
@@ -98,7 +96,6 @@ class StorageManager {
         request.onerror = () => reject(request.error);
       });
 
-      console.log('✅ IndexedDB 백업 성공');
       return true;
     } catch (err) {
       console.error('❌ IndexedDB 저장 실패:', err);
@@ -199,7 +196,6 @@ class StorageManager {
       (log) => !log.uploaded
     );
 
-    console.log(`🔄 재업로드 시도: ${allPendingLogs.length}건`);
 
     for (const log of allPendingLogs) {
       const success = await this.saveToSupabase(log);
@@ -246,7 +242,6 @@ class StorageManager {
       const transaction = db.transaction(['errors'], 'readwrite');
       const store = transaction.objectStore('errors');
       store.clear();
-      console.log('✅ 로그 삭제 완료');
     } catch (err) {
       console.error('❌ IndexedDB 삭제 실패:', err);
     }
@@ -271,7 +266,6 @@ class StorageManager {
         store.delete(log.id);
       }
 
-      console.log(`✅ 업로드된 로그 ${uploadedLogs.length}건 삭제`);
     } catch (err) {
       console.error('❌ IndexedDB 삭제 실패:', err);
     }

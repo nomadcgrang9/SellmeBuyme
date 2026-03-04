@@ -162,12 +162,10 @@ export default function BannerEditSection() {
   };
 
   const handleSave = () => {
-    console.log('띠지 배너 저장:', form);
     // TODO: Supabase 저장 로직 구현
   };
 
   const handleApply = () => {
-    console.log('띠지 배너 적용:', form);
     // TODO: Supabase 적용 로직 구현
   };
 

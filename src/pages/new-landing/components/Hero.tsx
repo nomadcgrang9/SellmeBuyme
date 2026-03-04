@@ -146,7 +146,6 @@ export const Hero: React.FC = () => {
 
   // selectedJob 변경 감지 디버깅 + 전역 변수 동기화 (마커 토글용)
   useEffect(() => {
-    console.log('[Hero] ⭐ selectedJob 변경됨:', selectedJob ? `공고: ${selectedJob.title}` : 'null');
     // 전역 변수에 현재 선택된 공고 ID 저장 (selectJobFromMarker 토글 체크용)
     (window as any).__currentSelectedJobId = selectedJob?.id ?? null;
   }, [selectedJob]);
@@ -249,14 +248,12 @@ export const Hero: React.FC = () => {
     // 1. localStorage 영구 플래그 체크 (이미 동의한 사용자)
     const localAgreed = localStorage.getItem(`termsAgreed_${user.id}`);
     if (localAgreed === 'true') {
-      console.log('[Terms] localStorage에서 동의 확인 → 모달 표시 안 함');
       return;
     }
 
     // 2. AuthCallback에서 세팅한 플래그 (신규 가입자)
     const flagFromCallback = sessionStorage.getItem('needsTermsAgreement');
     if (flagFromCallback === 'true') {
-      console.log('[Terms] sessionStorage 플래그 → 모달 표시');
       setNeedsTermsAgreement(true);
       return;
     }
@@ -267,13 +264,10 @@ export const Hero: React.FC = () => {
         console.error('[Terms] 프로필 조회 실패:', error);
         return;
       }
-      console.log('[Terms] 프로필 조회 결과:', { data, agree_terms: data?.agree_terms });
       // data가 null(프로필 없음)이거나 agree_terms가 false/null이면 모달 표시
       if (!data || !data.agree_terms) {
-        console.log('[Terms] 약관동의 필요 → 모달 표시');
         setNeedsTermsAgreement(true);
       } else {
-        console.log('[Terms] 약관동의 완료 → 모달 표시 안 함');
         // DB에 동의 기록이 있으면 localStorage에도 저장 (다음 로드 시 빠른 체크)
         localStorage.setItem(`termsAgreed_${user.id}`, 'true');
       }
@@ -308,7 +302,6 @@ export const Hero: React.FC = () => {
 
   // ★ endLocation 변경 추적 (디버깅용)
   useEffect(() => {
-    console.log('[Hero] endLocation 변경됨:', endLocation);
   }, [endLocation]);
 
   // ★ showDirectionsSheet ref 동기화 (마커 생성 시 참조)
@@ -318,10 +311,8 @@ export const Hero: React.FC = () => {
 
   // ★ 모바일 길찾기: startLocation 설정 시 경로 검색 실행
   useEffect(() => {
-    console.log('[Hero] 경로검색 useEffect 트리거:', { startLocation, endLocation });
 
     if (!startLocation || !endLocation) {
-      console.log('[Hero] 경로검색 스킵: 출발지/도착지 미설정');
       return;
     }
 
@@ -344,11 +335,6 @@ export const Hero: React.FC = () => {
       return;
     }
 
-    console.log('[Hero] 경로 검색 시작:', {
-      start: { lat: startLocation.lat, lng: startLocation.lng },
-      end: { lat: endLocation.lat, lng: endLocation.lng },
-      type: transportType
-    });
 
     const searchRoute = async () => {
       setIsLoadingRoute(true);
@@ -361,7 +347,6 @@ export const Hero: React.FC = () => {
           { lat: endLocation.lat, lng: endLocation.lng }
         );
         setDirectionsResult(result);
-        console.log('[Hero] 경로 검색 성공:', result);
       } catch (error) {
         console.error('[Hero] 경로 검색 실패:', error);
         setDirectionsResult(null);
@@ -379,7 +364,6 @@ export const Hero: React.FC = () => {
       return;
     }
 
-    console.log('[Hero] 경로 지도 포커싱:', { startLocation, endLocation });
 
     // 출발지와 도착지를 포함하는 bounds 계산
     const bounds = new window.kakao.maps.LatLngBounds();
@@ -391,7 +375,6 @@ export const Hero: React.FC = () => {
     // 하단 350px = 모달 높이(~300px) + 여유(50px)
     mapInstanceRef.current.setBounds(bounds, 100, 80, 350, 80);
 
-    console.log('[Hero] 지도 포커싱 완료 (모달 고려 padding 적용)');
   }, [startLocation, endLocation]);
 
   // ★ 경로 결과 받으면 지도에 폴리라인 그리기
@@ -400,7 +383,6 @@ export const Hero: React.FC = () => {
       return;
     }
 
-    console.log('[Hero] 폴리라인 그리기 시작:', directionsResult.path.length, '개 좌표');
 
     // 기존 폴리라인 제거
     if (polylineRef.current) {
@@ -410,7 +392,6 @@ export const Hero: React.FC = () => {
 
     // path가 없으면 스킵
     if (!directionsResult.path || directionsResult.path.length === 0) {
-      console.log('[Hero] 경로 좌표가 없어 폴리라인 생략');
       return;
     }
 
@@ -436,7 +417,6 @@ export const Hero: React.FC = () => {
     polyline.setMap(mapInstanceRef.current);
     polylineRef.current = polyline;
 
-    console.log('[Hero] 폴리라인 그리기 완료');
   }, [directionsResult]);
 
   // ★ 출발/도착 마커 생성 (방안 3: 심플 원형)
@@ -445,7 +425,6 @@ export const Hero: React.FC = () => {
       return;
     }
 
-    console.log('[Hero] 출발/도착 마커 생성 시작');
 
     // 기존 마커 제거
     if (startMarkerRef.current) {
@@ -513,7 +492,6 @@ export const Hero: React.FC = () => {
     endCustomOverlay.setMap(mapInstanceRef.current);
     endMarkerRef.current = endCustomOverlay;
 
-    console.log('[Hero] 출발/도착 마커 생성 완료');
   }, [startLocation, endLocation]);
 
   // 마커 레이어 토글 상태
@@ -572,7 +550,6 @@ export const Hero: React.FC = () => {
 
     if (showDirectionsSheet) {
       // 길찾기 모드: 모든 공고 마커 숨김
-      console.log('[Hero] 길찾기 모드: 공고 마커 숨김');
       mapMarkersRef.current.forEach(marker => {
         marker.setMap(null);
       });
@@ -584,7 +561,6 @@ export const Hero: React.FC = () => {
       });
     } else {
       // 일반 모드: 공고 마커 복원
-      console.log('[Hero] 일반 모드: 공고 마커 복원');
       mapMarkersRef.current.forEach(marker => {
         marker.setMap(mapInstanceRef.current);
       });
@@ -808,9 +784,6 @@ export const Hero: React.FC = () => {
           lng >= viewportBounds.sw.lng && lng <= viewportBounds.ne.lng;
       });
 
-      console.log('[Hero] 뷰포트 필터링:', beforeCount, '→', filtered.length,
-        '(좌표있음:', withCoords, ', 좌표없음:', withoutCoords, ')',
-        'bounds:', viewportBounds.sw.lat.toFixed(4), '~', viewportBounds.ne.lat.toFixed(4));
     }
 
     return filtered;
@@ -914,11 +887,6 @@ export const Hero: React.FC = () => {
       });
     }
 
-    console.log('[Hero] 통합 목록:', items.length, '개 (공고:',
-      items.filter(i => i.type === 'job').length,
-      ', 구직자:', items.filter(i => i.type === 'teacher').length,
-      ', 강사:', items.filter(i => i.type === 'instructor').length,
-      ') anyToggleActive:', anyToggleActive);
 
     return items;
   }, [filteredJobPostings, teacherMarkers, instructorMarkers, viewportBounds, activeLayers, showJobLayer, showSeekerLayer, showInstructorLayer]);
@@ -990,7 +958,6 @@ export const Hero: React.FC = () => {
         const { lat, lng, timestamp } = JSON.parse(cachedLocation);
         const isValid = Date.now() - timestamp < 24 * 60 * 60 * 1000;
         if (isValid && lat && lng) {
-          console.log('[Hero] 캐시된 사용자 위치 사용:', lat, lng);
           setUserLocation({ lat, lng });
           return;
         }
@@ -1004,13 +971,11 @@ export const Hero: React.FC = () => {
       navigator.geolocation.getCurrentPosition(
         (position) => {
           const { latitude: lat, longitude: lng } = position.coords;
-          console.log('[Hero] 사용자 현재 위치 획득:', lat, lng);
           setUserLocation({ lat, lng });
           // 위치 캐시
           localStorage.setItem('userLocation', JSON.stringify({ lat, lng, timestamp: Date.now() }));
         },
         (error) => {
-          console.log('[Hero] 위치 획득 실패, 기본 위치(서울) 사용:', error.message);
           // 위치 획득 실패 시 기본 위치 사용 (아무것도 안함 - defaultLocation 사용)
         },
         { enableHighAccuracy: false, timeout: 5000, maximumAge: 600000 }
@@ -1062,7 +1027,6 @@ export const Hero: React.FC = () => {
     if (regionParam) {
       const regionData = REGION_SEO_DATA[regionParam.toLowerCase()];
       if (regionData) {
-        console.log('[Hero] region 파라미터로 초기 중심점 설정:', regionParam, regionData.coords);
         return regionData.coords;
       }
     }
@@ -1086,7 +1050,6 @@ export const Hero: React.FC = () => {
   useEffect(() => {
     if (!isLoaded || !mapContainerRef.current || mapInstanceRef.current) return;
 
-    console.log('[Hero] 지도 초기화 - 중심:', mapCenter, '줌 레벨:', initialZoomLevel);
     const center = new window.kakao.maps.LatLng(mapCenter.lat, mapCenter.lng);
 
     const mapOption = {
@@ -1112,10 +1075,6 @@ export const Hero: React.FC = () => {
         sw: { lat: sw.getLat(), lng: sw.getLng() },
         ne: { lat: ne.getLat(), lng: ne.getLng() }
       });
-      console.log('[Hero] 뷰포트 bounds 업데이트:', {
-        sw: { lat: sw.getLat(), lng: sw.getLng() },
-        ne: { lat: ne.getLat(), lng: ne.getLng() }
-      });
     };
 
     // 뷰포트 내 모든 지역의 공고 로드
@@ -1130,7 +1089,6 @@ export const Hero: React.FC = () => {
 
       // ★ 줌 레벨 13 이상 (전국 축척)이면 17개 전 지역 자동 로드
       if (currentZoomLevel >= NATIONAL_ZOOM_LEVEL) {
-        console.log(`[Hero] 전국 축척 감지 (줌 레벨: ${currentZoomLevel}), 17개 전 지역 로드 시작`);
         let isFirstRegion = true;
         ALL_PROVINCES.forEach(regionName => {
           loadJobPostings(regionName, isInitial && isFirstRegion);
@@ -1167,7 +1125,6 @@ export const Hero: React.FC = () => {
 
             if (regionName && !foundRegions.has(regionName)) {
               foundRegions.add(regionName);
-              console.log('[Hero] 뷰포트 내 지역 감지:', regionName);
               // 초기 로드 시 첫 번째 지역만 replace 모드로 로드
               loadJobPostings(regionName, isInitial && isFirstRegion);
               isFirstRegion = false;
@@ -1190,7 +1147,6 @@ export const Hero: React.FC = () => {
     // 줌 레벨 변경 시 뷰포트 내 지역 로드 + bounds 업데이트
     window.kakao.maps.event.addListener(map, 'zoom_changed', () => {
       const level = map.getLevel();
-      console.log('[Hero] 줌 레벨 변경, 현재 레벨:', level);
       setCurrentZoomLevel(level);
       debouncedLoadRegions();
     });
@@ -1217,7 +1173,6 @@ export const Hero: React.FC = () => {
           lat: latlng.getLat(),
           lng: latlng.getLng()
         };
-        console.log('[Hero] 지도 클릭 감지:', coords); // 디버그용 로그
         mapClickCallbackRef.current(coords);
         mapClickCallbackRef.current = null;
         setMapClickMode(false);
@@ -1225,7 +1180,6 @@ export const Hero: React.FC = () => {
     };
 
     window.kakao.maps.event.addListener(map, 'click', clickHandler);
-    console.log('[Hero] 지도 클릭 이벤트 리스너 등록됨, mapClickMode:', mapClickMode); // 디버그용 로그
 
     return () => {
       if (window.kakao?.maps?.event) {
@@ -1238,7 +1192,6 @@ export const Hero: React.FC = () => {
   useEffect(() => {
     // ★ region 파라미터가 있으면 사용자 위치로 이동하지 않음
     if (regionParam) {
-      console.log('[Hero] region 파라미터 있음, 사용자 위치 이동 스킵');
       return;
     }
     if (!mapInstanceRef.current || !userLocation) return;
@@ -1252,7 +1205,6 @@ export const Hero: React.FC = () => {
 
     const regionData = REGION_SEO_DATA[regionParam.toLowerCase()];
     if (!regionData) {
-      console.log('[Hero] 알 수 없는 region 파라미터:', regionParam);
       return;
     }
 
@@ -1279,12 +1231,10 @@ export const Hero: React.FC = () => {
     // 지도 중심 이동 (지도가 준비될 때까지 retry)
     const moveToRegion = () => {
       if (!mapInstanceRef.current) {
-        console.log('[Hero] 지도 미준비, 500ms 후 재시도');
         setTimeout(moveToRegion, 500);
         return;
       }
 
-      console.log('[Hero] 지역 파라미터로 지도 이동:', regionParam, regionData);
       const newCenter = new window.kakao.maps.LatLng(regionData.coords.lat, regionData.coords.lng);
       mapInstanceRef.current.setCenter(newCenter);
       mapInstanceRef.current.setLevel(regionData.zoom);
@@ -1298,15 +1248,12 @@ export const Hero: React.FC = () => {
   const loadJobPostings = async (regionName: string, replace: boolean = false) => {
     // 이미 로드된 지역이면 스킵 (replace 모드가 아닐 때)
     if (!replace && loadedRegionsRef.current.has(regionName)) {
-      console.log('[Hero] 이미 로드된 지역 스킵:', regionName);
       return;
     }
 
     try {
       setIsJobsLoading(true);
-      console.log('[Hero] 공고 데이터 로드 시작, 지역:', regionName);
       const jobs = await fetchJobsByBoardRegion(regionName, 10000);  // 제한 해제 (전체 공고 로드)
-      console.log('[Hero] 공고 데이터 로드 완료:', jobs.length, '개');
 
       if (replace) {
         // 초기 로드 시 교체
@@ -1318,7 +1265,6 @@ export const Hero: React.FC = () => {
         setJobPostings(prev => {
           const existingIds = new Set(prev.map(j => j.id));
           const newJobs = jobs.filter(j => !existingIds.has(j.id));
-          console.log('[Hero] 새 공고 추가:', newJobs.length, '개 (기존:', prev.length, '개)');
           return [...prev, ...newJobs];
         });
       }
@@ -1332,13 +1278,11 @@ export const Hero: React.FC = () => {
   // 구직교사/프로그램/교원연수 마커 로드 함수
   const loadMarkerData = useCallback(async () => {
     try {
-      console.log('[Hero] 마커 데이터 로드 시작');
       const [teachers, programs, instructors] = await Promise.all([
         fetchTeacherMarkers(),
         fetchProgramMarkers(),
         fetchInstructorMarkers()
       ]);
-      console.log('[Hero] 마커 로드 완료 - 구직교사:', teachers.length, '개, 프로그램:', programs.length, '개, 교원연수:', instructors.length, '개');
       setTeacherMarkers(teachers);
       setProgramMarkers(programs);
       setInstructorMarkers(instructors);
@@ -1563,14 +1507,6 @@ export const Hero: React.FC = () => {
   useEffect(() => {
     const anyLayerActive = showJobLayer || showSeekerLayer || showInstructorLayer;
 
-    console.log('[Hero] 교원연수 마커 useEffect 실행:', {
-      isLoaded,
-      mapReady: !!mapInstanceRef.current,
-      filter: cascadingFilter.primary,
-      markerCount: instructorMarkers.length,
-      showInstructorLayer,
-      anyLayerActive
-    });
 
     // 지도 미로드 시 마커 제거
     if (!isLoaded || !mapInstanceRef.current) {
@@ -1619,7 +1555,6 @@ export const Hero: React.FC = () => {
 
       // 좌표가 없으면 스킵 (마이그레이션 미적용 시)
       if (!lat || !lng) {
-        console.warn('[Hero] 교원연수 마커 좌표 없음:', marker.id);
         return;
       }
 
@@ -1656,7 +1591,6 @@ export const Hero: React.FC = () => {
       instructorMapMarkersRef.current.push(kakaoMarker);
     });
 
-    console.log('[Hero] 교원연수 마커 렌더링 완료:', instructorMapMarkersRef.current.length, '개');
 
     // ★ Progressive enhancement: 프로필 이미지가 있는 강사 마커에 썸네일 적용
     let abortedInstructor = false;
@@ -1741,16 +1675,13 @@ export const Hero: React.FC = () => {
       return;
     }
 
-    console.log('[Hero] 길찾기: Kakao Places 검색 시작', keyword);
 
     places.keywordSearch(keyword, (result: any[], status: string) => {
-      console.log('[Hero] 길찾기: Kakao Places 응답', { status, resultCount: result?.length, firstResult: result?.[0] });
 
       if (status === window.kakao.maps.services.Status.OK && result.length > 0) {
         const lat = parseFloat(result[0].y);
         const lng = parseFloat(result[0].x);
 
-        console.log('[Hero] 길찾기: 파싱된 좌표', { y: result[0].y, x: result[0].x, lat, lng });
 
         // 좌표 유효성 검증
         if (isNaN(lat) || isNaN(lng) || lat === 0 || lng === 0) {
@@ -1760,7 +1691,6 @@ export const Hero: React.FC = () => {
         }
 
         const coords: Coordinates = { lat, lng };
-        console.log('[Hero] 길찾기: 도착지 좌표 획득 성공', coords);
 
         setDirectionsCoords(coords);
         setDirectionsJob(job);
@@ -1773,7 +1703,6 @@ export const Hero: React.FC = () => {
             lat: coords.lat,
             lng: coords.lng
           };
-          console.log('[Hero] 길찾기: setEndLocation 호출', newEndLocation);
           setEndLocation(newEndLocation);
           setShowDirectionsSheet(true);
           setShowMobileDetail(false); // 상세 모달 닫기
@@ -1798,7 +1727,6 @@ export const Hero: React.FC = () => {
 
   // 공고 수정 핸들러
   const handleJobEdit = useCallback((job: JobPostingCard) => {
-    console.log('[Hero] 공고 수정:', job.id);
     // 위치 정보 설정
     if (job.latitude && job.longitude) {
       setPendingMarkerCoords({ lat: job.latitude, lng: job.longitude });
@@ -1811,7 +1739,6 @@ export const Hero: React.FC = () => {
 
   // 공고 삭제 핸들러
   const handleJobDelete = useCallback(async (job: JobPostingCard) => {
-    console.log('[Hero] 공고 삭제:', job.id);
     try {
       await deleteJobPosting(job.id);
       showToast('공고가 삭제되었습니다.', 'success');
@@ -1868,14 +1795,12 @@ export const Hero: React.FC = () => {
     const map = mapInstanceRef.current;
     if (!map) return;
 
-    console.log('[Hero] moveMapToCoords 호출:', { lat, lng });
 
     // 마커 좌표로 직접 이동 (오프셋 없이)
     const targetCoords = new window.kakao.maps.LatLng(lat, lng);
     map.setCenter(targetCoords);
     map.setLevel(3);
 
-    console.log('[Hero] 지도 이동 완료, 새 중심:', map.getCenter().getLat(), map.getCenter().getLng());
   }, []);
 
   // 카드 클릭 핸들러 (상세 패널 열기 + 지도 이동, 토글 지원)
@@ -1897,14 +1822,12 @@ export const Hero: React.FC = () => {
     // 1순위: 실제 마커 좌표 사용 (마커 생성 시 저장된 정확한 위치)
     const markerCoords = jobMarkerCoordsRef.current.get(job.id);
     if (markerCoords) {
-      console.log('[Hero] 카드 클릭 → 마커 좌표 사용:', markerCoords.lat, markerCoords.lng);
       moveMapToCoords(markerCoords.lat, markerCoords.lng);
       return;
     }
 
     // 2순위: job에 저장된 DB 좌표 사용
     if (job.latitude && job.longitude) {
-      console.log('[Hero] 카드 클릭 → DB 좌표 사용:', job.latitude, job.longitude);
       moveMapToCoords(job.latitude, job.longitude);
       return;
     }
@@ -1914,7 +1837,6 @@ export const Hero: React.FC = () => {
     if (cacheKey) {
       const cached = coordsCacheRef.current.get(cacheKey);
       if (cached) {
-        console.log('[Hero] 카드 클릭 → 캐시 좌표 사용:', cached.lat, cached.lng);
         moveMapToCoords(cached.lat, cached.lng);
         return;
       }
@@ -1922,7 +1844,6 @@ export const Hero: React.FC = () => {
 
     // 4순위: Places API 검색 (fallback)
     if (job.organization) {
-      console.log('[Hero] 카드 클릭 → Places API 검색:', job.organization);
       const places = new window.kakao.maps.services.Places();
       places.keywordSearch(job.organization, (result: any[], status: string) => {
         if (status === window.kakao.maps.services.Status.OK && result.length > 0) {
@@ -1977,16 +1898,13 @@ export const Hero: React.FC = () => {
           });
           cacheRestored = cache.size > beforeSize;
           if (cacheRestored) {
-            console.log(`[Hero] 캐시 복원: ${cache.size - beforeSize}개 좌표 (localStorage)`);
           }
         } else {
           // 만료된 캐시 삭제
           localStorage.removeItem(CACHE_KEY);
-          console.log('[Hero] 만료된 캐시 삭제');
         }
       }
     } catch (e) {
-      console.warn('[Hero] 캐시 복원 실패:', e);
     }
 
     // 캐시가 복원되었으면 뷰포트 필터링 트리거
@@ -2045,13 +1963,11 @@ export const Hero: React.FC = () => {
 
       // 마커 클릭 이벤트
       window.kakao.maps.event.addListener(marker, 'click', () => {
-        console.log('[Hero] 마커 클릭됨:', coordKey, '공고 수:', coordsJobsMap.get(coordKey)?.length || 1);
 
         // 🔒 마커 클릭 직후 지도 클릭 무시 (이벤트 버블링 방지)
         ignoreMapClickRef.current = true;
         setTimeout(() => {
           ignoreMapClickRef.current = false;
-          console.log('[Hero] 🔓 지도 클릭 무시 해제');
         }, 150);
 
         if (currentInfowindow) currentInfowindow.close();
@@ -2059,13 +1975,11 @@ export const Hero: React.FC = () => {
         const jobsAtLocation = coordsJobsMap.get(coordKey) || [job];
 
         if (jobsAtLocation.length === 1) {
-          console.log('[Hero] 공고 1개 - JobDetailPanel 열기:', jobsAtLocation[0].title);
           // stale closure 방지: 전역 함수 사용
           if (window.selectJobFromMarker) {
             window.selectJobFromMarker(jobsAtLocation[0].id);
           }
         } else {
-          console.log('[Hero] 공고 여러 개 - InfoWindow 표시:', jobsAtLocation.length, '개');
           const jobItems = jobsAtLocation.map((j, idx) => `
             <div style="padding:6px 0;${idx > 0 ? 'border-top:1px solid #eee;' : ''}cursor:pointer;"
                  onclick="window.selectJobFromMarker && window.selectJobFromMarker('${j.id}')">
@@ -2110,13 +2024,11 @@ export const Hero: React.FC = () => {
 
     // 인포윈도우에서 공고 선택 시 호출될 전역 함수 (매번 업데이트하여 최신 scrollToJobCard 접근, 토글 지원)
     (window as any).selectJobFromMarker = (jobId: string) => {
-      console.log('[Hero] selectJobFromMarker 호출됨, jobId:', jobId);
 
       // 🔒 InfoWindow 내부 클릭도 지도 클릭 무시 (이벤트 버블링 방지)
       ignoreMapClickRef.current = true;
       setTimeout(() => {
         ignoreMapClickRef.current = false;
-        console.log('[Hero] 🔓 지도 클릭 무시 해제 (InfoWindow)');
       }, 150);
 
       // 현재 선택된 공고 ID 가져오기 (토글 체크용)
@@ -2124,7 +2036,6 @@ export const Hero: React.FC = () => {
 
       // 토글: 이미 선택된 공고면 선택 해제
       if (currentSelectedId === jobId) {
-        console.log('[Hero] 토글: 이미 선택된 공고 → 선택 해제');
         if (setSelectedJobRef.current) {
           setSelectedJobRef.current(null);
         }
@@ -2134,36 +2045,29 @@ export const Hero: React.FC = () => {
       // ref를 통해 항상 최신 filteredJobPostings와 setSelectedJob 접근
       const currentJobs = (window as any).__currentFilteredJobPostings || [];
       const job = currentJobs.find((j: any) => j.id === jobId);
-      console.log('[Hero] job 찾기 결과:', job ? `찾음 (${job.title})` : '못 찾음');
 
       if (job && setSelectedJobRef.current) {
-        console.log('[Hero] setSelectedJob 호출 시작, job:', job);
         try {
           setSelectedJobRef.current(job);
-          console.log('[Hero] ✅ setSelectedJob 호출 완료');
 
           // ★ 모바일: 마커 클릭 시 상세 모달 표시
           if (window.innerWidth < 768 && setShowMobileDetailRef.current) {
             setShowMobileDetailRef.current(true);
-            console.log('[Hero] ✅ 모바일 상세 모달 표시');
           }
 
           // ★ 핵심: 마커 클릭 시 카드 목록에서 해당 카드로 스크롤
           setTimeout(() => {
             scrollToJobCard(jobId);
-            console.log('[Hero] ✅ 카드 스크롤 완료:', jobId);
           }, 100);
         } catch (error) {
           console.error('[Hero] ❌ setSelectedJob 호출 오류:', error);
         }
       } else {
-        console.log('[Hero] ❌ 호출 실패 - job:', !!job, 'ref:', !!setSelectedJobRef.current);
       }
     };
 
     // 현재 filteredJobPostings를 전역에 저장 (selectJobFromMarker에서 접근용)
     (window as any).__currentFilteredJobPostings = filteredJobPostings;
-    console.log('[Hero] __currentFilteredJobPostings 업데이트:', filteredJobPostings.length, '개');
 
     // 캐시 저장 함수 (localStorage with timestamp)
     const saveCache = () => {
@@ -2174,9 +2078,7 @@ export const Hero: React.FC = () => {
           data: cacheObj,
           timestamp: Date.now()
         }));
-        console.log(`[Hero] 캐시 저장: ${cache.size}개 좌표 (localStorage)`);
       } catch (e) {
-        console.warn('[Hero] 캐시 저장 실패:', e);
       }
     };
 
@@ -2220,10 +2122,8 @@ export const Hero: React.FC = () => {
 
             // API 에러 로깅 (첫 5회만)
             if (apiErrorCount < 5) {
-              console.warn(`[Hero] Places API 실패 (${keyword}): ${status}`);
               apiErrorCount++;
               if (apiErrorCount === 5) {
-                console.warn('[Hero] API 에러 로깅 중단 (할당량 초과 가능성)');
               }
             }
             resolve(null);
@@ -2272,7 +2172,6 @@ export const Hero: React.FC = () => {
           lng: center.lng + (Math.random() - 0.5) * 0.03,
         };
         createMarker(fallbackCoords, job);
-        console.log(`🔄 [Hero] 지역 중심 fallback: ${job.organization} → ${region}`);
         return true;  // fallback이지만 마커는 표시됨
       }
 
@@ -2319,7 +2218,6 @@ export const Hero: React.FC = () => {
     const BATCH_DELAY_MS = 100;
 
     const processBatches = async () => {
-      console.log(`[Hero] 마커 생성 시작: ${filteredJobPostings.length}개 공고`);
       const startTime = Date.now();
 
       // 1단계: DB에 좌표가 이미 있는 공고 (user_posted 등)
@@ -2349,7 +2247,6 @@ export const Hero: React.FC = () => {
         createMarker({ lat: job.latitude!, lng: job.longitude! }, job);
       });
 
-      console.log(`[Hero] DB 좌표 사용: ${jobsWithCoords.length}개 즉시 처리`);
 
       // 캐시된 공고 즉시 마커 생성
       cachedJobs.forEach(job => {
@@ -2358,7 +2255,6 @@ export const Hero: React.FC = () => {
         if (keyword) createMarker(cache.get(keyword)!, job);
       });
 
-      console.log(`[Hero] 캐시 히트: ${cachedJobs.length}개 즉시 처리`);
 
       // 3단계: Supabase geocache에서 먼저 조회
       let successCount = jobsWithCoords.length + cachedJobs.length;
@@ -2370,7 +2266,6 @@ export const Hero: React.FC = () => {
           uncachedJobs.map(job => job.organization || job.location).filter(Boolean)
         )] as string[];
 
-        console.log(`[Hero] Supabase geocache 조회: ${organizationsToLookup.length}개 학교`);
         const geocacheResults = await getGeocacheBatch(organizationsToLookup);
 
         // geocache 히트된 공고 처리
@@ -2390,11 +2285,9 @@ export const Hero: React.FC = () => {
           }
         });
 
-        console.log(`[Hero] Geocache 히트: ${uncachedJobs.length - stillUncachedJobs.length}개`);
 
         // 4단계: geocache에도 없는 경우만 Kakao API 호출
         if (stillUncachedJobs.length > 0) {
-          console.log(`[Hero] Kakao API 검색 필요: ${stillUncachedJobs.length}개 공고`);
         }
 
         for (let i = 0; i < stillUncachedJobs.length; i += BATCH_SIZE) {
@@ -2408,7 +2301,6 @@ export const Hero: React.FC = () => {
 
           // 배치 완료 후 cancelled 체크 (중간에 중단하되, 현재 배치는 완료)
           if (cancelled) {
-            console.log(`[Hero] 마커 생성 중단: ${i + BATCH_SIZE}/${stillUncachedJobs.length}개 처리 후 취소됨`);
             break;
           }
 
@@ -2423,7 +2315,6 @@ export const Hero: React.FC = () => {
       saveCache();
 
       const elapsed = Date.now() - startTime;
-      console.log(`[Hero] 마커 생성 완료: 성공 ${successCount}개, 실패 ${failedCount}개, 새좌표 ${newCoordsCount}개 (${elapsed}ms)`);
 
       // ★ 핵심 수정: 실제로 새 좌표를 획득했을 때만 뷰포트 필터링 트리거
       // (무한 루프 방지: 실패만 발생하면 상태 업데이트 안 함)
@@ -2453,7 +2344,6 @@ export const Hero: React.FC = () => {
         onClick={(e) => {
           // 마커 클릭 직후에는 지도 클릭 무시 (이벤트 버블링 방지)
           if (ignoreMapClickRef.current) {
-            console.log('[Hero] 🗺️ 지도 클릭 무시됨 (마커 클릭 직후)');
             return;
           }
 
@@ -2462,9 +2352,7 @@ export const Hero: React.FC = () => {
             // 클릭 이벤트가 패널 내부에서 발생했는지 확인
             const target = e.target as HTMLElement;
             const isInsidePanel = target.closest('[data-panel]');
-            console.log('[Hero] 🗺️ 지도 클릭 감지 - isInsidePanel:', !!isInsidePanel, 'selectedJob:', !!selectedJob);
             if (!isInsidePanel) {
-              console.log('[Hero] 🗺️ 패널 밖 클릭 → setSelectedJob(null) 호출');
               setSelectedJob(null);
             }
           }
@@ -2503,7 +2391,6 @@ export const Hero: React.FC = () => {
               lng: latlng.getLng()
             };
 
-            console.log('[Hero] 오버레이 클릭 감지:', coords);
             mapClickCallbackRef.current(coords);
             mapClickCallbackRef.current = null;
             setMapClickMode(false);
@@ -2609,13 +2496,11 @@ export const Hero: React.FC = () => {
               const newCenter = new window.kakao.maps.LatLng(newMarker.latitude, newMarker.longitude);
               mapInstanceRef.current.setCenter(newCenter);
               mapInstanceRef.current.setLevel(5);
-              console.log('[Hero] 지도 중심 이동:', newMarker.latitude, newMarker.longitude);
             }
           } else {
             // 폴백: 마커 데이터가 없으면 기존처럼 전체 리로드
             loadMarkerData();
           }
-          console.log('구직 마커 등록 성공');
         }}
         initialCoords={null}
         initialAddress={null}
@@ -2631,7 +2516,6 @@ export const Hero: React.FC = () => {
         }}
         onSuccess={() => {
           loadMarkerData();
-          console.log('프로그램 마커 등록 성공');
         }}
         initialCoords={pendingMarkerType === 'program' ? pendingMarkerCoords : null}
         onRequestMapClick={(callback) => {
@@ -2663,7 +2547,6 @@ export const Hero: React.FC = () => {
 
           // 방안 2: 낙관적 업데이트 - 새로 등록된 공고를 즉시 state에 추가
           if (newJob && !editJobData) {
-            console.log('[Hero] 낙관적 업데이트 - 새 공고 추가:', newJob.id);
             setJobPostings(prev => [newJob, ...prev]);
 
             // 지도를 새 공고 위치로 이동
@@ -2671,11 +2554,9 @@ export const Hero: React.FC = () => {
               const newCenter = new window.kakao.maps.LatLng(newJob.latitude, newJob.longitude);
               mapInstanceRef.current.setCenter(newCenter);
               mapInstanceRef.current.setLevel(5); // 적당한 줌 레벨
-              console.log('[Hero] 지도 중심 이동:', newJob.latitude, newJob.longitude);
             }
           }
 
-          console.log(editJobData ? '공고 수정 성공' : '공고 등록 성공');
         }}
         initialCoords={editJobData ? pendingMarkerCoords : (pendingMarkerType === 'jobPosting' ? pendingMarkerCoords : null)}
         initialAddress={editJobData ? pendingMarkerAddress : (pendingMarkerType === 'jobPosting' ? pendingMarkerAddress : null)}
@@ -2919,13 +2800,11 @@ export const Hero: React.FC = () => {
               const newCenter = new window.kakao.maps.LatLng(newMarker.latitude, newMarker.longitude);
               mapInstanceRef.current.setCenter(newCenter);
               mapInstanceRef.current.setLevel(5);
-              console.log('[Hero] 지도 중심 이동:', newMarker.latitude, newMarker.longitude);
             }
           } else {
             // 폴백: 마커 데이터가 없으면 기존처럼 전체 리로드
             loadMarkerData();
           }
-          console.log('교원연수 강사 마커 등록 성공');
         }}
         initialCoords={null}
         initialAddress={null}
@@ -3860,7 +3739,6 @@ export const Hero: React.FC = () => {
               setHasLocationPermission(true);
               navigator.geolocation.getCurrentPosition(
                 (pos) => {
-                  console.log('[Hero] 현위치 획득:', pos.coords);
                   setStartLocation({
                     name: '현위치',
                     address: '내 위치',
@@ -3880,7 +3758,6 @@ export const Hero: React.FC = () => {
           }}
           onSelectSearchLocation={(location) => {
             // 검색 결과 선택 시 출발지로 설정
-            console.log('[Hero] 검색 결과 선택:', location);
             setStartLocation({
               name: location.name,
               address: location.address,

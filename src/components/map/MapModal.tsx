@@ -31,11 +31,6 @@ export default function MapModal({ isOpen, onClose, organization, location, card
   // 카드 C(인덱스 2)는 왼쪽에서, 나머지는 오른쪽에서 나타남
   const isLeftDrawer = columnIndex === 2;
 
-  console.log('[MapModal] 🎯 드로어 방향 결정:', {
-    cardIndex,
-    columnIndex,
-    isLeftDrawer
-  });
 
   // 좌표 캐싱 키 생성
   const getCacheKey = () => `map_coords_${organization}_${location}`;
@@ -77,7 +72,6 @@ export default function MapModal({ isOpen, onClose, organization, location, card
     // 1. 캐시 확인
     const cached = getCachedCoords();
     if (cached) {
-      console.log('캐시된 좌표 사용:', cached);
       setCoords(cached);
       return;
     }
@@ -96,7 +90,6 @@ export default function MapModal({ isOpen, onClose, organization, location, card
     ];
 
     for (const query of searchQueries) {
-      console.log(`장소 검색 시도: "${query}"`);
 
       try {
         const result = await new Promise<any>((resolve, reject) => {
@@ -114,15 +107,12 @@ export default function MapModal({ isOpen, onClose, organization, location, card
           lng: parseFloat(result.x)
         };
 
-        console.log(`장소 검색 성공 (${query}):`, coordinates);
-        console.log(`검색된 장소: ${result.place_name} (${result.address_name})`);
         setCoords(coordinates);
         cacheCoords(coordinates);
         setIsSearching(false);
         return;
 
       } catch (err) {
-        console.warn(`"${query}" 검색 실패, 다음 시도...`);
         continue;
       }
     }
@@ -135,7 +125,6 @@ export default function MapModal({ isOpen, onClose, organization, location, card
   useEffect(() => {
     if (!coords || !mapContainerRef.current || !window.kakao || !window.kakao.maps) return;
 
-    console.log('[MapModal] 🗺️ 지도 렌더링:', coords);
 
     const mapOption = {
       center: new window.kakao.maps.LatLng(coords.lat, coords.lng),
@@ -172,13 +161,10 @@ export default function MapModal({ isOpen, onClose, organization, location, card
 
   // 모달이 열릴 때 Kakao Maps 로드 및 주소 검색
   useEffect(() => {
-    console.log('[MapModal] 🔔 모달 상태 변경:', { isOpen, organization, location });
 
     if (isOpen) {
-      console.log('[MapModal] 📍 지도 로드 시작:', { organization, location });
       loadKakaoMaps()
         .then(() => {
-          console.log('[MapModal] ✅ SDK 로드 완료, 주소 검색 시작');
           return searchAddress();
         })
         .catch((err) => {

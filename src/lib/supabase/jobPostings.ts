@@ -131,7 +131,6 @@ export async function deleteJobAttachment(attachmentUrl: string): Promise<void> 
  * 공고 등록
  */
 export async function createJobPosting(input: JobPostingInput): Promise<JobPosting> {
-  console.log('[createJobPosting] Input:', input);
 
   const { data, error } = await supabase
     .from('job_postings')
@@ -161,7 +160,6 @@ export async function createJobPosting(input: JobPostingInput): Promise<JobPosti
     throw error;
   }
 
-  console.log('[createJobPosting] Created:', data);
   return data;
 }
 

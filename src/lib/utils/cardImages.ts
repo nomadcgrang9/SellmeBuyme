@@ -134,5 +134,4 @@ export function handleImageError(
     : '/picture/experiences/default.png';
 
   e.currentTarget.src = defaultImage;
-  console.warn(`[cardImages] 이미지 로드 실패, 기본 이미지로 대체: ${defaultImage}`);
 }

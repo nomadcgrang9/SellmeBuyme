@@ -135,7 +135,6 @@ export async function fetchMyInstructorMarker(userId: string): Promise<Instructo
 export async function createInstructorMarker(
   input: InstructorMarkerInput
 ): Promise<InstructorMarker> {
-  console.log('[createInstructorMarker] Input:', input);
 
   // 먼저 기존 마커가 있는지 확인
   const { data: existing, error: findError } = await supabase
@@ -144,14 +143,12 @@ export async function createInstructorMarker(
     .eq('user_id', input.user_id)
     .single();
 
-  console.log('[createInstructorMarker] Existing:', existing, 'FindError:', findError);
 
   let data, error;
 
   if (existing?.id) {
     // 기존 마커가 있으면 업데이트 (user_id는 제외)
     const { user_id, ...updateData } = input;
-    console.log('[createInstructorMarker] Updating id:', existing.id);
 
     const result = await supabase
       .from('instructor_markers')
@@ -168,7 +165,6 @@ export async function createInstructorMarker(
     error = result.error;
   } else {
     // 없으면 새로 생성
-    console.log('[createInstructorMarker] Creating new marker');
 
     const result = await supabase
       .from('instructor_markers')
@@ -188,7 +184,6 @@ export async function createInstructorMarker(
     throw error;
   }
 
-  console.log('[createInstructorMarker] Success:', data);
   return data;
 }
 
@@ -272,7 +267,6 @@ export async function deleteInstructorMarker(id: string, userId?: string): Promi
     throw error;
   }
 
-  console.log('[deleteInstructorMarker] Soft deleted id:', id);
 }
 
 // ============================================================================

@@ -159,7 +159,6 @@ export default function DeveloperPage() {
     const { outcome } = await deferredPrompt.userChoice;
 
     if (outcome === 'accepted') {
-      console.log('PWA 설치 수락');
     }
 
     setDeferredPrompt(null);

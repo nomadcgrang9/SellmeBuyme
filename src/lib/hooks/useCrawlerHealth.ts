@@ -32,7 +32,6 @@ export function useCrawlerHealth(): UseCrawlerHealthResult {
     setError(null);
 
     try {
-      console.log('[useCrawlerHealth] Fetching stored results from DB...');
 
       const { data, error: dbError } = await supabase
         .from('crawler_health_results')
@@ -44,7 +43,6 @@ export function useCrawlerHealth(): UseCrawlerHealthResult {
       }
 
       if (!data || data.length === 0) {
-        console.log('[useCrawlerHealth] No stored results found');
         setResults([]);
         setSummary(null);
         setLastChecked(null);
@@ -99,7 +97,6 @@ export function useCrawlerHealth(): UseCrawlerHealthResult {
       }, null);
       setLastChecked(latestCheck);
 
-      console.log('[useCrawlerHealth] Loaded', mappedResults.length, 'results');
 
     } catch (err) {
       console.error('[useCrawlerHealth] Failed to fetch results:', err);
@@ -112,7 +109,6 @@ export function useCrawlerHealth(): UseCrawlerHealthResult {
   // 수동 점검 트리거 (GitHub Actions 또는 로컬 Worker)
   const triggerManualCheck = useCallback(async (regionCodes?: string[]): Promise<{ triggered: boolean; message: string }> => {
     try {
-      console.log('[useCrawlerHealth] Triggering manual health check...', regionCodes ? `regions: ${regionCodes.join(', ')}` : 'all regions');
 
       const { data, error: funcError } = await supabase.functions.invoke(
         'trigger-health-check-job',
@@ -125,7 +121,6 @@ export function useCrawlerHealth(): UseCrawlerHealthResult {
         throw new Error(`트리거 실패: ${funcError.message}`);
       }
 
-      console.log('[useCrawlerHealth] Trigger response:', data);
 
       if (data.triggered) {
         return {

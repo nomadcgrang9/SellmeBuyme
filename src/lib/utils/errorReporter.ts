@@ -42,7 +42,6 @@ class ErrorReporter {
   async initialize() {
     if (this.isInitialized) return;
 
-    console.log('🔧 Initializing Error Reporter...');
 
     // Breadcrumb 추적 시작
     const { setupBreadcrumbTracking } = await import('./breadcrumb');
@@ -55,7 +54,6 @@ class ErrorReporter {
     await storageManager.retryUpload();
 
     this.isInitialized = true;
-    console.log('✅ Error Reporter initialized');
   }
 
   // 에러 리포트 생성
@@ -99,7 +97,6 @@ class ErrorReporter {
 
       // 🚫 모바일이 아니면 저장하지 않음 (데스크톱은 콘솔에서 디버깅)
       if (report.deviceType !== 'mobile') {
-        console.log('⏭️ Desktop error ignored (not saved):', errorMessage);
         return;
       }
 
@@ -180,7 +177,6 @@ class ErrorReporter {
       }
     }, 5000);
 
-    console.log('✅ Global error handlers installed');
   }
 }
 

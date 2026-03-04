@@ -32,16 +32,13 @@ export default function TermsAgreementModal({ isOpen, userId, onComplete }: Term
   const canSubmit = agreeTerms && agreePrivacy;
 
   const handleSubmit = async () => {
-    console.log('[Terms] handleSubmit 시작', { canSubmit, isSubmitting, userId });
     if (!canSubmit || isSubmitting) {
-      console.log('[Terms] 조건 미충족으로 리턴');
       return;
     }
 
     setIsSubmitting(true);
     try {
       // 1단계: 기존 프로필이 있는지 확인
-      console.log('[Terms] 기존 프로필 확인...');
       const { data: existingProfile } = await supabase
         .from('user_profiles')
         .select('user_id')
@@ -50,7 +47,6 @@ export default function TermsAgreementModal({ isOpen, userId, onComplete }: Term
 
       if (existingProfile) {
         // 기존 프로필이 있으면 약관동의만 업데이트
-        console.log('[Terms] 기존 프로필 업데이트...');
         const { error } = await supabase
           .from('user_profiles')
           .update({ agree_terms: true, agree_privacy: true })
@@ -62,7 +58,6 @@ export default function TermsAgreementModal({ isOpen, userId, onComplete }: Term
         }
       } else {
         // 신규 프로필 생성 (display_name 기본값 필요)
-        console.log('[Terms] 신규 프로필 생성...');
         const defaultDisplayName = `사용자${Math.floor(Math.random() * 10000)}`;
         const { error } = await supabase
           .from('user_profiles')
@@ -79,7 +74,6 @@ export default function TermsAgreementModal({ isOpen, userId, onComplete }: Term
         }
       }
 
-      console.log('[Terms] 저장 성공, 플래그 정리 및 onComplete 호출');
       sessionStorage.removeItem('needsTermsAgreement');
       // 영구 플래그 저장 (새로고침해도 모달 안 뜸)
       localStorage.setItem(`termsAgreed_${userId}`, 'true');

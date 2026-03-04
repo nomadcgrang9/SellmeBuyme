@@ -45,12 +45,6 @@ export default async function handler(
       });
     }
 
-    console.log('[generate-crawler API] Supabase Edge Function 호출:', {
-      submissionId,
-      boardName,
-      boardUrl,
-      adminUserId,
-    });
 
     // Supabase Edge Function 호출
     const edgeFunctionUrl = `${SUPABASE_URL}/functions/v1/generate-crawler`;
@@ -88,10 +82,6 @@ export default async function handler(
 
     const result = await response.json();
 
-    console.log('[generate-crawler API] Edge Function 응답:', {
-      success: result.success,
-      crawlerCodeLength: result.crawlerCode?.length,
-    });
 
     return res.status(200).json(result);
   } catch (error) {

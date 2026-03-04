@@ -20,15 +20,12 @@ export function useNotices() {
 
   // 공지사항 목록 조회
   const fetchNotices = useCallback(async () => {
-    console.log('[Notice] 📥 공지사항 목록 조회 시작...');
     setLoading(true);
     setError(null);
     setPage(0); // ✅ 새로고침 시 페이지 초기화
     try {
       const data = await getNotices(50);
-      console.log('[Notice] ✅ DB에서 불러온 공지 개수:', data.length);
       if (data.length > 0) {
-        console.log('[Notice] 최신 공지:', data[0].title, '(생성일:', data[0].createdAt, ')');
       }
       setNotices(data);
     } catch (err) {
@@ -62,21 +59,6 @@ export function useNotices() {
 
   // 디버깅 로그 (useEffect로 이동하여 정확한 값 추적)
   useEffect(() => {
-    console.log('[Notice] 📊 페이지네이션 상태:', {
-      page,
-      totalNotices: notices.length,
-      totalFiltered: allFilteredNotices.length,
-      pinnedCount: pinnedNotices.length,
-      pinnedTitles: pinnedNotices.map(n => n.title),
-      totalRegular: regularNotices.length,
-      regularTitles: regularNotices.map(n => n.title),
-      displayed: displayedRegularNotices.length,
-      displayedTitles: displayedRegularNotices.map(n => n.title),
-      hasMore: hasMoreRegular,
-      finalCount: filteredNotices.length,
-      REGULAR_PAGE_SIZE,
-      expectedDisplayed: (page + 1) * REGULAR_PAGE_SIZE
-    });
   }, [page, notices.length, allFilteredNotices.length, regularNotices.length, displayedRegularNotices.length, hasMoreRegular, pinnedNotices.length, filteredNotices.length]);
 
   // 공지사항 생성 (파일 업로드 포함)
@@ -88,29 +70,18 @@ export function useNotices() {
       // 첨부파일 업로드
       const attachmentUrls: string[] = [];
       if (data.attachments && data.attachments.length > 0) {
-        console.log('[Notice] Uploading', data.attachments.length, 'files...');
         for (const file of data.attachments) {
           try {
-            console.log('[Notice] Uploading:', file.name, file.size, 'bytes');
             const url = await uploadNoticeFile(file, tempId);
-            console.log('[Notice] Upload success:', url);
             attachmentUrls.push(url);
           } catch (err) {
             console.error('[Notice] Upload failed:', file.name, err);
             alert(`파일 업로드 실패: ${file.name}\n${err instanceof Error ? err.message : '알 수 없는 오류'}`);
           }
         }
-        console.log('[Notice] Total uploaded:', attachmentUrls.length);
       }
 
       // 공지사항 생성 (URL 배열 전달)
-      console.log('[Notice] Creating notice with data:', {
-        authorName: data.authorName,
-        title: data.title,
-        category: data.category,
-        isPinned: data.isPinned,
-        attachmentsCount: attachmentUrls.length,
-      });
 
       const newNotice = await createNotice({
         authorName: data.authorName,
@@ -121,11 +92,9 @@ export function useNotices() {
         attachments: attachmentUrls,
       });
 
-      console.log('[Notice] ✅ DB 저장 성공:', newNotice.id, newNotice.title);
 
       setNotices(prev => {
         const updated = [newNotice, ...prev];
-        console.log('[Notice] 로컬 상태 업데이트 완료, 총 공지 개수:', updated.length);
         return updated;
       });
 

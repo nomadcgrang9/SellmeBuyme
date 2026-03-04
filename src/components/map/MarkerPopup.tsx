@@ -190,10 +190,6 @@ export default function MarkerPopup({ type, marker, position, onClose, onEdit, o
         if (!canDelete) return;
 
         // 디버그: currentUser 확인
-        console.log('[handleDelete] currentUser:', currentUser);
-        console.log('[handleDelete] isSuperAdmin:', isSuperAdmin);
-        console.log('[handleDelete] marker.id:', marker.id);
-        console.log('[handleDelete] type:', type);
 
         if (!currentUser?.id) {
             alert('로그인 상태를 확인해주세요.');

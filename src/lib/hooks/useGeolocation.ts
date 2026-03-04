@@ -98,7 +98,6 @@ export function useGeolocation() {
             timestamp: Date.now(),
           };
           localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
-          console.warn('[Geolocation] Geocoding 실패, fallback 주소 저장:', fallbackAddress);
 
           setState({
             coords,

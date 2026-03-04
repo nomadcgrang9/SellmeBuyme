@@ -170,19 +170,16 @@ export default function PromoCardEditModal({
     setError(null);
     try {
       const payload = buildPayload();
-      console.log('[PromoCard] 임시저장 시작:', { cardId: card?.cardId, headline: payload.headline });
 
       if (card?.cardId) {
         // 기존 카드 업데이트
         await updatePromoCard(card.cardId, payload, { userId });
-        console.log('[PromoCard] 기존 카드 업데이트 완료:', card.cardId);
       } else {
         // 새 카드 생성
         if (!collectionId) {
           throw new Error('컬렉션 ID가 없습니다.');
         }
         await createPromoCard(collectionId, payload, { userId });
-        console.log('[PromoCard] 새 카드 생성 완료');
       }
       onSave();
     } catch (err) {
@@ -204,19 +201,16 @@ export default function PromoCardEditModal({
     setError(null);
     try {
       const payload = buildPayload();
-      console.log('[PromoCard] 적용 시작:', { cardId: card?.cardId, headline: payload.headline });
 
       if (card?.cardId) {
         // 기존 카드 업데이트
         await updatePromoCard(card.cardId, payload, { userId });
-        console.log('[PromoCard] 기존 카드 적용 완료:', card.cardId);
       } else {
         // 새 카드 생성
         if (!collectionId) {
           throw new Error('컬렉션 ID가 없습니다.');
         }
         await createPromoCard(collectionId, payload, { userId });
-        console.log('[PromoCard] 새 카드 적용 완료');
       }
       onSave();
       onClose();

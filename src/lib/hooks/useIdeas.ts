@@ -78,19 +78,15 @@ export function useIdeas(limit = 10): UseIdeasResult {
       // 이미지 업로드
       const imageUrls: string[] = [];
       if (data.images && data.images.length > 0) {
-        console.log('[Idea] Uploading', data.images.length, 'files...');
         for (const file of data.images) {
           try {
-            console.log('[Idea] Uploading:', file.name, file.size, 'bytes');
             const url = await uploadIdeaImage(file, tempId);
-            console.log('[Idea] Upload success:', url);
             imageUrls.push(url);
           } catch (err) {
             console.error('[Idea] Upload failed:', file.name, err);
             alert(`파일 업로드 실패: ${file.name}\n${err instanceof Error ? err.message : '알 수 없는 오류'}`);
           }
         }
-        console.log('[Idea] Total uploaded:', imageUrls.length);
       }
 
       // 아이디어 생성

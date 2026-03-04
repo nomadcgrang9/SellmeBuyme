@@ -37,7 +37,6 @@ export async function getGeocache(organization: string): Promise<Coordinates | n
       lng: parseFloat(data.longitude)
     };
   } catch (e) {
-    console.warn('[geocache] 조회 실패:', organization, e);
     return null;
   }
 }
@@ -57,17 +56,14 @@ export async function getGeocacheBatch(organizations: string[]): Promise<Map<str
     for (let i = 0; i < organizations.length; i += BATCH_SIZE) {
       const batch = organizations.slice(i, i + BATCH_SIZE);
 
-      console.log(`[geocache] 배치 조회 시작: ${batch.length}개`, batch.slice(0, 3));
 
       const { data, error } = await supabase
         .from('geocache')
         .select('organization, latitude, longitude')
         .in('organization', batch);
 
-      console.log(`[geocache] 배치 응답:`, { error: error?.message, dataCount: data?.length, sample: data?.slice(0, 2) });
 
       if (error) {
-        console.warn('[geocache] 배치 조회 실패:', error.message, error);
         continue;  // 실패해도 다음 배치 계속
       }
 
@@ -81,9 +77,7 @@ export async function getGeocacheBatch(organizations: string[]): Promise<Map<str
       }
     }
 
-    console.log(`[geocache] 일괄 조회: ${organizations.length}개 요청 → ${result.size}개 히트`);
   } catch (e) {
-    console.warn('[geocache] 일괄 조회 에러:', e);
   }
 
   return result;
@@ -117,14 +111,11 @@ export async function saveGeocache(
       if (error.code === '23505') {
         return true;
       }
-      console.warn('[geocache] 저장 실패:', organization, error);
       return false;
     }
 
-    console.log(`[geocache] 저장 완료: ${organization}`);
     return true;
   } catch (e) {
-    console.warn('[geocache] 저장 에러:', organization, e);
     return false;
   }
 }
@@ -155,14 +146,11 @@ export async function saveGeocacheBatch(
       );
 
     if (error) {
-      console.warn('[geocache] 일괄 저장 실패:', error);
       return 0;
     }
 
-    console.log(`[geocache] 일괄 저장 완료: ${entries.length}개`);
     return entries.length;
   } catch (e) {
-    console.warn('[geocache] 일괄 저장 에러:', e);
     return 0;
   }
 }

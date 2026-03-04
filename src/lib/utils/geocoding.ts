@@ -53,14 +53,9 @@ export async function reverseGeocode(lat: number, lng: number): Promise<KakaoAdd
     const addressData = doc.address || doc.road_address;
 
     if (!addressData || !addressData.region_1depth_name) {
-      console.warn('🗺️ [Kakao API] address/road_address에 지역 정보 없음, fallback 사용');
       return getCityFromCoordinates(lat, lng);
     }
 
-    console.log('🗺️ [Kakao API 응답]');
-    console.log('  - region_1depth_name:', addressData.region_1depth_name);
-    console.log('  - region_2depth_name:', addressData.region_2depth_name);
-    console.log('  - region_3depth_name:', addressData.region_3depth_name);
 
     // region_1depth_name: "경기도" → "경기" (광역시/도)
     // region_2depth_name: "성남시" → "성남" (시/군)
@@ -72,9 +67,6 @@ export async function reverseGeocode(lat: number, lng: number): Promise<KakaoAdd
       .replace(/도$/, ''); // "경기도" → "경기", "서울특별시" → "서울"
     const city = addressData.region_2depth_name?.replace(/시$|군$/, '') || ''; // "성남시" → "성남"
 
-    console.log('✅ [정규화 후]');
-    console.log('  - city (광역):', province);
-    console.log('  - district (시군):', city);
 
     return {
       city: province,   // "경기" (대시보드 ALL_REGIONS와 매칭)

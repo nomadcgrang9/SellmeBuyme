@@ -45,7 +45,6 @@ export default function FloatingLocationButton({
           const moveLatLng = new window.kakao.maps.LatLng(latitude, longitude);
           mapInstance.setCenter(moveLatLng);
           mapInstance.setLevel(4);
-          console.log('[FloatingLocationButton] 현재 위치로 이동:', { latitude, longitude });
         }
         setState('success');
         setTimeout(() => setState('idle'), 1500);

@@ -180,14 +180,11 @@ export default function AIRecommendations({
                 onClose={() => setActiveSection(null)}
                 onSubmit={async (form: ExperienceRegistrationFormData) => {
                   const timestamp = new Date().toISOString();
-                  console.log(`[AIRecommendations ${timestamp}] ✅ 체험 등록 시작:`, form);
                   try {
                     const result = await createExperience(form);
-                    console.log(`[AIRecommendations ${timestamp}] 체험 등록 성공:`, result);
                     alert('체험 등록이 완료되었습니다.');
                     // 체험 뷰로 전환하여 새로 등록된 카드 표시
                     setTimeout(() => {
-                      console.log(`[AIRecommendations ${timestamp}] 체험 뷰로 전환`);
                       setViewType('experience');
                       // 카드 목록 강제 새로고침을 위해 lastUpdatedAt 업데이트
                       setFilter('sort', '최신순');

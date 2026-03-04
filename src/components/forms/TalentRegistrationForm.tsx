@@ -73,7 +73,6 @@ export default function TalentRegistrationForm({ onClose, onSubmit, mode = 'crea
       if (onSubmit) {
         await onSubmit(data);
       } else {
-        console.log('인력 등록 데이터:', data);
         alert('인력 등록이 완료되었습니다. (백엔드 미구현)');
         onClose();
       }

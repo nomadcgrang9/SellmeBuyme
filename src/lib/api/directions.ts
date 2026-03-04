@@ -24,7 +24,6 @@ export async function getDirections(
   origin: Coordinates,
   destination: Coordinates
 ): Promise<DirectionsResult> {
-  console.log('[Directions API] 요청:', { type, origin, destination });
 
   const { data, error } = await supabase.functions.invoke('get-directions', {
     body: { type, origin, destination },
@@ -39,7 +38,6 @@ export async function getDirections(
     throw new Error('길찾기 결과가 없습니다');
   }
 
-  console.log('[Directions API] 응답:', data);
 
   // 응답 타입에 따라 정규화
   if (type === 'car' || type === 'walk') {

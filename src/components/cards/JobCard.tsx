@@ -45,10 +45,8 @@ function JobCard({ job, cardIndex = 0, onClick, onEditClick }: JobCardProps) {
   const handleBookmarkToggle = async (e: React.MouseEvent) => {
     e.stopPropagation();
     
-    console.log('[JobCard] 북마크 토글 시작:', { jobId: job.id, userId: user?.id, bookmarked });
     
     if (!user) {
-      console.warn('[JobCard] 로그인 필요');
       showToast('로그인이 필요합니다', 'error');
       return;
     }
@@ -56,17 +54,13 @@ function JobCard({ job, cardIndex = 0, onClick, onEditClick }: JobCardProps) {
     try {
       if (bookmarked) {
         // 북마크 제거
-        console.log('[JobCard] 북마크 제거 시작');
         removeFromStore(job.id);
         await removeBookmark(user.id, job.id, 'job');
-        console.log('[JobCard] 북마크 제거 완료');
         showToast('북마크를 제거했습니다', 'success');
       } else {
         // 북마크 추가
-        console.log('[JobCard] 북마크 추가 시작');
         addToStore(job.id);
         await addBookmark(user.id, job.id, 'job');
-        console.log('[JobCard] 북마크 추가 완료');
         showToast('북마크했습니다', 'success');
       }
     } catch (error) {

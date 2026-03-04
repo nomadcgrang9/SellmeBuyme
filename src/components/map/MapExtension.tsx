@@ -30,11 +30,6 @@ export default function MapExtension({ isOpen, onClose, organization, location, 
   // 카드 C(인덱스 2)는 왼쪽으로, 나머지는 오른쪽으로 확장
   const isLeftExtension = columnIndex === 2;
 
-  console.log('[MapExtension] 🎯 확장 방향 결정:', {
-    cardIndex,
-    columnIndex,
-    isLeftExtension
-  });
 
   // 좌표 캐싱 키 생성
   const getCacheKey = () => `map_coords_${organization}_${location}`;
@@ -76,7 +71,6 @@ export default function MapExtension({ isOpen, onClose, organization, location, 
     // 1. 캐시 확인
     const cached = getCachedCoords();
     if (cached) {
-      console.log('캐시된 좌표 사용:', cached);
       setCoords(cached);
       return;
     }
@@ -95,7 +89,6 @@ export default function MapExtension({ isOpen, onClose, organization, location, 
     ];
 
     for (const query of searchQueries) {
-      console.log(`장소 검색 시도: "${query}"`);
 
       try {
         const result = await new Promise<any>((resolve, reject) => {
@@ -113,15 +106,12 @@ export default function MapExtension({ isOpen, onClose, organization, location, 
           lng: parseFloat(result.x)
         };
 
-        console.log(`장소 검색 성공 (${query}):`, coordinates);
-        console.log(`검색된 장소: ${result.place_name} (${result.address_name})`);
         setCoords(coordinates);
         cacheCoords(coordinates);
         setIsSearching(false);
         return;
 
       } catch (err) {
-        console.warn(`"${query}" 검색 실패, 다음 시도...`);
         continue;
       }
     }
@@ -134,7 +124,6 @@ export default function MapExtension({ isOpen, onClose, organization, location, 
   useEffect(() => {
     if (!coords || !mapContainerRef.current || !window.kakao || !window.kakao.maps) return;
 
-    console.log('[MapExtension] 🗺️ 지도 렌더링:', coords);
 
     const mapOption = {
       center: new window.kakao.maps.LatLng(coords.lat, coords.lng),
@@ -171,13 +160,10 @@ export default function MapExtension({ isOpen, onClose, organization, location, 
 
   // 모달이 열릴 때 Kakao Maps 로드 및 주소 검색
   useEffect(() => {
-    console.log('[MapExtension] 🔔 패널 상태 변경:', { isOpen, organization, location });
 
     if (isOpen) {
-      console.log('[MapExtension] 📍 지도 로드 시작:', { organization, location });
       loadKakaoMaps()
         .then(() => {
-          console.log('[MapExtension] ✅ SDK 로드 완료, 주소 검색 시작');
           return searchAddress();
         })
         .catch((err) => {
