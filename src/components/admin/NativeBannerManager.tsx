@@ -612,7 +612,7 @@ function CardBannerPreview({ banner }: { banner: NativeBanner }) {
   return (
     <div className="rounded-lg border border-slate-200 overflow-hidden shadow-sm bg-white">
       {hasImage && (
-        <img src={banner.imageUrl} alt="" className="w-full object-cover" style={{ height: '60px' }} />
+        <img src={banner.imageUrl} alt="" className="w-full object-cover" style={{ height: '100px' }} />
       )}
       {hasText ? (
         <div

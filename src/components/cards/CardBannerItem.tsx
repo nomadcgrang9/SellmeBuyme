@@ -40,11 +40,6 @@ export default function CardBannerItem({ banner }: CardBannerItemProps) {
             </p>
           )}
         </div>
-        <div className="text-right pr-2 pb-1">
-          <span className="text-[10px] opacity-50" style={{ color: banner.textColor || '#FFFFFF' }}>
-            광고
-          </span>
-        </div>
       </div>
     );
   }
@@ -61,39 +56,27 @@ export default function CardBannerItem({ banner }: CardBannerItemProps) {
         src={banner.imageUrl}
         alt=""
         className="w-full object-cover"
-        style={{ height: '80px' }}
+        style={{ height: '160px' }}
       />
-      {hasText ? (
+      {hasText && (
         <div
-          className="px-3 py-2 flex items-center justify-between"
+          className="px-3 py-2"
           style={{ backgroundColor: banner.bgColor || '#F8FAFC' }}
         >
-          <div className="min-w-0 flex-1">
-            <p
-              className="text-xs font-semibold truncate"
-              style={{ color: banner.textColor || '#334155' }}
-            >
-              {banner.title}
-            </p>
-            {banner.description && (
-              <p
-                className="text-[11px] truncate mt-0.5 opacity-80"
-                style={{ color: banner.textColor || '#64748B' }}
-              >
-                {banner.description}
-              </p>
-            )}
-          </div>
-          <span
-            className="text-[10px] ml-2 flex-shrink-0 opacity-50"
-            style={{ color: banner.textColor || '#94A3B8' }}
+          <p
+            className="text-xs font-semibold truncate"
+            style={{ color: banner.textColor || '#334155' }}
           >
-            광고
-          </span>
-        </div>
-      ) : (
-        <div className="text-right pr-2 pb-1">
-          <span className="text-[10px] text-gray-400">광고</span>
+            {banner.title}
+          </p>
+          {banner.description && (
+            <p
+              className="text-[11px] truncate mt-0.5 opacity-80"
+              style={{ color: banner.textColor || '#64748B' }}
+            >
+              {banner.description}
+            </p>
+          )}
         </div>
       )}
     </div>
