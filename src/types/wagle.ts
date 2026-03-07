@@ -23,6 +23,8 @@ export interface WagleThreadRow {
   reply_count: number;
   reaction_counts: ReactionCounts;
   is_deleted: boolean;
+  is_ai_generated: boolean;
+  ai_persona_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -80,4 +82,51 @@ export interface WagleNotification extends WagleNotificationRow {
   actor_name: string;
   actor_profile_image: string | null;
   thread_preview: string;
+}
+
+// ━━━ 관리자 AI 관리용 타입 ━━━
+
+export interface AdminAiReplyLog {
+  id: string;
+  thread_id: string;
+  reply_id: string | null;
+  persona_id: string;
+  classification: 'safe' | 'unsafe' | 'skipped';
+  classification_reason: string | null;
+  generated_content: string | null;
+  gemini_model: string;
+  scheduled_at: string | null;
+  posted_at: string | null;
+  status: 'pending' | 'posted' | 'cancelled' | 'error';
+  error_message: string | null;
+  created_at: string;
+  // JOIN 필드
+  persona_name: string;
+  thread_preview: string;
+}
+
+export interface AdminAiPersona {
+  id: string;
+  auth_user_id: string;
+  display_name: string;
+  persona_background: {
+    role: string;
+    experience_years: number;
+    tone: string;
+    specialties: string[];
+  };
+  is_active: boolean;
+  last_used_at: string | null;
+  total_replies: number;
+  created_at: string;
+}
+
+export interface WagleAiConfig {
+  enabled: boolean;
+  max_replies_per_run: number;
+  max_replies_per_day: number;
+  min_delay_minutes: number;
+  max_delay_minutes: number;
+  active_hours: { start: number; end: number };
+  reply_probability: number;
 }

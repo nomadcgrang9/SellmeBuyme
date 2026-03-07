@@ -1,9 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Search, ChevronDown, MoreVertical, X, Eye, Edit2, Trash2, RefreshCw, EyeOff } from 'lucide-react';
 import { supabase } from '@/lib/supabase/client';
+import { getGeneralThreadCount, getAiThreadCount } from '@/lib/supabase/wagleAdmin';
 import type { TeacherMarker, PrimaryCategory } from '@/types/markers';
 import type { InstructorMarker, InstructorSpecialty } from '@/types/instructorMarkers';
 import type { WagleThreadRow, ReactionCounts } from '@/types/wagle';
+import WagleAiThreadsTab from './WagleAiThreadsTab';
+import WagleAiRepliesTab from './WagleAiRepliesTab';
 
 // ============================================
 // 타입 정의
@@ -67,6 +70,9 @@ function maskEmail(email: string): string {
 // ============================================
 export default function ContentManagement() {
   const [activeTab, setActiveTab] = useState<ContentType>('jobs');
+  const [wagleSubTab, setWagleSubTab] = useState<'general' | 'ai-threads' | 'ai-replies'>('general');
+  const [generalThreadCount, setGeneralThreadCount] = useState(0);
+  const [aiThreadCount, setAiThreadCount] = useState(0);
   const [filters, setFilters] = useState<ContentFilters>({
     search: '',
     status: 'all',
@@ -126,10 +132,11 @@ export default function ContentManagement() {
       if (instructorsError) throw instructorsError;
       setInstructors(instructorsData || []);
 
-      // 와글와글 로드 (숨김 포함 전체)
+      // 와글와글 로드 (일반 글만 — is_ai_generated = false)
       const { data: wagleData, error: wagleError } = await supabase
         .from('wagle_threads')
         .select('*')
+        .eq('is_ai_generated', false)
         .order('created_at', { ascending: false });
 
       if (wagleError) throw wagleError;
@@ -151,12 +158,20 @@ export default function ContentManagement() {
       }));
       setWagleThreads(wagleWithProfiles);
 
-      // 카운트 업데이트
+      // 서브탭 카운트 로드
+      const [genCount, aiCount] = await Promise.all([
+        getGeneralThreadCount(),
+        getAiThreadCount(),
+      ]);
+      setGeneralThreadCount(genCount);
+      setAiThreadCount(aiCount);
+
+      // 카운트 업데이트 (와글 전체 = 일반 + AI)
       setCounts({
         jobs: jobsData?.length || 0,
         teachers: teachersData?.length || 0,
         instructors: instructorsData?.length || 0,
-        wagle: wagleData?.length || 0,
+        wagle: genCount + aiCount,
       });
 
     } catch (err) {
@@ -416,7 +431,56 @@ export default function ContentManagement() {
         </button>
       </div>
 
-      {/* 필터 */}
+      {/* 와글 서브탭 */}
+      {activeTab === 'wagle' && (
+        <div className="flex gap-1 bg-gray-100 p-1 rounded-lg">
+          <button
+            onClick={() => setWagleSubTab('general')}
+            className={`px-3 py-1.5 text-xs rounded-md transition-colors ${
+              wagleSubTab === 'general'
+                ? 'bg-white text-gray-800 font-medium shadow-sm'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            일반 글 ({generalThreadCount})
+          </button>
+          <button
+            onClick={() => setWagleSubTab('ai-threads')}
+            className={`px-3 py-1.5 text-xs rounded-md transition-colors ${
+              wagleSubTab === 'ai-threads'
+                ? 'bg-white text-gray-800 font-medium shadow-sm'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            AI 글 ({aiThreadCount})
+          </button>
+          <button
+            onClick={() => setWagleSubTab('ai-replies')}
+            className={`px-3 py-1.5 text-xs rounded-md transition-colors ${
+              wagleSubTab === 'ai-replies'
+                ? 'bg-white text-gray-800 font-medium shadow-sm'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            AI 답변
+          </button>
+        </div>
+      )}
+
+      {/* AI 서브탭이 선택된 경우 별도 컴포넌트 렌더링 */}
+      {activeTab === 'wagle' && wagleSubTab === 'ai-threads' && (
+        <WagleAiThreadsTab
+          onCountChange={(count) => setAiThreadCount(count)}
+          refreshToken={refreshToken}
+        />
+      )}
+      {activeTab === 'wagle' && wagleSubTab === 'ai-replies' && (
+        <WagleAiRepliesTab />
+      )}
+
+      {/* 필터 + 테이블 + 카운트 (일반 글 또는 다른 탭에서만 표시) */}
+      {!(activeTab === 'wagle' && wagleSubTab !== 'general') && (
+      <>
       <div className="flex items-center gap-3">
         <div className="relative flex-1">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -650,6 +714,8 @@ export default function ContentManagement() {
       <div className="text-sm text-gray-500 text-right">
         총 {filteredData.length}건
       </div>
+      </>
+      )}
 
       {/* 상세 보기 모달 */}
       {showDetailModal && selectedItem && activeTab === 'wagle' ? (

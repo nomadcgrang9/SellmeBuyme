@@ -2,11 +2,12 @@
  * 와글와글 AI 자동답변 Edge Function
  *
  * 역할:
- *  1. seed-personas  — AI 페르소나 계정 일괄 생성 (1회성)
- *  2. generate       — 미답변 쓰레드 분류 → 답변 생성 → 예약
- *  3. post-scheduled — 예약된 답변 중 시각 도래분 실제 INSERT
+ *  1. seed-personas    — AI 페르소나 계정 일괄 생성 (1회성)
+ *  2. generate         — 미답변 쓰레드 분류 → 답변 생성 → 예약
+ *  3. post-scheduled   — 예약된 답변 중 시각 도래분 실제 INSERT
+ *  4. generate-threads — AI 페르소나 명의 원글 자동생성 (관리자 수동 트리거)
  *
- * 호출: POST /wagle-ai-reply  { "action": "generate" | "post-scheduled" | "seed-personas" }
+ * 호출: POST /wagle-ai-reply  { "action": "generate" | "post-scheduled" | "seed-personas" | "generate-threads" }
  * 인증: service_role 키 또는 관리자 JWT
  */
 
@@ -55,7 +56,7 @@ function isKeywordUnsafe(content: string, hashtags: string[]): boolean {
 }
 
 // ━━━ Gemini API 호출 헬퍼 ━━━
-async function callGemini(prompt: string, model = 'gemini-2.0-flash'): Promise<string> {
+async function callGemini(prompt: string, model = 'gemini-2.0-flash', maxTokens = 300): Promise<string> {
   if (!geminiApiKey) throw new Error('GEMINI_API_KEY 미설정');
 
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiApiKey}`;
@@ -64,7 +65,7 @@ async function callGemini(prompt: string, model = 'gemini-2.0-flash'): Promise<s
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.9, maxOutputTokens: 300 },
+      generationConfig: { temperature: 0.9, maxOutputTokens: maxTokens },
     }),
   });
 
@@ -550,16 +551,7 @@ async function handlePostScheduled(db: ReturnType<typeof createClient>) {
         })
         .eq('id', log.id);
 
-      // 페르소나 통계 업데이트
-      await db.rpc('', {}).catch(() => {}); // no-op
-      await db
-        .from('wagle_ai_personas')
-        .update({
-          total_replies: db.rpc ? undefined : undefined, // RPC 대신 직접 +1
-        })
-        .eq('id', log.persona_id);
-
-      // 수동 +1 (RPC 없으므로)
+      // 페르소나 통계 업데이트 (수동 +1)
       const { data: pData } = await db
         .from('wagle_ai_personas')
         .select('total_replies')
@@ -568,7 +560,10 @@ async function handlePostScheduled(db: ReturnType<typeof createClient>) {
       if (pData) {
         await db
           .from('wagle_ai_personas')
-          .update({ total_replies: (pData.total_replies ?? 0) + 1 })
+          .update({
+            total_replies: (pData.total_replies ?? 0) + 1,
+            last_used_at: new Date().toISOString(),
+          })
           .eq('id', log.persona_id);
       }
 
@@ -583,6 +578,435 @@ async function handlePostScheduled(db: ReturnType<typeof createClient>) {
   }
 
   return { message: `${posted}건 발송 완료`, posted };
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ACTION: generate-threads — AI 대화묶음 자동생성
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+// ── 대화 패턴 8종 (가중치 랜덤 선택) ──
+
+interface ConversationPattern {
+  id: string;
+  weight: number;
+  personaCount: number;
+  label: string;
+  promptGuide: string;
+}
+
+const PATTERNS: ConversationPattern[] = [
+  {
+    id: 'question-answer', weight: 20, personaCount: 3,
+    label: '질문→답변형',
+    promptGuide: '글쓴이(A)가 교육 현장 고민이나 궁금한 점을 질문합니다. 답글자(B)와 답글자(C)가 각자 경험을 바탕으로 답변합니다.',
+  },
+  {
+    id: 'question-followup', weight: 10, personaCount: 2,
+    label: '질문→답변→꼬리질문형',
+    promptGuide: '글쓴이(A)가 질문합니다. 답글자(B)가 답변합니다. 그 후 글쓴이(A)가 B의 답변에 대해 꼬리질문을 합니다 (depth=2 대댓글, @B 멘션).',
+  },
+  {
+    id: 'experience-empathy', weight: 20, personaCount: 3,
+    label: '경험공유→공감형',
+    promptGuide: '글쓴이(A)가 교육 현장 경험담이나 후기를 공유합니다. 답글자(B)와 답글자(C)가 공감하거나 비슷한 경험을 나눕니다.',
+  },
+  {
+    id: 'info-thanks', weight: 10, personaCount: 2,
+    label: '정보공유→감사형',
+    promptGuide: '글쓴이(A)가 유용한 정보나 팁을 공유합니다. 답글자(B)가 감사하거나 추가 정보를 보완합니다.',
+  },
+  {
+    id: 'vent-comfort', weight: 15, personaCount: 3,
+    label: '넋두리→위로형',
+    promptGuide: '글쓴이(A)가 교육 현장에서 겪은 힘든 일이나 고충을 토로합니다. 답글자(B)가 위로/공감하고, 답글자(C)가 응원하거나 비슷한 경험을 나눕니다.',
+  },
+  {
+    id: 'solo', weight: 10, personaCount: 1,
+    label: '단독 글 (답글 없음)',
+    promptGuide: '짧은 감상, 일상, 소소한 이야기를 공유합니다. 답글은 없습니다.',
+  },
+  {
+    id: 'debate', weight: 5, personaCount: 3,
+    label: '토론형',
+    promptGuide: '글쓴이(A)가 교육 방법론에 대한 의견을 제시하며 다른 분들 생각을 물어봅니다. 답글자(B)가 동의+보충하고, 답글자(C)가 살짝 다른 의견을 제시합니다.',
+  },
+  {
+    id: 'recommend-request', weight: 10, personaCount: 3,
+    label: '추천요청→추천형',
+    promptGuide: '글쓴이(A)가 교재, 자료, 도구 등의 추천을 요청합니다. 답글자(B)와 답글자(C)가 각자 다른 것을 추천합니다.',
+  },
+];
+
+function pickPattern(): ConversationPattern {
+  const totalWeight = PATTERNS.reduce((sum, p) => sum + p.weight, 0);
+  let rand = Math.random() * totalWeight;
+  for (const p of PATTERNS) {
+    rand -= p.weight;
+    if (rand <= 0) return p;
+  }
+  return PATTERNS[0];
+}
+
+/** 활성 페르소나 중 N명 랜덤 선택 */
+async function getRandomPersonas(db: ReturnType<typeof createClient>, count: number): Promise<Persona[]> {
+  const { data: personas } = await db
+    .from('wagle_ai_personas')
+    .select('id, auth_user_id, display_name, persona_background, last_used_at, total_replies')
+    .eq('is_active', true)
+    .order('last_used_at', { ascending: true, nullsFirst: true })
+    .limit(count * 2);
+
+  if (!personas || personas.length === 0) return [];
+
+  const shuffled = personas.sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, Math.min(count, shuffled.length));
+}
+
+/** 최근 글 N개의 내용 조회 (주제 중복 방지용) */
+async function getRecentThreadContents(db: ReturnType<typeof createClient>, limit: number): Promise<string[]> {
+  const { data } = await db
+    .from('wagle_threads')
+    .select('content')
+    .eq('is_deleted', false)
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  return (data ?? []).map((r: { content: string }) => r.content);
+}
+
+/** Gemini JSON 응답 파싱 (코드블록 감싸기 대응) */
+function parseGeminiJson(raw: string): unknown {
+  const cleaned = raw.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+  return JSON.parse(cleaned);
+}
+
+/** 본문에 포함된 해시태그 제거 (DB hashtags 배열과 중복 방지) */
+function stripHashtagsFromContent(content: string): string {
+  return content.replace(/#[가-힣a-zA-Z0-9_]+/g, '').replace(/\s{2,}/g, ' ').trim();
+}
+
+/** 랜덤 과거 시각 생성 (minHoursAgo ~ maxHoursAgo 범위) */
+function randomPastTime(minHoursAgo: number, maxHoursAgo: number): string {
+  const now = Date.now();
+  const minMs = minHoursAgo * 60 * 60 * 1000;
+  const maxMs = maxHoursAgo * 60 * 60 * 1000;
+  const offsetMs = minMs + Math.random() * (maxMs - minMs);
+  return new Date(now - offsetMs).toISOString();
+}
+
+/** 기준 시각 이후 랜덤 시각 (답글용: minMin ~ maxMin 분 뒤) */
+function randomTimeAfter(baseIso: string, minMin: number, maxMin: number): string {
+  const base = new Date(baseIso).getTime();
+  const offsetMs = (minMin + Math.random() * (maxMin - minMin)) * 60 * 1000;
+  return new Date(base + offsetMs).toISOString();
+}
+
+/** 페르소나 정보를 프롬프트용 문자열로 변환 */
+function personaToPrompt(persona: Persona, role: string): string {
+  const bg = persona.persona_background;
+  return `- ${role}: ${persona.display_name} (${bg.role ?? '교육강사'}, 경력 ${bg.experience_years ?? 3}년, 어투: ${bg.tone ?? '친근한'}, 전문분야: ${(bg.specialties ?? []).join('/')})`;
+}
+
+// ── 대화묶음 생성 (패턴별) ──
+
+interface ConversationReply {
+  persona_index: number;
+  content: string;
+  depth: number;
+  parent_index: number | null;
+  mention_persona_index?: number;
+}
+
+interface ConversationScenario {
+  thread: { content: string; hashtags: string[] };
+  replies: ConversationReply[];
+}
+
+/** 패턴6: 단독 글 (답글 없음) 전용 생성 */
+async function generateSoloThread(
+  persona: Persona,
+  recentContents: string[]
+): Promise<{ content: string; hashtags: string[] }> {
+  const bg = persona.persona_background;
+
+  const recentContext = recentContents.length > 0
+    ? `\n[최근 커뮤니티 글 (주제 중복 금지)]\n${recentContents.map((c, i) => `${i + 1}. ${c.slice(0, 80)}`).join('\n')}`
+    : '';
+
+  const prompt = `당신은 교육 커뮤니티 "와글와글"에 글을 쓰는 "${persona.display_name}" 입니다.
+${personaToPrompt(persona, '글쓴이')}
+
+짧고 소소한 일상 글이나 감상을 1개 작성하세요.
+예: "봄이라 그런지 아이들이 들떠있네요~", "오늘 수업 너무 잘 돼서 기분 좋다ㅎㅎ"
+${recentContext}
+
+[절대 규칙]
+1. 존댓말 또는 부드러운 반말 (커뮤니티 분위기에 맞게)
+2. 1~2문장, 30~80자 이내
+3. 해시태그 1~2개 (본문에 절대 포함하지 말 것, 별도 배열로만)
+4. 연락처, URL, 기관명, 구인구직, AI 관련 단어 절대 금지
+5. 이전 글과 주제가 겹치지 않게
+
+[출력 형식 — JSON만 출력]
+{"content": "본문", "hashtags": ["태그1"]}`;
+
+  const raw = await callGemini(prompt);
+  try {
+    const parsed = parseGeminiJson(raw) as { content: string; hashtags: string[] };
+    return { content: parsed.content || '', hashtags: Array.isArray(parsed.hashtags) ? parsed.hashtags : [] };
+  } catch {
+    console.warn('[generate-threads] solo JSON 파싱 실패:', raw);
+    return { content: raw.slice(0, 100), hashtags: [] };
+  }
+}
+
+/** 대화묶음 생성 (패턴 1~5, 7~8) — Gemini 1회 호출 */
+async function generateConversation(
+  personas: Persona[],
+  pattern: ConversationPattern,
+  recentContents: string[]
+): Promise<ConversationScenario> {
+  const personaLines = personas.map((p, i) => {
+    const role = i === 0 ? '글쓴이(A)' : i === 1 ? '답글자(B)' : '답글자(C)';
+    return personaToPrompt(p, role);
+  }).join('\n');
+
+  const recentContext = recentContents.length > 0
+    ? `\n[최근 커뮤니티 글 (주제 중복 금지)]\n${recentContents.map((c, i) => `${i + 1}. ${c.slice(0, 80)}`).join('\n')}`
+    : '';
+
+  // 패턴별 답글 구조 가이드
+  let replyStructureGuide = '';
+  if (pattern.id === 'question-followup') {
+    replyStructureGuide = `replies 배열 구성:
+1. persona_index=1(B)의 답글 (depth=1, parent_index=null)
+2. persona_index=0(A)의 꼬리질문 대댓글 (depth=2, parent_index=0, mention_persona_index=1)`;
+  } else if (pattern.personaCount === 2) {
+    replyStructureGuide = `replies 배열 구성:
+1. persona_index=1(B)의 답글 (depth=1, parent_index=null)`;
+  } else {
+    replyStructureGuide = `replies 배열 구성:
+1. persona_index=1(B)의 답글 (depth=1, parent_index=null)
+2. persona_index=2(C)의 답글 (depth=1, parent_index=null)`;
+  }
+
+  const prompt = `당신은 교육 커뮤니티 "와글와글"의 대화 시나리오 작가입니다.
+아래 페르소나들이 자연스럽게 대화하는 시나리오를 작성하세요.
+
+[참여 페르소나]
+${personaLines}
+
+[대화 유형: ${pattern.label}]
+${pattern.promptGuide}
+
+[${replyStructureGuide}]
+${recentContext}
+
+[절대 규칙]
+1. 모든 글은 존댓말 (커뮤니티 예의)
+2. 원글: 2~3문장, 80~150자 이내
+3. 답글: 1~2문장, 30~100자 이내
+4. 대댓글(depth=2): 1문장, 20~50자 이내 (가벼운 반응)
+5. 해시태그는 원글에만, 2~3개, 본문에 절대 포함하지 말 것 (hashtags 배열에만)
+6. "~인데요", "~거든요", "~같아요" 등 구어체 종결어미 자연스럽게 사용
+7. 연락처, URL, 기관명, 구인구직, AI 관련 단어 절대 금지
+8. 답글은 원글 주제에 대한 실제 경험/정보 기반으로 작성
+9. 이전 글과 주제가 겹치지 않게
+10. 느낌표는 최대 1개까지만 사용
+
+[출력 형식 — JSON만 출력, 다른 텍스트 절대 금지]
+{
+  "thread": { "content": "원글 본문", "hashtags": ["태그1", "태그2"] },
+  "replies": [
+    { "persona_index": 1, "content": "답글 내용", "depth": 1, "parent_index": null },
+    { "persona_index": 2, "content": "답글 내용", "depth": 1, "parent_index": null }
+  ]
+}
+
+persona_index: 0=글쓴이(A), 1=답글자(B), 2=답글자(C)
+대댓글이 있으면 parent_index로 부모 답글의 인덱스(0부터)를 지정하고, mention_persona_index로 @멘션 대상을 지정하세요.`;
+
+  const raw = await callGemini(prompt, 'gemini-2.0-flash', 800);
+  try {
+    const parsed = parseGeminiJson(raw) as ConversationScenario;
+    return {
+      thread: {
+        content: parsed.thread?.content || '',
+        hashtags: Array.isArray(parsed.thread?.hashtags) ? parsed.thread.hashtags : [],
+      },
+      replies: Array.isArray(parsed.replies) ? parsed.replies : [],
+    };
+  } catch {
+    console.error('[generate-threads] conversation JSON 파싱 실패:', raw);
+    throw new Error('Gemini 응답 JSON 파싱 실패');
+  }
+}
+
+async function handleGenerateThreads(db: ReturnType<typeof createClient>, count: number) {
+  console.log(`[generate-threads] ${count}건 대화묶음 생성 시작`);
+
+  // 최근 글 10개 조회 (주제 중복 방지)
+  const recentContents = await getRecentThreadContents(db, 10);
+
+  const results: Array<{ pattern: string; persona: string; threadId: string; replyCount: number }> = [];
+  const errors: Array<{ pattern: string; error: string }> = [];
+
+  for (let i = 0; i < count; i++) {
+    const pattern = pickPattern();
+    console.log(`[generate-threads] ${i + 1}/${count} 패턴: ${pattern.label} (${pattern.personaCount}명)`);
+
+    try {
+      // 1. 필요한 페르소나 수만큼 선택
+      const personas = await getRandomPersonas(db, pattern.personaCount);
+      if (personas.length === 0) {
+        errors.push({ pattern: pattern.label, error: '활성 페르소나 없음' });
+        continue;
+      }
+
+      let threadContent: string;
+      let threadHashtags: string[];
+      let replies: ConversationReply[] = [];
+
+      // 2. 패턴별 Gemini 호출
+      if (pattern.id === 'solo') {
+        // 단독 글: 답글 없음
+        const solo = await generateSoloThread(personas[0], recentContents);
+        threadContent = solo.content;
+        threadHashtags = solo.hashtags;
+      } else {
+        // 대화묶음: 원글 + 답글
+        const scenario = await generateConversation(personas, pattern, recentContents);
+        threadContent = scenario.thread.content;
+        threadHashtags = scenario.thread.hashtags;
+        replies = scenario.replies;
+      }
+
+      // 해시태그 후처리: 본문에서 #태그 제거 (DB hashtags 배열과 중복 방지)
+      threadContent = stripHashtagsFromContent(threadContent);
+
+      if (!threadContent || threadContent.length < 10) {
+        errors.push({ pattern: pattern.label, error: '생성된 글이 너무 짧음' });
+        continue;
+      }
+
+      // 3. 원글 INSERT (과거 1~48시간 사이 랜덤 시각)
+      const threadCreatedAt = randomPastTime(1, 48);
+      const { data: threadData, error: threadErr } = await db
+        .from('wagle_threads')
+        .insert({
+          author_id: personas[0].auth_user_id,
+          content: threadContent,
+          hashtags: threadHashtags,
+          is_ai_generated: true,
+          ai_persona_id: personas[0].id,
+          created_at: threadCreatedAt,
+        })
+        .select('id')
+        .single();
+
+      if (threadErr || !threadData) {
+        errors.push({ pattern: pattern.label, error: threadErr?.message || 'INSERT 실패' });
+        continue;
+      }
+
+      const threadId = threadData.id;
+
+      // 4. 답글 순차 INSERT (parent_id, mention_user_id 매핑, 시간 분산)
+      const replyIds: string[] = [];
+      const replyCreatedAts: string[] = [];
+      let insertedReplies = 0;
+
+      for (let ri = 0; ri < replies.length; ri++) {
+        const reply = replies[ri];
+        try {
+          const replyPersona = personas[reply.persona_index];
+          if (!replyPersona) continue;
+
+          const parentId = reply.parent_index !== null && reply.parent_index !== undefined
+            ? replyIds[reply.parent_index] ?? null
+            : null;
+          const mentionUserId = reply.mention_persona_index !== undefined
+            ? personas[reply.mention_persona_index]?.auth_user_id ?? null
+            : null;
+
+          // 답글 시각: 부모 기준 10분~3시간 뒤 (대댓글은 부모 답글 기준)
+          const baseTime = reply.parent_index !== null && reply.parent_index !== undefined
+            ? (replyCreatedAts[reply.parent_index] ?? threadCreatedAt)
+            : threadCreatedAt;
+          const replyCreatedAt = randomTimeAfter(baseTime, 10, 180);
+
+          // 답글 본문에서도 해시태그 제거
+          const cleanContent = stripHashtagsFromContent(reply.content);
+
+          const { data: replyData, error: replyErr } = await db
+            .from('wagle_replies')
+            .insert({
+              thread_id: threadId,
+              author_id: replyPersona.auth_user_id,
+              content: cleanContent,
+              depth: reply.depth || 1,
+              parent_id: parentId,
+              mention_user_id: mentionUserId,
+              created_at: replyCreatedAt,
+            })
+            .select('id')
+            .single();
+
+          if (replyErr || !replyData) {
+            console.warn(`[generate-threads] 답글 INSERT 실패:`, replyErr);
+            replyIds.push(''); // placeholder
+            replyCreatedAts.push(threadCreatedAt);
+            continue;
+          }
+
+          replyIds.push(replyData.id);
+          replyCreatedAts.push(replyCreatedAt);
+          insertedReplies++;
+        } catch (replyError) {
+          console.warn(`[generate-threads] 답글 처리 실패:`, replyError);
+          replyIds.push('');
+          replyCreatedAts.push(threadCreatedAt);
+        }
+      }
+
+      // 5. reply_count 갱신
+      if (insertedReplies > 0) {
+        await db.from('wagle_threads')
+          .update({ reply_count: insertedReplies })
+          .eq('id', threadId);
+      }
+
+      // 6. 사용된 페르소나 last_used_at 갱신
+      const usedPersonaIds = [...new Set([personas[0].id, ...replies.map((r) => personas[r.persona_index]?.id).filter(Boolean)])];
+      for (const pid of usedPersonaIds) {
+        await db.from('wagle_ai_personas')
+          .update({ last_used_at: new Date().toISOString() })
+          .eq('id', pid);
+      }
+
+      // 주제 중복 방지용 최근 목록에 추가
+      recentContents.unshift(threadContent);
+
+      results.push({
+        pattern: pattern.label,
+        persona: personas[0].display_name,
+        threadId,
+        replyCount: insertedReplies,
+      });
+      console.log(`[generate-threads] 완료: ${pattern.label}, 글쓴이=${personas[0].display_name}, 답글=${insertedReplies}건`);
+
+    } catch (err) {
+      console.error(`[generate-threads] ${pattern.label} 처리 실패:`, err);
+      errors.push({ pattern: pattern.label, error: String(err) });
+    }
+  }
+
+  const totalReplies = results.reduce((sum, r) => sum + r.replyCount, 0);
+  return {
+    message: `${results.length}건 대화묶음 생성 (원글 ${results.length}, 답글 ${totalReplies})${errors.length > 0 ? `, ${errors.length}건 실패` : ''}`,
+    threads: results,
+    errors: errors.length > 0 ? errors : undefined,
+  };
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -665,7 +1089,7 @@ async function handleSeedPersonas(db: ReturnType<typeof createClient>) {
         email_confirm: true,
         user_metadata: {
           full_name: persona.display_name,
-          avatar_url: persona.background.role.includes('미술') ? null : null, // 추후 아바타 추가
+          avatar_url: null,
         },
       });
 
@@ -737,6 +1161,9 @@ Deno.serve(async (req) => {
         break;
       case 'seed-personas':
         result = await handleSeedPersonas(db);
+        break;
+      case 'generate-threads':
+        result = await handleGenerateThreads(db, body.count ?? 3);
         break;
       default:
         return new Response(JSON.stringify({ message: `알 수 없는 action: ${action}` }), {
