@@ -91,7 +91,7 @@ export default function MobileRegister() {
                 letterSpacing: '0.02em'
               }}
             >
-              <option value="job" style={{ fontWeight: 300 }}>공고 등록</option>
+              <option value="job" style={{ fontWeight: 300 }}>구인 등록</option>
               <option value="talent" style={{ fontWeight: 300 }}>인력 등록</option>
               <option value="experience" style={{ fontWeight: 300 }}>체험 등록</option>
             </select>
@@ -124,7 +124,7 @@ export default function MobileRegister() {
   );
 }
 
-// 공고 등록 폼
+// 구인 등록 폼
 function JobRegistrationForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 

@@ -42,7 +42,7 @@ export default function RegisterBottomSheet({
 
         {/* 등록 옵션 */}
         <div className="px-6 py-6 space-y-3">
-          {/* 공고 등록 */}
+          {/* 구인 등록 */}
           <button
             onClick={() => {
               onSelectType('job');
@@ -54,8 +54,8 @@ export default function RegisterBottomSheet({
               <Briefcase size={24} strokeWidth={1.5} className="text-[#7aa3cc]" />
             </div>
             <div className="flex-1 text-left">
-              <h4 className="text-base font-bold text-gray-900">공고 등록</h4>
-              <p className="text-sm text-gray-500">교사·강사 채용 공고를 등록합니다</p>
+              <h4 className="text-base font-bold text-gray-900">구인 등록</h4>
+              <p className="text-sm text-gray-500">교사·강사 채용 구인글을 등록합니다</p>
             </div>
           </button>
 

@@ -21,15 +21,15 @@ export default function RegisterButtonsSection() {
         <section className="md:hidden bg-white py-4 border-b">
           <div className="max-w-container mx-auto px-6">
             <div className="flex justify-around gap-4">
-              {/* 공고 등록 */}
+              {/* 구인 등록 */}
               <button
                 onClick={() => setActiveSection('job')}
                 className="flex flex-col items-center gap-2 flex-1"
               >
                 <div className="w-14 h-14 rounded-full bg-[#a8c5e0]/20 flex items-center justify-center">
-                  <img src="/icon/noti.ico" alt="공고" className="w-8 h-8" />
+                  <img src="/icon/noti.ico" alt="구인" className="w-8 h-8" />
                 </div>
-                <span className="text-sm font-medium text-gray-700">공고 등록</span>
+                <span className="text-sm font-medium text-gray-700">구인 등록</span>
               </button>
 
               {/* 인력 등록 */}

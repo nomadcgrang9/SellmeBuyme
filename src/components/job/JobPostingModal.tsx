@@ -1,4 +1,4 @@
-// 공고 등록 모달 (단일 스크롤 방식)
+// 구인 등록 모달 (단일 스크롤 방식)
 // Anti-Vibe Design 원칙 적용
 // 작성일: 2026-01-29
 
@@ -180,7 +180,7 @@ export default function JobPostingModal({
       return;
     }
     if (!title.trim()) {
-      setError('공고 제목을 입력해주세요.');
+      setError('구인 제목을 입력해주세요.');
       return;
     }
     if (!primaryCategory) {
@@ -219,7 +219,7 @@ export default function JobPostingModal({
         attachmentUrl = await uploadJobAttachment(attachmentFile, user.id, tempId);
       }
 
-      // 공고 등록
+      // 구인 등록
 
       // 근무기간 문자열 조합
       const workPeriodStr = workPeriodStart && workPeriodEnd
@@ -294,10 +294,10 @@ export default function JobPostingModal({
       onSuccess();
       handleClose();
     } catch (err: any) {
-      console.error('공고 등록 실패:', err);
-      const errorMessage = err?.message || '공고 등록에 실패했습니다. 다시 시도해주세요.';
+      console.error('구인 등록 실패:', err);
+      const errorMessage = err?.message || '구인 등록에 실패했습니다. 다시 시도해주세요.';
       setError(errorMessage);
-      showToast('공고 등록 실패: ' + errorMessage, 'error');
+      showToast('구인 등록 실패: ' + errorMessage, 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -379,7 +379,7 @@ export default function JobPostingModal({
                     className="w-3 h-3 rounded-full"
                     style={{ backgroundColor: '#10B981' }}
                   />
-                  <h2 className="text-lg font-bold text-gray-900">{isEditMode ? '공고 수정' : '공고 등록'}</h2>
+                  <h2 className="text-lg font-bold text-gray-900">{isEditMode ? '구인 수정' : '구인 등록'}</h2>
                 </div>
                 <button
                   onClick={handleClose}
@@ -397,7 +397,7 @@ export default function JobPostingModal({
               {/* ========== 위치 정보 ========== */}
               <section>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  위치 <span className="text-red-500">*</span>
+                  학교 위치 <span className="text-red-500">*</span>
                 </label>
                 <div className="flex items-center justify-between p-3 bg-gray-50 border border-gray-200 rounded-lg">
                   <div className="flex items-center gap-2 text-sm text-gray-700">
@@ -406,7 +406,7 @@ export default function JobPostingModal({
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                     </svg>
                     <span className="truncate max-w-[250px]">
-                      {address || '위치를 선택해주세요'}
+                      {address || '학교 위치를 선택해주세요'}
                     </span>
                   </div>
                   <button
@@ -465,16 +465,16 @@ export default function JobPostingModal({
                   </div>
                 </div>
 
-                {/* 공고 제목 */}
+                {/* 구인 제목 */}
                 <div>
                   <label className="block text-sm font-medium text-gray-600 mb-1.5">
-                    공고 제목 <span className="text-red-500">*</span>
+                    구인 제목 <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
-                    placeholder="예) 2026학년도 기간제 영어교사 채용 공고"
+                    placeholder="예) 일자리고등학교 공동교육과정 강사모집"
                     className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 transition-all text-sm"
                   />
                 </div>

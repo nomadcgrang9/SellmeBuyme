@@ -113,7 +113,7 @@ export default function AIRecommendations({
 
           {/* 1. 좌측: 등록 버튼 3개 - 데스크톱만 표시 */}
           <aside className="hidden lg:flex flex-col gap-1 shrink-0 lg:w-[140px] lg:pt-[72px]">
-            {/* 공고 등록 */}
+            {/* 구인 등록 */}
             <button
               onClick={() => setActiveSection(activeSection === 'job' ? null : 'job')}
               className={`h-[50px] rounded-xl px-3 transition-all duration-200 flex items-center justify-center gap-1.5 font-semibold text-base border ${
@@ -122,8 +122,8 @@ export default function AIRecommendations({
                   : 'text-gray-900 hover:opacity-80 border-gray-300'
               }`}
             >
-              <img src="/icon/noti.ico" alt="공고" className="w-[29px] h-[29px]" />
-              <span>공고 등록</span>
+              <img src="/icon/noti.ico" alt="구인" className="w-[29px] h-[29px]" />
+              <span>구인 등록</span>
             </button>
 
             {/* 인력 등록 */}

@@ -100,7 +100,7 @@ export const HIERARCHICAL_FIELDS: FieldCategory[] = [
       { id: 'edutech', label: '에듀테크', description: '교육 기술' },
       { id: 'programming', label: '프로그래밍 교육', description: '프로그래밍 교육' },
       { id: 'materials', label: '교육자료 제작', description: '교육 자료 제작' },
-      { id: 'job_posting', label: '공고 등록', description: '채용 공고 등록' },
+      { id: 'job_posting', label: '구인 등록', description: '채용 구인 등록' },
       { id: 'recruitment', label: '대체인력 구함', description: '대체 인력 모집' },
       { id: 'experience_program', label: '성인대상 각종 체험프로그램 운영', description: '성인 대상 체험 프로그램' },
       { id: 'other', label: '기타', description: '기타' },

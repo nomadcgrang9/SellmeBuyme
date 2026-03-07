@@ -1073,7 +1073,7 @@ export async function createJobPosting(input: CreateJobPostingInput) {
       );
     } catch (uploadError) {
       console.error('첨부파일 업로드 실패:', uploadError);
-      // 첨부파일 업로드 실패는 공고 등록을 막지 않음 (경고만 표시)
+      // 첨부파일 업로드 실패는 구인 등록을 막지 않음 (경고만 표시)
       const message = uploadError instanceof Error ? uploadError.message : '첨부파일 업로드에 실패했습니다.';
       // 업로드 실패 시 attachment_url은 null로 유지
       attachmentUrl = null;
@@ -1129,8 +1129,8 @@ export async function createJobPosting(input: CreateJobPostingInput) {
     .single();
 
   if (error) {
-    console.error('공고 등록 실패:', error);
-    // 공고 등록 실패 시 업로드된 첨부파일 삭제
+    console.error('구인 등록 실패:', error);
+    // 구인 등록 실패 시 업로드된 첨부파일 삭제
     if (attachmentPath) {
       try {
         await deleteJobAttachment(attachmentPath);
@@ -1138,7 +1138,7 @@ export async function createJobPosting(input: CreateJobPostingInput) {
         console.error('첨부파일 삭제 실패:', deleteError);
       }
     }
-    throw new Error(error.message || '공고 등록에 실패했습니다. 잠시 후 다시 시도해주세요.');
+    throw new Error(error.message || '구인 등록에 실패했습니다. 잠시 후 다시 시도해주세요.');
   }
 
   return data;

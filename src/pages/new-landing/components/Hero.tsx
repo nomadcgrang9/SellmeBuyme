@@ -197,7 +197,7 @@ export const Hero: React.FC = () => {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authModalInitialTab, setAuthModalInitialTab] = useState<'login' | 'signup'>('login');
 
-  // 로그인 후 이어갈 액션 (구직등록/공고등록/교원연수 플로우 연속성)
+  // 로그인 후 이어갈 액션 (구직등록/구인등록/교원연수 플로우 연속성)
   const [pendingAction, setPendingAction] = useState<'register' | 'jobPost' | 'instructor' | null>(null);
 
   // 프로필 모달 상태
@@ -2530,7 +2530,7 @@ export const Hero: React.FC = () => {
         }}
       />
 
-      {/* 공고 등록/수정 사이드 패널 */}
+      {/* 구인 등록/수정 사이드 패널 */}
       <JobPostingModal
         isOpen={activeSidePanel === 'jobPost' || isJobPostingModalOpen}
         onClose={() => {
@@ -3473,7 +3473,7 @@ export const Hero: React.FC = () => {
           <span className="text-[11px] font-bold leading-tight text-center">구직<br />등록</span>
         </button>
 
-        {/* 공고등록 버튼 */}
+        {/* 구인등록 버튼 */}
         <button
           onClick={() => {
             if (!user) {
@@ -3487,9 +3487,9 @@ export const Hero: React.FC = () => {
             useSidePanelStore.getState().togglePanel('jobPost');
           }}
           className="w-12 h-12 bg-blue-500 hover:bg-blue-600 active:bg-blue-700 rounded-xl shadow-lg flex items-center justify-center transition-all active:scale-95 text-white"
-          aria-label="공고등록"
+          aria-label="구인등록"
         >
-          <span className="text-[11px] font-bold leading-tight text-center">공고<br />등록</span>
+          <span className="text-[11px] font-bold leading-tight text-center">구인<br />등록</span>
         </button>
 
         {/* 강사등록 버튼 */}

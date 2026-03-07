@@ -1,4 +1,4 @@
-// 공고 등록 관련 Supabase 쿼리 함수
+// 구인 등록 관련 Supabase 쿼리 함수
 // 작성일: 2026-01-29
 
 import { supabase } from './client';
@@ -128,7 +128,7 @@ export async function deleteJobAttachment(attachmentUrl: string): Promise<void> 
 // ============================================================================
 
 /**
- * 공고 등록
+ * 구인 등록
  */
 export async function createJobPosting(input: JobPostingInput): Promise<JobPosting> {
 

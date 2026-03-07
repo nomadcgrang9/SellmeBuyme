@@ -107,7 +107,7 @@ export default function JobPostingForm({ onClose, onSubmit }: JobPostingFormProp
 
   return (
     <FormLayout
-      title="공고 등록"
+      title="구인 등록"
       onClose={onClose}
       onSubmit={handleSubmit(handleFormSubmit)}
       isSubmitting={isSubmitting}

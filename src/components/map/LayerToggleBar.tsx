@@ -8,7 +8,7 @@
  * │══════════════│
  * │  + 구직등록  │
  * │──────────────│
- * │  + 공고등록  │
+ * │  + 구인등록  │
  * │──────────────│
  * │ 교원연수     │ ← 핑크 강조
  * │ 강사등록     │
@@ -28,7 +28,7 @@ import PresentationGraph from '@solar-icons/react/csr/business/PresentationGraph
 interface LayerToggleBarProps {
   /** 구직등록 버튼 클릭 */
   onRegisterClick: () => void;
-  /** 공고등록 버튼 클릭 */
+  /** 구인등록 버튼 클릭 */
   onJobPostClick: () => void;
   /** 즐겨찾기 버튼 클릭 */
   onFavoritesClick?: () => void;
@@ -149,12 +149,12 @@ export default function LayerToggleBar({
       {/* 구분선 (얇은) */}
       <div className="h-px bg-gray-100 mx-2" />
 
-      {/* 3. 공고등록 버튼 - 아이콘 배지 강조 */}
+      {/* 3. 구인등록 버튼 - 아이콘 배지 강조 */}
       <button
         onClick={onJobPostClick}
         className="flex flex-col items-center justify-center gap-1.5 py-3 px-2 transition-all duration-200 hover:bg-gray-50"
-        aria-label="공고등록"
-        title={isLoggedIn ? '공고 등록하기' : '로그인 후 등록 가능'}
+        aria-label="구인등록"
+        title={isLoggedIn ? '구인 등록하기' : '로그인 후 등록 가능'}
       >
         <div
           className="w-9 h-9 rounded-xl flex items-center justify-center shadow-md"
@@ -165,7 +165,7 @@ export default function LayerToggleBar({
         >
           <FileText size={20} strokeWidth={2} className="text-white" />
         </div>
-        <span className="text-xs font-medium text-gray-500">공고등록</span>
+        <span className="text-xs font-medium text-gray-500">구인등록</span>
       </button>
 
       {/* 구분선 (얇은) */}
