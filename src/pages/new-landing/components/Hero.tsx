@@ -708,11 +708,8 @@ export const Hero: React.FC = () => {
     // 먼저 중복 제거
     let filtered = deduplicateJobs(jobPostings);
 
-    // ★ 레이어 토글이 활성화되어 있으면 cascadingFilter 무시 (토글로 레이어 제어)
-    const anyLayerToggleActive = showJobLayer || showSeekerLayer || showInstructorLayer;
-
-    // 캐스케이딩 필터 적용 (레이어 토글 비활성 상태에서만)
-    if (cascadingFilter.primary && !anyLayerToggleActive) {
+    // 캐스케이딩 필터 적용 (레이어 토글과 독립적으로 항상 적용)
+    if (cascadingFilter.primary) {
       filtered = filtered.filter(job => matchesCascadingFilter(job, cascadingFilter));
     }
 
@@ -788,14 +785,11 @@ export const Hero: React.FC = () => {
 
     return filtered;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [jobPostings, cascadingFilter, activeLocationFilter, deduplicateJobs, viewportBounds, coordsCacheVersion, selectedJob, showJobLayer, showSeekerLayer, showInstructorLayer]);
+  }, [jobPostings, cascadingFilter, activeLocationFilter, deduplicateJobs, viewportBounds, coordsCacheVersion, selectedJob]);
 
   // ★ 자동 스케일업 훅 연동
   const {
     checkAndExpand,
-    restoreOriginalPosition,
-    isExpanded: isAutoScaleExpanded,
-    canRestore: canRestorePosition,
     resetExpansionState,
   } = useAutoScaleMap({
     currentMapState: {
@@ -2718,15 +2712,6 @@ export const Hero: React.FC = () => {
         />
         {/* 현재위치 버튼 - 사이드패널 바로 아래 */}
         <FloatingLocationButton mapInstance={mapInstanceRef.current} />
-        {/* 자동 스케일업 후 원래 위치 복귀 버튼 */}
-        {canRestorePosition && (
-          <button
-            onClick={restoreOriginalPosition}
-            className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 bg-white/95 backdrop-blur-sm text-gray-700 px-4 py-2 rounded-full shadow-lg border border-gray-200 text-sm font-medium hover:bg-gray-50 transition-colors"
-          >
-            원래 위치로 돌아가기
-          </button>
-        )}
       </div>
 
       {/* 와글와글 데스크탑 패널 */}

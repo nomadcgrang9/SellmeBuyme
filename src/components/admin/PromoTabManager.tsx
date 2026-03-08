@@ -1,6 +1,7 @@
 import HeroBannerManager from './HeroBannerManager';
 import PopupBannerManager from './PopupBannerManager';
 import NativeBannerManager from './NativeBannerManager';
+import QrPromoManager from './QrPromoManager';
 
 export default function PromoTabManager() {
   return (
@@ -10,6 +11,9 @@ export default function PromoTabManager() {
 
       {/* 접속배너 관리 */}
       <PopupBannerManager />
+
+      {/* QR 홍보페이지 관리 */}
+      <QrPromoManager />
 
       {/* 카드배너 관리 */}
       <NativeBannerManager />
