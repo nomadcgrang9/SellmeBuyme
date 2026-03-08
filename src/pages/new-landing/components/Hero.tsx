@@ -3550,7 +3550,7 @@ export const Hero: React.FC = () => {
       </div>
 
       {/* 모바일 바텀시트 (통합 목록: 공고+구직자+강사) - 길찾기/채팅/즐겨찾기 열려있으면 숨김 */}
-      {!showDirectionsSheet && !isChatPanelOpen && !isFavoritesPanelOpen && (
+      {!showDirectionsSheet && !isChatPanelOpen && !isFavoritesPanelOpen && !isWagleDrawerOpen && (
         <div className="md:hidden">
           <MobileBottomSheet
             height={bottomSheetHeight}
@@ -3782,9 +3782,9 @@ export const Hero: React.FC = () => {
         showJobLayer={showJobLayer}
         showSeekerLayer={showSeekerLayer}
         showInstructorLayer={showInstructorLayer}
-        onJobLayerToggle={() => setShowJobLayer(prev => !prev)}
-        onSeekerLayerToggle={() => setShowSeekerLayer(prev => !prev)}
-        onInstructorLayerToggle={() => setShowInstructorLayer(prev => !prev)}
+        onJobLayerToggle={() => { setShowJobLayer(prev => !prev); useWagleStore.getState().setDesktopPanelOpen(false); }}
+        onSeekerLayerToggle={() => { setShowSeekerLayer(prev => !prev); useWagleStore.getState().setDesktopPanelOpen(false); }}
+        onInstructorLayerToggle={() => { setShowInstructorLayer(prev => !prev); useWagleStore.getState().setDesktopPanelOpen(false); }}
         onChatClick={() => {
           useWagleStore.getState().setDesktopPanelOpen(false);
           setIsFavoritesPanelOpen(false);

@@ -118,24 +118,13 @@ export default function DesktopWaglePanel() {
     <AnimatePresence>
       {isOpen && (
         <motion.div
-          key="mobile-backdrop"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="fixed inset-0 bg-black/40 md:hidden"
-          style={{ zIndex: wagleZ - 1 }}
-          onClick={() => useWagleStore.getState().setDesktopPanelOpen(false)}
-        />
-      )}
-      {isOpen && (
-        <motion.div
           ref={panelRef}
           key="panel"
-          initial={{ opacity: 0, x: 40 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: 40 }}
+          initial={{ opacity: 0, y: 40 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 40 }}
           transition={{ type: 'spring', damping: 28, stiffness: 320 }}
-          className="fixed top-[60px] left-3 right-3 bottom-[76px] flex flex-col bg-white rounded-2xl overflow-hidden md:absolute md:inset-auto md:top-4 md:bottom-4 md:right-[128px] md:w-[420px]"
+          className="fixed top-0 left-0 right-0 bottom-[calc(4rem_+_env(safe-area-inset-bottom,_0px))] flex flex-col bg-white overflow-hidden md:absolute md:top-4 md:bottom-4 md:left-auto md:right-[128px] md:w-[420px] md:rounded-2xl"
           style={{
             zIndex: wagleZ,
             boxShadow: '0 8px 32px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.08)',
@@ -145,10 +134,18 @@ export default function DesktopWaglePanel() {
           {/* 헤더 - 미니멀 */}
           <div className="flex items-center justify-between px-5 py-3 shrink-0 border-b border-gray-100">
             <div className="flex items-center gap-2">
+              {/* 모바일: 항상 뒤로가기 표시 (쓰레드 상세면 피드로, 피드면 패널 닫기) */}
+              <button
+                onClick={activeThread ? handleBackToFeed : closeWagle}
+                className="p-1 -ml-1 text-gray-400 hover:text-gray-800 rounded-lg transition-colors md:hidden"
+              >
+                <ChevronLeft size={20} />
+              </button>
+              {/* 데스크탑: 쓰레드 상세일 때만 뒤로가기 */}
               {activeThread && (
                 <button
                   onClick={handleBackToFeed}
-                  className="p-1 -ml-1 text-gray-400 hover:text-gray-800 rounded-lg transition-colors"
+                  className="p-1 -ml-1 text-gray-400 hover:text-gray-800 rounded-lg transition-colors hidden md:block"
                 >
                   <ChevronLeft size={20} />
                 </button>
@@ -168,9 +165,10 @@ export default function DesktopWaglePanel() {
                   글쓰기
                 </button>
               )}
+              {/* X 닫기 버튼 - 데스크탑만 */}
               <button
                 onClick={closeWagle}
-                className="p-1 text-gray-400 hover:text-gray-600 rounded-lg transition-colors"
+                className="p-1 text-gray-400 hover:text-gray-600 rounded-lg transition-colors hidden md:block"
               >
                 <X size={18} />
               </button>
