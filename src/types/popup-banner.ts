@@ -4,6 +4,7 @@ export interface PopupBannerConfig {
     id: string;
     isActive: boolean;
     dismissPolicy: DismissPolicy;
+    rotationSpeed: number;
     updatedBy?: string;
     createdAt: string;
     updatedAt: string;
@@ -13,7 +14,7 @@ export interface PopupBanner {
     id: string;
     title: string;
     body?: string;
-    imageUrl?: string;
+    imageUrls: string[];
     linkUrl?: string;
     linkText: string;
     bgColor: string;
@@ -28,12 +29,13 @@ export interface PopupBanner {
 export interface UpdatePopupBannerConfigInput {
     isActive?: boolean;
     dismissPolicy?: DismissPolicy;
+    rotationSpeed?: number;
 }
 
 export interface CreatePopupBannerInput {
     title: string;
     body?: string;
-    imageUrl?: string;
+    imageUrls?: string[];
     linkUrl?: string;
     linkText?: string;
     bgColor?: string;
@@ -45,7 +47,7 @@ export interface CreatePopupBannerInput {
 export interface UpdatePopupBannerInput {
     title?: string;
     body?: string;
-    imageUrl?: string;
+    imageUrls?: string[];
     linkUrl?: string;
     linkText?: string;
     bgColor?: string;

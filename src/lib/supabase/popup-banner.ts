@@ -16,6 +16,7 @@ function mapConfigFromDb(row: Record<string, unknown>): PopupBannerConfig {
         id: row.id as string,
         isActive: row.is_active as boolean,
         dismissPolicy: row.dismiss_policy as PopupBannerConfig['dismissPolicy'],
+        rotationSpeed: (row.rotation_speed as number) ?? 3,
         updatedBy: row.updated_by as string | undefined,
         createdAt: row.created_at as string,
         updatedAt: row.updated_at as string,
@@ -27,7 +28,7 @@ function mapBannerFromDb(row: Record<string, unknown>): PopupBanner {
         id: row.id as string,
         title: row.title as string,
         body: row.body as string | undefined,
-        imageUrl: row.image_url as string | undefined,
+        imageUrls: (row.image_urls as string[]) || [],
         linkUrl: row.link_url as string | undefined,
         linkText: (row.link_text as string) || '자세히 보기',
         bgColor: (row.bg_color as string) || '#FFFFFF',
@@ -68,6 +69,7 @@ export async function updatePopupBannerConfig(
     };
     if (updates.isActive !== undefined) dbUpdates.is_active = updates.isActive;
     if (updates.dismissPolicy !== undefined) dbUpdates.dismiss_policy = updates.dismissPolicy;
+    if (updates.rotationSpeed !== undefined) dbUpdates.rotation_speed = updates.rotationSpeed;
 
     let query;
     if (current) {
@@ -83,6 +85,7 @@ export async function updatePopupBannerConfig(
             .insert({
                 is_active: updates.isActive ?? false,
                 dismiss_policy: updates.dismissPolicy ?? 'once',
+                rotation_speed: updates.rotationSpeed ?? 3,
                 ...dbUpdates,
             })
             .select()
@@ -136,7 +139,7 @@ export async function createPopupBanner(
         .insert({
             title: input.title,
             body: input.body,
-            image_url: input.imageUrl,
+            image_urls: input.imageUrls ?? [],
             link_url: input.linkUrl,
             link_text: input.linkText ?? '자세히 보기',
             bg_color: input.bgColor ?? '#FFFFFF',
@@ -163,7 +166,7 @@ export async function updatePopupBanner(
     };
     if (updates.title !== undefined) dbUpdates.title = updates.title;
     if (updates.body !== undefined) dbUpdates.body = updates.body;
-    if (updates.imageUrl !== undefined) dbUpdates.image_url = updates.imageUrl;
+    if (updates.imageUrls !== undefined) dbUpdates.image_urls = updates.imageUrls;
     if (updates.linkUrl !== undefined) dbUpdates.link_url = updates.linkUrl;
     if (updates.linkText !== undefined) dbUpdates.link_text = updates.linkText;
     if (updates.bgColor !== undefined) dbUpdates.bg_color = updates.bgColor;

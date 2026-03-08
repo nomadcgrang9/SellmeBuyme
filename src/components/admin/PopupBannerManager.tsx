@@ -4,6 +4,7 @@ import {
   IconPlus,
   IconTrash,
   IconPhoto,
+  IconX,
 } from '@tabler/icons-react';
 import {
   getPopupBannerConfig,
@@ -28,6 +29,8 @@ const DISMISS_POLICY_OPTIONS: { value: DismissPolicy; label: string }[] = [
   { value: 'always', label: '매번 표시' },
 ];
 
+const ROTATION_SPEED_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+
 interface FormState {
   config: PopupBannerConfig | null;
   banners: PopupBanner[];
@@ -37,6 +40,7 @@ interface FormState {
 
 // ━━━ 배너 행 내 축소 미리보기 ━━━
 function MiniPreview({ banner }: { banner: PopupBanner }) {
+  const images = banner.imageUrls;
   return (
     <div
       className="rounded-lg border border-gray-200 shadow-sm overflow-hidden text-center"
@@ -61,8 +65,18 @@ function MiniPreview({ banner }: { banner: PopupBanner }) {
             {banner.body}
           </p>
         )}
-        {banner.imageUrl && (
-          <img src={banner.imageUrl} alt="" className="w-full max-h-10 object-cover rounded mb-1" />
+        {images.length > 0 && (
+          <img src={images[0]} alt="" className="w-full max-h-10 object-cover rounded mb-1" />
+        )}
+        {images.length > 1 && (
+          <div className="flex justify-center gap-0.5 mb-1">
+            {images.map((_, i) => (
+              <span
+                key={i}
+                className={`w-1.5 h-1.5 rounded-full ${i === 0 ? 'bg-blue-500' : 'bg-gray-300'}`}
+              />
+            ))}
+          </div>
         )}
         {banner.linkUrl && (
           <p className="text-[9px] text-blue-500 mb-1 truncate">
@@ -85,12 +99,14 @@ function BannerRow({
   onUpdate,
   onDelete,
   onImageUpload,
+  onImageRemove,
 }: {
   banner: PopupBanner;
   index: number;
   onUpdate: (id: string, field: string, value: unknown) => void;
   onDelete: (id: string) => void;
   onImageUpload: (id: string, file: File) => void;
+  onImageRemove: (id: string, imgIndex: number) => void;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -133,7 +149,7 @@ function BannerRow({
 
       {/* 3단 그리드: 내용 | 스타일/링크 | 미리보기 */}
       <div className="grid gap-4 lg:grid-cols-[1fr_1fr_180px]">
-        {/* 1열: 제목 + 본문 */}
+        {/* 1열: 제목 + 본문 + 이미지 */}
         <div className="space-y-2">
           <label className="flex flex-col text-sm">
             <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-0.5">제목 *</span>
@@ -155,37 +171,50 @@ function BannerRow({
               className="w-full rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm resize-none"
             />
           </label>
-          {/* 이미지 */}
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => fileRef.current?.click()}
-              className="flex items-center gap-1 px-2 py-1 bg-slate-50 border border-slate-200 rounded text-[11px] text-slate-600 hover:bg-slate-100 transition-colors"
-            >
-              <IconPhoto size={13} />
-              이미지
-            </button>
-            {banner.imageUrl && (
-              <>
-                <img src={banner.imageUrl} alt="" className="h-6 w-6 rounded object-cover border border-slate-200" />
-                <button
-                  onClick={() => onUpdate(banner.id, 'imageUrl', '')}
-                  className="text-[10px] text-red-400 hover:text-red-600"
-                >
-                  제거
-                </button>
-              </>
-            )}
-            <input
-              ref={fileRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) onImageUpload(banner.id, file);
-                e.target.value = '';
-              }}
-            />
+          {/* 멀티 이미지 */}
+          <div>
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-1 block">
+              이미지 {banner.imageUrls.length > 0 && `(${banner.imageUrls.length}장)`}
+            </span>
+            <div className="flex flex-wrap items-center gap-2">
+              {banner.imageUrls.map((url, imgIdx) => (
+                <div key={imgIdx} className="relative group">
+                  <img
+                    src={url}
+                    alt=""
+                    className="h-12 w-12 rounded object-cover border border-slate-200"
+                  />
+                  <button
+                    onClick={() => onImageRemove(banner.id, imgIdx)}
+                    className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                    title="이미지 제거"
+                  >
+                    <IconX size={10} />
+                  </button>
+                  <span className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-[8px] text-center rounded-b">
+                    {imgIdx + 1}
+                  </span>
+                </div>
+              ))}
+              <button
+                onClick={() => fileRef.current?.click()}
+                className="flex items-center gap-1 px-2.5 py-2 bg-slate-50 border border-dashed border-slate-300 rounded-lg text-[11px] text-slate-500 hover:bg-slate-100 hover:border-slate-400 transition-colors"
+              >
+                <IconPhoto size={13} />
+                추가
+              </button>
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) onImageUpload(banner.id, file);
+                  e.target.value = '';
+                }}
+              />
+            </div>
           </div>
         </div>
 
@@ -337,7 +366,9 @@ export default function PopupBannerManager() {
         setState(prev => ({
           ...prev,
           banners: prev.banners.map(b =>
-            b.id === bannerId ? { ...b, imageUrl: url } : b
+            b.id === bannerId
+              ? { ...b, imageUrls: [...b.imageUrls, url] }
+              : b
           ),
         }));
         showToast('이미지가 업로드되었습니다', 'success');
@@ -350,6 +381,17 @@ export default function PopupBannerManager() {
     }
   };
 
+  const handleImageRemove = (bannerId: string, imgIndex: number) => {
+    setState(prev => ({
+      ...prev,
+      banners: prev.banners.map(b =>
+        b.id === bannerId
+          ? { ...b, imageUrls: b.imageUrls.filter((_, i) => i !== imgIndex) }
+          : b
+      ),
+    }));
+  };
+
   const handleSaveAll = async () => {
     try {
       setState(prev => ({ ...prev, saving: true }));
@@ -358,6 +400,7 @@ export default function PopupBannerManager() {
         await updatePopupBannerConfig({
           isActive: state.config.isActive,
           dismissPolicy: state.config.dismissPolicy,
+          rotationSpeed: state.config.rotationSpeed,
         });
       }
 
@@ -365,7 +408,7 @@ export default function PopupBannerManager() {
         await updatePopupBanner(banner.id, {
           title: banner.title,
           body: banner.body,
-          imageUrl: banner.imageUrl,
+          imageUrls: banner.imageUrls,
           linkUrl: banner.linkUrl,
           linkText: banner.linkText,
           bgColor: banner.bgColor,
@@ -467,6 +510,25 @@ export default function PopupBannerManager() {
                     ))}
                   </select>
                 </div>
+                <div className="flex items-center gap-1.5 text-sm">
+                  <span className="text-slate-500">회전 속도:</span>
+                  <select
+                    value={state.config?.rotationSpeed || 3}
+                    onChange={(e) => {
+                      setState(prev => ({
+                        ...prev,
+                        config: prev.config
+                          ? { ...prev.config, rotationSpeed: Number(e.target.value) }
+                          : null,
+                      }));
+                    }}
+                    className="rounded-lg border border-slate-200 px-2 py-1 text-sm bg-white"
+                  >
+                    {ROTATION_SPEED_OPTIONS.map(sec => (
+                      <option key={sec} value={sec}>{sec}초</option>
+                    ))}
+                  </select>
+                </div>
               </div>
               <div className="flex items-center gap-2">
                 <button
@@ -507,6 +569,7 @@ export default function PopupBannerManager() {
                     onUpdate={updateBannerField}
                     onDelete={handleDeleteBanner}
                     onImageUpload={handleImageUpload}
+                    onImageRemove={handleImageRemove}
                   />
                 ))}
               </div>

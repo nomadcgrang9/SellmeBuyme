@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { getPopupBannerConfig, getActivePopupBanners } from '@/lib/supabase/popup-banner';
 import type { PopupBanner, PopupBannerConfig } from '@/types/popup-banner';
 
@@ -37,6 +37,104 @@ function dismissBanner(bannerId: string, policy: PopupBannerConfig['dismissPolic
   }
 }
 
+// ━━━ 이미지 캐러셀 ━━━
+function ImageCarousel({ images, rotationSpeed }: { images: string[]; rotationSpeed: number }) {
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const touchStartX = useRef(0);
+
+  const startAutoPlay = useCallback(() => {
+    if (images.length <= 1) return;
+    intervalRef.current = setInterval(() => {
+      setCurrentIndex(prev => (prev + 1) % images.length);
+    }, rotationSpeed * 1000);
+  }, [images.length, rotationSpeed]);
+
+  const stopAutoPlay = useCallback(() => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    startAutoPlay();
+    return stopAutoPlay;
+  }, [startAutoPlay, stopAutoPlay]);
+
+  const goTo = (index: number) => {
+    stopAutoPlay();
+    setCurrentIndex(index);
+    startAutoPlay();
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    const diff = touchStartX.current - e.changedTouches[0].clientX;
+    if (Math.abs(diff) > 50) {
+      stopAutoPlay();
+      if (diff > 0) {
+        setCurrentIndex(prev => (prev + 1) % images.length);
+      } else {
+        setCurrentIndex(prev => (prev - 1 + images.length) % images.length);
+      }
+      startAutoPlay();
+    }
+  };
+
+  if (images.length === 1) {
+    return (
+      <div className="rounded-lg overflow-hidden">
+        <img src={images[0]} alt="" className="w-full object-contain" />
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div
+        className="relative rounded-lg overflow-hidden"
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+      >
+        <div
+          className="flex transition-transform duration-500 ease-in-out"
+          style={{ transform: `translateX(-${currentIndex * 100}%)` }}
+        >
+          {images.map((url, i) => (
+            <img
+              key={i}
+              src={url}
+              alt=""
+              className="w-full object-contain flex-shrink-0"
+              style={{ minWidth: '100%' }}
+            />
+          ))}
+        </div>
+      </div>
+      {/* dot 인디케이터 */}
+      <div className="flex justify-center gap-1.5 mt-2">
+        {images.map((_, i) => (
+          <button
+            key={i}
+            onClick={() => goTo(i)}
+            className={`w-2 h-2 rounded-full transition-all duration-300 ${
+              i === currentIndex
+                ? 'bg-blue-500 scale-125'
+                : 'bg-gray-300 hover:bg-gray-400'
+            }`}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+
+// ━━━ 메인 모달 ━━━
 export default function PopupBannerModal() {
   const [banner, setBanner] = useState<PopupBanner | null>(null);
   const [config, setConfig] = useState<PopupBannerConfig | null>(null);
@@ -122,19 +220,21 @@ export default function PopupBannerModal() {
           </svg>
         </button>
 
-        {/* 제목 */}
-        <div className="text-center mb-4">
-          <h2
-            className="text-xl font-bold mb-2"
-            style={{ color: banner.textColor || '#1F2937' }}
-          >
-            {banner.title}
-          </h2>
-          <div className="w-32 h-0.5 bg-[#F87171] mx-auto" />
-        </div>
+        {/* 제목 - 실제 내용이 있을 때만 표시 */}
+        {banner.title?.trim() && (
+          <div className="text-center mb-4">
+            <h2
+              className="text-xl font-bold mb-2"
+              style={{ color: banner.textColor || '#1F2937' }}
+            >
+              {banner.title}
+            </h2>
+            <div className="w-32 h-0.5 bg-[#F87171] mx-auto" />
+          </div>
+        )}
 
-        {/* 본문 */}
-        {banner.body && (
+        {/* 본문 - 실제 내용이 있을 때만 표시 */}
+        {banner.body?.trim() && (
           <p
             className="text-sm text-center mb-4 whitespace-pre-line"
             style={{ color: banner.textColor || '#1F2937', opacity: 0.75 }}
@@ -143,13 +243,12 @@ export default function PopupBannerModal() {
           </p>
         )}
 
-        {/* 이미지 */}
-        {banner.imageUrl && (
-          <div className="rounded-lg overflow-hidden mb-4">
-            <img
-              src={banner.imageUrl}
-              alt=""
-              className="w-full max-h-[300px] object-cover"
+        {/* 이미지 캐러셀 */}
+        {banner.imageUrls.length > 0 && (
+          <div className="mb-4">
+            <ImageCarousel
+              images={banner.imageUrls}
+              rotationSpeed={config?.rotationSpeed ?? 3}
             />
           </div>
         )}
