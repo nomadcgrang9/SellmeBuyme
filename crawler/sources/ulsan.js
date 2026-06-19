@@ -13,6 +13,7 @@ export async function crawlUlsan(page, config) {
 
   const jobs = [];
   let skippedCount = 0;
+  let jobListData = [];
 
   try {
     // 1. 목록 페이지 로드
@@ -23,7 +24,7 @@ export async function crawlUlsan(page, config) {
     // 2. 게시글 목록 추출
     console.log('📋 게시글 목록 추출 중...');
 
-    const jobListData = await page.evaluate(() => {
+    jobListData = await page.evaluate(() => {
       const results = [];
       const rows = document.querySelectorAll('table tbody tr');
 

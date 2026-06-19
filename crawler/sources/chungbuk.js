@@ -39,6 +39,7 @@ export async function crawlChungbuk(page, config) {
 
   const jobs = [];
   let skippedCount = 0;
+  let jobListData = [];
 
   try {
     // 1. 목록 페이지 로드
@@ -49,7 +50,7 @@ export async function crawlChungbuk(page, config) {
     // 2. 게시글 목록 추출
     console.log('📋 게시글 목록 추출 중...');
 
-    const jobListData = await page.evaluate(() => {
+    jobListData = await page.evaluate(() => {
       const results = [];
       const rows = document.querySelectorAll('table tbody tr');
 
@@ -260,7 +261,7 @@ export async function crawlChungbuk(page, config) {
   console.log(`   - 중복 스킵: ${skippedCount}개`);
   console.log(`   - 총 처리: ${jobs.length + skippedCount}개\n`);
 
-  return jobs;
+  return { jobs, meta: { totalFound: jobListData.length, skipped: skippedCount } };
 }
 
 /**
